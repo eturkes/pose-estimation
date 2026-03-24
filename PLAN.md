@@ -220,7 +220,7 @@ missing.
 
 ## 5 · Arm-guided hand ROI fallback
 
-**Status:** `pending`
+**Status:** `done`
 
 ### Goal
 

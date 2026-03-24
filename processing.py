@@ -103,6 +103,87 @@ def _smooth_detections(new_dets, prev_dets, match_threshold=0.15, alpha=0.5):
 
 
 # ---------------------------------------------------------------------------
+# Arm-guided synthetic hand detections
+# ---------------------------------------------------------------------------
+
+# (shoulder, elbow, wrist) index triplets for each arm
+_ARM_CHAINS = [(0, 2, 4), (1, 3, 5)]
+
+
+def _synthesise_hand_detections(body_landmarks, body_visibilities,
+                                existing_palm_dets, frame_h, frame_w,
+                                overlap_threshold=0.1):
+    """Create synthetic palm detections from arm wrist keypoints.
+
+    When the palm SSD detector fails (e.g. top-down camera, partial
+    occlusion), the arm pose gives a reasonable estimate of hand
+    position and orientation.  Synthetic detections are fed to the hand
+    landmark model, which will reject bad crops via ``hand_flag``.
+
+    Returns a list of detection dicts with ``"synthetic": True``.
+    """
+    synthetic = []
+    if not body_landmarks:
+        return synthetic
+
+    scale = np.array([frame_w, frame_h], dtype=np.float32)
+
+    # Pre-compute centres of existing real palm detections (normalised)
+    palm_centres = []
+    for det in existing_palm_dets:
+        b = det["box"]
+        palm_centres.append((b[:2] + b[2:]) / 2)
+
+    for body_lm, body_vis in zip(body_landmarks, body_visibilities):
+        for shoulder_idx, elbow_idx, wrist_idx in _ARM_CHAINS:
+            wrist_px = body_lm[wrist_idx, :2]
+            elbow_px = body_lm[elbow_idx, :2]
+
+            wrist_norm = wrist_px / scale
+
+            # Skip if a real palm detection already covers this wrist
+            if any(np.linalg.norm(wrist_norm - pc) < overlap_threshold
+                   for pc in palm_centres):
+                continue
+
+            # Forearm vector and length (pixel space)
+            forearm = wrist_px - elbow_px
+            forearm_len = float(np.linalg.norm(forearm))
+            if forearm_len < 1:
+                continue
+            forearm_dir = forearm / forearm_len
+
+            # Hand centre: ~40 % of forearm length beyond the wrist
+            hand_centre_px = wrist_px + forearm_dir * forearm_len * 0.4
+            hand_centre_norm = hand_centre_px / scale
+
+            # Middle-finger base estimate: further along forearm
+            middle_finger_norm = (wrist_px + forearm_dir * forearm_len * 0.7) / scale
+
+            # Square box sized at 80 % of forearm length, centred on hand
+            box_half = forearm_len * 0.4   # half of 0.8 * forearm_len
+            x1 = (hand_centre_px[0] - box_half) / frame_w
+            y1 = (hand_centre_px[1] - box_half) / frame_h
+            x2 = (hand_centre_px[0] + box_half) / frame_w
+            y2 = (hand_centre_px[1] + box_half) / frame_h
+
+            # Build 7-keypoint array (get_hand_crop uses kp[0] and kp[2])
+            keypoints = np.broadcast_to(
+                hand_centre_norm, (7, 2)).astype(np.float32).copy()
+            keypoints[0] = wrist_norm
+            keypoints[2] = middle_finger_norm
+
+            synthetic.append({
+                "box": np.array([x1, y1, x2, y2], dtype=np.float32),
+                "keypoints": keypoints,
+                "score": float(body_vis[wrist_idx]),
+                "synthetic": True,
+            })
+
+    return synthetic
+
+
+# ---------------------------------------------------------------------------
 # Affine crop helpers
 # ---------------------------------------------------------------------------
 
@@ -380,6 +461,13 @@ def process_frame(frame, models, palm_anchors, pose_anchors,
     prev_palm = prev_state.get("palm_dets", []) if prev_state else []
     palm_detections = _smooth_detections(palm_detections, prev_palm)
 
+    # Synthesise palm detections from arm wrists not covered by real palms
+    frame_h, frame_w = frame.shape[:2]
+    if body_landmarks:
+        palm_detections.extend(_synthesise_hand_detections(
+            body_landmarks, body_visibilities, palm_detections,
+            frame_h, frame_w))
+
     hand_landmarks = []
     kept_palm_dets = []
     for det in palm_detections:
@@ -388,7 +476,9 @@ def process_frame(frame, models, palm_anchors, pose_anchors,
         lm, confidence = detect_hand_landmarks(frame, det, hand_lm_model)
         if lm is not None and confidence > lm_score_threshold:
             hand_landmarks.append(lm)
-            kept_palm_dets.append(det)
+            # Exclude synthetic detections from smoothing state
+            if not det.get("synthetic", False):
+                kept_palm_dets.append(det)
 
     state = {"pose_dets": kept_pose_dets, "palm_dets": kept_palm_dets}
     return body_landmarks, body_visibilities, hand_landmarks, state

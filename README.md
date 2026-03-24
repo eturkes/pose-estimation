@@ -129,9 +129,10 @@ be blank in hand-only fallback frames.
   OpenCV's bundled Qt backend does not render on Wayland.
 - **Image processing**: Uses `opencv-python-headless` (no GUI module needed).
 - **Inference devices**: NPU (default), CPU, GPU via OpenVINO.
-- **Frame pipeline**: BGR capture → flip → resize → detect → landmark →
-  smooth → bone-length constraints → joint-angle limits → match → (optional single-subject filter) → draw overlays →
-  convert to RGB → pygame surface.
+- **Frame pipeline**: BGR capture → flip → resize → detect → arm-guided
+  hand ROI fallback → landmark → smooth → bone-length constraints →
+  joint-angle limits → match → (optional single-subject filter) →
+  draw overlays → convert to RGB → pygame surface.
 
 ## Dependencies
 
