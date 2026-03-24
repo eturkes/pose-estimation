@@ -92,6 +92,8 @@ Defined in `requirements.txt`:
 
 - Commit subject line: under 50 characters
 - Commit body lines: under 72 characters
+- Before committing, check whether README.md, .gitignore, or other
+  housekeeping files need updates to stay consistent with the changes
 
 ## Environment
 
