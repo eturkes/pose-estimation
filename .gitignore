@@ -15,6 +15,12 @@ build/
 # Models
 model/
 
+# Patient video data (never commit)
+videos/
+
+# Pose estimation output (never commit)
+output/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -17,6 +17,24 @@ skeleton visualization.
 | `processing.py`  | Preprocessing, crop extraction, landmark inference, hand-arm matching |
 | `drawing.py`     | Catmull-Rom splines, skeleton rendering, overlay blending |
 | `smoothing.py`   | One Euro Filter for temporal smoothing of landmarks       |
+| `export.py`      | CSV schema definition, per-frame landmark row conversion  |
+
+## Batch Video Processing
+
+Place videos in `videos/` and run:
+
+```
+python main.py --batch-dir videos/
+```
+
+Each video is displayed in real-time during processing. One CSV per video
+is written to `output/` (configurable with `--output-dir`). CSVs contain
+one row per person per frame with normalised (0–1) landmark coordinates
+(178 columns total: 12 arm keypoints × 4 values + 2 × 21 hand keypoints
+× 3 values + 4 metadata columns). Missing hand data is left blank.
+
+Both `videos/` and `output/` are git-ignored to prevent patient data from
+being committed.
 
 ## Key Technical Details
 
@@ -38,6 +56,11 @@ Defined in `requirements.txt`:
 - `pygame-ce` — display (SDL2, Wayland-compatible)
 - `tqdm` — progress bars for model downloads
 - `requests` — HTTP for model downloads
+
+## Git Conventions
+
+- Commit subject line: under 50 characters
+- Commit body lines: under 72 characters
 
 ## Environment
 
