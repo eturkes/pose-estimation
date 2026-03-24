@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+
+# R / RStudio
+.Rproj.user/
+.Rhistory
+.RData
+.Rdata
+
+# Models
+model/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Posit
+.positai/
