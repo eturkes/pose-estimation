@@ -50,6 +50,11 @@ class PoseSmoother:
     One Euro Filters to reduce jitter while preserving responsiveness.
     Body uses heavier smoothing (min_cutoff=0.3); hands use moderate
     smoothing (min_cutoff=1.0) for fast finger movements.
+
+    During brief detection dropouts (carry-forward), body tracks
+    extrapolate using the last velocity estimate from the One Euro Filter
+    with exponential damping, producing smoother motion continuity than
+    static replay.
     """
 
     def __init__(self, match_threshold=250):
@@ -62,15 +67,18 @@ class PoseSmoother:
                           t, grace=0, max_tracks=None, emit_carry=False):
         """Match landmarks to existing tracks, smooth, and return.
 
-        Each track is a 5-tuple: (filter, anchor, age, misses, last_output).
+        Each track is a 7-tuple:
+            (filter, anchor, age, misses, last_output, last_velocity, last_t).
         *age* counts consecutive matched frames.  *misses* counts
         consecutive frames without a match.  Unmatched tracks survive
         up to *grace* missed frames so their filter state (and age) is
         preserved when the detection briefly drops out.
 
-        When *emit_carry* is True, tracks in their grace period emit
-        their last smoothed output so the skeleton remains visible
-        during brief detection dropouts.
+        When *emit_carry* is True, tracks in their grace period
+        extrapolate using their last velocity estimate (with exponential
+        damping) so the skeleton moves naturally during brief detection
+        dropouts.  If no velocity is available (first-frame track), the
+        last output is emitted unchanged (static carry).
 
         When *max_tracks* is set, no new tracks are created once the
         total number of tracks (active + dormant) reaches the limit.
@@ -87,7 +95,7 @@ class PoseSmoother:
         for lm in landmarks:
             anchor = get_anchor(lm)
             best_i, best_d = None, float('inf')
-            for i, (filt, prev_anchor, age, misses, _) in enumerate(tracks):
+            for i, (filt, prev_anchor, age, misses, *_) in enumerate(tracks):
                 if i in used:
                     continue
                 d = np.linalg.norm(anchor - prev_anchor)
@@ -106,26 +114,65 @@ class PoseSmoother:
                 continue
 
             s = filt(lm, t)
-            new_tracks.append((filt, get_anchor(s).copy(), age, 0, s.copy()))
+            velocity = filt.dx_prev.copy() if filt.dx_prev is not None else None
+            new_tracks.append(
+                (filt, get_anchor(s).copy(), age, 0, s.copy(), velocity, t))
             smoothed.append(s)
 
         n_active = len(smoothed)
 
         # Carry forward unmatched tracks within grace period
-        for i, (filt, prev_anchor, age, misses, last_out) in enumerate(tracks):
-            if i not in used and misses < grace:
-                new_tracks.append((filt, prev_anchor, age, misses + 1, last_out))
-                if emit_carry and last_out is not None:
-                    smoothed.append(last_out)
+        for i, (filt, prev_anchor, age, misses, last_out,
+                last_vel, last_t) in enumerate(tracks):
+            if i in used or misses >= grace:
+                continue
+            new_misses = misses + 1
+            if emit_carry and last_out is not None:
+                predicted = self._extrapolate(
+                    last_out, last_vel, last_t, t, new_misses)
+                new_anchor = get_anchor(predicted).copy()
+                new_tracks.append(
+                    (filt, new_anchor, age, new_misses,
+                     predicted.copy(), last_vel, t))
+                smoothed.append(predicted)
+            else:
+                new_tracks.append(
+                    (filt, prev_anchor, age, new_misses,
+                     last_out, last_vel, last_t))
 
         return new_tracks, smoothed, n_active
+
+    def _extrapolate(self, last_output, last_velocity, last_t, t, misses):
+        """Velocity-based extrapolation with exponential damping.
+
+        Falls back to static carry when no velocity is available.
+        Per-keypoint displacement is capped at match_threshold to
+        prevent runaway drift from spurious velocity estimates.
+        """
+        if last_velocity is None:
+            return last_output
+
+        dt = t - last_t
+        if dt <= 0:
+            return last_output
+
+        damping = 0.8 ** misses
+        step = last_velocity * dt * damping
+
+        # Cap per-keypoint displacement magnitude
+        norms = np.linalg.norm(step, axis=1, keepdims=True)
+        norms = np.maximum(norms, 1e-9)
+        scale = np.minimum(1.0, self.match_threshold / norms)
+        step *= scale
+
+        return last_output + step
 
     def hand_track_ages(self):
         """Return the age (in frames) of each active hand track.
 
         Length matches the most recent ``smooth_hands`` output.
         """
-        return [age for _, _, age, _, _ in
+        return [age for _, _, age, _, _, _, _ in
                 self.hand_tracks[:self._n_active_hands]]
 
     def smooth_bodies(self, body_landmarks, body_visibilities, t):

@@ -120,7 +120,7 @@ Call `clamp_joint_angles()` immediately after `BoneLengthSmoother` in
 
 ## 3 · Velocity-based extrapolation during carry-forward
 
-**Status:** `pending`
+**Status:** `done`
 
 ### Goal
 
