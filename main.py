@@ -23,6 +23,7 @@ from models import download_and_compile_models
 from detection import generate_anchors, PALM_INPUT_SIZE, POSE_INPUT_SIZE
 from processing import process_frame, match_hands_to_arms, select_primary_body
 from smoothing import PoseSmoother
+from constraints import BoneLengthSmoother
 from drawing import draw_body_landmarks, draw_hand_landmarks, draw_arm_hand_bridges
 from export import open_csv_writer, frame_to_rows
 
@@ -58,6 +59,7 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
     smoother = PoseSmoother()
+    bone_smoother = BoneLengthSmoother()
     processing_times = collections.deque(maxlen=200)
     track_state = None
     frame_idx = 0
@@ -119,6 +121,11 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
                 body_lm, body_vis, t)
             hand_lm = smoother.smooth_hands(
                 hand_lm, t, max_tracks=2 if single_subject else None)
+
+            # Enforce bone-length consistency on each body
+            for i, lm in enumerate(body_lm):
+                bone_smoother.update(i, lm)
+            bone_smoother.prune(range(len(body_lm)))
 
             # Filter out transient hand tracks (e.g. assistant's hand)
             # and cap at 2 hands (one subject can have at most two).

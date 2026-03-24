@@ -8,7 +8,7 @@ finished and committed.
 
 ## 1 · Biomechanical constraints — bone-length consistency
 
-**Status:** `pending`
+**Status:** `done`
 
 ### Goal
 
