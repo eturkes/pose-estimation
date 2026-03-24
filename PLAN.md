@@ -72,7 +72,7 @@ Add a lightweight test script or inline assertions that verify:
 
 ## 2 · Biomechanical constraints — joint-angle limits
 
-**Status:** `pending`
+**Status:** `done`
 
 ### Goal
 

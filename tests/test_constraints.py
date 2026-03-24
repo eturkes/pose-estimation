@@ -1,11 +1,11 @@
-"""Tests for biomechanical bone-length constraints."""
+"""Tests for biomechanical constraints (bone length and joint angles)."""
 
 import numpy as np
 import sys, pathlib
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from constraints import BoneLengthSmoother, BONE_SEGMENTS
+from constraints import BoneLengthSmoother, BONE_SEGMENTS, clamp_joint_angles
 
 
 def _make_landmarks():
@@ -138,10 +138,149 @@ def test_small_movements_within_tolerance_pass_through():
     np.testing.assert_allclose(result[4], perturbed[4], atol=1e-10)
 
 
+# -----------------------------------------------------------------------
+# Joint-angle clamping tests
+# -----------------------------------------------------------------------
+
+def _make_bent_landmarks():
+    """Return (12, 3) landmarks with naturally bent elbows (~120°).
+
+    The default _make_landmarks() has perfectly straight arms (180°),
+    which is outside the 170° limit.  This variant bends the elbows
+    so all joint angles sit comfortably inside the allowed range.
+    """
+    lm = _make_landmarks()
+    # Bend left arm: move wrist rightward so elbow angle ≈ 120°
+    lm[4] = [100, 290, 0]
+    lm[6] = [105, 320, 0]
+    # Bend right arm: move wrist leftward
+    lm[5] = [200, 290, 0]
+    lm[7] = [195, 320, 0]
+    return lm
+
+
+def _angle_at_joint(landmarks, prox, joint, dist):
+    """Return the unsigned angle (degrees) at *joint* in 2D."""
+    v1 = landmarks[prox, :2] - landmarks[joint, :2]
+    v2 = landmarks[dist, :2] - landmarks[joint, :2]
+    cos_a = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+    return np.degrees(np.arccos(np.clip(cos_a, -1, 1)))
+
+
+def test_angle_within_limits_unchanged():
+    """Landmarks with valid joint angles should not be modified."""
+    lm = _make_bent_landmarks()
+    original = lm.copy()
+    clamp_joint_angles(lm)
+    np.testing.assert_allclose(lm, original, atol=1e-10)
+
+
+def test_angle_below_minimum_clamped():
+    """An elbow angle below 30° should be opened to 30°."""
+    lm = _make_landmarks()
+    # Place left wrist very close to left shoulder direction (tiny angle)
+    # Shoulder at (100,100), elbow at (80,200)
+    # v1 = shoulder - elbow = (20, -100)
+    # Place wrist so v2 is nearly parallel to v1 → angle ≈ 0°
+    v1 = lm[0, :2] - lm[2, :2]  # (20, -100)
+    v1_hat = v1 / np.linalg.norm(v1)
+    forearm_len = np.linalg.norm(lm[4, :2] - lm[2, :2])
+    # Angle = 10° from v1 direction
+    angle_10 = np.radians(10)
+    cos_a, sin_a = np.cos(angle_10), np.sin(angle_10)
+    rotated = np.array([
+        v1_hat[0] * cos_a - v1_hat[1] * sin_a,
+        v1_hat[0] * sin_a + v1_hat[1] * cos_a,
+    ])
+    lm[4, :2] = lm[2, :2] + rotated * forearm_len
+
+    assert _angle_at_joint(lm, 0, 2, 4) < 30
+
+    clamp_joint_angles(lm)
+
+    result_angle = _angle_at_joint(lm, 0, 2, 4)
+    assert abs(result_angle - 30) < 0.5, f"Expected ~30°, got {result_angle:.1f}°"
+
+    # Segment length should be preserved
+    new_len = np.linalg.norm(lm[4, :2] - lm[2, :2])
+    assert abs(new_len - forearm_len) < 1e-6
+
+
+def test_angle_above_maximum_clamped():
+    """An elbow angle beyond 170° should be pulled back to 170°."""
+    lm = _make_landmarks()
+    # Place left wrist so the elbow angle is ~175°
+    v1 = lm[0, :2] - lm[2, :2]
+    v1_hat = v1 / np.linalg.norm(v1)
+    forearm_len = np.linalg.norm(lm[4, :2] - lm[2, :2])
+    angle_175 = np.radians(175)
+    cos_a, sin_a = np.cos(angle_175), np.sin(angle_175)
+    rotated = np.array([
+        v1_hat[0] * cos_a - v1_hat[1] * sin_a,
+        v1_hat[0] * sin_a + v1_hat[1] * cos_a,
+    ])
+    lm[4, :2] = lm[2, :2] + rotated * forearm_len
+
+    assert _angle_at_joint(lm, 0, 2, 4) > 170
+
+    clamp_joint_angles(lm)
+
+    result_angle = _angle_at_joint(lm, 0, 2, 4)
+    assert abs(result_angle - 170) < 0.5, f"Expected ~170°, got {result_angle:.1f}°"
+
+
+def test_angle_clamp_preserves_z():
+    """Clamping should only modify x/y; z is left unchanged."""
+    lm = _make_landmarks()
+    lm[:, 2] = np.arange(12) * 10.0  # give each keypoint a distinct z
+
+    # Force an out-of-range angle
+    v1 = lm[0, :2] - lm[2, :2]
+    v1_hat = v1 / np.linalg.norm(v1)
+    forearm_len = np.linalg.norm(lm[4, :2] - lm[2, :2])
+    angle_10 = np.radians(10)
+    cos_a, sin_a = np.cos(angle_10), np.sin(angle_10)
+    rotated = np.array([
+        v1_hat[0] * cos_a - v1_hat[1] * sin_a,
+        v1_hat[0] * sin_a + v1_hat[1] * cos_a,
+    ])
+    lm[4, :2] = lm[2, :2] + rotated * forearm_len
+    z_before = lm[4, 2]
+
+    clamp_joint_angles(lm)
+
+    assert lm[4, 2] == z_before, "z coordinate should not change"
+
+
+def test_angle_clamp_right_elbow():
+    """Verify the right elbow triplet (1, 3, 5) is also clamped."""
+    lm = _make_landmarks()
+    v1 = lm[1, :2] - lm[3, :2]
+    v1_hat = v1 / np.linalg.norm(v1)
+    forearm_len = np.linalg.norm(lm[5, :2] - lm[3, :2])
+    angle_10 = np.radians(10)
+    cos_a, sin_a = np.cos(angle_10), np.sin(angle_10)
+    rotated = np.array([
+        v1_hat[0] * cos_a - v1_hat[1] * sin_a,
+        v1_hat[0] * sin_a + v1_hat[1] * cos_a,
+    ])
+    lm[5, :2] = lm[3, :2] + rotated * forearm_len
+
+    clamp_joint_angles(lm)
+
+    result_angle = _angle_at_joint(lm, 1, 3, 5)
+    assert abs(result_angle - 30) < 0.5, f"Expected ~30°, got {result_angle:.1f}°"
+
+
 if __name__ == "__main__":
     test_constant_landmarks_no_correction()
     test_perturbed_keypoint_corrected()
     test_ema_converges()
     test_prune_removes_stale()
     test_small_movements_within_tolerance_pass_through()
+    test_angle_within_limits_unchanged()
+    test_angle_below_minimum_clamped()
+    test_angle_above_maximum_clamped()
+    test_angle_clamp_preserves_z()
+    test_angle_clamp_right_elbow()
     print("All tests passed.")

@@ -23,7 +23,7 @@ from models import download_and_compile_models
 from detection import generate_anchors, PALM_INPUT_SIZE, POSE_INPUT_SIZE
 from processing import process_frame, match_hands_to_arms, select_primary_body
 from smoothing import PoseSmoother
-from constraints import BoneLengthSmoother
+from constraints import BoneLengthSmoother, clamp_joint_angles
 from drawing import draw_body_landmarks, draw_hand_landmarks, draw_arm_hand_bridges
 from export import open_csv_writer, frame_to_rows
 
@@ -122,9 +122,10 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
             hand_lm = smoother.smooth_hands(
                 hand_lm, t, max_tracks=2 if single_subject else None)
 
-            # Enforce bone-length consistency on each body
+            # Enforce biomechanical constraints on each body
             for i, lm in enumerate(body_lm):
                 bone_smoother.update(i, lm)
+                clamp_joint_angles(lm)
             bone_smoother.prune(range(len(body_lm)))
 
             # Filter out transient hand tracks (e.g. assistant's hand)
