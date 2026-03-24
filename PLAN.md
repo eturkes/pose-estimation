@@ -166,7 +166,7 @@ landmark arrays.
 
 ## 4 · Savitzky-Golay post-processing for batch CSVs
 
-**Status:** `pending`
+**Status:** `done`
 
 ### Goal
 

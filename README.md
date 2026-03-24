@@ -56,6 +56,20 @@ python main.py --batch-dir videos/
 Each video is displayed in real-time during processing. One CSV per video is
 written to `output/` (configurable with `--output-dir`).
 
+Add `--postprocess` to apply offline Savitzky-Golay smoothing to the exported
+CSVs (writes `<stem>_smooth.csv` alongside each original):
+
+```bash
+python main.py --batch-dir videos/ --postprocess
+python main.py --batch-dir videos/ --postprocess --savgol-window 15 --savgol-polyorder 3
+```
+
+The post-processing script can also be run standalone on existing CSVs:
+
+```bash
+python postprocess.py output/video1.csv --window 15 --polyorder 3
+```
+
 Both `videos/` and `output/` are git-ignored to prevent patient data from being
 committed.
 
@@ -107,6 +121,7 @@ be blank in hand-only fallback frames.
 | `smoothing.py` | One Euro Filter for temporal smoothing of landmarks |
 | `constraints.py` | Biomechanical constraints (bone-length consistency, joint-angle limits) |
 | `export.py` | CSV schema definition, per-frame landmark row conversion |
+| `postprocess.py` | Savitzky-Golay offline smoothing for exported CSVs |
 
 ## Technical Details
 
@@ -130,3 +145,10 @@ Defined in `requirements.txt`:
 | `pygame-ce` | Display (SDL2, Wayland-compatible) |
 | `tqdm` | Progress bars for model downloads |
 | `requests` | HTTP for model downloads |
+
+Optional (for `--postprocess` / `postprocess.py`):
+
+| Package | Purpose |
+|---------|---------|
+| `pandas` | CSV reading/writing for post-processing |
+| `scipy` | Savitzky-Golay filter implementation |

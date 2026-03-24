@@ -253,6 +253,12 @@ def main():
                         help="Directory for downloaded/converted models")
     parser.add_argument("--single-subject", action="store_true",
                         help="Keep only the most prominent body per frame")
+    parser.add_argument("--postprocess", action="store_true",
+                        help="Apply Savitzky-Golay smoothing to CSVs after processing")
+    parser.add_argument("--savgol-window", type=int, default=11,
+                        help="Savitzky-Golay window length, must be odd (default: 11)")
+    parser.add_argument("--savgol-polyorder", type=int, default=3,
+                        help="Savitzky-Golay polynomial order (default: 3)")
     args = parser.parse_args()
 
     # Download, convert, and compile models
@@ -266,6 +272,8 @@ def main():
     # Placeholder size; process_video resizes on first frame
     screen = pygame.display.set_mode((640, 480))
     pygame.display.set_caption(WINDOW_TITLE)
+
+    csv_paths = []
 
     try:
         if args.batch_dir:
@@ -285,6 +293,7 @@ def main():
                 finally:
                     fh.close()
                 print(f"  Saved: {csv_path}")
+                csv_paths.append(csv_path)
                 if user_quit:
                     print("User quit — stopping batch.")
                     break
@@ -322,11 +331,26 @@ def main():
                 if fh is not None:
                     fh.close()
                     print(f"Saved: {csv_path}")
+                    csv_paths.append(csv_path)
 
     except KeyboardInterrupt:
         print("\nInterrupted.")
     finally:
         pygame.quit()
+
+    # Post-process CSVs with Savitzky-Golay if requested
+    if args.postprocess and csv_paths:
+        from postprocess import savgol_smooth_csv
+
+        print(f"\nPost-processing {len(csv_paths)} CSV(s) "
+              f"(window={args.savgol_window}, polyorder={args.savgol_polyorder})")
+        for csv_path in csv_paths:
+            out = csv_path.with_name(f"{csv_path.stem}_smooth.csv")
+            savgol_smooth_csv(csv_path, out,
+                              window=args.savgol_window,
+                              polyorder=args.savgol_polyorder)
+            print(f"  {out}")
+        print("Post-processing complete.")
 
 
 if __name__ == "__main__":
