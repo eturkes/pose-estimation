@@ -129,6 +129,13 @@ class PoseSmoother:
                 self.hand_tracks[:self._n_active_hands]]
 
     def smooth_bodies(self, body_landmarks, body_visibilities, t):
+        """Smooth body landmarks and return (landmarks, visibilities, n_detected).
+
+        *n_detected* is the number of bodies that were genuinely matched
+        (or newly created) this frame — i.e. **not** carry-forward ghosts.
+        Callers that need to know whether body detection actually fired
+        (e.g. single-subject mode) should inspect this value.
+        """
         self.body_tracks, smoothed, n_active = self._match_and_smooth(
             self.body_tracks, body_landmarks or [],
             get_anchor=lambda lm: (lm[0, :2] + lm[1, :2]) / 2,
@@ -144,7 +151,7 @@ class PoseSmoother:
         if n_carried > 0:
             n_kp = smoothed[0].shape[0] if smoothed else 12
             vis.extend([np.ones(n_kp)] * n_carried)
-        return smoothed, vis
+        return smoothed, vis, n_active
 
     def smooth_hands(self, hand_landmarks, t, grace=10, max_tracks=None):
         self.hand_tracks, smoothed, _ = self._match_and_smooth(

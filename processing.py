@@ -301,10 +301,14 @@ def match_hands_to_arms(body_landmarks, hand_landmarks, threshold=100):
 
 
 def select_primary_body(body_landmarks, body_visibilities, hand_landmarks, matches):
-    """Keep only the body with the largest landmark bounding box and its matched hands.
+    """Keep only the body with the largest landmark bounding box.
+
+    Hands matched to non-primary bodies are re-matched to the primary
+    body if close enough; all other hands are preserved as-is so that
+    the caller's upstream filters (age, spatial memory) are respected.
 
     Returns (body_landmarks, body_visibilities, hand_landmarks, matches)
-    with at most one body and only its matched hands, re-indexed to position 0.
+    with exactly one body, all input hands, and re-indexed matches.
     """
     if not body_landmarks:
         return [], [], [], []
@@ -321,17 +325,15 @@ def select_primary_body(body_landmarks, body_visibilities, hand_landmarks, match
     primary_body = [body_landmarks[best_idx]]
     primary_vis = [body_visibilities[best_idx]]
 
-    hand_index_map = {}
-    primary_hands = []
+    # Re-index matches: keep only those that belonged to the primary body
     primary_matches = []
     for arm_idx, wrist_kp, hand_idx in matches:
         if arm_idx == best_idx:
-            if hand_idx not in hand_index_map:
-                hand_index_map[hand_idx] = len(primary_hands)
-                primary_hands.append(hand_landmarks[hand_idx])
-            primary_matches.append((0, wrist_kp, hand_index_map[hand_idx]))
+            primary_matches.append((0, wrist_kp, hand_idx))
 
-    return primary_body, primary_vis, primary_hands, primary_matches
+    # Hands are passed through unchanged; only the body list and
+    # matches are filtered.
+    return primary_body, primary_vis, hand_landmarks, primary_matches
 
 
 # ---------------------------------------------------------------------------

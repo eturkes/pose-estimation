@@ -115,7 +115,8 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
 
             # Temporal smoothing
             t = time.time()
-            body_lm, body_vis = smoother.smooth_bodies(body_lm, body_vis, t)
+            body_lm, body_vis, n_bodies_detected = smoother.smooth_bodies(
+                body_lm, body_vis, t)
             hand_lm = smoother.smooth_hands(
                 hand_lm, t, max_tracks=2 if single_subject else None)
 
@@ -143,7 +144,9 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
             matches = match_hands_to_arms(body_lm, hand_lm)
 
             if single_subject:
-                if body_lm:
+                # Use n_bodies_detected (not len(body_lm)) to distinguish
+                # real detections from smoother carry-forward ghosts.
+                if n_bodies_detected > 0:
                     body_lm, body_vis, hand_lm, matches = select_primary_body(
                         body_lm, body_vis, hand_lm, matches)
                     last_body_lm = body_lm[0].copy()
@@ -158,12 +161,16 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
                         else:
                             hand_ref[side] = 0.1 * pos + 0.9 * hand_ref[side]
                 elif last_body_lm is not None and frames_since_body < carry_limit:
-                    # Reuse stale body, re-match current hands
+                    # No real body detection — use last known body
                     body_lm = [last_body_lm]
                     body_vis = [last_body_vis]
                     matches = match_hands_to_arms(body_lm, hand_lm)
                     frames_since_body += 1
                 else:
+                    # Body fully lost — hand-only fallback
+                    body_lm = []
+                    body_vis = []
+                    matches = []
                     frames_since_body += 1
 
             # Export landmarks

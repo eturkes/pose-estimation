@@ -38,13 +38,22 @@ python main.py --batch-dir videos/ --single-subject
 Single-subject mode has three resilience layers for unreliable body
 detection (e.g. top-down views with partial body visibility):
 
-1. **Primary body selection** — when bodies are detected, keep the
-   largest and its matched hands.
-2. **Body carry-forward** — when body detection drops out, reuse the
+1. **Primary body selection** — when bodies are genuinely detected
+   (not smoother carry-forward), keep the largest.  All hands that
+   passed the age / spatial filters are preserved; only body-level
+   matches are re-indexed to the primary body.
+2. **Body carry-forward** — when real body detection drops out (as
+   reported by `smooth_bodies`' `n_active` return value), reuse the
    last known body for up to 0.5 s so hand-arm matching can continue.
 3. **Hand-only fallback** — when carry-forward expires (or no body was
    ever seen), export a row with blank arm columns and hand data
    assigned left/right by x-coordinate.
+
+`smooth_bodies` returns a third value `n_active` (count of genuinely
+matched bodies, excluding grace-period carry-forward).  Single-subject
+mode uses this instead of `len(body_lm)` to decide whether body
+detection succeeded, preventing the smoother's own carry-forward from
+masking real detection dropouts.
 
 Each video is displayed in real-time during processing. One CSV per video
 is written to `output/` (configurable with `--output-dir`). CSVs contain
