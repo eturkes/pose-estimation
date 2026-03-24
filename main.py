@@ -59,6 +59,7 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
 
     smoother = PoseSmoother()
     processing_times = collections.deque(maxlen=200)
+    track_state = None
     frame_idx = 0
 
     # Single-subject state
@@ -104,10 +105,11 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
                 if video_name:
                     pygame.display.set_caption(f"{WINDOW_TITLE} — {video_name}")
 
-            # Inference
+            # Inference (tracking skips SSD detection when previous landmarks exist)
             start = time.time()
-            body_lm, body_vis, hand_lm = process_frame(
-                frame, models, palm_anchors, pose_anchors
+            body_lm, body_vis, hand_lm, track_state = process_frame(
+                frame, models, palm_anchors, pose_anchors,
+                prev_state=track_state,
             )
             elapsed = time.time() - start
 
