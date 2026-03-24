@@ -15,12 +15,21 @@ import time
 
 import cv2
 import numpy as np
+import pygame
 
 from models import download_and_compile_models
 from detection import generate_anchors, PALM_INPUT_SIZE, POSE_INPUT_SIZE
 from processing import process_frame, match_hands_to_arms
 from smoothing import PoseSmoother
 from drawing import draw_body_landmarks, draw_hand_landmarks, draw_arm_hand_bridges
+
+WINDOW_TITLE = "Arm & Hand Pose Estimation"
+
+
+def frame_to_surface(frame):
+    """Convert a BGR OpenCV frame to a pygame Surface."""
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    return pygame.surfarray.make_surface(rgb.transpose(1, 0, 2))
 
 
 def main():
@@ -57,15 +66,36 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
+    # Read one frame to get the actual resolution for the pygame window
+    ret, first_frame = cap.read()
+    if not ret:
+        raise RuntimeError("Cannot read from source")
+    if flip:
+        first_frame = cv2.flip(first_frame, 1)
+    frame_h, frame_w = first_frame.shape[:2]
+
+    pygame.init()
+    screen = pygame.display.set_mode((frame_w, frame_h))
+    pygame.display.set_caption(WINDOW_TITLE)
+
     smoother = PoseSmoother()
     processing_times = collections.deque(maxlen=200)
-    window = "Arm & Hand Pose Estimation — press ESC to exit"
 
     print(f"Source: {source} | Device: {args.device} | Flip: {flip}")
-    print("Press ESC to exit.")
+    print("Close the window or press ESC to exit.")
 
+    running = True
+    frame = first_frame
     try:
-        while True:
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    running = False
+            if not running:
+                break
+
             ret, frame = cap.read()
             if not ret:
                 print("Source ended.")
@@ -77,11 +107,14 @@ def main():
             # Cap resolution for performance
             scale = 1280 / max(frame.shape)
             if scale < 1:
-                frame = cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+                frame = cv2.resize(frame, None, fx=scale, fy=scale,
+                                   interpolation=cv2.INTER_AREA)
 
             # Inference
             start = time.time()
-            body_lm, body_vis, hand_lm = process_frame(frame, models, palm_anchors, pose_anchors)
+            body_lm, body_vis, hand_lm = process_frame(
+                frame, models, palm_anchors, pose_anchors
+            )
             elapsed = time.time() - start
 
             # Temporal smoothing
@@ -104,14 +137,14 @@ def main():
                         (20, 40), cv2.FONT_HERSHEY_COMPLEX, f_width / 1000,
                         (0, 0, 255), 1, cv2.LINE_AA)
 
-            cv2.imshow(window, frame)
-            if cv2.waitKey(1) == 27:
-                break
+            screen.blit(frame_to_surface(frame), (0, 0))
+            pygame.display.flip()
+
     except KeyboardInterrupt:
         print("Interrupted.")
     finally:
         cap.release()
-        cv2.destroyAllWindows()
+        pygame.quit()
 
 
 if __name__ == "__main__":
