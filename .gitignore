@@ -16,10 +16,10 @@ build/
 model/
 
 # Patient video data (never commit)
-videos/
+videos
 
 # Pose estimation output (never commit)
-output/
+output
 
 # OS
 .DS_Store
