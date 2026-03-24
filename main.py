@@ -67,6 +67,8 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
     frames_since_body = 0
     carry_limit = int(fps_source * 0.5)
     min_hand_age = max(1, int(fps_source * 0.5))
+    hand_ref = {"left": None, "right": None}
+    hand_ref_radius = None  # set once frame dimensions are known
 
     try:
         while True:
@@ -93,6 +95,9 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
 
             frame_h, frame_w = frame.shape[:2]
 
+            if hand_ref_radius is None:
+                hand_ref_radius = 0.15 * max(frame_h, frame_w)
+
             # Resize pygame window to match first frame
             if frame_idx == 0:
                 screen = pygame.display.set_mode((frame_w, frame_h))
@@ -109,7 +114,8 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
             # Temporal smoothing
             t = time.time()
             body_lm, body_vis = smoother.smooth_bodies(body_lm, body_vis, t)
-            hand_lm = smoother.smooth_hands(hand_lm, t)
+            hand_lm = smoother.smooth_hands(
+                hand_lm, t, max_tracks=2 if single_subject else None)
 
             # Filter out transient hand tracks (e.g. assistant's hand)
             # and cap at 2 hands (one subject can have at most two).
@@ -122,6 +128,16 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
                 )
                 hand_lm = [lm for lm, _ in aged[:2]]
 
+                # Spatial memory: reject hands far from known subject positions
+                ref_positions = [r for r in hand_ref.values()
+                                 if r is not None]
+                if ref_positions:
+                    hand_lm = [
+                        lm for lm in hand_lm
+                        if min(np.linalg.norm(lm[0, :2] - r)
+                               for r in ref_positions) < hand_ref_radius
+                    ]
+
             matches = match_hands_to_arms(body_lm, hand_lm)
 
             if single_subject:
@@ -131,6 +147,14 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
                     last_body_lm = body_lm[0].copy()
                     last_body_vis = body_vis[0].copy()
                     frames_since_body = 0
+                    # Update spatial memory from matched hands
+                    for _, wrist_kp, hand_idx in matches:
+                        side = "left" if wrist_kp == 4 else "right"
+                        pos = hand_lm[hand_idx][0, :2].copy()
+                        if hand_ref[side] is None:
+                            hand_ref[side] = pos
+                        else:
+                            hand_ref[side] = 0.1 * pos + 0.9 * hand_ref[side]
                 elif last_body_lm is not None and frames_since_body < carry_limit:
                     # Reuse stale body, re-match current hands
                     body_lm = [last_body_lm]

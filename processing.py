@@ -166,6 +166,10 @@ def detect_hand_landmarks(frame, detection, hand_compiled):
 def match_hands_to_arms(body_landmarks, hand_landmarks, threshold=100):
     """Match detected hands to the nearest arm wrist by proximity.
 
+    A match is only accepted when the hand is closer to the wrist than
+    to the shoulder midpoint, ensuring the hand is at the distal end of
+    the arm rather than near the torso.
+
     Returns list of (arm_idx, arm_wrist_kp, hand_idx) tuples.
     """
     matches = []
@@ -174,6 +178,7 @@ def match_hands_to_arms(body_landmarks, hand_landmarks, threshold=100):
 
     used_hands = set()
     for arm_idx, arm_lm in enumerate(body_landmarks):
+        shoulder_mid = (arm_lm[0, :2] + arm_lm[1, :2]) / 2
         for wrist_kp in [4, 5]:
             arm_wrist = arm_lm[wrist_kp, :2]
             best_hand = None
@@ -186,8 +191,10 @@ def match_hands_to_arms(body_landmarks, hand_landmarks, threshold=100):
                     best_dist = dist
                     best_hand = hand_idx
             if best_hand is not None and best_dist < threshold:
-                matches.append((arm_idx, wrist_kp, best_hand))
-                used_hands.add(best_hand)
+                hand_wrist = hand_landmarks[best_hand][0, :2]
+                if best_dist < np.linalg.norm(hand_wrist - shoulder_mid):
+                    matches.append((arm_idx, wrist_kp, best_hand))
+                    used_hands.add(best_hand)
     return matches
 
 

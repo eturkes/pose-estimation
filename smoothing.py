@@ -59,7 +59,7 @@ class PoseSmoother:
         self._n_active_hands = 0
 
     def _match_and_smooth(self, tracks, landmarks, get_anchor, new_filter_fn,
-                          t, grace=0):
+                          t, grace=0, max_tracks=None):
         """Match landmarks to existing tracks, smooth, and return.
 
         Each track is a 4-tuple: (filter, anchor, age, misses).
@@ -67,6 +67,10 @@ class PoseSmoother:
         consecutive frames without a match.  Unmatched tracks survive
         up to *grace* missed frames so their age is preserved when the
         detection briefly drops out.
+
+        When *max_tracks* is set, no new tracks are created once the
+        total number of tracks (active + dormant) reaches the limit.
+        Detections that cannot match an existing track are discarded.
         """
         smoothed = []
         new_tracks = []
@@ -87,9 +91,11 @@ class PoseSmoother:
                 filt = tracks[best_i][0]
                 age = tracks[best_i][2] + 1
                 used.add(best_i)
-            else:
+            elif max_tracks is None or len(tracks) < max_tracks:
                 filt = new_filter_fn()
                 age = 1
+            else:
+                continue
 
             s = filt(lm, t)
             new_tracks.append((filt, get_anchor(s).copy(), age, 0))
@@ -123,13 +129,14 @@ class PoseSmoother:
         )
         return smoothed, body_visibilities
 
-    def smooth_hands(self, hand_landmarks, t, grace=10):
+    def smooth_hands(self, hand_landmarks, t, grace=10, max_tracks=None):
         self.hand_tracks, smoothed = self._match_and_smooth(
             self.hand_tracks, hand_landmarks or [],
             get_anchor=lambda lm: lm[0, :2],
             new_filter_fn=lambda: OneEuroFilter(min_cutoff=3.0, beta=0.3),
             t=t,
             grace=grace,
+            max_tracks=max_tracks,
         )
         self._n_active_hands = len(smoothed)
         return smoothed
