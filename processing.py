@@ -99,11 +99,32 @@ def _smooth_detections(new_dets, prev_dets, match_threshold=0.15, alpha=None):
     centre distance in normalised [0, 1] coordinates).  Matched pairs have
     their keypoints and boxes blended; unmatched detections pass through
     as-is.
+
+    Previous detections that have no match in *new_dets* are carried
+    forward for one frame with decayed confidence (``score *= 0.7``).
+    A detection already marked ``_carried`` will not be carried again,
+    limiting the grace period to a single frame.
     """
     if alpha is None:
         alpha = float(os.environ.get("POSE_BENCH_DET_SMOOTH_ALPHA", "0.5"))
+
+    # Indices of prev_dets eligible for carry-forward (not already carried)
+    carry_eligible = set()
+    if prev_dets:
+        carry_eligible = {i for i, d in enumerate(prev_dets)
+                          if not d.get("_carried")}
+
     if not prev_dets or not new_dets:
-        return new_dets
+        # No new detections: carry forward eligible prev_dets for one frame
+        if not new_dets and carry_eligible:
+            carried = []
+            for i in sorted(carry_eligible):
+                det = dict(prev_dets[i])
+                det["score"] = det["score"] * 0.7
+                det["_carried"] = True
+                carried.append(det)
+            return carried
+        return list(new_dets) if new_dets else []
 
     def _center(det):
         b = det["box"]
@@ -133,6 +154,14 @@ def _smooth_detections(new_dets, prev_dets, match_threshold=0.15, alpha=None):
             })
         else:
             smoothed.append(new_det)
+
+    # Carry forward unmatched, non-carried prev_dets for one frame
+    matched_prev = set(matched.values())
+    for i in sorted(carry_eligible - matched_prev):
+        det = dict(prev_dets[i])
+        det["score"] = det["score"] * 0.7
+        det["_carried"] = True
+        smoothed.append(det)
 
     return smoothed
 

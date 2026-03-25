@@ -353,9 +353,9 @@ python3 tests/test_smoothing.py
 
 ---
 
-## Section 6 — Detection-level carry-forward
+## Section 6 — Detection-level carry-forward [DONE]
 
-### Status: TODO
+### Status: [DONE]
 
 ### Rationale
 
