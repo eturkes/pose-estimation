@@ -1,5 +1,7 @@
 """Temporal smoothing for pose landmarks using One Euro Filters."""
 
+import os
+
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
@@ -235,12 +237,17 @@ class PoseSmoother:
         """
         si = shoulder_indices
         lm_list = body_landmarks or []
+        body_mc = float(os.environ.get("POSE_BENCH_BODY_MIN_CUTOFF", "0.3"))
+        body_b = float(os.environ.get("POSE_BENCH_BODY_BETA", "0.5"))
+        body_g = float(os.environ.get("POSE_BENCH_CONFIDENCE_GAMMA", "2.0"))
+        grace = int(os.environ.get("POSE_BENCH_CARRY_GRACE", "10"))
         self.body_tracks, smoothed, n_active = self._match_and_smooth(
             self.body_tracks, lm_list,
             get_anchor=lambda lm: (lm[si[0], :2] + lm[si[1], :2]) / 2,
-            new_filter_fn=lambda: OneEuroFilter(min_cutoff=0.3, beta=0.5),
+            new_filter_fn=lambda: OneEuroFilter(
+                min_cutoff=body_mc, beta=body_b, gamma=body_g),
             t=t,
-            grace=10,
+            grace=grace,
             emit_carry=True,
             confidences=body_visibilities if lm_list else None,
         )
@@ -254,11 +261,17 @@ class PoseSmoother:
             vis.extend([np.ones(n_kp)] * n_carried)
         return smoothed, vis, n_active
 
-    def smooth_hands(self, hand_landmarks, t, grace=10, max_tracks=None):
+    def smooth_hands(self, hand_landmarks, t, grace=None, max_tracks=None):
+        if grace is None:
+            grace = int(os.environ.get("POSE_BENCH_CARRY_GRACE", "10"))
+        hand_mc = float(os.environ.get("POSE_BENCH_HAND_MIN_CUTOFF", "1.0"))
+        hand_b = float(os.environ.get("POSE_BENCH_HAND_BETA", "0.3"))
+        hand_g = float(os.environ.get("POSE_BENCH_CONFIDENCE_GAMMA", "2.0"))
         self.hand_tracks, smoothed, n_active = self._match_and_smooth(
             self.hand_tracks, hand_landmarks or [],
             get_anchor=lambda lm: lm[0, :2],
-            new_filter_fn=lambda: OneEuroFilter(min_cutoff=1.0, beta=0.3),
+            new_filter_fn=lambda: OneEuroFilter(
+                min_cutoff=hand_mc, beta=hand_b, gamma=hand_g),
             t=t,
             grace=grace,
             static_carry=True,
@@ -266,3 +279,40 @@ class PoseSmoother:
         )
         self._n_active_hands = n_active
         return smoothed, n_active
+
+    # ------------------------------------------------------------------
+    # Diagnostics helpers
+    # ------------------------------------------------------------------
+
+    def body_carry_state(self):
+        """Return (is_carrying, n_carry_frames) for the first body track.
+
+        A track is "carrying" when its miss counter is > 0 (i.e. it was
+        not matched this frame but is still within its grace period).
+        """
+        if not self.body_tracks:
+            return False, 0
+        _, _, _, misses, _, _, _ = self.body_tracks[0]
+        return misses > 0, misses
+
+    def hand_carry_flags(self):
+        """Return a list of bools: whether each active hand track is carrying."""
+        return [misses > 0
+                for _, _, _, misses, _, _, _ in self.hand_tracks]
+
+    @staticmethod
+    def compute_smooth_delta(raw_landmarks, smoothed_landmarks):
+        """Sum of per-keypoint L2 distance between raw and smoothed (pixels).
+
+        Returns 0.0 if inputs are None or shape-mismatched.
+        """
+        if raw_landmarks is None or smoothed_landmarks is None:
+            return 0.0
+        if len(raw_landmarks) == 0 or len(smoothed_landmarks) == 0:
+            return 0.0
+        # Compare the first entry (primary body / hand)
+        raw = raw_landmarks[0] if isinstance(raw_landmarks, list) else raw_landmarks
+        smo = smoothed_landmarks[0] if isinstance(smoothed_landmarks, list) else smoothed_landmarks
+        if raw.shape != smo.shape:
+            return 0.0
+        return float(np.sum(np.linalg.norm(raw[:, :2] - smo[:, :2], axis=1)))

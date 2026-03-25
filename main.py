@@ -21,7 +21,6 @@ import time
 
 import cv2
 import numpy as np
-import pygame
 
 from models import download_and_compile_models
 from detection import generate_anchors, PALM_INPUT_SIZE, POSE_INPUT_SIZE
@@ -38,6 +37,10 @@ from constraints import (
 )
 from drawing import draw_body_landmarks, draw_hand_landmarks, draw_arm_hand_bridges
 from export import open_csv_writer, frame_to_rows
+from metrics import (
+    MetricsCollector, FrameDiagnostics,
+    SmoothingDiagnostics, ConstraintDiagnostics,
+)
 
 WINDOW_TITLE = "Pose Estimation"
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
@@ -50,6 +53,7 @@ DIAG_FIELDS = [
 
 def frame_to_surface(frame):
     """Convert a BGR OpenCV frame to a pygame Surface."""
+    import pygame
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     return pygame.surfarray.make_surface(rgb.transpose(1, 0, 2))
 
@@ -57,8 +61,12 @@ def frame_to_surface(frame):
 def process_video(source, flip, models, palm_anchors, pose_anchors,
                   screen, csv_writer=None, video_name=None,
                   single_subject=False, diag_writer=None,
-                  tracking=TRACKING_HANDS_ARMS):
-    """Run pose estimation on a single video source with real-time display.
+                  tracking=TRACKING_HANDS_ARMS, headless=False,
+                  metrics_collector=None):
+    """Run pose estimation on a single video source.
+
+    When *headless* is True, pygame display and drawing are skipped
+    entirely (useful for benchmarking and batch metrics collection).
 
     Returns True if the user requested quit (ESC / window close),
     False if the video simply ended.
@@ -104,16 +112,20 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
     carry_limit = int(fps_source * 0.5)
     min_hand_age = max(1, int(fps_source * 0.2))
 
+    use_pygame = not headless and screen is not None
+    if use_pygame:
+        import pygame
 
     try:
         while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    cap.release()
-                    return True
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    cap.release()
-                    return True
+            if use_pygame:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        cap.release()
+                        return True
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        cap.release()
+                        return True
 
             ret, frame = cap.read()
             if not ret:
@@ -131,7 +143,7 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
             frame_h, frame_w = frame.shape[:2]
 
             # Resize pygame window to match first frame
-            if frame_idx == 0:
+            if use_pygame and frame_idx == 0:
                 screen = pygame.display.set_mode((frame_w, frame_h))
                 if video_name:
                     pygame.display.set_caption(f"{WINDOW_TITLE} — {video_name}")
@@ -140,7 +152,7 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
             # re-crop hand detections to avoid cascading false positives
             # from spurious body tracks.
             start = time.time()
-            body_lm, body_vis, hand_lm, track_state = process_frame(
+            body_lm, body_vis, hand_lm, track_state, frame_diag = process_frame(
                 frame, models, palm_anchors, pose_anchors,
                 prev_state=track_state,
                 prev_hand_landmarks=(prev_hand_lm
@@ -164,12 +176,37 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
             hand_lm, n_hands_active = smoother.smooth_hands(
                 hand_lm, t, max_tracks=2 if single_subject else None)
 
+            # Compute smoothing diagnostics
+            smooth_diag = SmoothingDiagnostics()
+            if metrics_collector is not None:
+                smooth_diag.body_smooth_delta_px = PoseSmoother.compute_smooth_delta(
+                    frame_diag.raw_body_landmarks, body_lm)
+                smooth_diag.hand_smooth_deltas_px = [
+                    PoseSmoother.compute_smooth_delta(
+                        [frame_diag.raw_hand_landmarks[i]]
+                        if i < len(frame_diag.raw_hand_landmarks) else [],
+                        [hand_lm[i]] if i < len(hand_lm) else [],
+                    )
+                    for i in range(2)
+                ]
+                carry_state, carry_frames = smoother.body_carry_state()
+                smooth_diag.body_carry = carry_state
+                smooth_diag.body_carry_frames = carry_frames
+                smooth_diag.hand_carry_flags = smoother.hand_carry_flags()
+
             # Enforce biomechanical constraints on each body
+            constraint_diag = ConstraintDiagnostics()
             if use_body:
+                total_bone_corr = 0.0
+                total_angle_clamps = 0
                 for i, lm in enumerate(body_lm):
-                    bone_smoother.update(i, lm)
-                    clamp_joint_angles(lm, limits=angle_lims)
+                    _, bone_corr = bone_smoother.update(i, lm)
+                    _, n_clamped = clamp_joint_angles(lm, limits=angle_lims)
+                    total_bone_corr += bone_corr
+                    total_angle_clamps += n_clamped
                 bone_smoother.prune(range(len(body_lm)))
+                constraint_diag.bone_correction_px = total_bone_corr
+                constraint_diag.angle_corrections_n = total_angle_clamps
 
             if single_subject and use_body:
                 # Filter transient hand tracks by age and cap at 2
@@ -249,8 +286,8 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
             prev_hand_lm = [lm.copy() for lm in hand_lm] if hand_lm else None
 
             # Export landmarks
+            timestamp_sec = frame_idx / fps_source
             if csv_writer is not None:
-                timestamp_sec = frame_idx / fps_source
                 rows = frame_to_rows(
                     video_name or str(source), frame_idx, timestamp_sec,
                     frame_h, frame_w, body_lm, body_vis, hand_lm, matches,
@@ -260,24 +297,84 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
                 for row in rows:
                     csv_writer.writerow(row)
 
-            # Draw overlays
-            if use_body:
-                frame = draw_body_landmarks(frame, body_lm, body_vis)
-                frame = draw_arm_hand_bridges(frame, body_lm, hand_lm, matches)
-            frame = draw_hand_landmarks(frame, hand_lm)
+            # Collect metrics
+            if metrics_collector is not None:
+                # Determine left/right hands from matches
+                hand_L, hand_R = None, None
+                match_dist_L, match_dist_R = None, None
+                hand_L_flag, hand_R_flag = 0.0, 0.0
+                if use_body and matches:
+                    wrist_side = {}
+                    if tracking == TRACKING_BODY:
+                        wrist_side = {15: "left", 16: "right"}
+                    else:
+                        wrist_side = {4: "left", 5: "right"}
+                    for arm_idx, wrist_kp, hand_idx in matches:
+                        side = wrist_side.get(wrist_kp)
+                        if hand_idx < len(hand_lm):
+                            arm_wrist = body_lm[arm_idx][wrist_kp, :2]
+                            hand_wrist = hand_lm[hand_idx][0, :2]
+                            dist = float(np.linalg.norm(arm_wrist - hand_wrist))
+                            if side == "left":
+                                hand_L = hand_lm[hand_idx]
+                                match_dist_L = dist
+                            elif side == "right":
+                                hand_R = hand_lm[hand_idx]
+                                match_dist_R = dist
+                elif not use_body and hand_lm:
+                    sorted_h = sorted(hand_lm[:2], key=lambda lm: lm[0, 0])
+                    if len(sorted_h) >= 1:
+                        hand_L = sorted_h[0]
+                    if len(sorted_h) >= 2:
+                        hand_R = sorted_h[1]
 
-            # FPS / progress overlay
-            processing_times.append(elapsed)
-            avg_ms = np.mean(processing_times) * 1000
-            fps = 1000 / avg_ms
-            _, f_width = frame.shape[:2]
-            label = f"Inference: {avg_ms:.1f}ms ({fps:.1f} FPS)"
-            if total_frames > 0:
-                pct = frame_idx / total_frames * 100
-                label += f"  |  Frame {frame_idx}/{total_frames} ({pct:.0f}%)"
-            cv2.putText(frame, label, (20, 40),
-                        cv2.FONT_HERSHEY_COMPLEX, f_width / 1000,
-                        (0, 0, 255), 1, cv2.LINE_AA)
+                # Extract hand_flag scores from frame_diag
+                accepted_flags = [
+                    d["hand_flag"] for d in frame_diag.hand_diag
+                    if d.get("accepted")
+                ]
+                if len(accepted_flags) >= 1:
+                    hand_L_flag = accepted_flags[0]
+                if len(accepted_flags) >= 2:
+                    hand_R_flag = accepted_flags[1]
+
+                metrics_collector.record(
+                    frame_idx=frame_idx,
+                    timestamp_sec=timestamp_sec,
+                    person_idx=0,
+                    body_lm_smooth=body_lm[0] if body_lm else None,
+                    body_vis=body_vis[0] if body_vis else None,
+                    hand_L_smooth=hand_L,
+                    hand_R_smooth=hand_R,
+                    frame_diag=frame_diag,
+                    smooth_diag=smooth_diag,
+                    constraint_diag=constraint_diag,
+                    hand_L_flag=hand_L_flag,
+                    hand_R_flag=hand_R_flag,
+                    match_dist_L=match_dist_L,
+                    match_dist_R=match_dist_R,
+                    inference_ms=elapsed * 1000,
+                )
+
+            if not headless:
+                # Draw overlays
+                if use_body:
+                    frame = draw_body_landmarks(frame, body_lm, body_vis)
+                    frame = draw_arm_hand_bridges(frame, body_lm, hand_lm, matches)
+                frame = draw_hand_landmarks(frame, hand_lm)
+
+                # FPS / progress overlay
+                processing_times.append(elapsed)
+                avg_ms = np.mean(processing_times) * 1000
+                fps = 1000 / avg_ms
+                _, f_width = frame.shape[:2]
+                label = f"Inference: {avg_ms:.1f}ms ({fps:.1f} FPS)"
+                if total_frames > 0:
+                    pct = frame_idx / total_frames * 100
+                    label += f"  |  Frame {frame_idx}/{total_frames} ({pct:.0f}%)"
+                cv2.putText(frame, label, (20, 40),
+                            cv2.FONT_HERSHEY_COMPLEX, f_width / 1000,
+                            (0, 0, 255), 1, cv2.LINE_AA)
 
             # Write per-frame diagnostic row
             if diag_writer is not None:
@@ -304,8 +401,9 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
                     "detections": json.dumps(hand_diag),
                 })
 
-            screen.blit(frame_to_surface(frame), (0, 0))
-            pygame.display.flip()
+            if use_pygame:
+                screen.blit(frame_to_surface(frame), (0, 0))
+                pygame.display.flip()
             frame_idx += 1
 
     finally:
@@ -359,6 +457,10 @@ def main():
                         help="Savitzky-Golay window length, must be odd (default: 11)")
     parser.add_argument("--savgol-polyorder", type=int, default=3,
                         help="Savitzky-Golay polynomial order (default: 3)")
+    parser.add_argument("--headless", action="store_true",
+                        help="Skip display; only run detection + export + metrics")
+    parser.add_argument("--metrics-detail", action="store_true",
+                        help="Write per-keypoint detail CSV (large)")
     args = parser.parse_args()
 
     tracking = args.tracking
@@ -370,10 +472,14 @@ def main():
     palm_anchors = generate_anchors(PALM_INPUT_SIZE, strides=[8, 16, 16, 16])
     pose_anchors = generate_anchors(POSE_INPUT_SIZE, strides=[8, 16, 32, 32, 32])
 
-    pygame.init()
-    # Placeholder size; process_video resizes on first frame
-    screen = pygame.display.set_mode((640, 480))
-    pygame.display.set_caption(WINDOW_TITLE)
+    headless = args.headless
+    screen = None
+    if not headless:
+        import pygame as _pg
+        _pg.init()
+        # Placeholder size; process_video resizes on first frame
+        screen = _pg.display.set_mode((640, 480))
+        _pg.display.set_caption(WINDOW_TITLE)
 
     csv_paths = []
 
@@ -390,6 +496,9 @@ def main():
                 diag_fh = open(diag_path, "w", newline="")
                 diag_w = csv.DictWriter(diag_fh, fieldnames=DIAG_FIELDS)
                 diag_w.writeheader()
+                mc = MetricsCollector(
+                    args.output_dir, vpath.name,
+                    detail=args.metrics_detail)
                 try:
                     user_quit = process_video(
                         str(vpath), False, models, palm_anchors, pose_anchors,
@@ -397,10 +506,13 @@ def main():
                         single_subject=args.single_subject,
                         diag_writer=diag_w,
                         tracking=tracking,
+                        headless=headless,
+                        metrics_collector=mc,
                     )
                 finally:
                     fh.close()
                     diag_fh.close()
+                    mc.flush()
                 print(f"  Saved: {csv_path}")
                 print(f"  Diag:  {diag_path}")
                 csv_paths.append(csv_path)
@@ -425,6 +537,7 @@ def main():
             fh = None
             diag_w = None
             diag_fh = None
+            mc = None
             if isinstance(source, str):
                 vpath = pathlib.Path(source)
                 csv_path = pathlib.Path(args.output_dir) / f"{vpath.stem}.csv"
@@ -433,11 +546,15 @@ def main():
                 diag_fh = open(diag_path, "w", newline="")
                 diag_w = csv.DictWriter(diag_fh, fieldnames=DIAG_FIELDS)
                 diag_w.writeheader()
+                mc = MetricsCollector(
+                    args.output_dir, vpath.name,
+                    detail=args.metrics_detail)
 
             video_name = pathlib.Path(source).name if isinstance(source, str) else None
             print(f"Source: {source} | Device: {args.device} | "
                   f"Flip: {flip} | Tracking: {tracking}")
-            print("Close the window or press ESC to exit.")
+            if not headless:
+                print("Close the window or press ESC to exit.")
 
             try:
                 process_video(source, flip, models, palm_anchors, pose_anchors,
@@ -445,7 +562,9 @@ def main():
                               video_name=video_name,
                               single_subject=args.single_subject,
                               diag_writer=diag_w,
-                              tracking=tracking)
+                              tracking=tracking,
+                              headless=headless,
+                              metrics_collector=mc)
             finally:
                 if fh is not None:
                     fh.close()
@@ -454,11 +573,15 @@ def main():
                 if diag_fh is not None:
                     diag_fh.close()
                     print(f"Diag:  {diag_path}")
+                if mc is not None:
+                    mc.flush()
 
     except KeyboardInterrupt:
         print("\nInterrupted.")
     finally:
-        pygame.quit()
+        if not headless:
+            import pygame as _pg
+            _pg.quit()
 
     # Post-process CSVs with Savitzky-Golay if requested
     if args.postprocess and csv_paths:

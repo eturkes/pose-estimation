@@ -45,9 +45,10 @@ def test_constant_landmarks_no_correction():
     original = lm.copy()
 
     for _ in range(30):
-        result = smoother.update(0, lm.copy())
+        result, correction = smoother.update(0, lm.copy())
 
     np.testing.assert_allclose(result, original, atol=1e-10)
+    assert correction == 0.0
 
 
 def test_perturbed_keypoint_corrected():
@@ -66,7 +67,8 @@ def test_perturbed_keypoint_corrected():
     direction = wrist - elbow
     perturbed[4] = elbow + direction * 2.0  # 2x normal distance
 
-    result = smoother.update(0, perturbed)
+    result, correction = smoother.update(0, perturbed)
+    assert correction > 0
 
     # After correction the left elbow→wrist distance should be close
     # to the EMA (within tolerance), not 2x.
@@ -93,7 +95,7 @@ def test_ema_converges():
     ])
 
     for i in range(25):
-        smoother.update(0, lm.copy())
+        _, _ = smoother.update(0, lm.copy())
 
     avg = smoother._averages[0]
     # After 25 frames at alpha=0.05, EMA should be within ~30% of true
@@ -106,9 +108,9 @@ def test_prune_removes_stale():
     """prune() should drop state for IDs not in the active set."""
     smoother = BoneLengthSmoother()
     lm = _make_landmarks()
-    smoother.update(0, lm.copy())
-    smoother.update(1, lm.copy())
-    smoother.update(2, lm.copy())
+    _, _ = smoother.update(0, lm.copy())
+    _, _ = smoother.update(1, lm.copy())
+    _, _ = smoother.update(2, lm.copy())
 
     smoother.prune([0, 2])
     assert 1 not in smoother._averages
@@ -132,10 +134,11 @@ def test_small_movements_within_tolerance_pass_through():
     direction /= np.linalg.norm(direction)
     perturbed[4] = wrist + direction * np.linalg.norm(wrist - elbow) * 0.1
 
-    result = smoother.update(0, perturbed)
+    result, correction = smoother.update(0, perturbed)
 
     # Should NOT be corrected — within 40% tolerance
     np.testing.assert_allclose(result[4], perturbed[4], atol=1e-10)
+    assert correction == 0.0
 
 
 # -----------------------------------------------------------------------
@@ -171,8 +174,9 @@ def test_angle_within_limits_unchanged():
     """Landmarks with valid joint angles should not be modified."""
     lm = _make_bent_landmarks()
     original = lm.copy()
-    clamp_joint_angles(lm)
+    _, n_clamped = clamp_joint_angles(lm)
     np.testing.assert_allclose(lm, original, atol=1e-10)
+    assert n_clamped == 0
 
 
 def test_angle_below_minimum_clamped():
@@ -196,7 +200,8 @@ def test_angle_below_minimum_clamped():
 
     assert _angle_at_joint(lm, 0, 2, 4) < 30
 
-    clamp_joint_angles(lm)
+    _, n_clamped = clamp_joint_angles(lm)
+    assert n_clamped >= 1
 
     result_angle = _angle_at_joint(lm, 0, 2, 4)
     assert abs(result_angle - 30) < 0.5, f"Expected ~30°, got {result_angle:.1f}°"
@@ -223,7 +228,8 @@ def test_angle_above_maximum_clamped():
 
     assert _angle_at_joint(lm, 0, 2, 4) > 170
 
-    clamp_joint_angles(lm)
+    _, n_clamped = clamp_joint_angles(lm)
+    assert n_clamped >= 1
 
     result_angle = _angle_at_joint(lm, 0, 2, 4)
     assert abs(result_angle - 170) < 0.5, f"Expected ~170°, got {result_angle:.1f}°"
@@ -247,7 +253,7 @@ def test_angle_clamp_preserves_z():
     lm[4, :2] = lm[2, :2] + rotated * forearm_len
     z_before = lm[4, 2]
 
-    clamp_joint_angles(lm)
+    _, _ = clamp_joint_angles(lm)
 
     assert lm[4, 2] == z_before, "z coordinate should not change"
 
@@ -266,7 +272,8 @@ def test_angle_clamp_right_elbow():
     ])
     lm[5, :2] = lm[3, :2] + rotated * forearm_len
 
-    clamp_joint_angles(lm)
+    _, n_clamped = clamp_joint_angles(lm)
+    assert n_clamped >= 1
 
     result_angle = _angle_at_joint(lm, 1, 3, 5)
     assert abs(result_angle - 30) < 0.5, f"Expected ~30°, got {result_angle:.1f}°"

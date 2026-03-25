@@ -142,6 +142,45 @@ x, y, z only.
 Missing hand data is left blank. With `--single-subject`, body columns may also
 be blank in hand-only fallback frames.
 
+## Optimisation & Analysis
+
+### Headless mode
+
+Run without display (faster, no pygame dependency at runtime):
+
+```bash
+python main.py --source video.mp4 --headless
+```
+
+This produces the same CSVs plus a `*_metrics.csv` with per-frame quality
+metrics (jitter, confidence, smoothing deltas, constraint corrections, etc.).
+Add `--metrics-detail` to also write a per-keypoint `*_kp_detail.csv` (large).
+
+### Analysis suite (R)
+
+Four R scripts in `analysis/` consume the metrics CSVs:
+
+```bash
+Rscript analysis/summary.R output/            # text report + JSON
+Rscript analysis/timeseries.R output/          # temporal diagnostic plots
+Rscript analysis/keypoint_detail.R output/     # per-keypoint analysis
+Rscript analysis/compare.R run_a.json run_b.json  # before/after comparison
+```
+
+### Parameter benchmarking
+
+Sweep pipeline parameters and compare results:
+
+```bash
+python benchmark.py --source video.mp4 --sweep body_min_cutoff 0.1 0.3 0.5 1.0
+python benchmark.py --source video.mp4 --sweep body_beta 0.3 0.5 0.7 --sweep hand_min_cutoff 0.5 1.0 2.0
+```
+
+Available sweep parameters: `det_score_thresh`, `hand_flag_thresh`,
+`body_min_cutoff`, `body_beta`, `hand_min_cutoff`, `hand_beta`,
+`confidence_gamma`, `det_smooth_alpha`, `bone_ema_alpha`, `bone_tolerance`,
+`carry_grace`.
+
 ## Architecture
 
 | File | Role |
@@ -155,6 +194,9 @@ be blank in hand-only fallback frames.
 | `constraints.py` | Biomechanical constraints (bone-length consistency, joint-angle limits) |
 | `export.py` | CSV schema definition, per-frame landmark row conversion |
 | `postprocess.py` | Savitzky-Golay offline smoothing for exported CSVs |
+| `metrics.py` | Per-frame quality metrics collection for optimisation |
+| `benchmark.py` | Parameter sweep harness (headless) |
+| `analysis/` | R scripts for metrics summarisation, visualisation, comparison |
 
 ## Technical Details
 

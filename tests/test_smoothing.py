@@ -175,10 +175,10 @@ def test_hand_path_unaffected():
     smoother = PoseSmoother()
     lm = [_make_landmarks(21)]
 
-    r1 = smoother.smooth_hands(lm, 0.0)
+    r1, n1 = smoother.smooth_hands(lm, 0.0)
     assert len(r1) == 1
 
-    r2 = smoother.smooth_hands([lm[0] + 5.0], 0.1)
+    r2, n2 = smoother.smooth_hands([lm[0] + 5.0], 0.1)
     assert len(r2) == 1
     # Should be smoothed, not identical to input
     assert not np.allclose(r2[0], lm[0] + 5.0)

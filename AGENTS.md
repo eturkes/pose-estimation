@@ -2,6 +2,30 @@
 
 See README.md for project overview, architecture, usage, and dependencies.
 
+## Optimisation Suite
+
+The project includes instrumentation and analysis tools for the
+assistant to iteratively improve the pipeline without seeing
+the live video:
+
+- `metrics.py` — `MetricsCollector` writes `*_metrics.csv` and
+  optionally `*_kp_detail.csv` per video with jitter,
+  confidence, smoothing delta, constraint corrections, detection
+  counts, and carry-forward state.
+- `analysis/summary.R` — text report + JSON from metrics CSV.
+- `analysis/timeseries.R` — temporal diagnostic plots (PNG).
+- `analysis/keypoint_detail.R` — per-keypoint heatmaps and
+  trajectory plots from `*_kp_detail.csv`.
+- `analysis/compare.R` — side-by-side comparison of two runs.
+- `benchmark.py` — parameter sweep harness using `--headless`
+  mode and env-var overrides (`POSE_BENCH_*`).
+- `--headless` flag on `main.py` skips pygame for batch metrics.
+- `--metrics-detail` flag enables per-keypoint detail CSV.
+
+Tuneable parameters are overridden via environment variables
+(`POSE_BENCH_BODY_MIN_CUTOFF`, etc.) so that `benchmark.py`
+can spawn isolated subprocess runs per combination.
+
 ## Tracking Modes
 
 The `--tracking` CLI flag controls body-part scope:

@@ -1,5 +1,7 @@
 """Biomechanical constraints for landmark plausibility."""
 
+import os
+
 import numpy as np
 
 # ---------------------------------------------------------------------------
@@ -58,7 +60,11 @@ class BoneLengthSmoother:
         (12-keypoint arm scheme).
     """
 
-    def __init__(self, alpha=0.05, tolerance=0.4, segments=None):
+    def __init__(self, alpha=None, tolerance=None, segments=None):
+        if alpha is None:
+            alpha = float(os.environ.get("POSE_BENCH_BONE_EMA_ALPHA", "0.05"))
+        if tolerance is None:
+            tolerance = float(os.environ.get("POSE_BENCH_BONE_TOLERANCE", "0.4"))
         self.alpha = alpha
         self.tolerance = tolerance
         self.segments = segments if segments is not None else BONE_SEGMENTS
@@ -76,8 +82,10 @@ class BoneLengthSmoother:
 
         Returns
         -------
-        np.ndarray
-            The (possibly corrected) landmarks array.
+        tuple of (np.ndarray, float)
+            The (possibly corrected) landmarks array and the total
+            correction magnitude in pixels (sum of distal-keypoint
+            displacements).
         """
         lengths = np.array([
             np.linalg.norm(landmarks[d] - landmarks[p])
@@ -86,25 +94,29 @@ class BoneLengthSmoother:
 
         if body_id not in self._averages:
             self._averages[body_id] = lengths.copy()
-            return landmarks
+            return landmarks, 0.0
 
         avg = self._averages[body_id]
         avg[:] = self.alpha * lengths + (1 - self.alpha) * avg
 
+        total_correction = 0.0
         for i, (p, d) in enumerate(self.segments):
             expected = avg[i]
             if expected < 1e-6:
                 continue
             deviation = abs(lengths[i] - expected) / expected
             if deviation > self.tolerance:
+                old_pos = landmarks[d].copy()
                 direction = landmarks[d] - landmarks[p]
                 norm = np.linalg.norm(direction)
                 if norm < 1e-6:
                     continue
                 direction /= norm
                 landmarks[d] = landmarks[p] + direction * expected
+                total_correction += float(
+                    np.linalg.norm(landmarks[d] - old_pos))
 
-        return landmarks
+        return landmarks, total_correction
 
     def prune(self, active_ids):
         """Remove state for body IDs no longer being tracked."""
@@ -156,11 +168,14 @@ def clamp_joint_angles(landmarks, limits=None):
 
     Returns
     -------
-    np.ndarray
-        The (possibly corrected) landmarks array.
+    tuple of (np.ndarray, int)
+        The (possibly corrected) landmarks array and the number of
+        joint angles that were clamped.
     """
     if limits is None:
         limits = ANGLE_LIMITS
+
+    n_clamped = 0
 
     for (prox, joint, dist), (min_deg, max_deg) in limits.items():
         v1 = landmarks[prox, :2] - landmarks[joint, :2]
@@ -187,6 +202,8 @@ def clamp_joint_angles(landmarks, limits=None):
         else:
             continue
 
+        n_clamped += 1
+
         # Rotate the unit v1 direction by the clamped signed angle
         target_signed = np.copysign(target, signed_angle)
         v1_hat = v1 / len_v1
@@ -199,4 +216,4 @@ def clamp_joint_angles(landmarks, limits=None):
 
         landmarks[dist, :2] = landmarks[joint, :2] + new_dir * len_v2
 
-    return landmarks
+    return landmarks, n_clamped

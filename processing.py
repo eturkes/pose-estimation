@@ -7,6 +7,7 @@ stabilises the input to the landmark model, eliminating the main source of
 landmark flickering.
 """
 
+import os
 import cv2
 import numpy as np
 from scipy.optimize import linear_sum_assignment
@@ -18,6 +19,7 @@ from detection import (
     POSE_LM_INPUT_SIZE,
     decode_detections,
 )
+from metrics import FrameDiagnostics
 
 # ---------------------------------------------------------------------------
 # Tracking modes
@@ -90,7 +92,7 @@ def run_detection(frame, compiled_model, input_size, anchors, num_keypoints):
 # Detection smoothing
 # ---------------------------------------------------------------------------
 
-def _smooth_detections(new_dets, prev_dets, match_threshold=0.15, alpha=0.5):
+def _smooth_detections(new_dets, prev_dets, match_threshold=0.15, alpha=None):
     """Smooth detection keypoints and boxes with an exponential moving average.
 
     Matches each new detection to the nearest previous detection (by box-
@@ -98,6 +100,8 @@ def _smooth_detections(new_dets, prev_dets, match_threshold=0.15, alpha=0.5):
     their keypoints and boxes blended; unmatched detections pass through
     as-is.
     """
+    if alpha is None:
+        alpha = float(os.environ.get("POSE_BENCH_DET_SMOOTH_ALPHA", "0.5"))
     if not prev_dets or not new_dets:
         return new_dets
 
@@ -547,7 +551,7 @@ def select_primary_body(body_landmarks, body_visibilities, hand_landmarks, match
 
 def process_frame(frame, models, palm_anchors, pose_anchors,
                   prev_state=None, prev_hand_landmarks=None,
-                  det_score_threshold=0.5, lm_score_threshold=0.65,
+                  det_score_threshold=None, lm_score_threshold=None,
                   synthesise_hands=True, tracking=TRACKING_HANDS_ARMS):
     """Full pipeline: detect body poses and hand landmarks.
 
@@ -571,10 +575,21 @@ def process_frame(frame, models, palm_anchors, pose_anchors,
     synthetic detections from spurious body tracks would proliferate
     false hand tracks.
 
-    Returns ``(body_landmarks, body_visibilities, hand_landmarks, state)``.
+    Returns ``(body_landmarks, body_visibilities, hand_landmarks, state,
+    frame_diagnostics)`` where *frame_diagnostics* is a
+    :class:`metrics.FrameDiagnostics` instance.
     """
+    if det_score_threshold is None:
+        det_score_threshold = float(
+            os.environ.get("POSE_BENCH_DET_SCORE_THRESH", "0.5"))
+    if lm_score_threshold is None:
+        lm_score_threshold = float(
+            os.environ.get("POSE_BENCH_HAND_FLAG_THRESH", "0.65"))
+
     palm_det_model = models["palm_detection"]
     hand_lm_model = models["hand_landmark"]
+
+    diag = FrameDiagnostics()
 
     body_landmarks = []
     body_visibilities = []
@@ -593,6 +608,7 @@ def process_frame(frame, models, palm_anchors, pose_anchors,
         pose_detections = _smooth_detections(pose_detections, prev_pose,
                                              match_threshold=0.10)
 
+        best_body_score = 0.0
         for det in pose_detections:
             if det["score"] < det_score_threshold:
                 continue
@@ -602,6 +618,10 @@ def process_frame(frame, models, palm_anchors, pose_anchors,
                 body_landmarks.append(lm)
                 body_visibilities.append(vis)
                 kept_pose_dets.append(det)
+                best_body_score = max(best_body_score, det["score"])
+
+        diag.body_detected = len(body_landmarks) > 0
+        diag.body_det_score = best_body_score
 
     # --- Hand pose estimation ----------------------------------------------
     palm_detections = run_detection(
@@ -616,18 +636,23 @@ def process_frame(frame, models, palm_anchors, pose_anchors,
     # cannot suppress the correctly-rotated re-crop.
     frame_h, frame_w = frame.shape[:2]
     real_palm_dets = list(palm_detections)
+    diag.n_hands_real = len(real_palm_dets)
 
     # Synthesise palm detections from arm wrists not covered by real palms
+    n_before_synth = len(palm_detections)
     if body_landmarks and synthesise_hands and tracking != TRACKING_HANDS:
         _, _, _, arm_chains = tracking_pose_indices(tracking)
         palm_detections.extend(_synthesise_hand_detections(
             body_landmarks, body_visibilities, palm_detections,
             frame_h, frame_w, arm_chains=arm_chains))
+    diag.n_hands_synthetic = len(palm_detections) - n_before_synth
 
     # Re-crop from previous hand landmarks when palm detector misses
+    n_before_recrop = len(palm_detections)
     if prev_hand_landmarks:
         palm_detections.extend(_recrop_from_landmarks(
             prev_hand_landmarks, real_palm_dets, frame_h, frame_w))
+    diag.n_hands_recrop = len(palm_detections) - n_before_recrop
 
     hand_landmarks = []
     kept_palm_dets = []
@@ -655,6 +680,12 @@ def process_frame(frame, models, palm_anchors, pose_anchors,
             if kind == "real":
                 kept_palm_dets.append(det)
 
+    diag.hand_diag = hand_diag
+    # Snapshot raw landmarks before smoothing
+    diag.raw_body_landmarks = [lm.copy() for lm in body_landmarks]
+    diag.raw_body_visibilities = [v.copy() for v in body_visibilities]
+    diag.raw_hand_landmarks = [lm.copy() for lm in hand_landmarks]
+
     state = {"pose_dets": kept_pose_dets, "palm_dets": kept_palm_dets,
              "hand_diag": hand_diag}
-    return body_landmarks, body_visibilities, hand_landmarks, state
+    return body_landmarks, body_visibilities, hand_landmarks, state, diag

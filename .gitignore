@@ -20,6 +20,7 @@ videos
 
 # Pose estimation output (never commit)
 output
+benchmark_output
 
 # OS
 .DS_Store
