@@ -106,15 +106,16 @@ def test_hand_tracks_unaffected():
 
     for i in range(10):
         t = i * 0.033
-        smoothed = smoother.smooth_hands([hand.copy()], t)
+        smoothed, n_active = smoother.smooth_hands([hand.copy()], t)
         assert len(smoothed) == 1
 
-    # Drop hand — should not emit carry-forward
-    smoothed = smoother.smooth_hands([], 10 * 0.033)
-    assert len(smoothed) == 0, "hand should not emit carry-forward"
+    # Drop hand — static carry emits the last output for one grace frame
+    smoothed, n_active = smoother.smooth_hands([], 10 * 0.033)
+    assert len(smoothed) == 1, "static carry should emit one hand"
+    assert n_active == 0, "no real detection matched"
 
     # Re-acquire near original position — should match existing track
-    smoothed = smoother.smooth_hands([hand.copy()], 11 * 0.033)
+    smoothed, n_active = smoother.smooth_hands([hand.copy()], 11 * 0.033)
     assert len(smoothed) == 1
 
     ages = smoother.hand_track_ages()

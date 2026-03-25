@@ -7,9 +7,9 @@ once all its verification steps pass.
 
 ---
 
-## Section 1 — Fix broken extrapolation tests
+## Section 1 — Fix broken extrapolation tests [DONE]
 
-### Status: TODO
+### Status: [DONE]
 
 ### Rationale
 
