@@ -592,9 +592,10 @@ def process_frame(frame, models, palm_anchors, pose_anchors,
     synthetic detections from spurious body tracks would proliferate
     false hand tracks.
 
-    Returns ``(body_landmarks, body_visibilities, hand_landmarks, state,
-    frame_diagnostics)`` where *frame_diagnostics* is a
-    :class:`metrics.FrameDiagnostics` instance.
+    Returns ``(body_landmarks, body_visibilities, hand_landmarks,
+    hand_flags, state, frame_diagnostics)`` where *hand_flags* is a
+    list of per-hand ``hand_flag`` confidence floats and
+    *frame_diagnostics* is a :class:`metrics.FrameDiagnostics` instance.
     """
     if det_score_threshold is None:
         det_score_threshold = float(
@@ -672,6 +673,7 @@ def process_frame(frame, models, palm_anchors, pose_anchors,
     diag.n_hands_recrop = len(palm_detections) - n_before_recrop
 
     hand_landmarks = []
+    hand_flags = []
     kept_palm_dets = []
     # Per-detection diagnostic records
     hand_diag = []
@@ -694,6 +696,7 @@ def process_frame(frame, models, palm_anchors, pose_anchors,
         })
         if accepted:
             hand_landmarks.append(lm)
+            hand_flags.append(float(confidence))
             if kind == "real":
                 kept_palm_dets.append(det)
 
@@ -705,4 +708,4 @@ def process_frame(frame, models, palm_anchors, pose_anchors,
 
     state = {"pose_dets": kept_pose_dets, "palm_dets": kept_palm_dets,
              "hand_diag": hand_diag}
-    return body_landmarks, body_visibilities, hand_landmarks, state, diag
+    return body_landmarks, body_visibilities, hand_landmarks, hand_flags, state, diag

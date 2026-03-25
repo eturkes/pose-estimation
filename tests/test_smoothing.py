@@ -184,6 +184,27 @@ def test_hand_path_unaffected():
     assert not np.allclose(r2[0], lm[0] + 5.0)
 
 
+def test_hand_confidence_smoothing():
+    """Low hand_flag values should produce less movement than high ones."""
+    smoother_hi = PoseSmoother()
+    smoother_lo = PoseSmoother()
+    lm = [_make_landmarks(21)]
+
+    smoother_hi.smooth_hands(lm, 0.0, hand_flags=[1.0])
+    smoother_lo.smooth_hands(lm, 0.0, hand_flags=[0.2])
+
+    shifted = [lm[0] + 30.0]
+    r_hi, _ = smoother_hi.smooth_hands(shifted, 0.1, hand_flags=[1.0])
+    r_lo, _ = smoother_lo.smooth_hands(shifted, 0.1, hand_flags=[0.2])
+
+    move_hi = np.linalg.norm(r_hi[0] - lm[0])
+    move_lo = np.linalg.norm(r_lo[0] - lm[0])
+    assert move_lo < move_hi, (
+        f"Low hand_flag should move less: move_lo={move_lo:.2f}, "
+        f"move_hi={move_hi:.2f}"
+    )
+
+
 if __name__ == "__main__":
     test_no_confidence_unchanged_behaviour()
     test_full_confidence_matches_standard()
@@ -194,4 +215,5 @@ if __name__ == "__main__":
     test_confidence_clipped()
     test_smooth_bodies_passes_confidence()
     test_hand_path_unaffected()
+    test_hand_confidence_smoothing()
     print("All tests passed.")

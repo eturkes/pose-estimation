@@ -152,7 +152,7 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
             # re-crop hand detections to avoid cascading false positives
             # from spurious body tracks.
             start = time.time()
-            body_lm, body_vis, hand_lm, track_state, frame_diag = process_frame(
+            body_lm, body_vis, hand_lm, hand_flags, track_state, frame_diag = process_frame(
                 frame, models, palm_anchors, pose_anchors,
                 prev_state=track_state,
                 prev_hand_landmarks=(prev_hand_lm
@@ -174,7 +174,8 @@ def process_video(source, flip, models, palm_anchors, pose_anchors,
                 n_bodies_detected = 0
 
             hand_lm, n_hands_active = smoother.smooth_hands(
-                hand_lm, t, max_tracks=2 if single_subject else None)
+                hand_lm, t, hand_flags=hand_flags,
+                max_tracks=2 if single_subject else None)
 
             # Compute smoothing diagnostics
             smooth_diag = SmoothingDiagnostics()

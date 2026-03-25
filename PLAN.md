@@ -122,9 +122,9 @@ python3 test_extrapolation.py
 
 ---
 
-## Section 3 — Confidence-weighted hand smoothing
+## Section 3 — Confidence-weighted hand smoothing [DONE]
 
-### Status: TODO
+### Status: [DONE]
 
 ### Rationale
 

@@ -261,12 +261,16 @@ class PoseSmoother:
             vis.extend([np.ones(n_kp)] * n_carried)
         return smoothed, vis, n_active
 
-    def smooth_hands(self, hand_landmarks, t, grace=None, max_tracks=None):
+    def smooth_hands(self, hand_landmarks, t, hand_flags=None,
+                     grace=None, max_tracks=None):
         if grace is None:
             grace = int(os.environ.get("POSE_BENCH_CARRY_GRACE", "10"))
         hand_mc = float(os.environ.get("POSE_BENCH_HAND_MIN_CUTOFF", "1.0"))
         hand_b = float(os.environ.get("POSE_BENCH_HAND_BETA", "0.3"))
         hand_g = float(os.environ.get("POSE_BENCH_CONFIDENCE_GAMMA", "2.0"))
+        confs = None
+        if hand_flags is not None:
+            confs = [np.full(21, f) for f in hand_flags]
         self.hand_tracks, smoothed, n_active = self._match_and_smooth(
             self.hand_tracks, hand_landmarks or [],
             get_anchor=lambda lm: lm[0, :2],
@@ -276,6 +280,7 @@ class PoseSmoother:
             grace=grace,
             static_carry=True,
             max_tracks=max_tracks,
+            confidences=confs,
         )
         self._n_active_hands = n_active
         return smoothed, n_active
