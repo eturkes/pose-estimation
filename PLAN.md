@@ -30,7 +30,7 @@ noted otherwise.
 - **Reference:** `smoothing.py` `OneEuroFilter.__call__` lines 30-59.
 
 ### 2. Differentiated smoothing parameters per body region
-- **Status:** TODO
+- **Status:** DONE
 - **Goal:** Heavier smoothing on body/arms, lighter on hands/fingers.
 - **What:** Replace the single `_OneEuro` per person with per-region filters.
   Split RTMW's 133 keypoints into regions and apply different parameters:

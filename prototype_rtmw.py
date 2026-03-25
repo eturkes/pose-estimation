@@ -68,6 +68,17 @@ TRACKING_INDICES = {
     "body": set(range(133)),
 }
 
+# Per-region smoothing parameters for 133-keypoint COCO-WholeBody layout.
+# Hands/fingers get lighter smoothing (higher min_cutoff) to preserve fast
+# articulation; body, feet, and face get heavier smoothing.
+# (name, start_index, end_index_exclusive, min_cutoff, beta)
+REGION_PARAMS = [
+    ("body", 0, 17, 0.3, 0.5),
+    ("feet", 17, 23, 0.3, 0.5),
+    ("face", 23, 91, 0.3, 0.5),
+    ("hands", 91, 133, 1.0, 0.3),
+]
+
 VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv"}
 
 
@@ -142,6 +153,25 @@ class KeypointSmoother:
         """Clear all track state (e.g. between video sources)."""
         self.tracks = []
 
+    def _make_filters(self, n_kps):
+        """Create per-region or single filter depending on keypoint count."""
+        if n_kps == 133:
+            return {name: _OneEuro(min_cutoff=mc, beta=b)
+                    for name, _, _, mc, b in REGION_PARAMS}
+        return {"all": _OneEuro(min_cutoff=self.min_cutoff, beta=self.beta)}
+
+    def _apply_filters(self, filters, kp, t, confidence):
+        """Apply region-aware or single filter to keypoints."""
+        if "all" in filters:
+            return filters["all"](kp, t, confidence=confidence)
+        result = np.empty_like(kp)
+        for name, start, end, _, _ in REGION_PARAMS:
+            conf_slice = (confidence[start:end]
+                          if confidence is not None else None)
+            result[start:end] = filters[name](
+                kp[start:end], t, confidence=conf_slice)
+        return result
+
     def __call__(self, keypoints, scores, t):
         """Return (smoothed_keypoints, smoothed_scores) or (None, None)."""
         if (keypoints is None or len(keypoints.shape) != 3
@@ -166,10 +196,10 @@ class KeypointSmoother:
                 filt = tr["filter"]
                 prev_sc = tr["scores"]
             else:
-                filt = _OneEuro(min_cutoff=self.min_cutoff, beta=self.beta)
+                filt = self._make_filters(kp.shape[0])
                 prev_sc = sc
 
-            smooth_kp = filt(kp, t, confidence=sc)
+            smooth_kp = self._apply_filters(filt, kp, t, sc)
             smooth_sc = (self.score_alpha * sc
                          + (1 - self.score_alpha) * prev_sc)
 
