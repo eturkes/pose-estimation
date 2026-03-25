@@ -72,6 +72,177 @@ VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv"}
 
 
 # ---------------------------------------------------------------------------
+# Temporal smoothing — reduces frame-to-frame keypoint jitter
+# ---------------------------------------------------------------------------
+
+class _OneEuro:
+    """Minimal One Euro Filter for array-valued signals."""
+
+    def __init__(self, min_cutoff=0.5, beta=0.5, d_cutoff=1.0):
+        self.min_cutoff = min_cutoff
+        self.beta = beta
+        self.d_cutoff = d_cutoff
+        self.x_prev = None
+        self.dx_prev = None
+        self.t_prev = None
+
+    def __call__(self, x, t):
+        if self.t_prev is None:
+            self.x_prev = x.copy()
+            self.dx_prev = np.zeros_like(x)
+            self.t_prev = t
+            return x.copy()
+
+        dt = max(t - self.t_prev, 1e-6)
+        a_d = 1.0 / (1.0 + 1.0 / (2 * np.pi * self.d_cutoff * dt))
+        dx = (x - self.x_prev) / dt
+        dx_hat = a_d * dx + (1 - a_d) * self.dx_prev
+
+        cutoff = self.min_cutoff + self.beta * np.abs(dx_hat)
+        a = 1.0 / (1.0 + 1.0 / (2 * np.pi * cutoff * dt))
+        x_hat = a * x + (1 - a) * self.x_prev
+
+        self.x_prev = x_hat.copy()
+        self.dx_prev = dx_hat.copy()
+        self.t_prev = t
+        return x_hat
+
+
+class KeypointSmoother:
+    """Multi-person temporal smoother with track matching and carry-forward.
+
+    Reduces jitter via One Euro Filters on keypoint positions and EMA on
+    confidence scores.  Greedy nearest-centroid matching associates
+    detections with persistent tracks across frames.  During brief
+    detection dropouts, tracks carry forward with gradual score decay
+    so the skeleton fades rather than vanishing abruptly.
+    """
+
+    SCORE_DECAY = 0.9  # per-frame score multiplier during carry-forward
+
+    def __init__(self, min_cutoff=0.5, beta=0.5, score_alpha=0.5,
+                 carry_frames=5, match_thresh=150):
+        self.min_cutoff = min_cutoff
+        self.beta = beta
+        self.score_alpha = score_alpha
+        self.carry_frames = carry_frames
+        self.match_thresh = match_thresh
+        self.tracks = []
+
+    def reset(self):
+        """Clear all track state (e.g. between video sources)."""
+        self.tracks = []
+
+    def __call__(self, keypoints, scores, t):
+        """Return (smoothed_keypoints, smoothed_scores) or (None, None)."""
+        if (keypoints is None or len(keypoints.shape) != 3
+                or keypoints.shape[0] == 0):
+            return self._carry()
+
+        n_det = keypoints.shape[0]
+        det_centroids = keypoints.mean(axis=1)
+
+        matched, used_tracks = self._match(det_centroids)
+
+        new_tracks = []
+        out_kps = []
+        out_scores = []
+
+        for i in range(n_det):
+            kp = keypoints[i]
+            sc = scores[i]
+
+            if i in matched:
+                tr = self.tracks[matched[i]]
+                filt = tr["filter"]
+                prev_sc = tr["scores"]
+            else:
+                filt = _OneEuro(min_cutoff=self.min_cutoff, beta=self.beta)
+                prev_sc = sc
+
+            smooth_kp = filt(kp, t)
+            smooth_sc = (self.score_alpha * sc
+                         + (1 - self.score_alpha) * prev_sc)
+
+            new_tracks.append({
+                "filter": filt,
+                "centroid": smooth_kp.mean(axis=0).copy(),
+                "scores": smooth_sc.copy(),
+                "misses": 0,
+                "last_kps": smooth_kp.copy(),
+            })
+            out_kps.append(smooth_kp)
+            out_scores.append(smooth_sc)
+
+        # Carry forward unmatched tracks within grace period
+        for j, tr in enumerate(self.tracks):
+            if j in used_tracks or tr["misses"] >= self.carry_frames:
+                continue
+            misses = tr["misses"] + 1
+            decayed = tr["scores"] * self.SCORE_DECAY
+            new_tracks.append({
+                "filter": tr["filter"],
+                "centroid": tr["centroid"],
+                "scores": decayed,
+                "misses": misses,
+                "last_kps": tr["last_kps"],
+            })
+            out_kps.append(tr["last_kps"])
+            out_scores.append(decayed)
+
+        self.tracks = new_tracks
+        if out_kps:
+            return np.stack(out_kps), np.stack(out_scores)
+        return None, None
+
+    def _match(self, det_centroids):
+        """Greedy nearest-centroid matching."""
+        matched = {}
+        used_tracks = set()
+        if not self.tracks or len(det_centroids) == 0:
+            return matched, used_tracks
+
+        trk_c = np.array([tr["centroid"] for tr in self.tracks])
+        cost = np.linalg.norm(
+            det_centroids[:, None, :] - trk_c[None, :, :], axis=2)
+        for _ in range(min(len(det_centroids), len(self.tracks))):
+            val = cost.min()
+            if val >= self.match_thresh:
+                break
+            i, j = np.unravel_index(cost.argmin(), cost.shape)
+            matched[int(i)] = int(j)
+            used_tracks.add(int(j))
+            cost[i, :] = np.inf
+            cost[:, j] = np.inf
+
+        return matched, used_tracks
+
+    def _carry(self):
+        """Emit carry-forward tracks when no detections are present."""
+        new_tracks = []
+        out_kps = []
+        out_scores = []
+        for tr in self.tracks:
+            if tr["misses"] >= self.carry_frames:
+                continue
+            misses = tr["misses"] + 1
+            decayed = tr["scores"] * self.SCORE_DECAY
+            new_tracks.append({
+                "filter": tr["filter"],
+                "centroid": tr["centroid"],
+                "scores": decayed,
+                "misses": misses,
+                "last_kps": tr["last_kps"],
+            })
+            out_kps.append(tr["last_kps"])
+            out_scores.append(decayed)
+        self.tracks = new_tracks
+        if out_kps:
+            return np.stack(out_kps), np.stack(out_scores)
+        return None, None
+
+
+# ---------------------------------------------------------------------------
 # Monkey-patch rtmlib's OpenVINO backend to support NPU / GPU devices
 # ---------------------------------------------------------------------------
 # rtmlib hardcodes device_name='CPU' in its OpenVINO backend.  The patch
@@ -237,6 +408,8 @@ def parse_args():
                    help="No display — just print latency stats")
     p.add_argument("--max-frames", type=int, default=0,
                    help="Stop after N frames (0 = unlimited)")
+    p.add_argument("--no-smooth", action="store_true",
+                   help="Disable temporal smoothing")
     return p.parse_args()
 
 
@@ -244,7 +417,8 @@ def parse_args():
 # Per-source processing
 # ---------------------------------------------------------------------------
 
-def process_source(args, pose_tracker, source_str, draw_skeleton):
+def process_source(args, pose_tracker, source_str, draw_skeleton,
+                   smoother=None):
     """Process a single video/camera source.  Returns latency list (ms)."""
     source = int(source_str) if source_str.isdigit() else source_str
     cap = cv2.VideoCapture(source)
@@ -275,6 +449,9 @@ def process_source(args, pose_tracker, source_str, draw_skeleton):
             keypoints, scores = pose_tracker(frame)
             dt = time.perf_counter() - t0
             latencies.append(dt * 1000)
+
+            if smoother is not None:
+                keypoints, scores = smoother(keypoints, scores, t0)
 
             if args.single_subject:
                 keypoints, scores = filter_single_subject(keypoints, scores)
@@ -390,8 +567,9 @@ def main():
 
     tracking_label = f", tracking={args.tracking}" if args.tracking else ""
     single_label = ", single-subject" if args.single_subject else ""
+    smooth_label = ", no-smooth" if args.no_smooth else ", smooth"
     print(f"Backend: {args.backend}, device={args.device}"
-          f"{tracking_label}{single_label}")
+          f"{tracking_label}{single_label}{smooth_label}")
 
     pose_tracker = PoseTracker(
         solution_cls,
@@ -401,6 +579,8 @@ def main():
         device=args.device,
         to_openpose=False,
     )
+
+    smoother = None if args.no_smooth else KeypointSmoother()
 
     # ── Collect sources ─────────────────────────────────────────────
     if args.batch_dir:
@@ -417,7 +597,10 @@ def main():
             print(f"[{i + 1}/{len(sources)}] {src}")
             print("=" * 60)
 
-        latencies = process_source(args, pose_tracker, src, draw_skeleton)
+        if smoother is not None:
+            smoother.reset()
+        latencies = process_source(args, pose_tracker, src, draw_skeleton,
+                                   smoother=smoother)
         print_latency_summary(latencies)
         all_latencies.extend(latencies)
 
