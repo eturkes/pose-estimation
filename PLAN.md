@@ -17,7 +17,7 @@ noted otherwise.
 ## Items
 
 ### 1. Confidence-weighted One Euro Filter
-- **Status:** TODO
+- **Status:** DONE
 - **Goal:** Reduce flicker on low-confidence keypoints.
 - **What:** Modify `_OneEuro.__call__` to accept an optional `confidence`
   array (shape `(n_keypoints,)`).  When provided, blend the filtered output

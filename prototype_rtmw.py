@@ -78,15 +78,16 @@ VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv"}
 class _OneEuro:
     """Minimal One Euro Filter for array-valued signals."""
 
-    def __init__(self, min_cutoff=0.5, beta=0.5, d_cutoff=1.0):
+    def __init__(self, min_cutoff=0.5, beta=0.5, d_cutoff=1.0, gamma=2.0):
         self.min_cutoff = min_cutoff
         self.beta = beta
         self.d_cutoff = d_cutoff
+        self.gamma = gamma
         self.x_prev = None
         self.dx_prev = None
         self.t_prev = None
 
-    def __call__(self, x, t):
+    def __call__(self, x, t, confidence=None):
         if self.t_prev is None:
             self.x_prev = x.copy()
             self.dx_prev = np.zeros_like(x)
@@ -102,10 +103,18 @@ class _OneEuro:
         a = 1.0 / (1.0 + 1.0 / (2 * np.pi * cutoff * dt))
         x_hat = a * x + (1 - a) * self.x_prev
 
-        self.x_prev = x_hat.copy()
+        # Confidence weighting: low-confidence keypoints are pulled toward
+        # the previous position, resisting noisy input.
+        if confidence is not None:
+            w = np.clip(confidence, 0.0, 1.0)[:, None] ** self.gamma
+            result = w * x_hat + (1 - w) * self.x_prev
+        else:
+            result = x_hat
+
+        self.x_prev = result.copy()
         self.dx_prev = dx_hat.copy()
         self.t_prev = t
-        return x_hat
+        return result
 
 
 class KeypointSmoother:
@@ -160,7 +169,7 @@ class KeypointSmoother:
                 filt = _OneEuro(min_cutoff=self.min_cutoff, beta=self.beta)
                 prev_sc = sc
 
-            smooth_kp = filt(kp, t)
+            smooth_kp = filt(kp, t, confidence=sc)
             smooth_sc = (self.score_alpha * sc
                          + (1 - self.score_alpha) * prev_sc)
 
