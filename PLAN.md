@@ -417,9 +417,9 @@ python3 test_extrapolation.py
 
 ---
 
-## Section 7 — Benchmark sweep configuration
+## Section 7 — Benchmark sweep configuration [DONE]
 
-### Status: TODO
+### Status: [DONE]
 
 ### Rationale
 

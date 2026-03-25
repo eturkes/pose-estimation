@@ -21,6 +21,10 @@ the live video:
   mode and env-var overrides (`POSE_BENCH_*`).
 - `--headless` flag on `main.py` skips pygame for batch metrics.
 - `--metrics-detail` flag enables per-keypoint detail CSV.
+- `sweep_default.yaml` — full parameter grid (8 params);
+  use 1-2 at a time to keep runs tractable.
+- `sweep_quick.yaml` — targeted first pass
+  (`body_min_cutoff` × `det_smooth_alpha`, 6 combos).
 
 Tuneable parameters are overridden via environment variables
 (`POSE_BENCH_BODY_MIN_CUTOFF`, etc.) so that `benchmark.py`

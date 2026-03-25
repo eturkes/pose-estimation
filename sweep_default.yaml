@@ -1,0 +1,24 @@
+# Default parameter sweep — run with:
+#   python benchmark.py --source video.mp4 --config sweep_default.yaml
+
+# One-Euro body filter: lower min_cutoff = more smoothing
+body_min_cutoff: [0.15, 0.3, 0.5, 0.8]
+
+# One-Euro body beta: higher = more responsive to speed
+body_beta: [0.3, 0.5, 0.8]
+
+# One-Euro hand filter
+hand_min_cutoff: [0.5, 1.0, 2.0]
+hand_beta: [0.2, 0.3, 0.5]
+
+# Confidence gamma: higher = low-conf keypoints resist more
+confidence_gamma: [1.5, 2.0, 3.0]
+
+# Detection smoothing EMA weight
+det_smooth_alpha: [0.3, 0.5, 0.7]
+
+# Bone-length constraint tolerance
+bone_tolerance: [0.25, 0.4, 0.6]
+
+# Carry-forward grace period (frames)
+carry_grace: [5, 10, 15]
