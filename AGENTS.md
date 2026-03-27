@@ -17,6 +17,10 @@ the live video:
 - `analysis/keypoint_detail.R` — per-keypoint heatmaps and
   trajectory plots from `*_kp_detail.csv`.
 - `analysis/compare.R` — side-by-side comparison of two runs.
+- `analysis/features.R` — feature selection and UMAP/PCA
+  visualisation from landmark CSVs (variance, correlation
+  heatmap, scree plot, biplot, UMAP by time/video, feature
+  ranking CSV).  Requires R packages `uwot` and `tidyverse`.
 - `benchmark.py` — parameter sweep harness using `--headless`
   mode and env-var overrides (`POSE_BENCH_*`).
 - `--headless` flag on `main.py` skips pygame for batch metrics.
