@@ -166,6 +166,7 @@ Rscript analysis/timeseries.R output/          # temporal diagnostic plots
 Rscript analysis/keypoint_detail.R output/     # per-keypoint analysis
 Rscript analysis/compare.R run_a.json run_b.json  # before/after comparison
 Rscript analysis/clinical_features.R output/  # clinical kinematic features
+Rscript analysis/clinical_correlation.R output/ clinical_scores.csv  # correlate with scores
 ```
 
 `clinical_features.R` reads landmark CSVs (hands-arms or body mode) and
@@ -173,6 +174,14 @@ computes per-frame joint angles, reach distances, grasp apertures, and
 frame-to-frame displacement, plus per-window (1 s, 50 % overlap) spectral
 arc length and wrist velocity statistics.  Outputs `*_clinical.csv`
 (per-frame) and `*_clinical_windows.csv` (per-window) alongside each input.
+
+`clinical_correlation.R` joins aggregated clinical features (mean, median,
+SD, min, max per video) with an external clinical scores CSV on the `video`
+column.  Computes pairwise Pearson and Spearman correlations with
+Benjamini-Hochberg FDR correction.  Outputs a tidy
+`*_correlation_table.csv`, a Spearman rho heatmap
+(`*_correlation_matrix.png`), and scatter plots for the top 6 pairs
+(`*_scatter_top.png`).
 
 ### Parameter benchmarking
 

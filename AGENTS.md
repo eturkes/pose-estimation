@@ -33,6 +33,17 @@ the live video:
   Helper functions (`angle_at_vertex`, `dist_3d`,
   `spectral_arc_length`) are unit-testable at the top of the
   file.
+- `analysis/clinical_correlation.R` — correlates aggregated
+  clinical features with external clinical scores
+  (`clinical_scores.csv`).  Aggregates per-frame and per-window
+  features per video (mean, median, SD, min, max), joins on
+  `video`, computes pairwise Pearson and Spearman correlations
+  with Benjamini-Hochberg FDR correction.  Outputs:
+  `*_correlation_table.csv` (feature, score, pearson_r,
+  spearman_rho, p_value, p_adj_bh, n),
+  `*_correlation_matrix.png` (Spearman heatmap with
+  significance stars), `*_scatter_top.png` (top 6 pairs).
+  Warns and continues on unmatched videos or missing scores.
 - `benchmark.py` — parameter sweep harness using `--headless`
   mode and env-var overrides (`POSE_BENCH_*`).
 - `--headless` flag on `main.py` skips pygame for batch metrics.

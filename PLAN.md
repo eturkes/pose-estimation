@@ -80,7 +80,7 @@ writing a `*_clinical.csv` alongside each input.
 
 ## Section 2 — Correlate Clinical Features with Clinical Scores
 
-**Status:** [ ] incomplete
+**Status:** [x] complete
 
 **Goal:** Create `analysis/clinical_correlation.R` that joins
 the derived clinical features with an external clinical scores
