@@ -58,6 +58,17 @@ the live video:
   scores from `clinical_scores.csv` on plots when a third CLI
   argument is provided.  Patients with a single session are
   included in the summary (no deltas) but skipped for flagging.
+- `analysis/temporal_clinical.R` — per-video temporal
+  visualisation of clinical features.  For each video with ≥10
+  per-frame rows, produces a multi-panel time-series plot
+  (`<stem>_clinical_timeseries.png`) with left/right sides as
+  coloured lines on shared panels (faceted by feature, free
+  y-scales).  Window-level features (SAL, velocity) shown as
+  step-function panels beneath the per-frame panels using
+  `patchwork`.  Also produces
+  `all_clinical_timeseries_overview.png` comparing normalised
+  reach across all qualifying videos.  Videos with <10 rows are
+  skipped.  Requires R packages `patchwork` and `tidyverse`.
 - `analysis/explore_clinical.R` — exploratory summary and
   sanity-check of clinical features.  Loads all `*_clinical.csv`
   and `*_clinical_windows.csv` from a directory, prints per-video

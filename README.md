@@ -170,6 +170,7 @@ Rscript analysis/clinical_correlation.R output/ clinical_scores.csv  # correlate
 Rscript analysis/longitudinal.R output/ sessions.csv                # longitudinal recovery tracking
 Rscript analysis/longitudinal.R output/ sessions.csv clinical_scores.csv  # with score overlay
 Rscript analysis/explore_clinical.R output/         # exploratory summary & sanity-check plots
+Rscript analysis/temporal_clinical.R output/        # per-video temporal feature plots
 ```
 
 `clinical_features.R` reads landmark CSVs (hands-arms or body mode) and
@@ -202,6 +203,14 @@ Outputs `all_clinical_distributions.png` (density plots by video),
 `all_clinical_na_heatmap.png` (missingness heatmap),
 `all_clinical_boxplots.png` (box plots by video), and
 `all_clinical_window_distributions.png` (window feature densities).
+
+`temporal_clinical.R` visualises how clinical features evolve over time
+within each video.  For every video with ≥10 per-frame rows, it produces
+a multi-panel time-series plot with left and right sides overlaid, plus
+window-level SAL and velocity panels where available.  Outputs one
+`<stem>_clinical_timeseries.png` per video and a summary
+`all_clinical_timeseries_overview.png` comparing one key feature
+(normalised reach) across all videos.
 
 ### Parameter benchmarking
 

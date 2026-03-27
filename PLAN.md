@@ -74,7 +74,7 @@ reasonable before further analysis.
 
 ## Section 2 — Temporal Patterns Within Videos
 
-**Status:** [ ] incomplete
+**Status:** [x] complete
 
 **Goal:** Create `analysis/temporal_clinical.R` that visualises
 how clinical features evolve over time within each video,
