@@ -49,8 +49,8 @@ NPU_MODELS = {
     # Detector: yolox-m is the only YOLOX variant that passes NPU compilation
     "det": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/yolox_m_8xb8-300e_humanart-c2c7a14a.zip",
     "det_input_size": (640, 640),
-    # Whole-body pose: rtmw-m (133 kps) — best quality that compiles on NPU
-    "pose_wholebody": "https://download.openmmlab.com/mmpose/v1/projects/rtmw/onnx_sdk/rtmw-dw-m-s_simcc-cocktail14_270e-256x192_20231122.zip",
+    # Whole-body pose: rtmw-l-m (133 kps) — best quality that compiles on NPU
+    "pose_wholebody": "https://download.openmmlab.com/mmpose/v1/projects/rtmw/onnx_sdk/rtmw-dw-l-m_simcc-cocktail14_270e-256x192_20231122.zip",
     "pose_wholebody_input_size": (192, 256),
     # Body-only pose: rtmpose-m (17 kps)
     "pose_body": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-m_simcc-body7_pt-body7_420e-256x192-e48f03d0_20230504.zip",
