@@ -76,6 +76,23 @@ the live video:
   `all_clinical_radar.png` (parallel-coordinate plot of z-scored
   means) and `all_clinical_heatmap.png` (clustered heatmap).
   Flags outlier videos (>2 SD from group mean).
+- `analysis/make_templates.R` — generates template metadata CSVs
+  for downstream analyses.  Scans output directory for unique
+  `video` values across `*_clinical.csv` files, writes
+  `clinical_scores_template.csv` (columns: `video`, `GRASSP`,
+  `UEMS`, `SCIM`) and `sessions_template.csv` (columns: `video`,
+  `patient_id`, `session_date`) with blank values for the user
+  to fill in.  Prints console instructions for next steps.
+  Usage: `Rscript analysis/make_templates.R output/`.
+- `analysis/validate_metadata.R` — validates a completed
+  `clinical_scores.csv` or `sessions.csv` against the clinical
+  feature CSVs.  Auto-detects file type (sessions if
+  `patient_id`/`session_date` columns present, scores otherwise).
+  Checks: required columns present, no duplicate videos, video
+  names match clinical CSVs, dates parse as ISO 8601, scores are
+  numeric.  Reports errors and warnings, exits 0 if valid, 1 if
+  errors found.  Usage:
+  `Rscript analysis/validate_metadata.R <metadata.csv> <output_dir>`.
 - `analysis/clinical_dimreduce.R` — PCA and UMAP on per-video
   aggregated clinical features.  Loads `*_clinical.csv` and
   `*_clinical_windows.csv`, aggregates per video (mean, median,

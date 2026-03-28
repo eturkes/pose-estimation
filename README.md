@@ -173,6 +173,9 @@ Rscript analysis/explore_clinical.R output/         # exploratory summary & sani
 Rscript analysis/temporal_clinical.R output/        # per-video temporal feature plots
 Rscript analysis/compare_clinical.R output/        # between-video feature comparison
 Rscript analysis/clinical_dimreduce.R output/      # PCA + UMAP on aggregated clinical features
+Rscript analysis/make_templates.R output/          # generate template metadata CSVs
+Rscript analysis/validate_metadata.R clinical_scores.csv output/  # validate metadata
+Rscript analysis/validate_metadata.R sessions.csv output/         # validate metadata
 ```
 
 `clinical_features.R` reads landmark CSVs (hands-arms or body mode) and
@@ -231,6 +234,19 @@ loading arrows (`all_clinical_pca_biplot.png`), a 2D UMAP scatter with
 video labels (`all_clinical_umap.png`), and a tidy loadings table
 (`all_clinical_pca_loadings.csv`).  Requires R packages `uwot` and
 `tidyverse`.
+
+`make_templates.R` scans the output directory for unique video names
+across `*_clinical.csv` files and generates two template CSVs:
+`clinical_scores_template.csv` (with placeholder `GRASSP`, `UEMS`,
+`SCIM` columns) and `sessions_template.csv` (with `patient_id` and
+`session_date` columns).  Fill these in and save as
+`clinical_scores.csv` / `sessions.csv` for use with
+`clinical_correlation.R` and `longitudinal.R`.
+
+`validate_metadata.R` checks a completed `clinical_scores.csv` or
+`sessions.csv` against the clinical feature CSVs.  Validates required
+columns, duplicate videos, video name matching, date parsing, and
+numeric scores.  Exits 0 on success, 1 on errors.
 
 ### Parameter benchmarking
 

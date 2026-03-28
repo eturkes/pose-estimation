@@ -207,7 +207,7 @@ reveal clustering or structure among videos.
 
 ## Section 5 — Correlation and Longitudinal Readiness
 
-**Status:** [ ] incomplete
+**Status:** [x] complete
 
 **Goal:** Create template metadata CSVs and a validation script
 so the user can populate clinical scores and session metadata
