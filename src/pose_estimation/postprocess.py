@@ -14,6 +14,21 @@ import argparse
 import pathlib
 
 
+def _odd_int(value):
+    """argparse type that requires an odd integer."""
+    try:
+        ivalue = int(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError(f"expected an integer, got {value!r}") from exc
+    if ivalue % 2 == 0:
+        raise argparse.ArgumentTypeError(
+            f"window length must be odd (got {ivalue}); try {ivalue + 1} or {ivalue - 1}"
+        )
+    if ivalue < 3:
+        raise argparse.ArgumentTypeError(f"window length must be ≥ 3, got {ivalue}")
+    return ivalue
+
+
 def _lazy_imports():
     """Import pandas and scipy at call time; raise a clear error if missing."""
     try:
@@ -161,7 +176,7 @@ def main():
     )
     parser.add_argument(
         "--window",
-        type=int,
+        type=_odd_int,
         default=11,
         help="Filter window length, must be odd (default: 11)",
     )

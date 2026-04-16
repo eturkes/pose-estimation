@@ -179,8 +179,10 @@ class _OneEuro:
         else:
             result = x_hat
 
+        # ``result`` is returned and may be mutated by the caller, so keep
+        # a private copy as state.  ``dx_hat`` is fresh and never returned.
         self.x_prev = result.copy()
-        self.dx_prev = dx_hat.copy()
+        self.dx_prev = dx_hat
         self.t_prev = t
         return result
 
@@ -540,6 +542,45 @@ def _patch_rtmlib_openvino():
 # ---------------------------------------------------------------------------
 
 
+FALLBACK_FPS = 30.0
+MIN_REASONABLE_FPS = 1.0
+MAX_REASONABLE_FPS = 240.0
+
+
+def _open_capture(source, source_str):
+    """Open a VideoCapture with diagnostic error messages.
+
+    *source* may be an int (camera index) or path string.  Returns the
+    open capture or None after printing a context-aware reason.
+    """
+    if isinstance(source, str):
+        path = pathlib.Path(source)
+        if not path.exists():
+            print(f"WARNING: file not found: {source_str}, skipping.")
+            return None
+        if not path.is_file():
+            print(f"WARNING: not a regular file: {source_str}, skipping.")
+            return None
+    cap = cv2.VideoCapture(source)
+    if not cap.isOpened():
+        if isinstance(source, int):
+            print(f"WARNING: cannot open camera index {source}, skipping.")
+        else:
+            print(f"WARNING: cannot open {source_str} (codec issue?), skipping.")
+        return None
+    return cap
+
+
+def _safe_fps(raw_fps):
+    """Clamp/validate an FPS reading; fall back to FALLBACK_FPS."""
+    if not np.isfinite(raw_fps) or raw_fps <= 0:
+        return FALLBACK_FPS
+    if raw_fps < MIN_REASONABLE_FPS or raw_fps > MAX_REASONABLE_FPS:
+        print(f"WARNING: unusual FPS reported ({raw_fps:.2f}); using {FALLBACK_FPS}.")
+        return FALLBACK_FPS
+    return float(raw_fps)
+
+
 def collect_video_files(batch_dir):
     """Return sorted list of video file paths in *batch_dir*."""
     batch_path = pathlib.Path(batch_dir)
@@ -646,13 +687,12 @@ def process_source(
 ):
     """Process a single video/camera source.  Returns latency list (ms)."""
     source = int(source_str) if source_str.isdigit() else source_str
-    cap = cv2.VideoCapture(source)
-    if not cap.isOpened():
-        print(f"WARNING: Cannot open {source_str}, skipping.")
+    cap = _open_capture(source, source_str)
+    if cap is None:
         return []
 
-    fps_video = cap.get(cv2.CAP_PROP_FPS) or 30
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps_video = _safe_fps(cap.get(cv2.CAP_PROP_FPS))
+    total_frames = max(0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT)))
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print(
@@ -682,6 +722,9 @@ def process_source(
             ret, frame = cap.read()
             if not ret:
                 break
+            if frame is None or frame.size == 0:
+                print(f"WARNING: skipping malformed frame {frame_idx}")
+                continue
             frame_idx += 1
             if args.max_frames and frame_idx > args.max_frames:
                 break

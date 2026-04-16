@@ -54,8 +54,11 @@ class OneEuroFilter:
         else:
             result = x_hat
 
+        # ``result`` is the value we return; callers may mutate it (e.g.
+        # bone-length smoother), so keep a private copy as our state.
+        # ``dx_hat`` is fresh and never returned, so it can be aliased.
         self.x_prev = result.copy()
-        self.dx_prev = dx_hat.copy()
+        self.dx_prev = dx_hat
         self.t_prev = t
 
         return result

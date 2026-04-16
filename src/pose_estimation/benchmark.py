@@ -68,6 +68,73 @@ TUNEABLE_PARAMS = {
 
 
 # ---------------------------------------------------------------------------
+# Config loading
+# ---------------------------------------------------------------------------
+
+
+def _load_sweep_config(config_path, parser):
+    """Load a YAML/JSON sweep config and coerce values to TUNEABLE types.
+
+    Errors out via *parser* with an actionable message on:
+      - missing file
+      - non-dict top level
+      - unknown keys (warning, ignored)
+      - values that fail type coercion
+    """
+    path = pathlib.Path(config_path)
+    if not path.is_file():
+        parser.error(f"--config: file not found: {path}")
+
+    text = path.read_text()
+    spec = None
+    yaml_err = None
+    try:
+        import yaml
+
+        try:
+            spec = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            yaml_err = exc
+    except ImportError:
+        try:
+            spec = json.loads(text)
+        except json.JSONDecodeError as exc:
+            parser.error(
+                f"--config: pyyaml is not installed and JSON fallback failed for {path}: {exc}"
+            )
+
+    if yaml_err is not None:
+        parser.error(f"--config: invalid YAML in {path}: {yaml_err}")
+    if not isinstance(spec, dict):
+        parser.error(
+            f"--config: top-level must be a mapping (got {type(spec).__name__}) in {path}"
+        )
+
+    out = {}
+    # ``parser.error`` calls sys.exit, so the type checker can't see that
+    # ``spec`` must be a dict by this point — narrow it explicitly.
+    assert isinstance(spec, dict)
+    for key, value in spec.items():
+        if key not in TUNEABLE_PARAMS:
+            print(
+                f"  WARNING: --config: unknown parameter '{key}' ignored. "
+                f"Known: {', '.join(sorted(TUNEABLE_PARAMS))}"
+            )
+            continue
+        values = value if isinstance(value, list) else [value]
+        coerce = type(TUNEABLE_PARAMS[key])
+        try:
+            out[key] = [coerce(v) for v in values]
+        except (TypeError, ValueError) as exc:
+            parser.error(
+                f"--config: cannot coerce {key} values to {coerce.__name__} "
+                f"({values!r}): {exc}"
+            )
+
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Run engine
 # ---------------------------------------------------------------------------
 
@@ -217,25 +284,8 @@ def main():
             sweep_spec[param_name] = [coerce(v) for v in sweep_args[1:]]
 
     if args.config:
-        config_path = pathlib.Path(args.config)
-        try:
-            import yaml
-
-            with config_path.open() as f:
-                yaml_spec = yaml.safe_load(f)
-            if isinstance(yaml_spec, dict):
-                for k, v in yaml_spec.items():
-                    if k in TUNEABLE_PARAMS:
-                        coerce = type(TUNEABLE_PARAMS[k])
-                        sweep_spec[k] = [coerce(x) for x in v] if isinstance(v, list) else [coerce(v)]
-        except ImportError:
-            # Fall back to JSON
-            with config_path.open() as f:
-                json_spec = json.load(f)
-            for k, v in json_spec.items():
-                if k in TUNEABLE_PARAMS:
-                    coerce = type(TUNEABLE_PARAMS[k])
-                    sweep_spec[k] = [coerce(x) for x in v] if isinstance(v, list) else [coerce(v)]
+        config_spec = _load_sweep_config(args.config, parser)
+        sweep_spec.update(config_spec)
 
     # Always include baseline (all defaults)
     grid = generate_grid(sweep_spec)

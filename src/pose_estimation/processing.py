@@ -46,6 +46,37 @@ WRIST_KPS_33 = (15, 16)
 SHOULDER_KPS_12 = (0, 1)
 SHOULDER_KPS_33 = (11, 12)
 
+# ---------------------------------------------------------------------------
+# Pipeline tuning constants
+# ---------------------------------------------------------------------------
+
+# Detection-level smoothing
+DEFAULT_DET_SMOOTH_ALPHA = 0.5  # EMA blend between previous and current
+DET_MATCH_THRESHOLD_PALM = 0.15  # normalised image-space distance
+DET_MATCH_THRESHOLD_POSE = 0.10
+CARRIED_DET_SCORE_DECAY = 0.7  # confidence multiplier when carried one frame
+
+# Synthetic palm detections derived from the forearm
+SYNTHETIC_HAND_CENTRE_OFFSET = 0.4  # fraction of forearm length past wrist
+SYNTHETIC_HAND_FINGER_OFFSET = 0.7  # fraction of forearm length to MCP guess
+SYNTHETIC_HAND_BOX_HALF_FACTOR = 0.4  # half of 0.8 * forearm_len
+DETECTION_OVERLAP_THRESHOLD = 0.1  # normalised distance to suppress fallback
+RECROP_DET_SCORE = 0.9  # synthetic confidence assigned to re-crop entries
+
+# Crop extraction
+POSE_CROP_SCALE_FACTOR = 2.6
+HAND_CROP_SCALE_FACTOR = 2.6
+HAND_CROP_SHIFT_FACTOR = 0.05  # forward shift along the palm orientation
+MIN_BONE_LENGTH_PX = 1.0  # below this we skip the chain entirely
+
+# Palm-detection 7-keypoint layout (used by get_hand_crop)
+PALM_KP_COUNT = 7
+PALM_WRIST_KP_IDX = 0
+PALM_FINGER_KP_IDX = 2
+
+# Numerical guard
+EPSILON = 1e-6
+
 
 def tracking_pose_indices(tracking):
     """Return (keypoint_indices, wrist_kps, shoulder_kps, arm_chains)."""
@@ -94,7 +125,38 @@ def run_detection(frame, compiled_model, input_size, anchors, num_keypoints):
 # ---------------------------------------------------------------------------
 
 
-def _smooth_detections(new_dets, prev_dets, match_threshold=0.15, alpha=None):
+def _detection_centre(det):
+    """Return the box centre of *det* in normalised image coordinates."""
+    box = det["box"]
+    return (box[:2] + box[2:]) / 2
+
+
+def _detection_centres(dets):
+    """Vectorised list of box centres for an iterable of detections."""
+    return [_detection_centre(d) for d in dets]
+
+
+def _make_palm_keypoints(centre_norm, wrist_norm, finger_norm):
+    """Build a 7-keypoint palm-detection array.
+
+    ``get_hand_crop`` reads the wrist (kp[0]) and middle-finger MCP
+    (kp[2]); the remaining slots can be the box centre.
+    """
+    kps = np.broadcast_to(centre_norm, (PALM_KP_COUNT, 2)).astype(np.float32).copy()
+    kps[PALM_WRIST_KP_IDX] = wrist_norm
+    kps[PALM_FINGER_KP_IDX] = finger_norm
+    return kps
+
+
+def _carry_detection(det):
+    """Return a one-frame carry-forward copy of *det* with decayed score."""
+    out = dict(det)
+    out["score"] = out["score"] * CARRIED_DET_SCORE_DECAY
+    out["_carried"] = True
+    return out
+
+
+def _smooth_detections(new_dets, prev_dets, match_threshold=DET_MATCH_THRESHOLD_PALM, alpha=None):
     """Smooth detection keypoints and boxes with an exponential moving average.
 
     Matches each new detection to the nearest previous detection (by box-
@@ -103,12 +165,13 @@ def _smooth_detections(new_dets, prev_dets, match_threshold=0.15, alpha=None):
     as-is.
 
     Previous detections that have no match in *new_dets* are carried
-    forward for one frame with decayed confidence (``score *= 0.7``).
-    A detection already marked ``_carried`` will not be carried again,
-    limiting the grace period to a single frame.
+    forward for one frame with decayed confidence
+    (``score *= CARRIED_DET_SCORE_DECAY``).  A detection already marked
+    ``_carried`` will not be carried again, limiting the grace period
+    to a single frame.
     """
     if alpha is None:
-        alpha = float(os.environ.get("POSE_BENCH_DET_SMOOTH_ALPHA", "0.5"))
+        alpha = float(os.environ.get("POSE_BENCH_DET_SMOOTH_ALPHA", str(DEFAULT_DET_SMOOTH_ALPHA)))
 
     # Indices of prev_dets eligible for carry-forward (not already carried)
     carry_eligible = set()
@@ -118,21 +181,11 @@ def _smooth_detections(new_dets, prev_dets, match_threshold=0.15, alpha=None):
     if not prev_dets or not new_dets:
         # No new detections: carry forward eligible prev_dets for one frame
         if not new_dets and carry_eligible:
-            carried = []
-            for i in sorted(carry_eligible):
-                det = dict(prev_dets[i])
-                det["score"] = det["score"] * 0.7
-                det["_carried"] = True
-                carried.append(det)
-            return carried
+            return [_carry_detection(prev_dets[i]) for i in sorted(carry_eligible)]
         return list(new_dets) if new_dets else []
 
-    def _center(det):
-        b = det["box"]
-        return (b[:2] + b[2:]) / 2
-
-    new_centers = np.array([_center(d) for d in new_dets])
-    prev_centers = np.array([_center(d) for d in prev_dets])
+    new_centers = np.array(_detection_centres(new_dets))
+    prev_centers = np.array(_detection_centres(prev_dets))
 
     # Optimal assignment via Hungarian algorithm
     diff = new_centers[:, None, :] - prev_centers[None, :, :]
@@ -158,11 +211,7 @@ def _smooth_detections(new_dets, prev_dets, match_threshold=0.15, alpha=None):
 
     # Carry forward unmatched, non-carried prev_dets for one frame
     matched_prev = set(matched.values())
-    for i in sorted(carry_eligible - matched_prev):
-        det = dict(prev_dets[i])
-        det["score"] = det["score"] * 0.7
-        det["_carried"] = True
-        smoothed.append(det)
+    smoothed.extend(_carry_detection(prev_dets[i]) for i in sorted(carry_eligible - matched_prev))
 
     return smoothed
 
@@ -179,7 +228,7 @@ def _synthesise_hand_detections(
     frame_h,
     frame_w,
     arm_chains=None,
-    overlap_threshold=0.1,
+    overlap_threshold=DETECTION_OVERLAP_THRESHOLD,
 ):
     """Create synthetic palm detections from arm wrist keypoints.
 
@@ -200,12 +249,7 @@ def _synthesise_hand_detections(
         return synthetic
 
     scale = np.array([frame_w, frame_h], dtype=np.float32)
-
-    # Pre-compute centres of existing real palm detections (normalised)
-    palm_centres = []
-    for det in existing_palm_dets:
-        b = det["box"]
-        palm_centres.append((b[:2] + b[2:]) / 2)
+    palm_centres = _detection_centres(existing_palm_dets)
 
     for body_lm, body_vis in zip(body_landmarks, body_visibilities, strict=False):
         for _shoulder_idx, elbow_idx, wrist_idx in arm_chains:
@@ -221,28 +265,27 @@ def _synthesise_hand_detections(
             # Forearm vector and length (pixel space)
             forearm = wrist_px - elbow_px
             forearm_len = float(np.linalg.norm(forearm))
-            if forearm_len < 1:
+            if forearm_len < MIN_BONE_LENGTH_PX:
                 continue
             forearm_dir = forearm / forearm_len
 
-            # Hand centre: ~40 % of forearm length beyond the wrist
-            hand_centre_px = wrist_px + forearm_dir * forearm_len * 0.4
+            # Hand centre: SYNTHETIC_HAND_CENTRE_OFFSET past the wrist
+            hand_centre_px = wrist_px + forearm_dir * forearm_len * SYNTHETIC_HAND_CENTRE_OFFSET
             hand_centre_norm = hand_centre_px / scale
 
             # Middle-finger base estimate: further along forearm
-            middle_finger_norm = (wrist_px + forearm_dir * forearm_len * 0.7) / scale
+            middle_finger_norm = (
+                wrist_px + forearm_dir * forearm_len * SYNTHETIC_HAND_FINGER_OFFSET
+            ) / scale
 
-            # Square box sized at 80 % of forearm length, centred on hand
-            box_half = forearm_len * 0.4  # half of 0.8 * forearm_len
+            # Square box centred on hand (half-size scales with forearm)
+            box_half = forearm_len * SYNTHETIC_HAND_BOX_HALF_FACTOR
             x1 = (hand_centre_px[0] - box_half) / frame_w
             y1 = (hand_centre_px[1] - box_half) / frame_h
             x2 = (hand_centre_px[0] + box_half) / frame_w
             y2 = (hand_centre_px[1] + box_half) / frame_h
 
-            # Build 7-keypoint array (get_hand_crop uses kp[0] and kp[2])
-            keypoints = np.broadcast_to(hand_centre_norm, (7, 2)).astype(np.float32).copy()
-            keypoints[0] = wrist_norm
-            keypoints[2] = middle_finger_norm
+            keypoints = _make_palm_keypoints(hand_centre_norm, wrist_norm, middle_finger_norm)
 
             synthetic.append(
                 {
@@ -262,7 +305,11 @@ def _synthesise_hand_detections(
 
 
 def _recrop_from_landmarks(
-    prev_hand_landmarks, real_palm_dets, frame_h, frame_w, overlap_threshold=0.1
+    prev_hand_landmarks,
+    real_palm_dets,
+    frame_h,
+    frame_w,
+    overlap_threshold=DETECTION_OVERLAP_THRESHOLD,
 ):
     """Create palm-format detections from previous-frame hand landmarks.
 
@@ -283,11 +330,7 @@ def _recrop_from_landmarks(
         return recrops
 
     scale = np.array([frame_w, frame_h], dtype=np.float32)
-
-    palm_centres = []
-    for det in real_palm_dets:
-        b = det["box"]
-        palm_centres.append((b[:2] + b[2:]) / 2)
+    palm_centres = _detection_centres(real_palm_dets)
 
     for hand_lm in prev_hand_landmarks:
         wrist_px = hand_lm[0, :2]
@@ -300,7 +343,7 @@ def _recrop_from_landmarks(
 
         # Palm-centred box sized from wrist-to-MCP distance
         palm_len = float(np.linalg.norm(middle_mcp_px - wrist_px))
-        if palm_len < 1:
+        if palm_len < MIN_BONE_LENGTH_PX:
             continue
         center_px = (wrist_px + middle_mcp_px) / 2
         box_half = palm_len
@@ -310,17 +353,14 @@ def _recrop_from_landmarks(
         x2 = (center_px[0] + box_half) / frame_w
         y2 = (center_px[1] + box_half) / frame_h
 
-        # 7-keypoint array matching palm detection format
         center_norm = center_px / scale
-        keypoints = np.broadcast_to(center_norm, (7, 2)).astype(np.float32).copy()
-        keypoints[0] = wrist_norm
-        keypoints[2] = middle_mcp_px / scale
+        keypoints = _make_palm_keypoints(center_norm, wrist_norm, middle_mcp_px / scale)
 
         recrops.append(
             {
                 "box": np.array([x1, y1, x2, y2], dtype=np.float32),
                 "keypoints": keypoints,
-                "score": 0.9,
+                "score": RECROP_DET_SCORE,
                 "recrop": True,
             }
         )
@@ -362,7 +402,7 @@ def _affine_matrix(cx, cy, rotation, size, target_size):
     return M
 
 
-def get_pose_crop(img, detection, scale_factor=2.6, target_size=POSE_LM_INPUT_SIZE):
+def get_pose_crop(img, detection, scale_factor=POSE_CROP_SCALE_FACTOR, target_size=POSE_LM_INPUT_SIZE):
     """Extract a rotation-aware person crop using pose detection keypoints."""
     img_h, img_w = img.shape[:2]
     kp_hip = detection["keypoints"][0] * np.array([img_w, img_h])
@@ -381,11 +421,11 @@ def get_pose_crop(img, detection, scale_factor=2.6, target_size=POSE_LM_INPUT_SI
     return cv2.warpAffine(img, M, (target_size, target_size)), M
 
 
-def get_hand_crop(img, detection, scale_factor=2.6, target_size=HAND_INPUT_SIZE):
+def get_hand_crop(img, detection, scale_factor=HAND_CROP_SCALE_FACTOR, target_size=HAND_INPUT_SIZE):
     """Extract a rotation-aware hand crop using palm detection keypoints."""
     img_h, img_w = img.shape[:2]
-    kp_wrist = detection["keypoints"][0] * np.array([img_w, img_h])
-    kp_middle = detection["keypoints"][2] * np.array([img_w, img_h])
+    kp_wrist = detection["keypoints"][PALM_WRIST_KP_IDX] * np.array([img_w, img_h])
+    kp_middle = detection["keypoints"][PALM_FINGER_KP_IDX] * np.array([img_w, img_h])
 
     box = detection["box"] * np.array([img_w, img_h, img_w, img_h])
     cx = (box[0] + box[2]) / 2
@@ -393,7 +433,7 @@ def get_hand_crop(img, detection, scale_factor=2.6, target_size=HAND_INPUT_SIZE)
     box_size = max(box[2] - box[0], box[3] - box[1]) * scale_factor
 
     rotation = np.degrees(np.arctan2(kp_middle[0] - kp_wrist[0], -(kp_middle[1] - kp_wrist[1])))
-    shift = box_size * 0.05
+    shift = box_size * HAND_CROP_SHIFT_FACTOR
     cx += shift * np.sin(np.radians(rotation))
     cy -= shift * np.cos(np.radians(rotation))
 
@@ -667,7 +707,9 @@ def process_frame(
 
         pose_detections = run_detection(frame, pose_det_model, POSE_INPUT_SIZE, pose_anchors, 4)
         prev_pose = prev_state.get("pose_dets", []) if prev_state else []
-        pose_detections = _smooth_detections(pose_detections, prev_pose, match_threshold=0.10)
+        pose_detections = _smooth_detections(
+            pose_detections, prev_pose, match_threshold=DET_MATCH_THRESHOLD_POSE
+        )
 
         best_body_score = 0.0
         for det in pose_detections:
@@ -688,7 +730,9 @@ def process_frame(
     # --- Hand pose estimation ----------------------------------------------
     palm_detections = run_detection(frame, palm_det_model, PALM_INPUT_SIZE, palm_anchors, 7)
     prev_palm = prev_state.get("palm_dets", []) if prev_state else []
-    palm_detections = _smooth_detections(palm_detections, prev_palm, match_threshold=0.15)
+    palm_detections = _smooth_detections(
+        palm_detections, prev_palm, match_threshold=DET_MATCH_THRESHOLD_PALM
+    )
 
     # Snapshot real SSD detections before adding fallbacks; re-crop
     # overlap is checked against real detections only so that synthetic

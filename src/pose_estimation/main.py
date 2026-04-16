@@ -39,6 +39,7 @@ from .metrics import (
     SmoothingDiagnostics,
 )
 from .models import download_and_compile_models
+from .postprocess import _odd_int
 from .processing import (
     TRACKING_BODY,
     TRACKING_HANDS,
@@ -64,6 +65,47 @@ DIAG_FIELDS = [
     "hand_track_ages",
     "detections",
 ]
+
+
+FALLBACK_FPS = 30.0
+MIN_REASONABLE_FPS = 1.0
+MAX_REASONABLE_FPS = 240.0
+
+
+def _open_capture(source):
+    """Open a VideoCapture with diagnostic error messages.
+
+    Returns the open ``cv2.VideoCapture`` or ``None`` if the source
+    cannot be read, after printing a context-aware reason.
+    """
+    if isinstance(source, str):
+        path = pathlib.Path(source)
+        if not path.exists():
+            print(f"  ERROR: file not found: {source}")
+            return None
+        if not path.is_file():
+            print(f"  ERROR: not a regular file: {source}")
+            return None
+    cap = cv2.VideoCapture(source)
+    if not cap.isOpened():
+        if isinstance(source, int):
+            print(f"  ERROR: cannot open camera index {source} (no device or driver?).")
+        else:
+            print(
+                f"  ERROR: cannot open {source} — check codec, codec packs, or file integrity."
+            )
+        return None
+    return cap
+
+
+def _safe_fps(raw_fps):
+    """Clamp/validate an FPS reading from cv2; fall back to FALLBACK_FPS."""
+    if not np.isfinite(raw_fps) or raw_fps <= 0:
+        return FALLBACK_FPS
+    if raw_fps < MIN_REASONABLE_FPS or raw_fps > MAX_REASONABLE_FPS:
+        print(f"  WARNING: unusual FPS reported ({raw_fps:.2f}); using {FALLBACK_FPS}.")
+        return FALLBACK_FPS
+    return float(raw_fps)
 
 
 def frame_to_surface(frame):
@@ -107,13 +149,12 @@ def process_video(
     Returns True if the user requested quit (ESC / window close),
     False if the video simply ended.
     """
-    cap = cv2.VideoCapture(source)
-    if not cap.isOpened():
-        print(f"  Cannot open: {source}")
+    cap = _open_capture(source)
+    if cap is None:
         return False
 
-    fps_source = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps_source = _safe_fps(cap.get(cv2.CAP_PROP_FPS))
+    total_frames = max(0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT)))
 
     # Optionally set resolution for cameras
     if isinstance(source, int):
@@ -164,12 +205,19 @@ def process_video(
             ret, frame = cap.read()
             if not ret:
                 break
+            if frame is None or frame.size == 0:
+                print(f"  WARNING: skipping malformed frame {frame_idx}")
+                continue
 
             if flip:
                 frame = cv2.flip(frame, 1)
 
             # Cap resolution for performance
-            scale = 1280 / max(frame.shape)
+            max_dim = max(frame.shape[:2])
+            if max_dim <= 0:
+                print(f"  WARNING: skipping zero-size frame {frame_idx}")
+                continue
+            scale = 1280 / max_dim
             if scale < 1:
                 frame = cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
 
@@ -489,7 +537,7 @@ def main():
     )
     parser.add_argument(
         "--savgol-window",
-        type=int,
+        type=_odd_int,
         default=11,
         help="Savitzky-Golay window length, must be odd (default: 11)",
     )

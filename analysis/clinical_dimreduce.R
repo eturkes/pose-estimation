@@ -21,39 +21,25 @@ library(ggplot2)
 library(tibble)
 library(uwot)
 
-# ------------------------------------------------------------------
-# Constants
-# ------------------------------------------------------------------
-
-FRAME_META  <- c("video", "frame_idx", "timestamp_sec", "person_idx")
-WINDOW_META <- c("video", "person_idx", "window_start_sec", "window_end_sec")
-
-# ------------------------------------------------------------------
-# Aggregation helper (same pattern as compare_clinical.R)
-# ------------------------------------------------------------------
-
-aggregate_per_video <- function(df, meta_cols, fns = NULL) {
-  feat_cols <- setdiff(names(df), meta_cols)
-  feat_cols <- feat_cols[map_lgl(feat_cols, \(c) is.numeric(df[[c]]))]
-  if (length(feat_cols) == 0) return(tibble())
-
-  if (is.null(fns)) {
-    fns <- list(
-      mean   = \(x) mean(x, na.rm = TRUE),
-      median = \(x) median(x, na.rm = TRUE),
-      sd     = \(x) sd(x, na.rm = TRUE),
-      min    = \(x) min(x, na.rm = TRUE),
-      max    = \(x) max(x, na.rm = TRUE)
-    )
+# Shared helpers (aggregate_per_video, METADATA_COLS, WINDOW_META).
+local({
+  args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- "--file="
+  match <- grep(file_arg, args)
+  here <- if (length(match) > 0) {
+    dirname(sub(file_arg, "", args[match]))
+  } else if (file.exists("analysis/utils.R")) {
+    "analysis"
+  } else {
+    "."
   }
+  source(file.path(here, "utils.R"))
+})
 
-  df |>
-    group_by(video) |>
-    summarise(
-      across(all_of(feat_cols), fns, .names = "{.col}__{.fn}"),
-      .groups = "drop"
-    )
-}
+# Per-frame metadata uses the canonical METADATA_COLS from utils.R; this
+# script aliases it for readability since the variable name "FRAME_META"
+# was used historically.
+FRAME_META <- METADATA_COLS
 
 # ------------------------------------------------------------------
 # CLI
