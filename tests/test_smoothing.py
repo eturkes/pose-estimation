@@ -195,17 +195,3 @@ def test_hand_confidence_smoothing():
     assert move_lo < move_hi, (
         f"Low hand_flag should move less: move_lo={move_lo:.2f}, move_hi={move_hi:.2f}"
     )
-
-
-if __name__ == "__main__":
-    test_no_confidence_unchanged_behaviour()
-    test_full_confidence_matches_standard()
-    test_zero_confidence_stays_at_previous()
-    test_low_confidence_smoothed_more()
-    test_mixed_confidence()
-    test_gamma_controls_sharpness()
-    test_confidence_clipped()
-    test_smooth_bodies_passes_confidence()
-    test_hand_path_unaffected()
-    test_hand_confidence_smoothing()
-    print("All tests passed.")

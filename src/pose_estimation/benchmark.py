@@ -34,29 +34,31 @@ import time
 # Tuneable parameter definitions
 # ---------------------------------------------------------------------------
 
-# Maps CLI sweep names to (module, attribute/kwarg, default_value) triples.
-# The benchmark monkey-patches these before running.
+# Maps CLI sweep names to their default values.  The subprocess reads these
+# as POSE_BENCH_* environment variables (see run_single below); the default
+# type drives CLI/YAML coercion so int-valued knobs (carry_grace) don't get
+# quietly promoted to float.
 TUNEABLE_PARAMS = {
     # Detection thresholds
-    "det_score_thresh": ("processing", "det_score_threshold", 0.5),
-    "hand_flag_thresh": ("processing", "lm_score_threshold", 0.65),
+    "det_score_thresh": 0.5,
+    "hand_flag_thresh": 0.65,
     # One-Euro filter: body
-    "body_min_cutoff": ("smoothing", "body_min_cutoff", 0.3),
-    "body_beta": ("smoothing", "body_beta", 0.5),
+    "body_min_cutoff": 0.3,
+    "body_beta": 0.5,
     # One-Euro filter: hand
-    "hand_min_cutoff": ("smoothing", "hand_min_cutoff", 1.0),
-    "hand_beta": ("smoothing", "hand_beta", 0.3),
+    "hand_min_cutoff": 1.0,
+    "hand_beta": 0.3,
     # Confidence weighting
-    "confidence_gamma": ("smoothing", "confidence_gamma", 2.0),
+    "confidence_gamma": 2.0,
     # Detection smoothing
-    "det_smooth_alpha": ("processing", "det_smooth_alpha", 0.5),
+    "det_smooth_alpha": 0.5,
     # Bone-length constraints
-    "bone_ema_alpha": ("constraints", "bone_ema_alpha", 0.05),
-    "bone_tolerance": ("constraints", "bone_tolerance", 0.4),
-    "bone_distal_weight": ("constraints", "bone_distal_weight", 0.8),
+    "bone_ema_alpha": 0.05,
+    "bone_tolerance": 0.4,
+    "bone_distal_weight": 0.8,
     # Carry-forward
-    "carry_grace": ("smoothing", "carry_grace", 10),
-    "carry_damping": ("smoothing", "carry_damping", 0.8),
+    "carry_grace": 10,
+    "carry_damping": 0.8,
 }
 
 
@@ -211,8 +213,8 @@ def main():
                     f"Unknown parameter: {param_name}\n"
                     f"Available: {', '.join(sorted(TUNEABLE_PARAMS))}"
                 )
-            values = [float(v) for v in sweep_args[1:]]
-            sweep_spec[param_name] = values
+            coerce = type(TUNEABLE_PARAMS[param_name])
+            sweep_spec[param_name] = [coerce(v) for v in sweep_args[1:]]
 
     if args.config:
         config_path = pathlib.Path(args.config)
@@ -224,20 +226,22 @@ def main():
             if isinstance(yaml_spec, dict):
                 for k, v in yaml_spec.items():
                     if k in TUNEABLE_PARAMS:
-                        sweep_spec[k] = [float(x) for x in v] if isinstance(v, list) else [float(v)]
+                        coerce = type(TUNEABLE_PARAMS[k])
+                        sweep_spec[k] = [coerce(x) for x in v] if isinstance(v, list) else [coerce(v)]
         except ImportError:
             # Fall back to JSON
             with config_path.open() as f:
                 json_spec = json.load(f)
             for k, v in json_spec.items():
                 if k in TUNEABLE_PARAMS:
-                    sweep_spec[k] = [float(x) for x in v] if isinstance(v, list) else [float(v)]
+                    coerce = type(TUNEABLE_PARAMS[k])
+                    sweep_spec[k] = [coerce(x) for x in v] if isinstance(v, list) else [coerce(v)]
 
     # Always include baseline (all defaults)
     grid = generate_grid(sweep_spec)
-    if not any(all(v == TUNEABLE_PARAMS[k][2] for k, v in combo.items()) for combo in grid):
+    if not any(all(v == TUNEABLE_PARAMS[k] for k, v in combo.items()) for combo in grid):
         # Add default baseline
-        baseline = {k: TUNEABLE_PARAMS[k][2] for k in sweep_spec}
+        baseline = {k: TUNEABLE_PARAMS[k] for k in sweep_spec}
         grid.insert(0, baseline)
 
     # Determine sources

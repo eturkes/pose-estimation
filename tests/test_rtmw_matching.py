@@ -112,12 +112,3 @@ def test_empty_detections():
     assert out_kps is not None
     assert len(sm.tracks) == 1
     assert sm.tracks[0]["misses"] == 1
-
-
-if __name__ == "__main__":
-    test_basic_matching()
-    test_optimal_over_greedy()
-    test_threshold_filtering()
-    test_no_tracks_no_crash()
-    test_empty_detections()
-    print("All rtmw matching tests passed.")

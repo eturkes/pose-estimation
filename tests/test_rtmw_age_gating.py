@@ -163,17 +163,3 @@ def test_multiple_tracks_age_independent():
     out, _ = _feed(sm, [(104, 104), (502, 502)], t=0.066)
     assert out is not None
     assert out.shape[0] == 2
-
-
-if __name__ == "__main__":
-    test_new_track_suppressed()
-    test_track_emitted_after_reaching_age()
-    test_age_increments_on_match()
-    test_age_decrements_on_carry()
-    test_carried_track_hidden_when_age_drops()
-    test_false_positive_suppressed()
-    test_intermittent_detection_cannot_accumulate_age()
-    test_min_track_age_zero_disables_gating()
-    test_min_track_age_default()
-    test_multiple_tracks_age_independent()
-    print("All RTMW age gating tests passed.")

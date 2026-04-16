@@ -24,8 +24,6 @@ library(purrr)
 # Constants
 # ------------------------------------------------------------------
 
-METADATA_COLS <- c("video", "frame_idx", "timestamp_sec", "person_idx")
-
 # Sliding-window duration (seconds) for smoothness features.
 WINDOW_SEC <- 1.0
 

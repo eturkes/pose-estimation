@@ -310,18 +310,3 @@ def test_angle_clamp_right_elbow():
 
     result_angle = _angle_at_joint(lm, 1, 3, 5)
     assert abs(result_angle - 30) < 0.5, f"Expected ~30°, got {result_angle:.1f}°"
-
-
-if __name__ == "__main__":
-    test_constant_landmarks_no_correction()
-    test_perturbed_keypoint_corrected()
-    test_proportional_correction_direction()
-    test_ema_converges()
-    test_prune_removes_stale()
-    test_small_movements_within_tolerance_pass_through()
-    test_angle_within_limits_unchanged()
-    test_angle_below_minimum_clamped()
-    test_angle_above_maximum_clamped()
-    test_angle_clamp_preserves_z()
-    test_angle_clamp_right_elbow()
-    print("All tests passed.")

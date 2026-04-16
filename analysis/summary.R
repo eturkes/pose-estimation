@@ -20,6 +20,12 @@ safe_median <- function(x) median(as.numeric(x), na.rm = TRUE)
 safe_mean   <- function(x) mean(as.numeric(x), na.rm = TRUE)
 safe_q95    <- function(x) quantile(as.numeric(x), 0.95, na.rm = TRUE, names = FALSE)
 safe_iqr    <- function(x) IQR(as.numeric(x), na.rm = TRUE)
+# max() warns and returns -Inf on all-NA input (common when one hand is
+# never matched in a video); return NA instead.
+safe_max    <- function(x) {
+  x <- as.numeric(x)
+  if (all(is.na(x))) NA_real_ else max(x, na.rm = TRUE)
+}
 
 summarise_metrics <- function(df) {
   n <- nrow(df)
@@ -62,8 +68,8 @@ summarise_metrics <- function(df) {
   # Matching
   match_L_mean <- safe_mean(df$hand_arm_match_dist_L)
   match_R_mean <- safe_mean(df$hand_arm_match_dist_R)
-  match_L_max  <- max(as.numeric(df$hand_arm_match_dist_L), na.rm = TRUE)
-  match_R_max  <- max(as.numeric(df$hand_arm_match_dist_R), na.rm = TRUE)
+  match_L_max  <- safe_max(df$hand_arm_match_dist_L)
+  match_R_max  <- safe_max(df$hand_arm_match_dist_R)
 
   # Inference speed
   inference_med <- safe_median(df$inference_ms)
@@ -167,30 +173,33 @@ print_summary <- function(s, video_name) {
 # ------------------------------------------------------------------
 # Main
 # ------------------------------------------------------------------
+# Guarded so compare.R (which sources this file to reuse summarise_metrics)
+# does not re-execute the CLI flow in its own commandArgs.
 
-args <- commandArgs(trailingOnly = TRUE)
-if (length(args) == 0) {
-  stop("Usage: Rscript analysis/summary.R <metrics_csv_or_directory>")
-}
+if (sys.nframe() == 0) {
+  args <- commandArgs(trailingOnly = TRUE)
+  if (length(args) == 0) {
+    stop("Usage: Rscript analysis/summary.R <metrics_csv_or_directory>")
+  }
 
-path <- args[1]
-if (dir.exists(path)) {
-  files <- list.files(path, pattern = "_metrics\\.csv$", full.names = TRUE)
-  if (length(files) == 0) stop("No *_metrics.csv files found in ", path)
-} else {
-  files <- path
-}
+  path <- args[1]
+  if (dir.exists(path)) {
+    files <- list.files(path, pattern = "_metrics\\.csv$", full.names = TRUE)
+    if (length(files) == 0) stop("No *_metrics.csv files found in ", path)
+  } else {
+    files <- path
+  }
 
-for (f in files) {
-  df <- read_csv(f, show_col_types = FALSE)
-  video_name <- str_extract(basename(f), "^(.+)_metrics\\.csv$", group = 1)
-  if (is.na(video_name)) video_name <- basename(f)
+  for (f in files) {
+    df <- read_csv(f, show_col_types = FALSE)
+    video_name <- str_extract(basename(f), "^(.+)_metrics\\.csv$", group = 1)
+    if (is.na(video_name)) video_name <- basename(f)
 
-  s <- summarise_metrics(df)
-  print_summary(s, video_name)
+    s <- summarise_metrics(df)
+    print_summary(s, video_name)
 
-  # Write JSON
-  json_path <- str_replace(f, "_metrics\\.csv$", "_summary.json")
-  write_json(s, json_path, pretty = TRUE, auto_unbox = TRUE)
-  cat("  Wrote:", json_path, "\n")
+    json_path <- str_replace(f, "_metrics\\.csv$", "_summary.json")
+    write_json(s, json_path, pretty = TRUE, auto_unbox = TRUE)
+    cat("  Wrote:", json_path, "\n")
+  }
 }

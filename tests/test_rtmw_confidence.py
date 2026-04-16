@@ -134,14 +134,3 @@ def test_smoother_passes_confidence():
     assert move_low < move_high, (
         f"Low-score person should move less: move_low={move_low:.2f}, move_high={move_high:.2f}"
     )
-
-
-if __name__ == "__main__":
-    test_no_confidence_unchanged()
-    test_full_confidence_matches_standard()
-    test_zero_confidence_stays_at_previous()
-    test_low_confidence_smoothed_more()
-    test_gamma_controls_sharpness()
-    test_confidence_clipped()
-    test_smoother_passes_confidence()
-    print("All tests passed.")

@@ -72,7 +72,7 @@ def _body_keypoint_names(tracking):
     return "arm", ARM_KEYPOINT_NAMES
 
 
-def _wrist_to_side(tracking):
+def wrist_to_side(tracking):
     """Return a dict mapping wrist keypoint index to 'left'/'right'."""
     if tracking == TRACKING_BODY:
         return {WRIST_KPS_33[0]: "left", WRIST_KPS_33[1]: "right"}
@@ -118,6 +118,18 @@ def _fill_hand_side(row, side, hlm, frame_h, frame_w):
         row[f"{side}_hand_{i}_z"] = round(hlm[i, 2] / frame_w, 6)
 
 
+def _assign_hands_by_x(row, hand_landmarks, frame_h, frame_w):
+    """Assign up to 2 hand landmark sets to left/right slots by wrist x."""
+    sorted_hands = (
+        sorted(hand_landmarks[:2], key=lambda lm: lm[0, 0]) if hand_landmarks else []
+    )
+    sides = ["left", "right"]
+    for i, hlm in enumerate(sorted_hands):
+        _fill_hand_side(row, sides[i], hlm, frame_h, frame_w)
+    for side in sides[len(sorted_hands):]:
+        _blank_hand_side(row, side)
+
+
 def frame_to_rows(
     video_name,
     frame_idx,
@@ -148,22 +160,16 @@ def frame_to_rows(
     rows = []
 
     prefix, kp_names = _body_keypoint_names(tracking)
-    wrist_side = _wrist_to_side(tracking)
+    wrist_side = wrist_to_side(tracking)
 
     if tracking == TRACKING_HANDS:
-        # Hands-only: one row per frame, assign left/right by x-coordinate.
         row = {
             "video": video_name,
             "frame_idx": frame_idx,
             "timestamp_sec": round(timestamp_sec, 4),
             "person_idx": 0,
         }
-        sorted_hands = sorted(hand_landmarks[:2], key=lambda lm: lm[0, 0]) if hand_landmarks else []
-        sides = ["left", "right"]
-        for i, hlm in enumerate(sorted_hands):
-            _fill_hand_side(row, sides[i], hlm, frame_h, frame_w)
-        for side in sides[len(sorted_hands) :]:
-            _blank_hand_side(row, side)
+        _assign_hands_by_x(row, hand_landmarks, frame_h, frame_w)
         rows.append(row)
         return rows
 
@@ -215,14 +221,7 @@ def frame_to_rows(
             row[f"{prefix}_{name}_z"] = ""
             row[f"{prefix}_{name}_vis"] = ""
 
-        # Assign hands left/right by wrist x-coordinate (max 2).
-        sorted_hands = sorted(hand_landmarks[:2], key=lambda lm: lm[0, 0])
-        sides = ["left", "right"]
-        for i, hlm in enumerate(sorted_hands):
-            _fill_hand_side(row, sides[i], hlm, frame_h, frame_w)
-        for side in sides[len(sorted_hands) :]:
-            _blank_hand_side(row, side)
-
+        _assign_hands_by_x(row, hand_landmarks, frame_h, frame_w)
         rows.append(row)
 
     return rows

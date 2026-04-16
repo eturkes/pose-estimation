@@ -81,6 +81,14 @@ class PoseSmoother:
         if carry_damping is None:
             carry_damping = float(os.environ.get("POSE_BENCH_CARRY_DAMPING", "0.8"))
         self.carry_damping = carry_damping
+        # Per-run tuning knobs; env vars are only re-read when a new
+        # PoseSmoother is constructed (i.e. once per subprocess invocation).
+        self._body_mc = float(os.environ.get("POSE_BENCH_BODY_MIN_CUTOFF", "0.3"))
+        self._body_b = float(os.environ.get("POSE_BENCH_BODY_BETA", "0.5"))
+        self._hand_mc = float(os.environ.get("POSE_BENCH_HAND_MIN_CUTOFF", "1.0"))
+        self._hand_b = float(os.environ.get("POSE_BENCH_HAND_BETA", "0.3"))
+        self._gamma = float(os.environ.get("POSE_BENCH_CONFIDENCE_GAMMA", "2.0"))
+        self._grace = int(os.environ.get("POSE_BENCH_CARRY_GRACE", "10"))
         self.body_tracks = []
         self.hand_tracks = []
         self._n_active_bodies = 0
@@ -246,17 +254,15 @@ class PoseSmoother:
         """
         si = shoulder_indices
         lm_list = body_landmarks or []
-        body_mc = float(os.environ.get("POSE_BENCH_BODY_MIN_CUTOFF", "0.3"))
-        body_b = float(os.environ.get("POSE_BENCH_BODY_BETA", "0.5"))
-        body_g = float(os.environ.get("POSE_BENCH_CONFIDENCE_GAMMA", "2.0"))
-        grace = int(os.environ.get("POSE_BENCH_CARRY_GRACE", "10"))
         self.body_tracks, smoothed, n_active = self._match_and_smooth(
             self.body_tracks,
             lm_list,
             get_anchor=lambda lm: (lm[si[0], :2] + lm[si[1], :2]) / 2,
-            new_filter_fn=lambda: OneEuroFilter(min_cutoff=body_mc, beta=body_b, gamma=body_g),
+            new_filter_fn=lambda: OneEuroFilter(
+                min_cutoff=self._body_mc, beta=self._body_b, gamma=self._gamma
+            ),
             t=t,
-            grace=grace,
+            grace=self._grace,
             emit_carry=True,
             confidences=body_visibilities if lm_list else None,
         )
@@ -272,10 +278,7 @@ class PoseSmoother:
 
     def smooth_hands(self, hand_landmarks, t, hand_flags=None, grace=None, max_tracks=None):
         if grace is None:
-            grace = int(os.environ.get("POSE_BENCH_CARRY_GRACE", "10"))
-        hand_mc = float(os.environ.get("POSE_BENCH_HAND_MIN_CUTOFF", "1.0"))
-        hand_b = float(os.environ.get("POSE_BENCH_HAND_BETA", "0.3"))
-        hand_g = float(os.environ.get("POSE_BENCH_CONFIDENCE_GAMMA", "2.0"))
+            grace = self._grace
         confs = None
         if hand_flags is not None:
             confs = [np.full(21, f) for f in hand_flags]
@@ -283,7 +286,9 @@ class PoseSmoother:
             self.hand_tracks,
             hand_landmarks or [],
             get_anchor=lambda lm: lm[0, :2],
-            new_filter_fn=lambda: OneEuroFilter(min_cutoff=hand_mc, beta=hand_b, gamma=hand_g),
+            new_filter_fn=lambda: OneEuroFilter(
+                min_cutoff=self._hand_mc, beta=self._hand_b, gamma=self._gamma
+            ),
             t=t,
             grace=grace,
             static_carry=True,

@@ -179,15 +179,3 @@ def test_17kp_carry_extrapolates():
     assert out_kps is not None
     dx = out_kps[0][0, 0] - last[0, 0]
     assert dx > 0, f"17-kp carry should extrapolate, got dx={dx}"
-
-
-if __name__ == "__main__":
-    test_static_carry_no_drift()
-    test_moving_carry_extrapolates()
-    test_damping_decelerates()
-    test_extrapolation_capped()
-    test_carry_damping_configurable()
-    test_no_detection_carry_with_time()
-    test_carry_centroid_updates()
-    test_17kp_carry_extrapolates()
-    print("All RTMW extrapolation tests passed.")

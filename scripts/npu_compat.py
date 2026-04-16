@@ -5,9 +5,9 @@ shapes (batch=1), and attempts to compile on NPU via OpenVINO.
 Reports success/failure per model.
 
 Usage:
-    python test_npu_compat.py
-    python test_npu_compat.py --device NPU   # default
-    python test_npu_compat.py --device GPU    # sanity check
+    python scripts/npu_compat.py
+    python scripts/npu_compat.py --device NPU   # default
+    python scripts/npu_compat.py --device GPU    # sanity check
 """
 
 import argparse
@@ -73,7 +73,7 @@ MODELS = {
 }
 
 
-def download_onnx(url: str, cache_dir: Path) -> Path:
+def download_onnx(url: str) -> Path:
     """Download and extract ONNX model from a .zip URL. Return .onnx path."""
     from rtmlib.tools.file import download_checkpoint
 
@@ -117,7 +117,7 @@ def main():
         print(f"  {name} ...")
         sys.stdout.flush()
         try:
-            onnx_path = download_onnx(url, Path("model"))
+            onnx_path = download_onnx(url)
             dt, out_shapes = test_compile(onnx_path, shape, args.device)
             status = f"OK ({dt:.1f}s compile, outputs: {out_shapes})"
             results.append((name, True, status))

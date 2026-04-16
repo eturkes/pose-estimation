@@ -35,7 +35,6 @@ def test_static_landmarks_no_extrapolation():
         # With zero velocity, extrapolation should be negligible
         diff = np.max(np.abs(smoothed[0] - last_smoothed))
         assert diff < 1e-3, f"static carry drifted by {diff}"
-    print("PASS: static_landmarks_no_extrapolation")
 
 
 def test_moving_landmarks_extrapolate():
@@ -78,7 +77,6 @@ def test_moving_landmarks_extrapolate():
         assert steps[j] < steps[j - 1], (
             f"step {j} ({steps[j]:.3f}) >= step {j - 1} ({steps[j - 1]:.3f})"
         )
-    print("PASS: moving_landmarks_extrapolate")
 
 
 def test_extrapolation_capped():
@@ -99,7 +97,6 @@ def test_extrapolation_capped():
     step = smoothed[0] - last_real
     max_norm = np.max(np.linalg.norm(step, axis=1))
     assert max_norm <= 100 + 1e-3, f"per-keypoint step {max_norm:.1f} exceeds match_threshold 100"
-    print("PASS: extrapolation_capped")
 
 
 def test_hand_tracks_unaffected():
@@ -124,7 +121,6 @@ def test_hand_tracks_unaffected():
     ages = smoother.hand_track_ages()
     assert len(ages) == 1
     assert ages[0] > 1, "should have re-matched existing track"
-    print("PASS: hand_tracks_unaffected")
 
 
 def test_damping_converges_to_static():
@@ -151,11 +147,9 @@ def test_damping_converges_to_static():
         first_step = abs(positions[1] - positions[0])
         ratio = final_step / max(first_step, 1e-9)
         assert ratio < 0.5, f"damping ratio {ratio:.3f} — expected significant decay"
-    print("PASS: damping_converges_to_static")
 
 
 def test_damping_factor_configurable():
-    """Different carry_damping values produce different extrapolation distances."""
     s_fast = PoseSmoother(carry_damping=0.5)
     s_slow = PoseSmoother(carry_damping=0.95)
     vis = np.ones(12)
@@ -183,14 +177,3 @@ def test_damping_factor_configurable():
     assert total_slow > total_fast, (
         f"slow damping ({total_slow:.3f}) should move further than fast ({total_fast:.3f})"
     )
-    print("PASS: damping_factor_configurable")
-
-
-if __name__ == "__main__":
-    test_static_landmarks_no_extrapolation()
-    test_moving_landmarks_extrapolate()
-    test_extrapolation_capped()
-    test_hand_tracks_unaffected()
-    test_damping_converges_to_static()
-    test_damping_factor_configurable()
-    print("\nAll extrapolation tests passed.")

@@ -707,7 +707,6 @@ def process_source(
             )
             n_kps = keypoints.shape[1] if n_persons > 0 else 0
 
-            # Print periodic stats
             if frame_idx <= 5 or frame_idx % 50 == 0:
                 mean_lat = np.mean(latencies[-50:])
                 print(
@@ -718,14 +717,14 @@ def process_source(
                 )
 
             if not args.headless:
-                img_show = frame.copy()
                 if n_persons > 0:
                     draw_scores = mask_tracking_scores(scores, args.tracking)
                     img_show = draw_skeleton(
-                        img_show, keypoints, draw_scores, openpose_skeleton=False, kpt_thr=0.3
+                        frame.copy(), keypoints, draw_scores, openpose_skeleton=False, kpt_thr=0.3
                     )
+                else:
+                    img_show = frame
 
-                # FPS / progress overlay (matches main.py style)
                 processing_times.append(dt)
                 avg_ms = np.mean(processing_times) * 1000
                 fps = 1000 / avg_ms
@@ -805,12 +804,9 @@ def _run_mediapipe(args):
         cmd.append("--single-subject")
     if args.headless:
         cmd.append("--headless")
-    if args.no_smooth:
-        # pose_estimation.main doesn't have --no-smooth; pass through silently
-        pass
-    if args.max_frames:
-        # pose_estimation.main doesn't have --max-frames; pass through silently
-        pass
+    for flag, val in (("--no-smooth", args.no_smooth), ("--max-frames", args.max_frames)):
+        if val:
+            print(f"WARNING: {flag} is not supported by the MediaPipe pipeline; ignoring.")
     print(f"Delegating to MediaPipe pipeline: {' '.join(cmd)}")
     return subprocess.call(cmd)
 
@@ -828,17 +824,15 @@ def main():
         model_name = "rtmpose-m"
 
     model = MODEL_REGISTRY[model_name]
-    args.body_only = model["n_kps"] == 17
 
     # --tracking hands/hands-arms needs wholebody (133 kps)
-    if args.tracking != "body" and args.body_only:
+    if args.tracking != "body" and model["n_kps"] == 17:
         print(
             f"NOTE: --tracking {args.tracking} requires wholebody; "
             f"switching from {model_name} to {DEFAULT_MODEL}."
         )
         model_name = DEFAULT_MODEL
         model = MODEL_REGISTRY[model_name]
-        args.body_only = False
 
     # ── Patch rtmlib before importing its classes ────────────────────
     if args.backend == "openvino":
@@ -884,9 +878,7 @@ def main():
 
     bone_smoother = None
     if not args.no_constraints:
-        segments = (
-            BONE_SEGMENTS_WB_BODY if args.tracking == "body" or args.body_only else BONE_SEGMENTS_WB
-        )
+        segments = BONE_SEGMENTS_WB_BODY if args.tracking == "body" else BONE_SEGMENTS_WB
         bone_smoother = BoneLengthSmoother(segments=segments)
 
     # ── Collect sources ─────────────────────────────────────────────

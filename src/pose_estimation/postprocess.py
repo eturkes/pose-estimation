@@ -58,7 +58,7 @@ def _smooth_column(series, window, polyorder, savgol_filter):
     # Identify gap runs
     is_nan = series.isna()
     if is_nan.any():
-        groups = (is_nan != is_nan.shift()).cumsum()
+        groups = (is_nan != is_nan.shift(fill_value=False)).cumsum()
         gap_lengths = is_nan.groupby(groups).transform("sum")
         short_gap = is_nan & (gap_lengths <= max_gap)
         if short_gap.any():
@@ -70,7 +70,7 @@ def _smooth_column(series, window, polyorder, savgol_filter):
     if not valid.any():
         return series
 
-    seg_id = (valid != valid.shift()).cumsum()
+    seg_id = (valid != valid.shift(fill_value=False)).cumsum()
     result = interp.copy()
 
     for _sid, grp in interp.groupby(seg_id):

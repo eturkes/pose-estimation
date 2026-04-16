@@ -131,14 +131,3 @@ def test_no_constraints_flag():
         assert args.no_constraints is False
     finally:
         sys.argv = orig
-
-
-if __name__ == "__main__":
-    test_rtmw_segment_indices_valid()
-    test_rtmw_arm_segments_subset_of_body()
-    test_rtmw_constant_landmarks_no_correction()
-    test_rtmw_perturbed_wrist_corrected()
-    test_rtmw_body_segments_include_legs()
-    test_rtmw_body_smoother_with_legs()
-    test_no_constraints_flag()
-    print("All tests passed.")

@@ -78,7 +78,6 @@ plot_worst_keypoints <- function(df, title_prefix) {
     group_by(kp_label) |>
     summarise(
       median_jitter = median(jitter_px, na.rm = TRUE),
-      missing_pct = mean(is.na(x_smooth)) * 100,
       .groups = "drop"
     ) |>
     arrange(desc(median_jitter)) |>

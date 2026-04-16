@@ -698,10 +698,8 @@ def process_frame(
     real_palm_dets = list(palm_detections)
     diag.n_hands_real = len(real_palm_dets)
 
-    # Synthesise palm detections from arm wrists not covered by real palms
     n_before_synth = len(palm_detections)
     if body_landmarks and synthesise_hands and tracking != TRACKING_HANDS:
-        _, _, _, arm_chains = tracking_pose_indices(tracking)
         palm_detections.extend(
             _synthesise_hand_detections(
                 body_landmarks,
@@ -714,7 +712,6 @@ def process_frame(
         )
     diag.n_hands_synthetic = len(palm_detections) - n_before_synth
 
-    # Re-crop from previous hand landmarks when palm detector misses
     n_before_recrop = len(palm_detections)
     if prev_hand_landmarks:
         palm_detections.extend(
@@ -753,10 +750,11 @@ def process_frame(
                 kept_palm_dets.append(det)
 
     diag.hand_diag = hand_diag
-    # Snapshot raw landmarks before smoothing
-    diag.raw_body_landmarks = [lm.copy() for lm in body_landmarks]
-    diag.raw_body_visibilities = [v.copy() for v in body_visibilities]
-    diag.raw_hand_landmarks = [lm.copy() for lm in hand_landmarks]
+    # Raw (pre-smoothing) references; smoothers return new arrays without
+    # mutating inputs, so sharing references here is safe.
+    diag.raw_body_landmarks = body_landmarks
+    diag.raw_body_visibilities = body_visibilities
+    diag.raw_hand_landmarks = hand_landmarks
 
     state = {"pose_dets": kept_pose_dets, "palm_dets": kept_palm_dets, "hand_diag": hand_diag}
     return body_landmarks, body_visibilities, hand_landmarks, hand_flags, state, diag

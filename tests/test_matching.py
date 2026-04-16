@@ -145,14 +145,3 @@ def test_cross_body_nearest_wrist():
     assert arm_idx == 0, "should match to body 0 (closer)"
     assert wrist_kp == 5, "should match to right wrist"
     assert hand_idx == 0
-
-
-if __name__ == "__main__":
-    test_no_bodies_empty()
-    test_no_hands_empty()
-    test_single_body_two_hands()
-    test_optimal_not_greedy()
-    test_hand_beyond_threshold()
-    test_distality_check()
-    test_cross_body_nearest_wrist()
-    print("All matching tests passed.")

@@ -234,13 +234,3 @@ def test_affine_matrix_valid():
     assert np.all(np.isfinite(M))
 
 
-# ---------------------------------------------------------------------------
-# Run all tests
-# ---------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    test_funcs = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
-    for fn in test_funcs:
-        fn()
-        print(f"  PASS  {fn.__name__}")
-    print(f"\nAll {len(test_funcs)} processing tests passed.")

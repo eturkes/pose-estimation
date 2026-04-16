@@ -32,7 +32,7 @@ from .constraints import (
 )
 from .detection import PALM_INPUT_SIZE, POSE_INPUT_SIZE, generate_anchors
 from .drawing import draw_arm_hand_bridges, draw_body_landmarks, draw_hand_landmarks
-from .export import frame_to_rows, open_csv_writer
+from .export import frame_to_rows, open_csv_writer, wrist_to_side
 from .metrics import (
     ConstraintDiagnostics,
     MetricsCollector,
@@ -72,6 +72,16 @@ def frame_to_surface(frame):
 
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     return pygame.surfarray.make_surface(rgb.transpose(1, 0, 2))
+
+
+def _oldest_tracks(items, ages, min_age, cap):
+    """Return up to *cap* items whose age meets *min_age*, oldest first."""
+    aged = sorted(
+        ((item, age) for item, age in zip(items, ages, strict=False) if age >= min_age),
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    return [item for item, _ in aged[:cap]]
 
 
 def process_video(
@@ -238,31 +248,9 @@ def process_video(
                 constraint_diag.angle_corrections_n = total_angle_clamps
 
             if single_subject and use_body:
-                # Filter transient hand tracks by age and cap at 2
-                hand_ages = smoother.hand_track_ages()
-                aged = sorted(
-                    (
-                        (lm, age)
-                        for lm, age in zip(hand_lm, hand_ages, strict=False)
-                        if age >= min_hand_age
-                    ),
-                    key=lambda x: x[1],
-                    reverse=True,
-                )
-                hand_lm = [lm for lm, _ in aged[:2]]
+                hand_lm = _oldest_tracks(hand_lm, smoother.hand_track_ages(), min_hand_age, cap=2)
             elif not use_body:
-                # Hands-only: cap at 2 and filter by age
-                hand_ages = smoother.hand_track_ages()
-                aged = sorted(
-                    (
-                        (lm, age)
-                        for lm, age in zip(hand_lm, hand_ages, strict=False)
-                        if age >= min_track_age
-                    ),
-                    key=lambda x: x[1],
-                    reverse=True,
-                )
-                hand_lm = [lm for lm, _ in aged[:2]]
+                hand_lm = _oldest_tracks(hand_lm, smoother.hand_track_ages(), min_track_age, cap=2)
             else:
                 # Strip carry-forward ghosts and filter by minimum
                 # track age to suppress transient false positives.
@@ -315,7 +303,6 @@ def process_video(
                     matches = []
                     frames_since_body += 1
 
-            # Store final hand landmarks for next frame's re-crop
             prev_hand_lm = [lm.copy() for lm in hand_lm] if hand_lm else None
 
             # Export landmarks
@@ -344,11 +331,7 @@ def process_video(
                 match_dist_L, match_dist_R = None, None
                 hand_L_flag, hand_R_flag = 0.0, 0.0
                 if use_body and matches:
-                    wrist_side = {}
-                    if tracking == TRACKING_BODY:
-                        wrist_side = {15: "left", 16: "right"}
-                    else:
-                        wrist_side = {4: "left", 5: "right"}
+                    wrist_side = wrist_to_side(tracking)
                     for arm_idx, wrist_kp, hand_idx in matches:
                         side = wrist_side.get(wrist_kp)
                         if hand_idx < len(hand_lm):

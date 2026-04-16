@@ -138,14 +138,3 @@ def test_carry_preserves_region_filters():
     assert len(sm.tracks) == 1
     filt = sm.tracks[0]["filter"]
     assert set(filt.keys()) == {name for name, *_ in REGION_PARAMS}
-
-
-if __name__ == "__main__":
-    test_region_params_cover_all_133()
-    test_make_filters_133_creates_regions()
-    test_make_filters_17_creates_single()
-    test_region_filters_independent()
-    test_smoother_output_shape_133()
-    test_smoother_output_shape_17()
-    test_carry_preserves_region_filters()
-    print("All tests passed.")

@@ -20,7 +20,6 @@ library(stringr)
 library(purrr)
 library(ggplot2)
 library(tibble)
-library(stats)
 
 # ------------------------------------------------------------------
 # Constants
