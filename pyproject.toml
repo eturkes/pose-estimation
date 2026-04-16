@@ -132,6 +132,11 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["N802", "N803", "N806"]  # test functions often use non-PEP8 names
 "scripts/**" = ["T201"]                 # scripts may print
+"scripts/benchmarks/**" = [
+    "T201",
+    "PERF401",  # explicit for-append loops read more clearly in bench builders
+    "RUF003",   # allow µ and similar unit symbols in comments/strings
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["pose_estimation"]
