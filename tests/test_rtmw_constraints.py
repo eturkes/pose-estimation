@@ -1,13 +1,9 @@
 """Tests for bone-length constraints on COCO-WholeBody 133 layout."""
 
 import numpy as np
-import sys
-import pathlib
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-
-from constraints import BoneLengthSmoother
-from run import (
+from pose_estimation.constraints import BoneLengthSmoother
+from pose_estimation.run import (
     BONE_SEGMENTS_WB,
     BONE_SEGMENTS_WB_BODY,
     parse_args,

@@ -1,11 +1,8 @@
 """Tests for biomechanical constraints (bone length and joint angles)."""
 
 import numpy as np
-import sys, pathlib
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-
-from constraints import BoneLengthSmoother, BONE_SEGMENTS, clamp_joint_angles
+from pose_estimation.constraints import BoneLengthSmoother, BONE_SEGMENTS, clamp_joint_angles
 
 
 def _make_landmarks():

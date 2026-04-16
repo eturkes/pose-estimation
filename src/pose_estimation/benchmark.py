@@ -7,13 +7,13 @@ comparison.
 
 Usage:
     # Single parameter sweep
-    python benchmark.py --source video.mp4 --sweep body_min_cutoff 0.1 0.3 0.5 1.0
+    python -m pose_estimation.benchmark --source video.mp4 --sweep body_min_cutoff 0.1 0.3 0.5 1.0
 
     # From a YAML config file
-    python benchmark.py --source video.mp4 --config sweep.yaml
+    python -m pose_estimation.benchmark --source video.mp4 --config sweep.yaml
 
     # Batch with all defaults
-    python benchmark.py --batch-dir videos/
+    python -m pose_estimation.benchmark --batch-dir videos/
 
 YAML config format:
     body_min_cutoff: [0.1, 0.3, 0.5, 1.0]
@@ -75,9 +75,9 @@ def _apply_param_overrides(overrides):
 
     Returns a cleanup function that restores originals.
     """
-    import smoothing
-    import processing
-    import constraints
+    from . import smoothing
+    from . import processing
+    from . import constraints
 
     originals = {}
 
@@ -152,8 +152,8 @@ def run_single(source, output_dir, run_label, overrides, device, tracking,
                pose_anchors=None):
     """Run the pipeline once with given parameters, collect metrics.
 
-    Uses a subprocess call to main.py with --headless to ensure clean
-    module state (no monkey-patching side effects between runs).
+    Uses a subprocess call to pose_estimation.main with --headless to ensure
+    clean module state (no monkey-patching side effects between runs).
     """
     run_dir = pathlib.Path(output_dir) / run_label
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -163,10 +163,10 @@ def run_single(source, output_dir, run_label, overrides, device, tracking,
     with open(config_path, "w") as f:
         json.dump(overrides, f, indent=2)
 
-    # For now, use subprocess to main.py in headless mode.
+    # For now, use subprocess to pose_estimation.main in headless mode.
     # This is simpler and avoids state leakage between runs.
     cmd = [
-        sys.executable, "main.py",
+        sys.executable, "-m", "pose_estimation.main",
         "--source", str(source),
         "--output-dir", str(run_dir),
         "--device", device,

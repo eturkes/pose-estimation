@@ -1,7 +1,8 @@
 """Tests for velocity-based extrapolation during carry-forward."""
 
 import numpy as np
-from smoothing import PoseSmoother, OneEuroFilter
+
+from pose_estimation.smoothing import PoseSmoother, OneEuroFilter
 
 
 def make_body(x_offset=0.0, y_offset=0.0):

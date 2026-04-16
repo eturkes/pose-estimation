@@ -3,7 +3,7 @@
 import csv
 import pathlib
 
-from processing import (
+from .processing import (
     TRACKING_HANDS, TRACKING_HANDS_ARMS, TRACKING_BODY,
     WRIST_KPS_12, WRIST_KPS_33,
 )

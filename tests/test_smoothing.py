@@ -1,11 +1,8 @@
 """Tests for confidence-weighted temporal smoothing."""
 
 import numpy as np
-import sys, pathlib
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-
-from smoothing import OneEuroFilter, PoseSmoother
+from pose_estimation.smoothing import OneEuroFilter, PoseSmoother
 
 
 def _make_landmarks(n=12):

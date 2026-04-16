@@ -1,13 +1,9 @@
 """Tests for detection-level carry-forward, NMS, and decode_detections."""
 
 import numpy as np
-import sys
-import pathlib
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-
-from processing import _smooth_detections
-from detection import nms, decode_detections, generate_anchors
+from pose_estimation.processing import _smooth_detections
+from pose_estimation.detection import nms, decode_detections, generate_anchors
 
 
 def _make_det(cx, cy, size=0.1, score=0.9):

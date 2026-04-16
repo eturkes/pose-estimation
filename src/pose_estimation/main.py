@@ -2,14 +2,14 @@
 """Pose estimation using OpenVINO and MediaPipe models.
 
 Usage:
-    python main.py                          # webcam 0, NPU device
-    python main.py --source 1               # webcam 1
-    python main.py --source video.mp4       # single video file
-    python main.py --batch-dir videos/      # process all videos in a directory
-    python main.py --device CPU             # run on CPU
-    python main.py --no-flip                # disable mirror for front camera
-    python main.py --tracking hands          # hands only
-    python main.py --tracking body           # whole body + hands
+    python -m pose_estimation.main                          # webcam 0, NPU device
+    python -m pose_estimation.main --source 1               # webcam 1
+    python -m pose_estimation.main --source video.mp4       # single video file
+    python -m pose_estimation.main --batch-dir videos/      # process all videos in a directory
+    python -m pose_estimation.main --device CPU             # run on CPU
+    python -m pose_estimation.main --no-flip                # disable mirror for front camera
+    python -m pose_estimation.main --tracking hands          # hands only
+    python -m pose_estimation.main --tracking body           # whole body + hands
 """
 
 import argparse
@@ -22,22 +22,22 @@ import time
 import cv2
 import numpy as np
 
-from models import download_and_compile_models
-from detection import generate_anchors, PALM_INPUT_SIZE, POSE_INPUT_SIZE
-from processing import (
+from .models import download_and_compile_models
+from .detection import generate_anchors, PALM_INPUT_SIZE, POSE_INPUT_SIZE
+from .processing import (
     process_frame, match_hands_to_arms, select_primary_body,
     tracking_pose_indices,
     TRACKING_HANDS, TRACKING_HANDS_ARMS, TRACKING_BODY,
 )
-from smoothing import PoseSmoother
-from constraints import (
+from .smoothing import PoseSmoother
+from .constraints import (
     BoneLengthSmoother, clamp_joint_angles,
     BONE_SEGMENTS, BONE_SEGMENTS_BODY,
     ANGLE_LIMITS, ANGLE_LIMITS_BODY,
 )
-from drawing import draw_body_landmarks, draw_hand_landmarks, draw_arm_hand_bridges
-from export import open_csv_writer, frame_to_rows
-from metrics import (
+from .drawing import draw_body_landmarks, draw_hand_landmarks, draw_arm_hand_bridges
+from .export import open_csv_writer, frame_to_rows
+from .metrics import (
     MetricsCollector, FrameDiagnostics,
     SmoothingDiagnostics, ConstraintDiagnostics,
 )

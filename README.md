@@ -22,22 +22,22 @@ uv sync
 
 ```bash
 # Default: webcam 0, NPU device, hands-arms tracking
-python main.py
+python -m pose_estimation.main
 
 # Use a different camera
-python main.py --source 1
+python -m pose_estimation.main --source 1
 
 # Use a video file
-python main.py --source video.mp4
+python -m pose_estimation.main --source video.mp4
 
 # Run inference on CPU instead of NPU
-python main.py --device CPU
+python -m pose_estimation.main --device CPU
 
 # Disable horizontal flip (useful for rear cameras)
-python main.py --no-flip
+python -m pose_estimation.main --no-flip
 
 # Specify a custom model cache directory
-python main.py --model-dir /path/to/models
+python -m pose_estimation.main --model-dir /path/to/models
 ```
 
 Models are downloaded automatically on first run and cached in the `model/`
@@ -51,13 +51,13 @@ Use `--tracking` to select what body parts are tracked:
 
 ```bash
 # Hands only — palm detection + 21 hand keypoints per hand
-python main.py --tracking hands
+python -m pose_estimation.main --tracking hands
 
 # Arms + hands (default) — 12 arm keypoints + hand landmarks
-python main.py --tracking hands-arms
+python -m pose_estimation.main --tracking hands-arms
 
 # Whole body + hands — all 33 pose keypoints + hand landmarks
-python main.py --tracking body
+python -m pose_estimation.main --tracking body
 ```
 
 | Mode | Body keypoints | Hand keypoints | Pose detection |
@@ -79,7 +79,7 @@ to knee joints.
 Place videos in `videos/` and run:
 
 ```bash
-python main.py --batch-dir videos/
+python -m pose_estimation.main --batch-dir videos/
 ```
 
 Each video is displayed in real-time during processing. One CSV per video is
@@ -89,14 +89,14 @@ Add `--postprocess` to apply offline Savitzky-Golay smoothing to the exported
 CSVs (writes `<stem>_smooth.csv` alongside each original):
 
 ```bash
-python main.py --batch-dir videos/ --postprocess
-python main.py --batch-dir videos/ --postprocess --savgol-window 15 --savgol-polyorder 3
+python -m pose_estimation.main --batch-dir videos/ --postprocess
+python -m pose_estimation.main --batch-dir videos/ --postprocess --savgol-window 15 --savgol-polyorder 3
 ```
 
 The post-processing script can also be run standalone on existing CSVs:
 
 ```bash
-python postprocess.py output/video1.csv --window 15 --polyorder 3
+python -m pose_estimation.postprocess output/video1.csv --window 15 --polyorder 3
 ```
 
 Both `videos/` and `output/` are git-ignored to prevent patient data from being
@@ -109,7 +109,7 @@ To track only the most prominent person (e.g. the patient), add
 each frame and discards other detections:
 
 ```bash
-python main.py --batch-dir videos/ --single-subject
+python -m pose_estimation.main --batch-dir videos/ --single-subject
 ```
 
 Single-subject mode has three resilience layers for unreliable body detection
@@ -149,7 +149,7 @@ be blank in hand-only fallback frames.
 Run without display (faster, no pygame dependency at runtime):
 
 ```bash
-python main.py --source video.mp4 --headless
+python -m pose_estimation.main --source video.mp4 --headless
 ```
 
 This produces the same CSVs plus a `*_metrics.csv` with per-frame quality
@@ -253,8 +253,8 @@ numeric scores.  Exits 0 on success, 1 on errors.
 Sweep pipeline parameters and compare results:
 
 ```bash
-python benchmark.py --source video.mp4 --sweep body_min_cutoff 0.1 0.3 0.5 1.0
-python benchmark.py --source video.mp4 --sweep body_beta 0.3 0.5 0.7 --sweep hand_min_cutoff 0.5 1.0 2.0
+python -m pose_estimation.benchmark --source video.mp4 --sweep body_min_cutoff 0.1 0.3 0.5 1.0
+python -m pose_estimation.benchmark --source video.mp4 --sweep body_beta 0.3 0.5 0.7 --sweep hand_min_cutoff 0.5 1.0 2.0
 ```
 
 Available sweep parameters: `det_score_thresh`, `hand_flag_thresh`,
@@ -266,10 +266,10 @@ Curated sweep configurations are provided as YAML files:
 
 ```bash
 # Full grid (8 params — run 1-2 at a time)
-python benchmark.py --source video.mp4 --config sweep_default.yaml
+python -m pose_estimation.benchmark --source video.mp4 --config sweep_default.yaml
 
 # Quick first pass (body smoothing × detection EMA, 6 combos)
-python benchmark.py --source video.mp4 --config sweep_quick.yaml
+python -m pose_estimation.benchmark --source video.mp4 --config sweep_quick.yaml
 ```
 
 ## Architecture
@@ -339,18 +339,18 @@ lightweight ONNX/OpenVINO inference without mmcv/mmpose dependencies.
 
 ```bash
 # Quick test on webcam (default: rtmw-l)
-python run.py
+python -m pose_estimation.run
 
 # Try different models
-python run.py --model dwpose-m
-python run.py --model rtmpose-m
-python run.py --model mediapipe
+python -m pose_estimation.run --model dwpose-m
+python -m pose_estimation.run --model rtmpose-m
+python -m pose_estimation.run --model mediapipe
 
 # Video with OpenVINO backend
-python run.py --source video.mp4 --backend openvino
+python -m pose_estimation.run --source video.mp4 --backend openvino
 
 # Benchmark latency without display
-python run.py --source video.mp4 --headless
+python -m pose_estimation.run --source video.mp4 --headless
 ```
 
 Models are downloaded automatically on first run.

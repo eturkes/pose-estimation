@@ -3,15 +3,15 @@
 Supports rtmlib-based models (RTMW, DWPose, RTMPose) and MediaPipe.
 
 Usage:
-    python run.py                                     # webcam 0, default model
-    python run.py --model dwpose-m                    # DWPose wholebody
-    python run.py --model rtmpose-m                   # body-only (17 kps)
-    python run.py --model mediapipe                   # MediaPipe pose + hand
-    python run.py --source video.mp4 --backend openvino --device GPU
-    python run.py --backend openvino --device NPU
-    python run.py --source video.mp4 --backend openvino --device NPU --headless
-    python run.py --batch-dir videos/ --backend openvino --device NPU
-    python run.py --batch-dir videos/ --single-subject --backend openvino --device NPU --tracking hands-arms
+    python -m pose_estimation.run                                     # webcam 0, default model
+    python -m pose_estimation.run --model dwpose-m                    # DWPose wholebody
+    python -m pose_estimation.run --model rtmpose-m                   # body-only (17 kps)
+    python -m pose_estimation.run --model mediapipe                   # MediaPipe pose + hand
+    python -m pose_estimation.run --source video.mp4 --backend openvino --device GPU
+    python -m pose_estimation.run --backend openvino --device NPU
+    python -m pose_estimation.run --source video.mp4 --backend openvino --device NPU --headless
+    python -m pose_estimation.run --batch-dir videos/ --backend openvino --device NPU
+    python -m pose_estimation.run --batch-dir videos/ --single-subject --backend openvino --device NPU --tracking hands-arms
 
 Requirements:
     pip install rtmlib openvino  # or: pip install rtmlib onnxruntime
@@ -28,11 +28,11 @@ import cv2
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from constraints import BoneLengthSmoother
+from .constraints import BoneLengthSmoother
 
 
 # ---------------------------------------------------------------------------
-# Model registry — NPU-compatible models (verified via test_npu_compat.py)
+# Model registry — NPU-compatible models (verified via scripts/npu_compat.py)
 # ---------------------------------------------------------------------------
 # Largest variant per model family; all use YOLOX-m for detection.
 
@@ -747,8 +747,8 @@ def print_latency_summary(latencies):
 # ---------------------------------------------------------------------------
 
 def _run_mediapipe(args):
-    """Delegate to main.py for the MediaPipe pipeline."""
-    cmd = [sys.executable, "main.py"]
+    """Delegate to pose_estimation.main for the MediaPipe pipeline."""
+    cmd = [sys.executable, "-m", "pose_estimation.main"]
     if args.batch_dir:
         cmd += ["--batch-dir", args.batch_dir]
     elif args.source != "0":
@@ -760,10 +760,10 @@ def _run_mediapipe(args):
     if args.headless:
         cmd.append("--headless")
     if args.no_smooth:
-        # main.py doesn't have --no-smooth; pass through silently
+        # pose_estimation.main doesn't have --no-smooth; pass through silently
         pass
     if args.max_frames:
-        # main.py doesn't have --max-frames; pass through silently
+        # pose_estimation.main doesn't have --max-frames; pass through silently
         pass
     print(f"Delegating to MediaPipe pipeline: {' '.join(cmd)}")
     return subprocess.call(cmd)

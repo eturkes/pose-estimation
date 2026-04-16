@@ -1,12 +1,8 @@
 """Tests for confidence-weighted One Euro Filter."""
 
 import numpy as np
-import sys
-import pathlib
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-
-from run import _OneEuro, KeypointSmoother
+from pose_estimation.run import _OneEuro, KeypointSmoother
 
 
 def _make_kps(n=133):

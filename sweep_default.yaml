@@ -1,5 +1,5 @@
 # Default parameter sweep — run with:
-#   python benchmark.py --source video.mp4 --config sweep_default.yaml
+#   python -m pose_estimation.benchmark --source video.mp4 --config sweep_default.yaml
 
 # One-Euro body filter: lower min_cutoff = more smoothing
 body_min_cutoff: [0.15, 0.3, 0.5, 0.8]

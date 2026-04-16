@@ -7,7 +7,7 @@ uses both past and future samples and preserves peaks better, making it
 ideal for offline refinement.
 
 Standalone usage:
-    python postprocess.py output/video1.csv --window 15 --polyorder 3
+    python -m pose_estimation.postprocess output/video1.csv --window 15 --polyorder 3
 """
 
 import argparse

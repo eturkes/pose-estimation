@@ -1,11 +1,8 @@
 """Tests for Hungarian hand-to-arm matching."""
 
 import numpy as np
-import sys, pathlib
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-
-from processing import match_hands_to_arms
+from pose_estimation.processing import match_hands_to_arms
 
 
 def _make_body():

@@ -12,14 +12,14 @@ import cv2
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from detection import (
+from .detection import (
     PALM_INPUT_SIZE,
     HAND_INPUT_SIZE,
     POSE_INPUT_SIZE,
     POSE_LM_INPUT_SIZE,
     decode_detections,
 )
-from metrics import FrameDiagnostics
+from .metrics import FrameDiagnostics
 
 # ---------------------------------------------------------------------------
 # Tracking modes

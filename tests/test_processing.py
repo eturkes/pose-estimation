@@ -5,12 +5,8 @@ degenerate-input handling.
 """
 
 import numpy as np
-import sys
-import pathlib
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-
-from processing import (
+from pose_estimation.processing import (
     _synthesise_hand_detections,
     _recrop_from_landmarks,
     _affine_matrix,

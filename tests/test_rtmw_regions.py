@@ -1,12 +1,8 @@
 """Tests for per-region differentiated smoothing."""
 
 import numpy as np
-import pathlib
-import sys
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-
-from run import (
+from pose_estimation.run import (
     REGION_PARAMS, KeypointSmoother, _OneEuro,
 )
 
