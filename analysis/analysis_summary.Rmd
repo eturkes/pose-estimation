@@ -1,0 +1,661 @@
+---
+title: "Pose-Estimation Pipeline — Analysis Summary"
+author: "Generated from analysis/*.R"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    df_print: paged
+    fig_width: 10
+    fig_height: 6
+params:
+  output_dir: "../output"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo       = FALSE,
+  warning    = FALSE,
+  message    = FALSE,
+  fig.align  = "center",
+  out.width  = "100%"
+)
+
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(tidyr)
+  library(readr)
+  library(stringr)
+  library(purrr)
+  library(ggplot2)
+  library(tibble)
+  library(jsonlite)
+  library(knitr)
+})
+
+out_dir <- normalizePath(params$output_dir, mustWork = FALSE)
+has_out <- dir.exists(out_dir)
+
+show_png <- function(path, caption = NULL) {
+  if (file.exists(path)) {
+    knitr::include_graphics(path)
+  } else {
+    cat(sprintf("_Not available: `%s`_\n\n", basename(path)))
+  }
+}
+
+read_csv_safe <- function(path) {
+  if (file.exists(path)) {
+    suppressMessages(read_csv(path, show_col_types = FALSE))
+  } else {
+    NULL
+  }
+}
+
+list_files_safe <- function(dir, pattern) {
+  if (dir.exists(dir)) {
+    list.files(dir, pattern = pattern, full.names = TRUE)
+  } else {
+    character()
+  }
+}
+```
+
+# Overview
+
+This report consolidates the outputs of the R analysis scripts in
+`analysis/` that consume the CSVs produced by the pose-estimation
+pipeline (`pose_estimation.main` / `pose_estimation.run`). It is
+organised in the order the scripts are typically run:
+
+1. **Pipeline quality** — `summary.R`, `timeseries.R`, `keypoint_detail.R`
+2. **Landmark feature exploration** — `features.R`
+3. **Run comparison** — `compare.R`
+4. **Clinical kinematic features** — `clinical_features.R`
+5. **Clinical exploration** — `explore_clinical.R`
+6. **Temporal clinical analysis** — `temporal_clinical.R`
+7. **Between-video comparison** — `compare_clinical.R`
+8. **Dimensionality reduction** — `clinical_dimreduce.R`
+9. **External-score correlation** — `clinical_correlation.R`
+10. **Longitudinal recovery** — `longitudinal.R`
+11. **Metadata templates & validation** — `make_templates.R`, `validate_metadata.R`
+
+The report reads whatever outputs already exist under
+`r out_dir` and silently skips sections whose inputs have not been
+produced yet.
+
+```{r inventory}
+count_landmark_csvs <- function(dir) {
+  if (!dir.exists(dir)) return(NA_integer_)
+  files <- list.files(dir, pattern = "\\.csv$", full.names = TRUE)
+  excl <- "(_metrics|_diag|_smooth|_clinical|_kp_detail|_summary|_feature_rank)\\.csv$"
+  length(files[!str_detect(basename(files), excl)])
+}
+
+count_pattern <- function(dir, pattern, extra_exclude = NULL) {
+  if (!dir.exists(dir)) return(NA_integer_)
+  files <- list.files(dir, pattern = pattern, full.names = TRUE)
+  if (!is.null(extra_exclude)) {
+    files <- files[!str_detect(basename(files), extra_exclude)]
+  }
+  length(files)
+}
+
+inventory <- tibble(
+  category = c(
+    "Landmark CSVs (pipeline export)",
+    "Metrics CSVs (quality metrics)",
+    "Per-keypoint detail CSVs",
+    "Per-run summary JSONs",
+    "Per-frame clinical CSVs",
+    "Per-window clinical CSVs"
+  ),
+  n_files = c(
+    count_landmark_csvs(out_dir),
+    count_pattern(out_dir, "_metrics\\.csv$"),
+    count_pattern(out_dir, "_kp_detail\\.csv$"),
+    count_pattern(out_dir, "_summary\\.json$"),
+    count_pattern(out_dir, "_clinical\\.csv$", extra_exclude = "_windows\\.csv$"),
+    count_pattern(out_dir, "_clinical_windows\\.csv$")
+  )
+)
+
+knitr::kable(
+  inventory |> select(category, n_files),
+  col.names = c("Output category", "# files"),
+  caption = "Output inventory"
+)
+```
+
+---
+
+# Pipeline Quality
+
+## Per-run baseline report — `summary.R`
+
+`summary.R` ingests each `*_metrics.csv` and produces a JSON summary
+(`*_summary.json`) plus a console report covering:
+
+- Detection rates (body, synthetic hands, re-crop hands)
+- Confidence (body visibility median/IQR, hand flag medians)
+- Jitter (body/hand median and p95, px)
+- Smoothing delta (raw − smoothed, px)
+- Carry-forward rate and mean streak length
+- Bone-length correction and joint-angle clamp rate
+- Hand-to-arm matching distances
+- Inference time (median and p95, ms)
+
+```{r summary-json-table}
+json_files <- list_files_safe(out_dir, "_summary\\.json$")
+
+if (length(json_files) == 0) {
+  cat("_No `*_summary.json` files found. Run:_ `Rscript analysis/summary.R output/`\n")
+} else {
+  flatten_json <- function(j, prefix = "") {
+    out <- list()
+    for (name in names(j)) {
+      key <- if (prefix == "") name else paste0(prefix, ".", name)
+      val <- j[[name]]
+      if (is.list(val) && !is.null(names(val))) {
+        out <- c(out, flatten_json(val, key))
+      } else {
+        out[[key]] <- val
+      }
+    }
+    out
+  }
+
+  rows <- map_dfr(json_files, \(f) {
+    j <- jsonlite::fromJSON(f)
+    flat <- flatten_json(j)
+    video <- str_remove(basename(f), "_summary\\.json$")
+    tibble(video = video, !!!flat)
+  })
+
+  knitr::kable(
+    rows |>
+      select(video, n_frames,
+             any_of(c(
+               "detection.body_detection_rate",
+               "confidence.body_vis_median",
+               "jitter_px.body_median",
+               "jitter_px.body_p95",
+               "carry_forward.body_carry_pct",
+               "inference_ms.median",
+               "inference_ms.p95"
+             ))),
+    caption = "Per-video baseline quality (from `*_summary.json`)"
+  )
+}
+```
+
+## Temporal diagnostics — `timeseries.R`
+
+For every `*_metrics.csv`, `timeseries.R` generates five diagnostic
+plots:
+
+- `_detection_timeline.png` — frame-by-frame body/hand status
+  (detected / carried / missing)
+- `_jitter.png` — jitter over time with spike markers (> 3 × median)
+- `_confidence.png` — body visibility + hand flag traces
+- `_smoothing.png` — raw-vs-smoothed delta
+- `_constraints.png` — bone-length and joint-angle correction history
+
+```{r timeseries-examples, results = "asis"}
+timeseries_pngs <- list_files_safe(out_dir, "_detection_timeline\\.png$")
+
+if (length(timeseries_pngs) == 0) {
+  cat("_No timeseries plots found. Run:_ `Rscript analysis/timeseries.R output/`\n")
+} else {
+  # Show the first example per plot type
+  example <- str_remove(basename(timeseries_pngs[1]), "_detection_timeline\\.png$")
+  cat(sprintf("Showing diagnostic plots for **%s** (one of %d videos):\n\n",
+              example, length(timeseries_pngs)))
+  for (suffix in c("_detection_timeline", "_jitter", "_confidence",
+                   "_smoothing", "_constraints")) {
+    p <- file.path(out_dir, paste0(example, suffix, ".png"))
+    if (file.exists(p)) {
+      cat(sprintf("### `%s`\n\n", basename(p)))
+      cat(sprintf("![](%s)\n\n", p))
+    }
+  }
+}
+```
+
+## Per-keypoint analysis — `keypoint_detail.R`
+
+Runs when `*_kp_detail.csv` files are exported
+(`--metrics-detail` flag). Produces:
+
+- `_jitter_heatmap.png` — keypoint × time jitter heatmap
+- `_worst_keypoints.png` — top-20 keypoints by median jitter
+- `_trajectory.png` — smoothed x/y trajectories for shoulders + hand wrists
+
+```{r keypoint-detail, results = "asis"}
+kp_pngs <- list_files_safe(out_dir, "_jitter_heatmap\\.png$")
+
+if (length(kp_pngs) == 0) {
+  cat("_No per-keypoint plots found. Export with `--metrics-detail`, then run:_ ",
+      "`Rscript analysis/keypoint_detail.R output/`\n")
+} else {
+  example <- str_remove(basename(kp_pngs[1]), "_jitter_heatmap\\.png$")
+  cat(sprintf("Showing per-keypoint plots for **%s** (one of %d videos):\n\n",
+              example, length(kp_pngs)))
+  for (suffix in c("_worst_keypoints", "_jitter_heatmap", "_trajectory")) {
+    p <- file.path(out_dir, paste0(example, suffix, ".png"))
+    if (file.exists(p)) {
+      cat(sprintf("### `%s`\n\n![](%s)\n\n", basename(p), p))
+    }
+  }
+}
+```
+
+---
+
+# Landmark Feature Exploration — `features.R`
+
+`features.R` loads landmark CSVs (`hands-arms` or `body` tracking
+mode), drops rows that are entirely NA, median-imputes sporadic NAs,
+and produces:
+
+- `_variance.png` — per-feature variance (log scale), coloured by part
+- `_correlation.png` — clustered Pearson correlation heatmap
+- `_pca_scree.png` — cumulative variance explained
+- `_pca_biplot.png` — PC1 vs PC2 with top-10 loading arrows,
+  points coloured by timestamp
+- `_umap.png` / `_umap_video.png` — 2D UMAP embeddings
+- `_feature_rank.csv` — variance / max-abs-correlation / top-PC loading table
+
+```{r features-rank-table}
+rank_csvs <- list_files_safe(out_dir, "_feature_rank\\.csv$")
+
+if (length(rank_csvs) == 0) {
+  cat("_No `*_feature_rank.csv` found. Run:_ `Rscript analysis/features.R output/`\n")
+} else {
+  rank <- read_csv_safe(rank_csvs[1])
+  if (!is.null(rank)) {
+    cat(sprintf("Top 10 features by variance (from `%s`):\n\n",
+                basename(rank_csvs[1])))
+    knitr::kable(
+      rank |> arrange(desc(variance)) |> head(10) |>
+        select(any_of(c("column", "part", "keypoint", "coord",
+                        "variance", "max_abs_corr", "top_pc", "pc_loading"))),
+      digits = 3
+    )
+  }
+}
+```
+
+```{r features-plots, results = "asis"}
+var_pngs <- list_files_safe(out_dir, "_variance\\.png$")
+if (length(var_pngs) > 0) {
+  example <- str_remove(basename(var_pngs[1]), "_variance\\.png$")
+  cat(sprintf("Plots for **%s**:\n\n", example))
+  for (suffix in c("_variance", "_correlation", "_pca_scree",
+                   "_pca_biplot", "_umap")) {
+    p <- file.path(out_dir, paste0(example, suffix, ".png"))
+    if (file.exists(p)) {
+      cat(sprintf("![](%s)\n\n", p))
+    }
+  }
+}
+```
+
+---
+
+# Run Comparison — `compare.R`
+
+`compare.R` diffs two pipeline runs (`*_summary.json` or
+`*_metrics.csv`), writing `comparison.csv` plus — when metrics CSVs
+are provided — `comparison_jitter.png` and
+`comparison_detection.png` (overlaid distributions and bar chart).
+
+```{r compare-table}
+comp_csv <- file.path(out_dir, "comparison.csv")
+comp <- read_csv_safe(comp_csv)
+if (is.null(comp)) {
+  cat("_No `comparison.csv` found. Run:_ ",
+      "`Rscript analysis/compare.R run_a.json run_b.json`\n")
+} else {
+  knitr::kable(comp |> arrange(desc(abs(pct_change))) |> head(15),
+               caption = "Top 15 metrics by |percentage change|",
+               digits = 3)
+}
+```
+
+```{r compare-plots, results = "asis"}
+for (f in c("comparison_jitter.png", "comparison_detection.png")) {
+  p <- file.path(out_dir, f)
+  if (file.exists(p)) cat(sprintf("![](%s)\n\n", p))
+}
+```
+
+---
+
+# Clinical Kinematic Features — `clinical_features.R`
+
+Per-frame features (joint angles, reach, grasp aperture, wrist /
+fingertip displacement) and per-window (1 s, 50 % overlap)
+smoothness features (spectral arc length, wrist velocity
+mean / peak) are derived from the landmark CSVs. Two files are
+written per input:
+
+- `<stem>_clinical.csv` — per-frame features
+- `<stem>_clinical_windows.csv` — per-window features
+
+```{r clinical-features-inventory}
+frame_files <- list_files_safe(out_dir, "_clinical\\.csv$")
+frame_files <- frame_files[!str_detect(basename(frame_files), "_windows\\.csv$")]
+win_files   <- list_files_safe(out_dir, "_clinical_windows\\.csv$")
+
+if (length(frame_files) == 0) {
+  cat("_No `*_clinical.csv` found. Run:_ ",
+      "`Rscript analysis/clinical_features.R output/`\n")
+} else {
+  inv <- tibble(
+    video = str_remove(basename(frame_files), "_clinical\\.csv$"),
+    frame_rows = map_int(frame_files, \(f) nrow(read_csv_safe(f)))
+  )
+  if (length(win_files) > 0) {
+    inv <- inv |>
+      left_join(
+        tibble(
+          video = str_remove(basename(win_files), "_clinical_windows\\.csv$"),
+          window_rows = map_int(win_files, \(f) nrow(read_csv_safe(f)))
+        ),
+        by = "video"
+      )
+  } else {
+    inv$window_rows <- NA_integer_
+  }
+  knitr::kable(inv, caption = "Clinical feature files (per video)")
+}
+```
+
+---
+
+# Clinical Exploration — `explore_clinical.R`
+
+Loads all per-frame and per-window clinical CSVs and writes four
+diagnostic plots plus a console summary of row counts, per-column
+NA rates, and data-quality warnings (features > 50 % NA,
+zero-variance columns, empty videos).
+
+```{r explore-plots, results = "asis"}
+for (f in c("all_clinical_distributions.png",
+            "all_clinical_na_heatmap.png",
+            "all_clinical_boxplots.png",
+            "all_clinical_window_distributions.png")) {
+  p <- file.path(out_dir, f)
+  if (file.exists(p)) {
+    cat(sprintf("### `%s`\n\n![](%s)\n\n", f, p))
+  }
+}
+```
+
+---
+
+# Temporal Clinical Analysis — `temporal_clinical.R`
+
+For every video with ≥ 10 per-frame rows, `temporal_clinical.R`
+produces a multi-panel time-series plot with left and right sides
+overlaid, plus a window-level SAL / velocity panel where
+available. A cross-video overview plot compares normalised reach
+across all qualifying videos.
+
+```{r temporal-plots, results = "asis"}
+ts_pngs <- list_files_safe(out_dir, "_clinical_timeseries\\.png$")
+overview <- file.path(out_dir, "all_clinical_timeseries_overview.png")
+
+if (file.exists(overview)) {
+  cat("### Cross-video overview\n\n")
+  cat(sprintf("![](%s)\n\n", overview))
+}
+
+if (length(ts_pngs) > 0) {
+  cat(sprintf("### Example per-video time series (%d total)\n\n",
+              length(ts_pngs)))
+  cat(sprintf("![](%s)\n\n", ts_pngs[1]))
+}
+
+if (length(ts_pngs) == 0 && !file.exists(overview)) {
+  cat("_No temporal plots found. Run:_ ",
+      "`Rscript analysis/temporal_clinical.R output/`\n")
+}
+```
+
+---
+
+# Between-Video Comparison — `compare_clinical.R`
+
+Aggregates per-frame clinical features per video (mean / median /
+SD / min / max) and window features (mean / SD), producing a wide
+summary table (`all_clinical_video_summary.csv`) and two plots:
+
+- `all_clinical_radar.png` — parallel-coordinate plot of
+  z-scored feature means
+- `all_clinical_heatmap.png` — clustered z-score heatmap
+
+Outlier videos (|z| > 2 on any feature mean) are printed to the
+console.
+
+```{r compare-clinical-summary}
+video_summary <- read_csv_safe(file.path(out_dir, "all_clinical_video_summary.csv"))
+
+if (is.null(video_summary)) {
+  cat("_No `all_clinical_video_summary.csv` found. Run:_ ",
+      "`Rscript analysis/compare_clinical.R output/`\n")
+} else {
+  cat(sprintf("**%d videos × %d aggregated feature columns.**\n\n",
+              nrow(video_summary), ncol(video_summary) - 1))
+
+  mean_cols <- names(video_summary)[str_ends(names(video_summary), "__mean")]
+  if (length(mean_cols) > 0) {
+    z_df <- video_summary |>
+      select(video, all_of(mean_cols)) |>
+      mutate(across(all_of(mean_cols), \(x) {
+        s <- sd(x, na.rm = TRUE)
+        if (is.na(s) || s == 0) return(rep(NA_real_, length(x)))
+        (x - mean(x, na.rm = TRUE)) / s
+      }))
+
+    outliers <- z_df |>
+      pivot_longer(-video, names_to = "feature", values_to = "z") |>
+      filter(!is.na(z), abs(z) > 2) |>
+      mutate(feature = str_remove(feature, "__mean$")) |>
+      arrange(desc(abs(z)))
+
+    if (nrow(outliers) > 0) {
+      knitr::kable(outliers |> head(20),
+                   digits = 2,
+                   caption = "Outlier videos (|z| > 2 on any feature mean, top 20)")
+    } else {
+      cat("_No videos exceed |z| > 2 on any feature._\n\n")
+    }
+  }
+}
+```
+
+```{r compare-clinical-plots, results = "asis"}
+for (f in c("all_clinical_radar.png", "all_clinical_heatmap.png")) {
+  p <- file.path(out_dir, f)
+  if (file.exists(p)) {
+    cat(sprintf("### `%s`\n\n![](%s)\n\n", f, p))
+  }
+}
+```
+
+---
+
+# Dimensionality Reduction — `clinical_dimreduce.R`
+
+PCA and UMAP on the per-video aggregated clinical features.
+Writes:
+
+- `all_clinical_pca_scree.png` — variance explained per PC
+- `all_clinical_pca_biplot.png` — PC1/PC2 scatter with top loading arrows
+- `all_clinical_umap.png` — 2D UMAP
+- `all_clinical_pca_loadings.csv` — feature loadings on first 5 PCs
+
+```{r dimreduce-loadings}
+loadings <- read_csv_safe(file.path(out_dir, "all_clinical_pca_loadings.csv"))
+
+if (is.null(loadings)) {
+  cat("_No PCA loadings found. Run:_ ",
+      "`Rscript analysis/clinical_dimreduce.R output/`\n")
+} else {
+  knitr::kable(
+    loadings |> head(10) |>
+      select(any_of(c("feature_short", "PC1", "PC2", "PC3", "abs_PC1"))),
+    digits = 3,
+    caption = "Top 10 features loading on PC1"
+  )
+}
+```
+
+```{r dimreduce-plots, results = "asis"}
+for (f in c("all_clinical_pca_scree.png",
+            "all_clinical_pca_biplot.png",
+            "all_clinical_umap.png")) {
+  p <- file.path(out_dir, f)
+  if (file.exists(p)) {
+    cat(sprintf("### `%s`\n\n![](%s)\n\n", f, p))
+  }
+}
+```
+
+---
+
+# External-Score Correlation — `clinical_correlation.R`
+
+Joins aggregated clinical features (mean / median / SD / min / max
+per video) with an external `clinical_scores.csv` on `video` and
+computes pairwise Pearson and Spearman correlations with
+Benjamini–Hochberg FDR correction. Outputs:
+
+- `clinical_correlation_table.csv` — tidy correlation results
+- `clinical_correlation_matrix.png` — Spearman heatmap with
+  significance stars
+- `clinical_scatter_top.png` — scatter plots for top 6 pairs
+
+```{r correlation-table}
+cor_tbl <- read_csv_safe(file.path(out_dir, "clinical_correlation_table.csv"))
+
+if (is.null(cor_tbl)) {
+  cat("_No `clinical_correlation_table.csv` found. Run:_ ",
+      "`Rscript analysis/clinical_correlation.R output/ clinical_scores.csv`\n")
+} else {
+  top <- cor_tbl |>
+    filter(!is.na(spearman_rho)) |>
+    arrange(desc(abs(spearman_rho))) |>
+    head(15)
+  knitr::kable(top, digits = 3,
+               caption = "Top 15 feature–score pairs by |Spearman ρ|")
+}
+```
+
+```{r correlation-plots, results = "asis"}
+for (f in c("clinical_correlation_matrix.png", "clinical_scatter_top.png")) {
+  p <- file.path(out_dir, f)
+  if (file.exists(p)) {
+    cat(sprintf("### `%s`\n\n![](%s)\n\n", f, p))
+  }
+}
+```
+
+---
+
+# Longitudinal Recovery — `longitudinal.R`
+
+Joins aggregated clinical features with a `sessions.csv`
+(video → patient_id + session_date), computes session-to-session
+deltas and percentage changes from baseline, and flags changes
+exceeding 1 SD of the baseline session. Optionally overlays
+external clinical scores on a secondary axis.
+
+Outputs:
+
+- `clinical_longitudinal_summary.csv` — values, deltas, flags
+- `clinical_longitudinal_<patient_id>.png` — per-patient line plots
+
+```{r longitudinal-summary}
+long_csv <- file.path(out_dir, "clinical_longitudinal_summary.csv")
+long_tbl <- read_csv_safe(long_csv)
+
+if (is.null(long_tbl)) {
+  cat("_No `clinical_longitudinal_summary.csv` found. Run:_ ",
+      "`Rscript analysis/longitudinal.R output/ sessions.csv`\n")
+} else {
+  per_patient <- long_tbl |>
+    group_by(patient_id) |>
+    summarise(
+      n_sessions = n_distinct(session_date),
+      n_flagged  = sum(flagged %in% TRUE),
+      largest_change_feature = feature[which.max(abs(pct_change))],
+      largest_pct_change = pct_change[which.max(abs(pct_change))],
+      .groups = "drop"
+    )
+  knitr::kable(per_patient, digits = 1,
+               caption = "Per-patient longitudinal summary")
+}
+```
+
+```{r longitudinal-plots, results = "asis"}
+long_pngs <- list_files_safe(out_dir, "^clinical_longitudinal_.*\\.png$")
+if (length(long_pngs) > 0) {
+  for (p in long_pngs) {
+    cat(sprintf("### `%s`\n\n![](%s)\n\n", basename(p), p))
+  }
+}
+```
+
+---
+
+# Metadata Templates & Validation
+
+## `make_templates.R`
+
+Scans `*_clinical.csv` files for unique video names and writes two
+placeholder CSVs:
+
+- `clinical_scores_template.csv` — `video`, `GRASSP`, `UEMS`, `SCIM`
+- `sessions_template.csv` — `video`, `patient_id`, `session_date`
+
+Fill these in and save as `clinical_scores.csv` /
+`sessions.csv` for use with `clinical_correlation.R` and
+`longitudinal.R`.
+
+```{r templates}
+for (f in c("clinical_scores_template.csv", "sessions_template.csv")) {
+  p <- file.path(out_dir, f)
+  d <- read_csv_safe(p)
+  if (!is.null(d)) {
+    cat(sprintf("**`%s`** — %d rows, columns: %s\n\n",
+                f, nrow(d), paste(names(d), collapse = ", ")))
+  }
+}
+```
+
+## `validate_metadata.R`
+
+Validates a completed `clinical_scores.csv` or `sessions.csv`
+against the clinical feature CSVs. Checks that required columns are
+present, videos match and are unique, dates parse to ISO 8601, and
+scores are numeric. Exits 0 on success, 1 on errors. It writes no
+files — run it from the shell:
+
+```bash
+Rscript analysis/validate_metadata.R clinical_scores.csv output/
+Rscript analysis/validate_metadata.R sessions.csv       output/
+```
+
+---
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
