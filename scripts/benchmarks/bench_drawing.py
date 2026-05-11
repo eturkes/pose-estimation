@@ -26,7 +26,9 @@ from ._harness import run_group
 
 def _spline_case(n_points: int, samples: int):
     rng = np.random.default_rng(5000 + n_points)
-    pts = rng.uniform(100, 600, (n_points, 2))
+    # Production callers pass float32 landmark slices; matching that here
+    # avoids a hidden float64→float32 copy at the start of every call.
+    pts = rng.uniform(100, 600, (n_points, 2)).astype(np.float32)
 
     def _run():
         catmull_rom_spline(pts, num_samples=samples)

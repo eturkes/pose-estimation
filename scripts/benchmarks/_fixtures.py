@@ -35,23 +35,31 @@ def rng(seed: int = 0) -> np.random.Generator:
 
 
 def make_body_landmarks(n_kp: int = ARM_KP, seed: int = 1) -> np.ndarray:
-    """One body: (n_kp, 3) in pixel coordinates."""
+    """One body: (n_kp, 3) in pixel coordinates.
+
+    Production landmarks come from the OpenVINO pose model as float32, so
+    fixtures use float32 to keep bench numbers comparable to real frames.
+    """
     r = rng(seed)
     xs = r.uniform(100, FRAME_W - 100, n_kp)
     ys = r.uniform(100, FRAME_H - 100, n_kp)
     zs = r.uniform(-50, 50, n_kp)
-    return np.stack([xs, ys, zs], axis=1).astype(np.float64)
+    return np.stack([xs, ys, zs], axis=1).astype(np.float32)
 
 
 def make_hand_landmarks(seed: int = 2) -> np.ndarray:
-    """One hand: (21, 3) in pixel coordinates, clustered tightly."""
+    """One hand: (21, 3) in pixel coordinates, clustered tightly.
+
+    Production landmarks come from the OpenVINO hand model as float32, so
+    fixtures use float32 to keep bench numbers comparable to real frames.
+    """
     r = rng(seed)
     cx = r.uniform(200, FRAME_W - 200)
     cy = r.uniform(200, FRAME_H - 200)
     xs = cx + r.normal(0, 40, HAND_KP)
     ys = cy + r.normal(0, 40, HAND_KP)
     zs = r.normal(0, 20, HAND_KP)
-    return np.stack([xs, ys, zs], axis=1).astype(np.float64)
+    return np.stack([xs, ys, zs], axis=1).astype(np.float32)
 
 
 def make_body_list(n_bodies: int = 1, n_kp: int = ARM_KP, seed: int = 3) -> list[np.ndarray]:
@@ -64,7 +72,7 @@ def make_hand_list(n_hands: int = 2, seed: int = 4) -> list[np.ndarray]:
 
 def make_visibilities(n_kp: int, seed: int = 5) -> np.ndarray:
     r = rng(seed)
-    return r.uniform(0.3, 1.0, n_kp).astype(np.float64)
+    return r.uniform(0.3, 1.0, n_kp).astype(np.float32)
 
 
 def make_visibility_list(n_bodies: int, n_kp: int, seed: int = 6) -> list[np.ndarray]:

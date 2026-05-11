@@ -6,6 +6,9 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 
 
+_TWO_PI = 2.0 * np.pi
+
+
 class OneEuroFilter:
     """One Euro Filter for smoothing noisy real-time signals.
 
@@ -16,13 +19,28 @@ class OneEuroFilter:
     Optionally accepts per-keypoint confidence scores to modulate smoothing:
     low-confidence keypoints are pulled toward the previous estimate while
     high-confidence keypoints pass through with standard filtering.
+    Scalar confidence values are also accepted and take a fast path that
+    skips per-call array allocation.
     """
+
+    __slots__ = (
+        "_tau_d",
+        "beta",
+        "d_cutoff",
+        "dx_prev",
+        "gamma",
+        "min_cutoff",
+        "t_prev",
+        "x_prev",
+    )
 
     def __init__(self, min_cutoff=1.0, beta=0.5, d_cutoff=1.0, gamma=2.0):
         self.min_cutoff = min_cutoff
         self.beta = beta
         self.d_cutoff = d_cutoff
         self.gamma = gamma
+        # Cache the derivative-filter time constant; only depends on d_cutoff.
+        self._tau_d = 1.0 / (_TWO_PI * d_cutoff)
         self.x_prev = None
         self.dx_prev = None
         self.t_prev = None
@@ -34,23 +52,58 @@ class OneEuroFilter:
             self.t_prev = t
             return x.copy()
 
-        assert self.x_prev is not None
-        assert self.dx_prev is not None
-        dt = max(t - self.t_prev, 1e-6)
+        x_prev = self.x_prev
+        dt = t - self.t_prev
+        if dt < 1e-6:
+            dt = 1e-6
 
-        a_d = 1.0 / (1.0 + 1.0 / (2 * np.pi * self.d_cutoff * dt))
-        dx = (x - self.x_prev) / dt
-        dx_hat = a_d * dx + (1 - a_d) * self.dx_prev
+        # Derivative low-pass: a_d = dt / (dt + tau_d)
+        a_d = dt / (dt + self._tau_d)
 
-        cutoff = self.min_cutoff + self.beta * np.abs(dx_hat)
-        a = 1.0 / (1.0 + 1.0 / (2 * np.pi * cutoff * dt))
-        x_hat = a * x + (1 - a) * self.x_prev
+        # Compute the (x - x_prev) delta once and reuse it for both
+        # dx_hat (derivative) and x_hat (state update) — saves an alloc
+        # and a subtract op vs recomputing.
+        diff = x - x_prev
+        scale = a_d / dt
+        dx_hat = diff * scale + self.dx_prev * (1.0 - a_d)
 
-        # Confidence weighting: low-confidence keypoints are pulled toward
-        # the previous position, resisting noisy input.
+        # Per-element cutoff and gain.  Compute |dx_hat|*beta + min_cutoff
+        # then convert directly to a = dt/(dt + 1/(2π*cutoff)).
+        abs_dx = np.abs(dx_hat)
+        abs_dx *= self.beta
+        abs_dx += self.min_cutoff  # = cutoff
+        # a = dt / (dt + 1/(2π*cutoff)) = (2π*cutoff*dt) / (2π*cutoff*dt + 1)
+        abs_dx *= _TWO_PI * dt
+        a = abs_dx / (abs_dx + 1.0)
+
+        # x_hat = a * diff + x_prev (reuse precomputed diff).
+        x_hat = a * diff
+        x_hat += x_prev
+
         if confidence is not None:
-            w = np.clip(confidence, 0.0, 1.0)[:, None] ** self.gamma
-            result = w * x_hat + (1 - w) * self.x_prev
+            # 0-D scalars (Python or numpy) take a math-only fast path
+            # that skips np.clip / np.power and the (n_kp,) weight array.
+            if getattr(confidence, "ndim", 0) == 0:
+                w_scalar = float(confidence)
+                if w_scalar < 0.0:
+                    w_scalar = 0.0
+                elif w_scalar > 1.0:
+                    w_scalar = 1.0
+                if self.gamma != 1.0:
+                    w_scalar = w_scalar**self.gamma
+                # result = w*(x_hat - x_prev) + x_prev (in-place on x_hat,
+                # which is local scratch we can safely mutate).
+                result = x_hat
+                result -= x_prev
+                result *= w_scalar
+                result += x_prev
+            else:
+                w = np.clip(confidence, 0.0, 1.0)
+                if self.gamma != 1.0:
+                    w = w**self.gamma
+                # result = w * (x_hat - x_prev) + x_prev
+                result = (x_hat - x_prev) * w[:, None]
+                result += x_prev
         else:
             result = x_hat
 
@@ -153,15 +206,32 @@ class PoseSmoother:
         n_tr = len(tracks)
         lm_to_track = {}  # landmark index -> track index
 
+        threshold = self.match_threshold
         if n_lm > 0 and n_tr > 0:
-            anchors_lm = np.array([get_anchor(lm) for lm in landmarks])
-            anchors_tr = np.array([tr[1] for tr in tracks])
-            # Cost matrix: Euclidean distance between each (landmark, track)
-            diff = anchors_lm[:, None, :] - anchors_tr[None, :, :]
-            cost = np.linalg.norm(diff, axis=2)
+            # Batched anchor extraction: ``get_anchor`` is Ellipsis-aware so a
+            # single call on the stacked landmarks produces the full (n_lm, 2)
+            # anchor array — replacing n_lm per-element lambda dispatches.
+            if n_lm == 1:
+                # ``[None]`` makes a free 3-D view of the single landmark so
+                # the Ellipsis-aware ``get_anchor`` produces the (1, 2) array
+                # without copying.
+                stacked = landmarks[0][None]
+            else:
+                stacked = np.stack(landmarks)
+            anchors_lm = get_anchor(stacked)
+            # Track anchors are 2-element arrays stored at tuple index 1.
+            # An empty buffer + per-row write beats np.stack at n_tr ≤ 4
+            # because the latter has a fixed Python-side validation cost.
+            anchors_tr = np.empty((n_tr, 2), dtype=anchors_lm.dtype)
+            for i, tr in enumerate(tracks):
+                anchors_tr[i] = tr[1]
+            # Cost matrix: Euclidean distance between each (landmark, track).
+            dx = anchors_lm[:, 0:1] - anchors_tr[None, :, 0]
+            dy = anchors_lm[:, 1:2] - anchors_tr[None, :, 1]
+            cost = np.hypot(dx, dy)
             row_ind, col_ind = linear_sum_assignment(cost)
             for r, c in zip(row_ind, col_ind, strict=False):
-                if cost[r, c] < self.match_threshold:
+                if cost[r, c] < threshold:
                     lm_to_track[r] = c
                     used.add(c)
 
@@ -178,8 +248,15 @@ class PoseSmoother:
 
             conf = confidences[lm_idx] if confidences is not None else None
             s = filt(lm, t, confidence=conf)
-            velocity = filt.dx_prev.copy() if filt.dx_prev is not None else None
-            new_tracks.append((filt, get_anchor(s).copy(), age, 0, s.copy(), velocity, t))
+            # ``filt.x_prev`` is a stable internal copy of ``s`` (see
+            # OneEuroFilter.__call__) and ``filt.dx_prev`` is a fresh array
+            # that the filter never mutates after assignment, so we can
+            # alias them here without extra copies.
+            last_output_state = filt.x_prev
+            velocity = filt.dx_prev
+            new_tracks.append(
+                (filt, get_anchor(last_output_state).copy(), age, 0, last_output_state, velocity, t)
+            )
             smoothed.append(s)
 
         n_active = len(smoothed)
@@ -195,11 +272,18 @@ class PoseSmoother:
             if emit_carry and last_out is not None:
                 if static_carry:
                     predicted = last_out
+                    new_anchor = prev_anchor  # static carry preserves the anchor
+                    next_last_out = last_out
                 else:
                     predicted = self._extrapolate(last_out, last_vel, last_t, t, new_misses)
-                new_anchor = get_anchor(predicted).copy()
+                    new_anchor = get_anchor(predicted).copy()
+                    # ``predicted`` is fresh from _extrapolate (or last_out
+                    # when extrapolation bails); the caller receives the
+                    # same reference as our stored snapshot, so callers
+                    # must not mutate carry-forward outputs in place.
+                    next_last_out = predicted
                 new_tracks.append(
-                    (filt, new_anchor, decayed_age, new_misses, predicted.copy(), last_vel, t)
+                    (filt, new_anchor, decayed_age, new_misses, next_last_out, last_vel, t)
                 )
                 smoothed.append(predicted)
             else:
@@ -224,13 +308,26 @@ class PoseSmoother:
             return last_output
 
         damping = self.carry_damping**misses
-        step = last_velocity * dt * damping
+        # When damping is negligible the step is sub-pixel, so skip the
+        # work entirely and return a static carry.
+        if damping < 1e-3:
+            return last_output
 
-        # Cap per-keypoint displacement magnitude
-        norms = np.linalg.norm(step, axis=1, keepdims=True)
-        norms = np.maximum(norms, 1e-9)
-        scale = np.minimum(1.0, self.match_threshold / norms)
-        step *= scale
+        step = last_velocity * (dt * damping)
+
+        # Cap per-keypoint displacement magnitude.  Compute squared norms
+        # directly (np.linalg.norm has Python-level overhead that dominates
+        # at the small array sizes we see here) and only apply the cap to
+        # rows that actually exceed the threshold.
+        threshold = self.match_threshold
+        threshold_sq = threshold * threshold
+        norms_sq = np.einsum("ij,ij->i", step, step)
+        too_long = norms_sq > threshold_sq
+        if too_long.any():
+            scale = np.ones_like(norms_sq)
+            np.sqrt(norms_sq, out=norms_sq, where=too_long)
+            np.divide(threshold, norms_sq, out=scale, where=too_long)
+            step *= scale[:, None]
 
         return last_output + step
 
@@ -260,7 +357,8 @@ class PoseSmoother:
         self.body_tracks, smoothed, n_active = self._match_and_smooth(
             self.body_tracks,
             lm_list,
-            get_anchor=lambda lm: (lm[si[0], :2] + lm[si[1], :2]) / 2,
+            # Ellipsis-aware: works on (n_kp, 3) and stacked (n_lm, n_kp, 3).
+            get_anchor=lambda lm: (lm[..., si[0], :2] + lm[..., si[1], :2]) / 2,
             new_filter_fn=lambda: OneEuroFilter(
                 min_cutoff=self._body_mc, beta=self._body_b, gamma=self._gamma
             ),
@@ -282,13 +380,13 @@ class PoseSmoother:
     def smooth_hands(self, hand_landmarks, t, hand_flags=None, grace=None, max_tracks=None):
         if grace is None:
             grace = self._grace
-        confs = None
-        if hand_flags is not None:
-            confs = [np.full(21, f) for f in hand_flags]
+        # ``hand_flag`` is a single scalar per hand (uniform across all 21
+        # keypoints) so pass the scalars straight through — OneEuroFilter's
+        # scalar fast path avoids the per-frame (21,) array allocation.
         self.hand_tracks, smoothed, n_active = self._match_and_smooth(
             self.hand_tracks,
             hand_landmarks or [],
-            get_anchor=lambda lm: lm[0, :2],
+            get_anchor=lambda lm: lm[..., 0, :2],
             new_filter_fn=lambda: OneEuroFilter(
                 min_cutoff=self._hand_mc, beta=self._hand_b, gamma=self._gamma
             ),
@@ -296,7 +394,7 @@ class PoseSmoother:
             grace=grace,
             static_carry=True,
             max_tracks=max_tracks,
-            confidences=confs,
+            confidences=hand_flags,
         )
         self._n_active_hands = n_active
         return smoothed, n_active
@@ -335,4 +433,8 @@ class PoseSmoother:
         smo = smoothed_landmarks[0] if isinstance(smoothed_landmarks, list) else smoothed_landmarks
         if raw.shape != smo.shape:
             return 0.0
-        return float(np.sum(np.linalg.norm(raw[:, :2] - smo[:, :2], axis=1)))
+        # np.hypot on explicit dx/dy beats np.linalg.norm's Python-level
+        # dispatch at the (12–33, 2) sizes we see per frame.
+        dx = raw[:, 0] - smo[:, 0]
+        dy = raw[:, 1] - smo[:, 1]
+        return float(np.hypot(dx, dy).sum())

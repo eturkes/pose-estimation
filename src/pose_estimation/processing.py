@@ -7,6 +7,7 @@ stabilises the input to the landmark model, eliminating the main source of
 landmark flickering.
 """
 
+import math
 import os
 
 import cv2
@@ -136,16 +137,55 @@ def _detection_centres(dets):
     return [_detection_centre(d) for d in dets]
 
 
+def _detection_centres_array(dets):
+    """Stack detection box centres into a single (n, 2) ndarray in one pass.
+
+    Direct scalar fill beats ``np.array(list[(box[:2] + box[2:]) / 2 for ...])``
+    at the typical 1–6 detection counts: a per-det numpy slice + ufunc
+    pair costs ~1 µs of dispatch overhead, vs ~80 ns for the four scalar
+    reads used here.
+    """
+    n = len(dets)
+    if n == 0:
+        return np.empty((0, 2), dtype=np.float64)
+    out = np.empty((n, 2), dtype=np.float64)
+    for i, d in enumerate(dets):
+        box = d["box"]
+        out[i, 0] = (float(box[0]) + float(box[2])) * 0.5
+        out[i, 1] = (float(box[1]) + float(box[3])) * 0.5
+    return out
+
+
 def _make_palm_keypoints(centre_norm, wrist_norm, finger_norm):
     """Build a 7-keypoint palm-detection array.
 
     ``get_hand_crop`` reads the wrist (kp[0]) and middle-finger MCP
     (kp[2]); the remaining slots can be the box centre.
     """
-    kps = np.broadcast_to(centre_norm, (PALM_KP_COUNT, 2)).astype(np.float32).copy()
+    kps = np.empty((PALM_KP_COUNT, 2), dtype=np.float32)
+    kps[:] = centre_norm  # broadcasts (2,) to (PALM_KP_COUNT, 2)
     kps[PALM_WRIST_KP_IDX] = wrist_norm
     kps[PALM_FINGER_KP_IDX] = finger_norm
     return kps
+
+
+def _palm_centres_list(dets):
+    """Return detection box centres as a list of ``(cx, cy)`` Python tuples.
+
+    Both callers iterate the centres in a tight scalar overlap check; at
+    the 0–6 palm-det sizes we see in production, Python iteration beats
+    the per-step ufunc dispatch overhead of an ``(n, 2)`` ndarray.
+    """
+    if not dets:
+        return None
+    out = []
+    for d in dets:
+        box = d["box"]
+        out.append((
+            (float(box[0]) + float(box[2])) * 0.5,
+            (float(box[1]) + float(box[3])) * 0.5,
+        ))
+    return out
 
 
 def _carry_detection(det):
@@ -184,12 +224,15 @@ def _smooth_detections(new_dets, prev_dets, match_threshold=DET_MATCH_THRESHOLD_
             return [_carry_detection(prev_dets[i]) for i in sorted(carry_eligible)]
         return list(new_dets) if new_dets else []
 
-    new_centers = np.array(_detection_centres(new_dets))
-    prev_centers = np.array(_detection_centres(prev_dets))
+    new_centers = _detection_centres_array(new_dets)
+    prev_centers = _detection_centres_array(prev_dets)
 
-    # Optimal assignment via Hungarian algorithm
-    diff = new_centers[:, None, :] - prev_centers[None, :, :]
-    cost = np.linalg.norm(diff, axis=2)
+    # Optimal assignment via Hungarian algorithm.  ``np.hypot`` on explicit
+    # dx/dy avoids the per-axis-norm path inside ``np.linalg.norm``, which
+    # has measurable Python-side overhead at our tiny (≤4, ≤4) sizes.
+    dx = new_centers[:, 0:1] - prev_centers[None, :, 0]
+    dy = new_centers[:, 1:2] - prev_centers[None, :, 1]
+    cost = np.hypot(dx, dy)
     row_ind, col_ind = linear_sum_assignment(cost)
 
     # new index -> prev index
@@ -248,48 +291,81 @@ def _synthesise_hand_detections(
     if not body_landmarks:
         return synthetic
 
-    scale = np.array([frame_w, frame_h], dtype=np.float32)
-    palm_centres = _detection_centres(existing_palm_dets)
+    # Constants pulled out of the inner loop
+    inv_fw = 1.0 / frame_w
+    inv_fh = 1.0 / frame_h
+    overlap_sq = overlap_threshold * overlap_threshold
+    palm_centres = _palm_centres_list(existing_palm_dets)
 
     for body_lm, body_vis in zip(body_landmarks, body_visibilities, strict=False):
         for _shoulder_idx, elbow_idx, wrist_idx in arm_chains:
-            wrist_px = body_lm[wrist_idx, :2]
-            elbow_px = body_lm[elbow_idx, :2]
+            wrist_x = float(body_lm[wrist_idx, 0])
+            wrist_y = float(body_lm[wrist_idx, 1])
+            elbow_x = float(body_lm[elbow_idx, 0])
+            elbow_y = float(body_lm[elbow_idx, 1])
 
-            wrist_norm = wrist_px / scale
+            wrist_nx = wrist_x * inv_fw
+            wrist_ny = wrist_y * inv_fh
 
             # Skip if a real palm detection already covers this wrist
-            if any(np.linalg.norm(wrist_norm - pc) < overlap_threshold for pc in palm_centres):
-                continue
+            # (squared-distance comparison avoids per-chain sqrt).  Scalar
+            # loop beats numpy here at the small palm-centre counts.
+            if palm_centres is not None:
+                hit = False
+                for cx, cy in palm_centres:
+                    ddx = cx - wrist_nx
+                    ddy = cy - wrist_ny
+                    if ddx * ddx + ddy * ddy < overlap_sq:
+                        hit = True
+                        break
+                if hit:
+                    continue
 
-            # Forearm vector and length (pixel space)
-            forearm = wrist_px - elbow_px
-            forearm_len = float(np.linalg.norm(forearm))
+            fdx = wrist_x - elbow_x
+            fdy = wrist_y - elbow_y
+            forearm_len = math.hypot(fdx, fdy)
             if forearm_len < MIN_BONE_LENGTH_PX:
                 continue
-            forearm_dir = forearm / forearm_len
+            inv_fl = 1.0 / forearm_len
+            dir_x = fdx * inv_fl
+            dir_y = fdy * inv_fl
 
-            # Hand centre: SYNTHETIC_HAND_CENTRE_OFFSET past the wrist
-            hand_centre_px = wrist_px + forearm_dir * forearm_len * SYNTHETIC_HAND_CENTRE_OFFSET
-            hand_centre_norm = hand_centre_px / scale
+            centre_off = forearm_len * SYNTHETIC_HAND_CENTRE_OFFSET
+            hand_cx = wrist_x + dir_x * centre_off
+            hand_cy = wrist_y + dir_y * centre_off
 
-            # Middle-finger base estimate: further along forearm
-            middle_finger_norm = (
-                wrist_px + forearm_dir * forearm_len * SYNTHETIC_HAND_FINGER_OFFSET
-            ) / scale
+            finger_off = forearm_len * SYNTHETIC_HAND_FINGER_OFFSET
+            finger_px_x = wrist_x + dir_x * finger_off
+            finger_px_y = wrist_y + dir_y * finger_off
 
-            # Square box centred on hand (half-size scales with forearm)
             box_half = forearm_len * SYNTHETIC_HAND_BOX_HALF_FACTOR
-            x1 = (hand_centre_px[0] - box_half) / frame_w
-            y1 = (hand_centre_px[1] - box_half) / frame_h
-            x2 = (hand_centre_px[0] + box_half) / frame_w
-            y2 = (hand_centre_px[1] + box_half) / frame_h
+            x1 = (hand_cx - box_half) * inv_fw
+            y1 = (hand_cy - box_half) * inv_fh
+            x2 = (hand_cx + box_half) * inv_fw
+            y2 = (hand_cy + box_half) * inv_fh
 
-            keypoints = _make_palm_keypoints(hand_centre_norm, wrist_norm, middle_finger_norm)
+            ccx = hand_cx * inv_fw
+            ccy = hand_cy * inv_fh
+            fnx = finger_px_x * inv_fw
+            fny = finger_px_y * inv_fh
+
+            keypoints = np.empty((PALM_KP_COUNT, 2), dtype=np.float32)
+            keypoints[:, 0] = ccx
+            keypoints[:, 1] = ccy
+            keypoints[PALM_WRIST_KP_IDX, 0] = wrist_nx
+            keypoints[PALM_WRIST_KP_IDX, 1] = wrist_ny
+            keypoints[PALM_FINGER_KP_IDX, 0] = fnx
+            keypoints[PALM_FINGER_KP_IDX, 1] = fny
+
+            box = np.empty(4, dtype=np.float32)
+            box[0] = x1
+            box[1] = y1
+            box[2] = x2
+            box[3] = y2
 
             synthetic.append(
                 {
-                    "box": np.array([x1, y1, x2, y2], dtype=np.float32),
+                    "box": box,
                     "keypoints": keypoints,
                     "score": float(body_vis[wrist_idx]),
                     "synthetic": True,
@@ -329,36 +405,67 @@ def _recrop_from_landmarks(
     if not prev_hand_landmarks:
         return recrops
 
-    scale = np.array([frame_w, frame_h], dtype=np.float32)
-    palm_centres = _detection_centres(real_palm_dets)
+    inv_fw = 1.0 / frame_w
+    inv_fh = 1.0 / frame_h
+    overlap_sq = overlap_threshold * overlap_threshold
+    palm_centres = _palm_centres_list(real_palm_dets)
 
     for hand_lm in prev_hand_landmarks:
-        wrist_px = hand_lm[0, :2]
-        middle_mcp_px = hand_lm[9, :2]
-        wrist_norm = wrist_px / scale
+        wrist_x = float(hand_lm[0, 0])
+        wrist_y = float(hand_lm[0, 1])
+        mcp_x = float(hand_lm[9, 0])
+        mcp_y = float(hand_lm[9, 1])
 
-        # Skip if a real palm detection already covers this hand
-        if any(np.linalg.norm(wrist_norm - pc) < overlap_threshold for pc in palm_centres):
-            continue
+        wrist_nx = wrist_x * inv_fw
+        wrist_ny = wrist_y * inv_fh
 
-        # Palm-centred box sized from wrist-to-MCP distance
-        palm_len = float(np.linalg.norm(middle_mcp_px - wrist_px))
+        if palm_centres is not None:
+            hit = False
+            for cx, cy in palm_centres:
+                ddx = cx - wrist_nx
+                ddy = cy - wrist_ny
+                if ddx * ddx + ddy * ddy < overlap_sq:
+                    hit = True
+                    break
+            if hit:
+                continue
+
+        pdx = mcp_x - wrist_x
+        pdy = mcp_y - wrist_y
+        palm_len = math.hypot(pdx, pdy)
         if palm_len < MIN_BONE_LENGTH_PX:
             continue
-        center_px = (wrist_px + middle_mcp_px) / 2
-        box_half = palm_len
 
-        x1 = (center_px[0] - box_half) / frame_w
-        y1 = (center_px[1] - box_half) / frame_h
-        x2 = (center_px[0] + box_half) / frame_w
-        y2 = (center_px[1] + box_half) / frame_h
+        center_x = (wrist_x + mcp_x) * 0.5
+        center_y = (wrist_y + mcp_y) * 0.5
 
-        center_norm = center_px / scale
-        keypoints = _make_palm_keypoints(center_norm, wrist_norm, middle_mcp_px / scale)
+        x1 = (center_x - palm_len) * inv_fw
+        y1 = (center_y - palm_len) * inv_fh
+        x2 = (center_x + palm_len) * inv_fw
+        y2 = (center_y + palm_len) * inv_fh
+
+        ccx = center_x * inv_fw
+        ccy = center_y * inv_fh
+        mcp_nx = mcp_x * inv_fw
+        mcp_ny = mcp_y * inv_fh
+
+        keypoints = np.empty((PALM_KP_COUNT, 2), dtype=np.float32)
+        keypoints[:, 0] = ccx
+        keypoints[:, 1] = ccy
+        keypoints[PALM_WRIST_KP_IDX, 0] = wrist_nx
+        keypoints[PALM_WRIST_KP_IDX, 1] = wrist_ny
+        keypoints[PALM_FINGER_KP_IDX, 0] = mcp_nx
+        keypoints[PALM_FINGER_KP_IDX, 1] = mcp_ny
+
+        box = np.empty(4, dtype=np.float32)
+        box[0] = x1
+        box[1] = y1
+        box[2] = x2
+        box[3] = y2
 
         recrops.append(
             {
-                "box": np.array([x1, y1, x2, y2], dtype=np.float32),
+                "box": box,
                 "keypoints": keypoints,
                 "score": RECROP_DET_SCORE,
                 "recrop": True,
@@ -379,26 +486,38 @@ def _affine_matrix(cx, cy, rotation, size, target_size):
     Returns *None* when any input is non-finite or the crop size is
     degenerate, so callers can bail out instead of producing a singular
     matrix.
+
+    Inputs are Python / numpy scalars; ``math.*`` on scalars dispatches
+    far faster than ``np.*`` (which goes through ufunc machinery), and
+    np.empty + scalar writes beats ``np.array([[...]])`` for the small
+    2x3 result.
     """
     if size < 1 or not (
-        np.isfinite(cx) and np.isfinite(cy) and np.isfinite(rotation) and np.isfinite(size)
+        math.isfinite(cx) and math.isfinite(cy) and math.isfinite(rotation) and math.isfinite(size)
     ):
         return None
 
-    cos_r = np.cos(np.radians(-rotation))
-    sin_r = np.sin(np.radians(-rotation))
+    neg_rot_rad = math.radians(-rotation)
+    cos_r = math.cos(neg_rot_rad)
+    sin_r = math.sin(neg_rot_rad)
     scale = target_size / size
-
-    M = np.array(
-        [
-            [cos_r * scale, -sin_r * scale, target_size / 2 - (cx * cos_r - cy * sin_r) * scale],
-            [sin_r * scale, cos_r * scale, target_size / 2 - (cx * sin_r + cy * cos_r) * scale],
-        ],
-        dtype=np.float32,
-    )
-
-    if not np.all(np.isfinite(M)):
+    half = 0.5 * target_size
+    cos_scale = cos_r * scale
+    sin_scale = sin_r * scale
+    tx = half - (cx * cos_r - cy * sin_r) * scale
+    ty = half - (cx * sin_r + cy * cos_r) * scale
+    # Translation is the only term that can blow up (scale or product of
+    # finite values can overflow); rotation block is finite by trig.
+    if not (math.isfinite(tx) and math.isfinite(ty) and math.isfinite(cos_scale)):
         return None
+
+    M = np.empty((2, 3), dtype=np.float32)
+    M[0, 0] = cos_scale
+    M[0, 1] = -sin_scale
+    M[0, 2] = tx
+    M[1, 0] = sin_scale
+    M[1, 1] = cos_scale
+    M[1, 2] = ty
     return M
 
 
@@ -449,20 +568,40 @@ def get_hand_crop(img, detection, scale_factor=HAND_CROP_SCALE_FACTOR, target_si
 
 
 def transform_landmarks_to_image(landmarks, M):
-    """Transform landmarks from crop coordinates back to original image coordinates."""
-    M_full = np.vstack([M, [0, 0, 1]])
-    try:
-        M_inv = np.linalg.inv(M_full)[:2]
-    except np.linalg.LinAlgError:
+    """Transform landmarks from crop coordinates back to original image coordinates.
+
+    M is a 2x3 affine ``[[a, b, c], [d, e, f]]``; its inverse is computed
+    via the closed-form cofactor expansion (no ``np.linalg.inv`` / vstack
+    / matmul / transpose ceremony), which dominated runtime at the
+    keypoint counts seen here (12–33).
+    """
+    a = float(M[0, 0])
+    b = float(M[0, 1])
+    c = float(M[0, 2])
+    d = float(M[1, 0])
+    e = float(M[1, 1])
+    f = float(M[1, 2])
+
+    det = a * e - b * d
+    if abs(det) < 1e-12:
         return landmarks.copy()
 
-    ones = np.ones((landmarks.shape[0], 1))
-    pts = np.hstack([landmarks[:, :2], ones])
-    original_pts = (M_inv @ pts.T).T
+    inv_det = 1.0 / det
+    a_inv = e * inv_det
+    b_inv = -b * inv_det
+    c_inv = (b * f - c * e) * inv_det
+    d_inv = -d * inv_det
+    e_inv = a * inv_det
+    f_inv = (c * d - a * f) * inv_det
 
-    result = np.copy(landmarks)
-    result[:, 0] = original_pts[:, 0]
-    result[:, 1] = original_pts[:, 1]
+    result = landmarks.copy()
+    x = landmarks[:, 0]
+    y = landmarks[:, 1]
+    # Two fused multiply-add reductions over the keypoint axis; the
+    # original (M_inv @ pts.T).T was the same math but paid 4 array allocs
+    # plus matmul Python overhead.
+    result[:, 0] = a_inv * x + b_inv * y + c_inv
+    result[:, 1] = d_inv * x + e_inv * y + f_inv
     return result
 
 
@@ -573,32 +712,54 @@ def match_hands_to_arms(
     if not body_landmarks or not hand_landmarks:
         return []
 
-    # Build row index: each row is one (arm_idx, wrist_kp) pair
-    rows = []
-    wrist_positions = []
-    shoulder_mids = []
-    for arm_idx, arm_lm in enumerate(body_landmarks):
-        shoulder_mid = (arm_lm[shoulder_kps[0], :2] + arm_lm[shoulder_kps[1], :2]) / 2
-        for wrist_kp in wrist_kps:
-            rows.append((arm_idx, wrist_kp))
-            wrist_positions.append(arm_lm[wrist_kp, :2])
-            shoulder_mids.append(shoulder_mid)
+    n_bodies = len(body_landmarks)
+    n_wrists = len(wrist_kps)
+    n_hands = len(hand_landmarks)
 
-    # Cost matrix: Euclidean distance between each wrist and hand wrist
-    hand_wrists = np.array([h[0, :2] for h in hand_landmarks])
-    wrist_arr = np.array(wrist_positions)
-    cost = np.linalg.norm(wrist_arr[:, None, :] - hand_wrists[None, :, :], axis=2)
+    # Stack body landmarks once → fancy-index wrists + shoulders in bulk.
+    # The two original Python loops (per body / per wrist) collapse into
+    # one numpy slice + reshape.  The ``[None]`` view trick avoids a
+    # full ``np.stack`` copy for the common single-body case.
+    if n_bodies == 1:
+        bodies_stack = body_landmarks[0][None]
+    else:
+        bodies_stack = np.stack(body_landmarks)
+
+    wrist_arr = bodies_stack[:, wrist_kps, :2].reshape(n_bodies * n_wrists, 2)
+    shoulder_mid = (
+        bodies_stack[:, shoulder_kps[0], :2] + bodies_stack[:, shoulder_kps[1], :2]
+    ) * 0.5  # (n_bodies, 2)
+
+    # Hand wrist [0] positions: (n_hands, 2).  np.empty + per-row copy
+    # beats both ``np.stack(list)`` and ``np.array([h[0, :2] for ...])``
+    # at the n ≤ 8 sizes seen in practice (no list-validation overhead).
+    hand_wrists = np.empty((n_hands, 2), dtype=wrist_arr.dtype)
+    for i, h in enumerate(hand_landmarks):
+        hand_wrists[i] = h[0, :2]
+
+    # Cost matrix via np.hypot (one ufunc) instead of subtract / square /
+    # sum / sqrt that ``np.linalg.norm`` decomposes into.
+    dx = wrist_arr[:, 0:1] - hand_wrists[None, :, 0]
+    dy = wrist_arr[:, 1:2] - hand_wrists[None, :, 1]
+    cost = np.hypot(dx, dy)
 
     row_ind, col_ind = linear_sum_assignment(cost)
 
     matches = []
     for r, c in zip(row_ind, col_ind, strict=False):
-        if cost[r, c] >= threshold:
+        c_rc = float(cost[r, c])
+        if c_rc >= threshold:
             continue
-        arm_idx, wrist_kp = rows[r]
-        hand_wrist = hand_landmarks[c][0, :2]
-        # Distality check: hand must be nearer to wrist than shoulder midpoint
-        if cost[r, c] < np.linalg.norm(hand_wrist - shoulder_mids[r]):
+        r_int = int(r)
+        arm_idx = r_int // n_wrists
+        wrist_kp = wrist_kps[r_int % n_wrists]
+        # Distality check via scalar math.hypot — far cheaper than
+        # np.linalg.norm at 2-element vector sizes.
+        sx = float(shoulder_mid[arm_idx, 0])
+        sy = float(shoulder_mid[arm_idx, 1])
+        hx = float(hand_wrists[c, 0])
+        hy = float(hand_wrists[c, 1])
+        if c_rc < math.hypot(hx - sx, hy - sy):
             matches.append((arm_idx, wrist_kp, c))
 
     return matches
@@ -617,14 +778,31 @@ def select_primary_body(body_landmarks, body_visibilities, hand_landmarks, match
     if not body_landmarks:
         return [], [], [], []
 
-    best_idx = 0
-    best_area = 0.0
-    for i, lm in enumerate(body_landmarks):
-        xs, ys = lm[:, 0], lm[:, 1]
-        area = (xs.max() - xs.min()) * (ys.max() - ys.min())
-        if area > best_area:
-            best_area = area
-            best_idx = i
+    n_bodies = len(body_landmarks)
+    if n_bodies == 1:
+        best_idx = 0
+    elif n_bodies == 2:
+        # ``np.stack`` overhead exceeds 4 min/max ufuncs per body at this
+        # size, so keep the per-body loop here.  Crossover measured at
+        # ~3 bodies on the bench.
+        best_idx = 0
+        best_area = -1.0
+        for i in range(n_bodies):
+            lm = body_landmarks[i]
+            xs = lm[:, 0]
+            ys = lm[:, 1]
+            area = (xs.max() - xs.min()) * (ys.max() - ys.min())
+            if area > best_area:
+                best_area = area
+                best_idx = i
+    else:
+        # Stack once and reduce along the keypoint axis: 4 ufunc calls
+        # total instead of 4·n_bodies, which dominated the per-body loop.
+        stacked = np.stack(body_landmarks)
+        xs = stacked[:, :, 0]
+        ys = stacked[:, :, 1]
+        areas = (xs.max(axis=1) - xs.min(axis=1)) * (ys.max(axis=1) - ys.min(axis=1))
+        best_idx = int(np.argmax(areas))
 
     primary_body = [body_landmarks[best_idx]]
     primary_vis = [body_visibilities[best_idx]]

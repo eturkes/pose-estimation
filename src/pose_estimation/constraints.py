@@ -1,5 +1,6 @@
 """Biomechanical constraints for landmark plausibility."""
 
+import math
 import os
 
 import numpy as np
@@ -76,6 +77,9 @@ class BoneLengthSmoother:
         self.tolerance = tolerance
         self.distal_weight = distal_weight
         self.segments = segments if segments is not None else BONE_SEGMENTS
+        # Pre-stash proximal / distal index arrays for vectorised lookups.
+        self._seg_p_idx = np.array([p for p, _ in self.segments], dtype=np.intp)
+        self._seg_d_idx = np.array([d for _, d in self.segments], dtype=np.intp)
         self._averages = {}  # body_id -> np.array of average lengths
 
     def update(self, body_id, landmarks):
@@ -95,35 +99,67 @@ class BoneLengthSmoother:
             correction magnitude in pixels (sum of distal-keypoint
             displacements).
         """
-        lengths = np.array([np.linalg.norm(landmarks[d] - landmarks[p]) for p, d in self.segments])
+        seg_p = self._seg_p_idx
+        seg_d = self._seg_d_idx
+
+        # Vectorised initial segment lengths: one fancy-index + one
+        # einsum reduces 10 ``np.linalg.norm`` calls to a single pass.
+        diffs = landmarks[seg_d] - landmarks[seg_p]
+        lengths = np.sqrt(np.einsum("ij,ij->i", diffs, diffs))
 
         if body_id not in self._averages:
             self._averages[body_id] = lengths.copy()
             return landmarks, 0.0
 
         avg = self._averages[body_id]
-        avg[:] = self.alpha * lengths + (1 - self.alpha) * avg
+        # avg = alpha * lengths + (1 - alpha) * avg, in place
+        avg *= 1.0 - self.alpha
+        avg += self.alpha * lengths
+
+        tolerance = self.tolerance
+        distal_weight = self.distal_weight
+        prox_weight = 1.0 - distal_weight
+        eps = 1e-6
+
+        # Vectorised violated mask using *initial* lengths (matches the original
+        # semantics which compared pre-correction lengths against the EMA).
+        valid = avg > eps
+        violated_mask = valid & (np.abs(lengths - avg) > tolerance * avg)
+        if not violated_mask.any():
+            return landmarks, 0.0
 
         total_correction = 0.0
-        for i, (p, d) in enumerate(self.segments):
-            expected = avg[i]
-            if expected < 1e-6:
+        for i in np.flatnonzero(violated_mask):
+            p = int(seg_p[i])
+            d = int(seg_d[i])
+            expected = float(avg[i])
+
+            # Recompute direction from current landmarks — prior corrections in
+            # this loop may have moved the shared endpoint of an earlier segment.
+            ddx = float(landmarks[d, 0] - landmarks[p, 0])
+            ddy = float(landmarks[d, 1] - landmarks[p, 1])
+            ddz = float(landmarks[d, 2] - landmarks[p, 2])
+            norm = math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz)
+            if norm < eps:
                 continue
-            deviation = abs(lengths[i] - expected) / expected
-            if deviation > self.tolerance:
-                direction = landmarks[d] - landmarks[p]
-                norm = np.linalg.norm(direction)
-                if norm < 1e-6:
-                    continue
-                direction /= norm
-                overshoot = landmarks[d] - (landmarks[p] + direction * expected)
-                old_d = landmarks[d].copy()
-                old_p = landmarks[p].copy()
-                landmarks[d] -= self.distal_weight * overshoot
-                landmarks[p] += (1 - self.distal_weight) * overshoot
-                total_correction += float(
-                    np.linalg.norm(landmarks[d] - old_d) + np.linalg.norm(landmarks[p] - old_p)
-                )
+
+            # overshoot vector = (direction) * (norm - expected); equivalently
+            # scale the (ddx, ddy, ddz) raw vector by (norm - expected)/norm.
+            diff_n = norm - expected
+            scale = diff_n / norm
+            ox = ddx * scale
+            oy = ddy * scale
+            oz = ddz * scale
+
+            landmarks[d, 0] -= distal_weight * ox
+            landmarks[d, 1] -= distal_weight * oy
+            landmarks[d, 2] -= distal_weight * oz
+            landmarks[p, 0] += prox_weight * ox
+            landmarks[p, 1] += prox_weight * oy
+            landmarks[p, 2] += prox_weight * oz
+
+            # |distal_change| + |proximal_change| = |overshoot| = |norm - expected|
+            total_correction += abs(diff_n)
 
         return landmarks, total_correction
 
@@ -185,24 +221,30 @@ def clamp_joint_angles(landmarks, limits=None):
         limits = ANGLE_LIMITS
 
     n_clamped = 0
+    eps = 1e-6
 
     for (prox, joint, dist), (min_deg, max_deg) in limits.items():
-        v1 = landmarks[prox, :2] - landmarks[joint, :2]
-        v2 = landmarks[dist, :2] - landmarks[joint, :2]
+        # Scalar-math hot path: avoids per-iteration numpy dispatch for the
+        # tiny 2-D vectors involved in each joint angle.
+        jx = float(landmarks[joint, 0])
+        jy = float(landmarks[joint, 1])
+        v1x = float(landmarks[prox, 0]) - jx
+        v1y = float(landmarks[prox, 1]) - jy
+        v2x = float(landmarks[dist, 0]) - jx
+        v2y = float(landmarks[dist, 1]) - jy
 
-        len_v1 = np.linalg.norm(v1)
-        len_v2 = np.linalg.norm(v2)
-        if len_v1 < 1e-6 or len_v2 < 1e-6:
+        len_v1 = math.hypot(v1x, v1y)
+        len_v2 = math.hypot(v2x, v2y)
+        if len_v1 < eps or len_v2 < eps:
             continue
 
-        # Signed angle from v1 to v2 (positive = counterclockwise)
-        cross = v1[0] * v2[1] - v1[1] * v2[0]
-        dot_val = v1[0] * v2[0] + v1[1] * v2[1]
-        signed_angle = np.arctan2(cross, dot_val)
-        unsigned_angle = abs(signed_angle)
+        cross = v1x * v2y - v1y * v2x
+        dot_val = v1x * v2x + v1y * v2y
+        signed_angle = math.atan2(cross, dot_val)
+        unsigned_angle = -signed_angle if signed_angle < 0.0 else signed_angle
 
-        min_rad = np.radians(min_deg)
-        max_rad = np.radians(max_deg)
+        min_rad = math.radians(min_deg)
+        max_rad = math.radians(max_deg)
 
         if unsigned_angle < min_rad:
             target = min_rad
@@ -213,18 +255,15 @@ def clamp_joint_angles(landmarks, limits=None):
 
         n_clamped += 1
 
-        # Rotate the unit v1 direction by the clamped signed angle
-        target_signed = np.copysign(target, signed_angle)
-        v1_hat = v1 / len_v1
-        cos_t = np.cos(target_signed)
-        sin_t = np.sin(target_signed)
-        new_dir = np.array(
-            [
-                v1_hat[0] * cos_t - v1_hat[1] * sin_t,
-                v1_hat[0] * sin_t + v1_hat[1] * cos_t,
-            ]
-        )
+        target_signed = math.copysign(target, signed_angle)
+        inv_l1 = 1.0 / len_v1
+        cos_t = math.cos(target_signed)
+        sin_t = math.sin(target_signed)
+        # Rotate the unit v1 direction by target_signed, scale to len_v2.
+        dir_x = (v1x * cos_t - v1y * sin_t) * inv_l1
+        dir_y = (v1x * sin_t + v1y * cos_t) * inv_l1
 
-        landmarks[dist, :2] = landmarks[joint, :2] + new_dir * len_v2
+        landmarks[dist, 0] = jx + dir_x * len_v2
+        landmarks[dist, 1] = jy + dir_y * len_v2
 
     return landmarks, n_clamped
