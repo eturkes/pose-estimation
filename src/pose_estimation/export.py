@@ -120,13 +120,11 @@ def _fill_hand_side(row, side, hlm, frame_h, frame_w):
 
 def _assign_hands_by_x(row, hand_landmarks, frame_h, frame_w):
     """Assign up to 2 hand landmark sets to left/right slots by wrist x."""
-    sorted_hands = (
-        sorted(hand_landmarks[:2], key=lambda lm: lm[0, 0]) if hand_landmarks else []
-    )
+    sorted_hands = sorted(hand_landmarks[:2], key=lambda lm: lm[0, 0]) if hand_landmarks else []
     sides = ["left", "right"]
     for i, hlm in enumerate(sorted_hands):
         _fill_hand_side(row, sides[i], hlm, frame_h, frame_w)
-    for side in sides[len(sorted_hands):]:
+    for side in sides[len(sorted_hands) :]:
         _blank_hand_side(row, side)
 
 

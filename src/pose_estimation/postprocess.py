@@ -110,6 +110,7 @@ def _fast_write_csv(df, out_path, np, float_format="%.6f", coord_overrides=None)
         w.writerow(list(df.columns))
         w.writerows(zip(*str_cols, strict=False))
 
+
 # Gaps longer than this (relative to window) are treated as segment
 # boundaries rather than being interpolated through.
 _GAP_RATIO = 0.5
@@ -290,9 +291,7 @@ def savgol_smooth_csv(input_path, output_path, window=11, polyorder=3):
 
         for j in dirty_idx:
             c = coord_cols[j]
-            smoothed_col = _smooth_column_with_nan(
-                grp[c], window, polyorder, np, savgol_filter
-            )
+            smoothed_col = _smooth_column_with_nan(grp[c], window, polyorder, np, savgol_filter)
             coord_arr[positional, j] = smoothed_col.to_numpy()
 
     # ``_fast_write_csv`` reads non-coord columns from ``df`` and pulls

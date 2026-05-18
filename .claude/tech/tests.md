@@ -24,6 +24,14 @@ All tests live in `tests/`. Run with `uv run pytest`. Pytest is configured stric
 | `tests/test_rtmw_matching.py` | Matching specific to rtmlib outputs. |
 | `tests/test_rtmw_regions.py` | Region cropping & keypoint subset extraction. |
 
+## Multi-camera
+
+| File | Covers |
+|------|--------|
+| `tests/test_calibration.py` | `calibration.py` JSON IO, schema validation, `solve_charuco` stub. |
+| `tests/test_multicam.py` | `multicam.py` session discovery (manifest + glob), calibration auto-load, sync offsets, `iter_synchronized_frames`, `process_session` stub. Uses MJPG/AVI synthetic videos. |
+| `tests/test_triangulation.py` | `triangulation.py` projection / undistort / weighted DLT primitives; `fuse_session_frame` stub. |
+
 ## Infrastructure
 
 | File | Covers |

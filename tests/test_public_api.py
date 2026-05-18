@@ -51,6 +51,33 @@ def test_models_helper_exported():
     assert callable(pe.download_and_compile_models)
 
 
+def test_multicam_surface_exported():
+    # Dataclasses / helpers for multi-camera sessions.
+    assert pe.Session is not None
+    assert pe.SessionCamera is not None
+    assert callable(pe.discover_session)
+    assert callable(pe.discover_sessions)
+    assert callable(pe.iter_synchronized_frames)
+    assert callable(pe.process_session)
+    assert issubclass(pe.SessionError, ValueError)
+
+
+def test_calibration_surface_exported():
+    assert callable(pe.load_calibration)
+    assert callable(pe.load_session_calibration)
+    assert callable(pe.save_calibration)
+    assert issubclass(pe.CalibrationError, ValueError)
+    # TypedDicts: importable so callers can annotate.
+    assert pe.CameraCalibration is not None
+    assert pe.SessionCalibration is not None
+    assert pe.SessionFrame is not None
+    assert pe.MultiCamPipelineState is not None
+
+
+def test_triangulation_surface_exported():
+    assert callable(pe.fuse_session_frame)
+
+
 def test_all_lists_only_existing_names():
     for name in pe.__all__:
         assert hasattr(pe, name), f"__all__ lists {name!r} but it isn't defined"

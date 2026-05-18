@@ -56,9 +56,7 @@ def _verify_checksum(path, expected, *, redownload):
         )
         Path(path).unlink(missing_ok=True)
         return False
-    raise ValueError(
-        f"Checksum mismatch for {path}: expected {expected}, got {actual}"
-    )
+    raise ValueError(f"Checksum mismatch for {path}: expected {expected}, got {actual}")
 
 
 def _download_to(url, filepath):

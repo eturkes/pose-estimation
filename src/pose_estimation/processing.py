@@ -141,7 +141,7 @@ def _detection_centres_array(dets):
     """Stack detection box centres into a single (n, 2) ndarray in one pass.
 
     Direct scalar fill beats ``np.array(list[(box[:2] + box[2:]) / 2 for ...])``
-    at the typical 1–6 detection counts: a per-det numpy slice + ufunc
+    at the typical 1-6 detection counts: a per-det numpy slice + ufunc
     pair costs ~1 µs of dispatch overhead, vs ~80 ns for the four scalar
     reads used here.
     """
@@ -173,7 +173,7 @@ def _palm_centres_list(dets):
     """Return detection box centres as a list of ``(cx, cy)`` Python tuples.
 
     Both callers iterate the centres in a tight scalar overlap check; at
-    the 0–6 palm-det sizes we see in production, Python iteration beats
+    the 0-6 palm-det sizes we see in production, Python iteration beats
     the per-step ufunc dispatch overhead of an ``(n, 2)`` ndarray.
     """
     if not dets:
@@ -181,10 +181,12 @@ def _palm_centres_list(dets):
     out = []
     for d in dets:
         box = d["box"]
-        out.append((
-            (float(box[0]) + float(box[2])) * 0.5,
-            (float(box[1]) + float(box[3])) * 0.5,
-        ))
+        out.append(
+            (
+                (float(box[0]) + float(box[2])) * 0.5,
+                (float(box[1]) + float(box[3])) * 0.5,
+            )
+        )
     return out
 
 
@@ -521,7 +523,9 @@ def _affine_matrix(cx, cy, rotation, size, target_size):
     return M
 
 
-def get_pose_crop(img, detection, scale_factor=POSE_CROP_SCALE_FACTOR, target_size=POSE_LM_INPUT_SIZE):
+def get_pose_crop(
+    img, detection, scale_factor=POSE_CROP_SCALE_FACTOR, target_size=POSE_LM_INPUT_SIZE
+):
     """Extract a rotation-aware person crop using pose detection keypoints."""
     img_h, img_w = img.shape[:2]
     kp_hip = detection["keypoints"][0] * np.array([img_w, img_h])
@@ -573,7 +577,7 @@ def transform_landmarks_to_image(landmarks, M):
     M is a 2x3 affine ``[[a, b, c], [d, e, f]]``; its inverse is computed
     via the closed-form cofactor expansion (no ``np.linalg.inv`` / vstack
     / matmul / transpose ceremony), which dominated runtime at the
-    keypoint counts seen here (12–33).
+    keypoint counts seen here (12-33).
     """
     a = float(M[0, 0])
     b = float(M[0, 1])

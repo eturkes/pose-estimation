@@ -106,9 +106,7 @@ def _load_sweep_config(config_path, parser):
     if yaml_err is not None:
         parser.error(f"--config: invalid YAML in {path}: {yaml_err}")
     if not isinstance(spec, dict):
-        parser.error(
-            f"--config: top-level must be a mapping (got {type(spec).__name__}) in {path}"
-        )
+        parser.error(f"--config: top-level must be a mapping (got {type(spec).__name__}) in {path}")
 
     out = {}
     # ``parser.error`` calls sys.exit, so the type checker can't see that
@@ -127,8 +125,7 @@ def _load_sweep_config(config_path, parser):
             out[key] = [coerce(v) for v in values]
         except (TypeError, ValueError) as exc:
             parser.error(
-                f"--config: cannot coerce {key} values to {coerce.__name__} "
-                f"({values!r}): {exc}"
+                f"--config: cannot coerce {key} values to {coerce.__name__} ({values!r}): {exc}"
             )
 
     return out

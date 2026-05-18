@@ -72,4 +72,83 @@ class PipelineState(TypedDict):
     hand_diag: list[HandDetectionDiag]
 
 
-__all__ = ["Detection", "HandDetectionDiag", "PipelineState"]
+class CameraCalibration(TypedDict):
+    """Single-camera intrinsics + extrinsics for a multi-camera session.
+
+    All matrix/vector fields hold ``np.ndarray`` instances after a
+    successful ``load_calibration`` call.  JSON-on-disk uses nested
+    lists; the loader materialises arrays so downstream code does not
+    branch on type.
+    """
+
+    name: str
+    resolution: tuple[int, int]  # (width, height) in pixels
+    K: np.ndarray  # (3, 3) intrinsic matrix
+    distortion: np.ndarray  # (k,) OpenCV distortion coefficients
+    rvec: np.ndarray  # (3,) Rodrigues rotation, camera-from-world
+    tvec: np.ndarray  # (3,) translation, camera-from-world (metres)
+
+
+class SessionCalibration(TypedDict):
+    """Collection of camera calibrations for one session.
+
+    ``cameras`` is keyed by camera ``name`` for O(1) lookup.  The
+    on-disk representation is a list; ``load_calibration`` builds the
+    dict.  ``world_frame`` names the camera whose pose is the world
+    origin (its rvec/tvec must be zero).
+    """
+
+    format_version: int
+    session_id: str
+    world_frame: str
+    cameras: dict[str, CameraCalibration]
+    reprojection_error_px: float
+    solver: str
+    solved_at: str  # ISO-8601 UTC timestamp
+
+
+class SessionFrame(TypedDict):
+    """One synchronized multi-camera frame yielded by the session iterator.
+
+    ``frames`` is keyed by camera name so consumers do not depend on
+    camera order.  ``frame_index`` is the *logical* index (post
+    sync-offset alignment); per-camera raw indices may differ.
+    """
+
+    frame_index: int
+    frames: dict[str, np.ndarray]  # BGR images, varying resolutions allowed
+
+
+if sys.version_info >= (3, 11):
+
+    class MultiCamPipelineState(TypedDict):
+        """Inter-frame state for the multi-camera pipeline.
+
+        Holds one ``PipelineState`` per camera (keyed by name) plus
+        room for shared 3D state once triangulation is wired.
+        ``world_keypoints`` is populated only when fusion runs.
+        """
+
+        per_camera: dict[str, PipelineState]
+        world_keypoints: NotRequired[np.ndarray]  # (n_keypoints, 3)
+else:  # pragma: no cover - Python 3.10 fallback
+
+    class _MultiCamRequired(TypedDict):
+        per_camera: dict[str, PipelineState]
+
+    class _MultiCamOptional(TypedDict, total=False):
+        world_keypoints: np.ndarray
+
+    class MultiCamPipelineState(_MultiCamRequired, _MultiCamOptional):
+        """Multi-camera pipeline state.  See 3.11+ definition above."""
+
+
+__all__ = [
+    "CameraCalibration",
+    "Detection",
+    "HandDetectionDiag",
+    "MultiCamPipelineState",
+    "PipelineState",
+    "SessionCalibration",
+    "SessionFrame",
+]

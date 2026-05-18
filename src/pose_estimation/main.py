@@ -39,6 +39,12 @@ from .metrics import (
     SmoothingDiagnostics,
 )
 from .models import download_and_compile_models
+from .multicam import (
+    SessionError,
+    discover_session,
+    discover_sessions,
+    process_session,
+)
 from .postprocess import _odd_int
 from .processing import (
     TRACKING_BODY,
@@ -91,9 +97,7 @@ def _open_capture(source):
         if isinstance(source, int):
             print(f"  ERROR: cannot open camera index {source} (no device or driver?).")
         else:
-            print(
-                f"  ERROR: cannot open {source} — check codec, codec packs, or file integrity."
-            )
+            print(f"  ERROR: cannot open {source} — check codec, codec packs, or file integrity.")
         return None
     return cap
 
@@ -498,6 +502,57 @@ def collect_video_files(directory):
     return files
 
 
+def _dispatch_sessions(args, *, tracking, headless):
+    """Resolve --session-dir / --sessions-dir into Session objects and dispatch.
+
+    Validates and surfaces the multi-camera setup (session id, camera
+    list, calibration presence) before handing off to ``process_session``.
+    ``process_session`` is currently a ``NotImplementedError`` stub; we
+    let the exception propagate after the resolution print so the user
+    sees both the parsed configuration and the wire-up gap.
+    """
+    if args.session_dir and args.sessions_dir:
+        raise SessionError("--session-dir and --sessions-dir are mutually exclusive")
+    try:
+        if args.session_dir:
+            sessions = [discover_session(args.session_dir, calibration_path=args.calibration)]
+        else:
+            if args.calibration is not None:
+                print(
+                    "WARNING: --calibration applies the same calibration to every "
+                    "discovered session; pass --session-dir for per-session overrides."
+                )
+            sessions = discover_sessions(args.sessions_dir)
+            if not sessions:
+                raise SessionError(f"no sessions discovered under {args.sessions_dir}")
+            if args.calibration is not None:
+                # Re-load each with the override calibration.
+                sessions = [
+                    discover_session(s.directory, calibration_path=args.calibration)
+                    for s in sessions
+                ]
+    except SessionError as exc:
+        print(f"ERROR: {exc}")
+        return
+
+    print(f"Multi-camera dispatch: {len(sessions)} session(s)")
+    for s in sessions:
+        cal = "present" if s.calibration is not None else "absent"
+        print(
+            f"  {s.session_id}: {s.n_cameras} cameras "
+            f"({', '.join(s.camera_names())}); calibration: {cal}"
+        )
+    for s in sessions:
+        process_session(
+            s,
+            output_dir=args.output_dir,
+            tracking=tracking,
+            single_subject=args.single_subject,
+            headless=headless,
+            device=args.device,
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Pose estimation")
     source_group = parser.add_mutually_exclusive_group()
@@ -506,6 +561,28 @@ def main():
     )
     source_group.add_argument(
         "--batch-dir", default=None, help="Directory of video files to process sequentially"
+    )
+    source_group.add_argument(
+        "--session-dir",
+        default=None,
+        help=(
+            "Multi-camera session directory (cam*.{mp4,avi,mov,mkv,webm} + "
+            "optional session.json + optional calibration.json). "
+            "Per-view processing + 3D fusion are not yet wired."
+        ),
+    )
+    source_group.add_argument(
+        "--sessions-dir",
+        default=None,
+        help="Parent directory holding multiple session subdirectories (batch mode).",
+    )
+    parser.add_argument(
+        "--calibration",
+        default=None,
+        help=(
+            "Override path to calibration.json for the selected session(s); "
+            "defaults to <session_dir>/calibration.json when present."
+        ),
     )
     parser.add_argument(
         "--output-dir", default="output", help="Directory for CSV output (default: output/)"
@@ -579,6 +656,16 @@ def main():
     csv_paths = []
 
     try:
+        if args.session_dir or args.sessions_dir:
+            _dispatch_sessions(args, tracking=tracking, headless=headless)
+            return
+
+        if args.calibration is not None:
+            print(
+                "WARNING: --calibration has no effect without --session-dir/--sessions-dir; "
+                "ignoring."
+            )
+
         if args.batch_dir:
             video_files = collect_video_files(args.batch_dir)
             print(f"Found {len(video_files)} video(s) in {args.batch_dir}")

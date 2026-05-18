@@ -212,11 +212,7 @@ class MetricsCollector:
         # and the result is formatted once into its CSV-ready string.
         pid = person_idx
         prev_body = self._prev_body_lm.get(pid)
-        if (
-            body_lm_smooth is None
-            or prev_body is None
-            or prev_body.shape != body_lm_smooth.shape
-        ):
+        if body_lm_smooth is None or prev_body is None or prev_body.shape != body_lm_smooth.shape:
             body_jitter = ""
         else:
             d = body_lm_smooth[:, :2] - prev_body[:, :2]

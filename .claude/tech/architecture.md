@@ -16,11 +16,15 @@
 | `postprocess.py` | Savitzky-Golay offline smoothing (`savgol_smooth_csv`). |
 | `metrics.py` | `MetricsCollector`, `ConstraintDiagnostics`, `SmoothingDiagnostics` — per-frame quality metrics. |
 | `benchmark.py` | Parameter sweep harness (subprocess fan-out, `--config` YAML). |
-| `_types.py` | `Detection`, `HandDetectionDiag`, `PipelineState` TypedDicts. |
+| `multicam.py` | Multi-camera `Session` discovery + synchronized iteration. `process_session` is a stub. See `tech/multicam.md`. |
+| `calibration.py` | Camera-calibration JSON IO + validation. `solve_charuco` is a stub. See `tech/calibration.md`. |
+| `calibration_cli.py` | `pose-estimation-calibrate` console script (`verify` works; `solve`/`capture` stubs). |
+| `triangulation.py` | 3D triangulation math primitives (DLT, projection, undistort). `fuse_session_frame` is a stub. |
+| `_types.py` | `Detection`, `HandDetectionDiag`, `PipelineState`, `CameraCalibration`, `SessionCalibration`, `SessionFrame`, `MultiCamPipelineState` TypedDicts. |
 
 ## Public API (re-exported from `src/pose_estimation/__init__.py`)
 
-`ANGLE_LIMITS`, `ANGLE_LIMITS_BODY`, `BONE_SEGMENTS`, `BONE_SEGMENTS_BODY`, `TRACKING_BODY`, `TRACKING_HANDS`, `TRACKING_HANDS_ARMS`, `BoneLengthSmoother`, `Detection`, `HandDetectionDiag`, `OneEuroFilter`, `PipelineState`, `PoseSmoother`, `clamp_joint_angles`, `download_and_compile_models`, `match_hands_to_arms`, `process_frame`, `savgol_smooth_csv`, `select_primary_body`, `tracking_pose_indices`.
+`ANGLE_LIMITS`, `ANGLE_LIMITS_BODY`, `BONE_SEGMENTS`, `BONE_SEGMENTS_BODY`, `TRACKING_BODY`, `TRACKING_HANDS`, `TRACKING_HANDS_ARMS`, `BoneLengthSmoother`, `CalibrationError`, `CameraCalibration`, `Detection`, `HandDetectionDiag`, `MultiCamPipelineState`, `OneEuroFilter`, `PipelineState`, `PoseSmoother`, `Session`, `SessionCalibration`, `SessionCamera`, `SessionError`, `SessionFrame`, `clamp_joint_angles`, `discover_session`, `discover_sessions`, `download_and_compile_models`, `fuse_session_frame`, `iter_synchronized_frames`, `load_calibration`, `load_session_calibration`, `match_hands_to_arms`, `process_frame`, `process_session`, `save_calibration`, `savgol_smooth_csv`, `select_primary_body`, `tracking_pose_indices`.
 
 Treat this list as the stable surface. Internal helpers (leading `_`) may move freely.
 
@@ -50,5 +54,7 @@ Treat this list as the stable surface. Internal helpers (leading `_`) may move f
 ## Cross-references
 
 - Modes: `tech/tracking-modes.md`
+- Multi-camera sessions: `tech/multicam.md`
+- Calibration format + workflow: `tech/calibration.md`
 - Entry points & CLI: `tech/entrypoints.md`
 - Tests: `tech/tests.md`

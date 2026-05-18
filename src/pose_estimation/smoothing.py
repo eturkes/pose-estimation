@@ -5,7 +5,6 @@ import os
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-
 _TWO_PI = 2.0 * np.pi
 
 
@@ -434,7 +433,7 @@ class PoseSmoother:
         if raw.shape != smo.shape:
             return 0.0
         # np.hypot on explicit dx/dy beats np.linalg.norm's Python-level
-        # dispatch at the (12–33, 2) sizes we see per frame.
+        # dispatch at the (12-33, 2) sizes we see per frame.
         dx = raw[:, 0] - smo[:, 0]
         dy = raw[:, 1] - smo[:, 1]
         return float(np.hypot(dx, dy).sum())

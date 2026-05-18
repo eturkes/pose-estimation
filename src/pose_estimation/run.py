@@ -29,6 +29,12 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 
 from .constraints import BoneLengthSmoother
+from .multicam import (
+    SessionError,
+    discover_session,
+    discover_sessions,
+    process_session,
+)
 
 # ---------------------------------------------------------------------------
 # Model registry — NPU-compatible models (verified via scripts/npu_compat.py)
@@ -631,6 +637,28 @@ def parse_args():
         help="Process all video files in a directory (overrides --source, implies --headless)",
     )
     p.add_argument(
+        "--session-dir",
+        default=None,
+        help=(
+            "Multi-camera session directory (cam*.{mp4,avi,mov,mkv,webm} + "
+            "optional session.json + optional calibration.json). "
+            "Per-view processing + 3D fusion are not yet wired."
+        ),
+    )
+    p.add_argument(
+        "--sessions-dir",
+        default=None,
+        help="Parent directory holding multiple session subdirectories (batch mode).",
+    )
+    p.add_argument(
+        "--calibration",
+        default=None,
+        help=(
+            "Override path to calibration.json for the selected session(s); "
+            "defaults to <session_dir>/calibration.json when present."
+        ),
+    )
+    p.add_argument(
         "--single-subject", action="store_true", help="Track only the highest-confidence person"
     )
     p.add_argument(
@@ -837,10 +865,16 @@ def print_latency_summary(latencies):
 def _run_mediapipe(args):
     """Delegate to pose_estimation.main for the MediaPipe pipeline."""
     cmd = [sys.executable, "-m", "pose_estimation.main"]
-    if args.batch_dir:
+    if args.session_dir:
+        cmd += ["--session-dir", args.session_dir]
+    elif args.sessions_dir:
+        cmd += ["--sessions-dir", args.sessions_dir]
+    elif args.batch_dir:
         cmd += ["--batch-dir", args.batch_dir]
     elif args.source != "0":
         cmd += ["--source", args.source]
+    if args.calibration:
+        cmd += ["--calibration", args.calibration]
     cmd += ["--device", args.device]
     cmd += ["--tracking", args.tracking]
     if args.single_subject:
@@ -854,12 +888,70 @@ def _run_mediapipe(args):
     return subprocess.call(cmd)
 
 
+def _dispatch_sessions(args):
+    """Resolve --session-dir / --sessions-dir into Session objects and dispatch.
+
+    Validates and surfaces the multi-camera setup (session id, camera
+    list, calibration presence) before handing off to ``process_session``.
+    ``process_session`` is currently a ``NotImplementedError`` stub; the
+    exception propagates after the resolution print so the user sees both
+    the parsed configuration and the wire-up gap.
+    """
+    if args.session_dir and args.sessions_dir:
+        raise SessionError("--session-dir and --sessions-dir are mutually exclusive")
+    if args.session_dir:
+        sessions = [discover_session(args.session_dir, calibration_path=args.calibration)]
+    else:
+        if args.calibration is not None:
+            print(
+                "WARNING: --calibration applies the same calibration to every "
+                "discovered session; pass --session-dir for per-session overrides."
+            )
+        sessions = discover_sessions(args.sessions_dir)
+        if not sessions:
+            raise SessionError(f"no sessions discovered under {args.sessions_dir}")
+        if args.calibration is not None:
+            sessions = [
+                discover_session(s.directory, calibration_path=args.calibration) for s in sessions
+            ]
+
+    print(f"Multi-camera dispatch: {len(sessions)} session(s)")
+    for s in sessions:
+        cal = "present" if s.calibration is not None else "absent"
+        print(
+            f"  {s.session_id}: {s.n_cameras} cameras "
+            f"({', '.join(s.camera_names())}); calibration: {cal}"
+        )
+    for s in sessions:
+        process_session(
+            s,
+            backend=args.backend,
+            device=args.device,
+            tracking=args.tracking,
+            single_subject=args.single_subject,
+            headless=args.headless,
+        )
+
+
 def main():
     args = parse_args()
 
-    # ── MediaPipe delegates to main.py ──────────────────────────────
+    # ── MediaPipe delegates to main.py (forwards session flags too) ─
     if args.model == "mediapipe":
         sys.exit(_run_mediapipe(args))
+
+    if args.session_dir or args.sessions_dir:
+        try:
+            _dispatch_sessions(args)
+        except SessionError as exc:
+            print(f"ERROR: {exc}")
+            sys.exit(2)
+        return
+
+    if args.calibration is not None:
+        print(
+            "WARNING: --calibration has no effect without --session-dir/--sessions-dir; ignoring."
+        )
 
     # ── Resolve model — legacy --body-only maps to rtmpose-m ────────
     model_name = args.model

@@ -49,6 +49,7 @@ pose-estimation = "pose_estimation.main:main"
 pose-estimation-run = "pose_estimation.run:main"
 pose-estimation-benchmark = "pose_estimation.benchmark:main"
 pose-estimation-postprocess = "pose_estimation.postprocess:main"
+pose-estimation-calibrate = "pose_estimation.calibration_cli:main"
 
 [build-system]
 requires = ["hatchling>=1.27"]

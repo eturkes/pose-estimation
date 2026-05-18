@@ -232,5 +232,3 @@ def test_affine_matrix_valid():
     assert M is not None
     assert M.shape == (2, 3)
     assert np.all(np.isfinite(M))
-
-

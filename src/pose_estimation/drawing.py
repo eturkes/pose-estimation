@@ -230,7 +230,7 @@ def _blended_color(color):
     frame drawing path indexes those tables directly instead of re-running
     the multiply/round per limb.
     """
-    return tuple(int(round(c * _LIMB_ALPHA)) for c in color)
+    return tuple(round(c * _LIMB_ALPHA) for c in color)
 
 
 _BODY_BLENDED = {k: _blended_color(v) for k, v in BODY_COLOR_MAP.items()}
@@ -259,7 +259,7 @@ def draw_body_landmarks(img, body_landmarks, body_visibilities, visibility_thres
         points = landmarks[:, :2]
         # Convert to Python lists once — the chain/segment/dot loops below
         # all read by index, and per-iteration numpy → Python int conversion
-        # was a measurable cost at 33 keypoints × multiple call sites.
+        # was a measurable cost at 33 keypoints x multiple call sites.
         pts_list = points.astype(np.int32, copy=False).tolist()
         vis_list = (visibility > visibility_threshold).tolist()
 

@@ -17,8 +17,10 @@ Entry point for agent sessions. Load files on demand using the "when to load" hi
 | File | When to load |
 |------|--------------|
 | `tech/architecture.md` | Modifying or reasoning about pipeline modules, public API, frame data flow. |
-| `tech/entrypoints.md`  | Touching CLI behaviour, `main.py`, `run.py`, `benchmark.py`, or `postprocess.py`. |
+| `tech/entrypoints.md`  | Touching CLI behaviour, `main.py`, `run.py`, `benchmark.py`, `postprocess.py`, or `calibration_cli.py`. |
 | `tech/tracking-modes.md` | Anything mode-sensitive: keypoint counts, column prefixes, mode-specific constants. |
+| `tech/multicam.md`     | Multi-camera sessions, session directory layout, sync, `Session` abstraction. |
+| `tech/calibration.md`  | Camera-calibration file format, IO, planned ChArUco solve workflow. |
 | `tech/analysis.md`     | Working on `analysis/*.R` scripts or downstream clinical features. |
 | `tech/optimization.md` | Tuning pipeline parameters, running parameter sweeps, or micro-benchmarks. |
 | `tech/tests.md`        | Adding/running tests; mapping test files to the modules they cover. |
