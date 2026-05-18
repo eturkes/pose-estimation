@@ -19,6 +19,11 @@ htmlcov/
 .RData
 .Rdata
 
+# Rendered R Markdown outputs (source-only convention)
+analysis/*.html
+analysis/*_files/
+analysis/*_cache/
+
 # Models
 model/
 
