@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-05-24 — process_session() callback-based orchestration pattern
+
+**Context.** `process_session()` was a `NotImplementedError` stub. Both `main.py` (MediaPipe) and `run.py` (rtmlib) have different per-frame processing pipelines with different state requirements (models/anchors vs PoseTracker/smoother), different output capabilities (CSV export vs latency-only), and different initialization sequences. A single `process_session()` implementation must support both backends without duplicating entry-point-specific logic.
+**Decision.** `process_session(session, *, camera_processor, output_dir=None)` accepts a `Callable[..., Any]` callback. The callback is called once per camera with keyword args `source`, `output_csv`, `output_diag`, `video_name`. Each entry point constructs the callback as a closure capturing its pre-initialized state: `main.py` wraps `process_video()` with CSV/diag/metrics writer setup/teardown; `run.py` wraps `process_source()` with smoother reset. Session-level orchestration (output dir creation, camera iteration, progress reporting) stays in `process_session()`. In `run.py`, session dispatch was moved from before model setup to after it, so the PoseTracker and smoother are available for the callback.
+**Alternatives considered.** (a) Backend-agnostic `process_session()` that reimplements per-frame processing internally: rejected — massive duplication of the ~500-line processing loops in main.py/run.py. (b) Entry points bypass `process_session()` and iterate cameras inline: rejected — loses the single orchestration point needed for future 3D fusion. (c) Protocol/ABC for the callback: rejected — adds type machinery for no practical benefit when the callback is always constructed adjacent to the call site.
+**Consequences.** `process_session()` is now functional for per-camera 2D processing on both backends. 3D fusion (Task #4) will be added inside `process_session()` after per-camera processing, when calibration is present. The rtmlib path produces per-camera latency stats but no CSVs (matching existing single-source rtmlib behavior).
+**References.** `multicam.py:349-406`, `main.py:505-578`, `run.py:914-966`, `tests/test_multicam.py:327-395`.
+
+---
+
 ## 2026-05-24 — Jitter reduction: outlier rejection, hand smoothing increase, multi-frame detection carry
 
 **Context.** User reported tracking jitter/instability and hand detection drops affecting both MediaPipe and rtmlib backends. Investigation identified three root causes: (1) single-frame keypoint spikes corrupting the velocity estimate in the One Euro filter, (2) hand min_cutoff=1.0 providing near-zero smoothing for slow hand movements, (3) detection-level carry-forward limited to 1 frame causing frequent crop loss.

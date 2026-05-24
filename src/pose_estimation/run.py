@@ -911,14 +911,12 @@ def _run_mediapipe(args):
     return subprocess.call(cmd)
 
 
-def _dispatch_sessions(args):
-    """Resolve --session-dir / --sessions-dir into Session objects and dispatch.
+def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoother, screen):
+    """Resolve --session-dir / --sessions-dir and run per-camera processing.
 
-    Validates and surfaces the multi-camera setup (session id, camera
-    list, calibration presence) before handing off to ``process_session``.
-    ``process_session`` is currently a ``NotImplementedError`` stub; the
-    exception propagates after the resolution print so the user sees both
-    the parsed configuration and the wire-up gap.
+    Constructs an rtmlib camera processor closure that wraps
+    ``process_source`` with smoother reset, then hands off to
+    ``process_session`` for per-camera orchestration.
     """
     if args.session_dir and args.sessions_dir:
         raise SessionError("--session-dir and --sessions-dir are mutually exclusive")
@@ -945,14 +943,26 @@ def _dispatch_sessions(args):
             f"  {s.session_id}: {s.n_cameras} cameras "
             f"({', '.join(s.camera_names())}); calibration: {cal}"
         )
+
+    def _camera_processor(*, source, output_csv, output_diag, video_name, **_kw):
+        if smoother is not None:
+            smoother.reset()
+        latencies = process_source(
+            args,
+            pose_tracker,
+            source,
+            draw_skeleton,
+            smoother=smoother,
+            bone_smoother=bone_smoother,
+            screen=screen,
+        )
+        print_latency_summary(latencies)
+        return latencies
+
     for s in sessions:
         process_session(
             s,
-            backend=args.backend,
-            device=args.device,
-            tracking=args.tracking,
-            single_subject=args.single_subject,
-            headless=args.headless,
+            camera_processor=_camera_processor,
         )
 
 
@@ -963,15 +973,7 @@ def main():
     if args.model == "mediapipe":
         sys.exit(_run_mediapipe(args))
 
-    if args.session_dir or args.sessions_dir:
-        try:
-            _dispatch_sessions(args)
-        except SessionError as exc:
-            print(f"ERROR: {exc}")
-            sys.exit(2)
-        return
-
-    if args.calibration is not None:
+    if args.calibration is not None and not (args.session_dir or args.sessions_dir):
         print(
             "WARNING: --calibration has no effect without --session-dir/--sessions-dir; ignoring."
         )
@@ -1038,6 +1040,34 @@ def main():
     if not args.no_constraints:
         segments = BONE_SEGMENTS_WB_BODY if args.tracking == "body" else BONE_SEGMENTS_WB
         bone_smoother = BoneLengthSmoother(segments=segments)
+
+    # ── Multi-camera session dispatch ─────────────────────────────
+    if args.session_dir or args.sessions_dir:
+        screen = None
+        if not args.headless:
+            import pygame as _pg
+
+            _pg.init()
+            screen = _pg.display.set_mode((640, 480))
+            _pg.display.set_caption(WINDOW_TITLE)
+        try:
+            _dispatch_sessions(
+                args,
+                pose_tracker=pose_tracker,
+                draw_skeleton=draw_skeleton,
+                smoother=smoother,
+                bone_smoother=bone_smoother,
+                screen=screen,
+            )
+        except SessionError as exc:
+            print(f"ERROR: {exc}")
+            sys.exit(2)
+        finally:
+            if not args.headless:
+                import pygame as _pg
+
+                _pg.quit()
+        return
 
     # ── Collect sources ─────────────────────────────────────────────
     if args.batch_dir:

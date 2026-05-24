@@ -61,7 +61,7 @@ Software sync only (no hardware genlock assumed). Three layers:
 
 | File | Role |
 |------|------|
-| `src/pose_estimation/multicam.py` | `Session` dataclass, `discover_session`, `iter_synchronized_frames`, `process_session` (stub). |
+| `src/pose_estimation/multicam.py` | `Session` dataclass, `discover_session`, `iter_synchronized_frames`, `process_session` (callback-based orchestrator). |
 | `src/pose_estimation/calibration.py` | `CameraCalibration` / `SessionCalibration` IO, validation, charuco solver (stub). See `tech/calibration.md`. |
 | `src/pose_estimation/triangulation.py` | DLT helpers + `fuse_session_frame` (stub). |
 | `src/pose_estimation/calibration_cli.py` | `pose-estimation-calibrate` console script. |
@@ -83,18 +83,22 @@ New console script:
 - `pose-estimation-calibrate solve --session-dir <dir> --output <file>` — charuco solve (stub).
 - `pose-estimation-calibrate capture --session-dir <dir>` — guided capture (stub).
 
-## Processing flow (planned)
+## Processing flow
 
-When wired (follow-up), per session:
+`process_session()` orchestrates per-camera video processing via a caller-supplied `camera_processor` callback:
 
 1. `discover_session(<dir>)` → `Session` (cameras + calibration).
-2. For each camera, open `cv2.VideoCapture` and skip `sync_offset` frames.
-3. Per logical frame: read N frames, build `SessionFrame`.
-4. Per camera, run existing single-source pipeline (`processing.process_frame` or rtmlib path) → per-camera keypoint set + `PipelineState`.
-5. `triangulation.fuse_session_frame(session_frame, per_cam_keypoints, calibration)` → 3D world keypoints.
-6. Write per-camera CSV rows (existing schema) + `world3d.csv` row.
+2. Create output directory: `<output_dir>/<session_id>/`.
+3. For each camera, call `camera_processor(source=..., output_csv=..., output_diag=..., video_name=...)`.
+4. Return `dict[str, Any]` mapping camera name → processor result.
 
-Current state: steps 1–3 are implemented; step 4 happens only via the existing single-source CLI; steps 5–6 raise `NotImplementedError`.
+The `camera_processor` callback encapsulates backend-specific logic:
+- **MediaPipe path** (`main.py`): closure wraps `process_video()` with CSV writer, diag writer, metrics collector setup/teardown.
+- **rtmlib path** (`run.py`): closure wraps `process_source()` with smoother reset; returns latency list.
+
+Both `_dispatch_sessions()` functions construct the callback from pre-initialized model state (models/anchors/tracker/smoother) and pass it to `process_session()`.
+
+Current state: per-camera 2D processing is fully wired. 3D fusion (`triangulation.fuse_session_frame`) is a follow-up — will be called inside `process_session()` after per-camera processing completes, when calibration is present.
 
 ## Cross-references
 

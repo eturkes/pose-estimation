@@ -502,14 +502,12 @@ def collect_video_files(directory):
     return files
 
 
-def _dispatch_sessions(args, *, tracking, headless):
-    """Resolve --session-dir / --sessions-dir into Session objects and dispatch.
+def _dispatch_sessions(args, *, tracking, headless, models, palm_anchors, pose_anchors, screen):
+    """Resolve --session-dir / --sessions-dir and run per-camera processing.
 
-    Validates and surfaces the multi-camera setup (session id, camera
-    list, calibration presence) before handing off to ``process_session``.
-    ``process_session`` is currently a ``NotImplementedError`` stub; we
-    let the exception propagate after the resolution print so the user
-    sees both the parsed configuration and the wire-up gap.
+    Constructs a MediaPipe camera processor closure that wraps
+    ``process_video`` with CSV/diagnostics/metrics setup, then hands
+    off to ``process_session`` for per-camera orchestration.
     """
     if args.session_dir and args.sessions_dir:
         raise SessionError("--session-dir and --sessions-dir are mutually exclusive")
@@ -526,7 +524,6 @@ def _dispatch_sessions(args, *, tracking, headless):
             if not sessions:
                 raise SessionError(f"no sessions discovered under {args.sessions_dir}")
             if args.calibration is not None:
-                # Re-load each with the override calibration.
                 sessions = [
                     discover_session(s.directory, calibration_path=args.calibration)
                     for s in sessions
@@ -542,14 +539,41 @@ def _dispatch_sessions(args, *, tracking, headless):
             f"  {s.session_id}: {s.n_cameras} cameras "
             f"({', '.join(s.camera_names())}); calibration: {cal}"
         )
+
+    def _camera_processor(*, source, output_csv, output_diag, video_name):
+        output_csv.parent.mkdir(parents=True, exist_ok=True)
+        fh, writer = open_csv_writer(output_csv, tracking=tracking)
+        diag_fh = output_diag.open("w", newline="")
+        diag_w = csv.DictWriter(diag_fh, fieldnames=DIAG_FIELDS)
+        diag_w.writeheader()
+        mc = MetricsCollector(str(output_csv.parent), video_name, detail=args.metrics_detail)
+        try:
+            user_quit = process_video(
+                source,
+                False,
+                models,
+                palm_anchors,
+                pose_anchors,
+                screen,
+                csv_writer=writer,
+                video_name=video_name,
+                single_subject=args.single_subject,
+                diag_writer=diag_w,
+                tracking=tracking,
+                headless=headless,
+                metrics_collector=mc,
+            )
+        finally:
+            fh.close()
+            diag_fh.close()
+            mc.flush()
+        return user_quit
+
     for s in sessions:
         process_session(
             s,
+            camera_processor=_camera_processor,
             output_dir=args.output_dir,
-            tracking=tracking,
-            single_subject=args.single_subject,
-            headless=headless,
-            device=args.device,
         )
 
 
@@ -657,7 +681,15 @@ def main():
 
     try:
         if args.session_dir or args.sessions_dir:
-            _dispatch_sessions(args, tracking=tracking, headless=headless)
+            _dispatch_sessions(
+                args,
+                tracking=tracking,
+                headless=headless,
+                models=models,
+                palm_anchors=palm_anchors,
+                pose_anchors=pose_anchors,
+                screen=screen,
+            )
             return
 
         if args.calibration is not None:

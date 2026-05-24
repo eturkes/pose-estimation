@@ -320,15 +320,80 @@ def test_iter_sync_offset_exceeding_frames_raises(tmp_path: pathlib.Path):
 
 
 # ---------------------------------------------------------------------------
-# process_session stub
+# process_session — per-camera orchestration
 # ---------------------------------------------------------------------------
 
 
-def test_process_session_is_stub(tmp_path: pathlib.Path):
+def test_process_session_calls_processor_per_camera(tmp_path: pathlib.Path):
     _ensure_video_codec_available(tmp_path)
-    session_dir = tmp_path / "session_stub"
-    for name in ("cam1", "cam2"):
+    session_dir = tmp_path / "session_proc"
+    cam_names = ("cam1", "cam2", "cam3")
+    for name in cam_names:
         assert _write_synthetic_video(session_dir / f"{name}.avi")
     session = discover_session(session_dir)
-    with pytest.raises(NotImplementedError, match="not yet wired"):
+
+    calls: list[dict] = []
+
+    def recorder(*, source, output_csv, output_diag, video_name):
+        calls.append(
+            {
+                "source": source,
+                "output_csv": output_csv,
+                "output_diag": output_diag,
+                "video_name": video_name,
+            }
+        )
+        return f"ok-{video_name}"
+
+    out = tmp_path / "out"
+    results = process_session(session, camera_processor=recorder, output_dir=out)
+
+    assert len(calls) == 3
+    assert set(results.keys()) == set(cam_names)
+    for name in cam_names:
+        assert results[name] == f"ok-{session.session_id}/{name}"
+
+    for call, name in zip(calls, cam_names, strict=True):
+        assert call["source"].endswith(f"{name}.avi")
+        assert call["output_csv"] == out / session.session_id / f"{name}.csv"
+        assert call["output_diag"] == out / session.session_id / f"{name}_diag.csv"
+        assert call["video_name"] == f"{session.session_id}/{name}"
+
+
+def test_process_session_creates_output_directory(tmp_path: pathlib.Path):
+    _ensure_video_codec_available(tmp_path)
+    session_dir = tmp_path / "session_mkdir"
+    assert _write_synthetic_video(session_dir / "cam1.avi")
+    session = discover_session(session_dir)
+
+    out = tmp_path / "deeply" / "nested" / "output"
+    assert not out.exists()
+
+    process_session(session, camera_processor=lambda **_kw: None, output_dir=out)
+    assert (out / session.session_id).is_dir()
+
+
+def test_process_session_default_output_dir(tmp_path: pathlib.Path):
+    _ensure_video_codec_available(tmp_path)
+    parent = tmp_path / "videos"
+    session_dir = parent / "s1"
+    assert _write_synthetic_video(session_dir / "cam1.avi")
+    session = discover_session(session_dir)
+
+    calls: list[dict] = []
+    process_session(
+        session,
+        camera_processor=lambda **kw: calls.append(kw),
+    )
+    # Default output dir is <session_parent>/output/<session_id>/
+    expected_base = parent / "output" / "s1"
+    assert calls[0]["output_csv"] == expected_base / "cam1.csv"
+
+
+def test_process_session_requires_camera_processor(tmp_path: pathlib.Path):
+    _ensure_video_codec_available(tmp_path)
+    session_dir = tmp_path / "session_no_proc"
+    assert _write_synthetic_video(session_dir / "cam1.avi")
+    session = discover_session(session_dir)
+    with pytest.raises(TypeError, match="camera_processor"):
         process_session(session)

@@ -10,6 +10,18 @@ Transient working notes — anything from "current investigation" to "half-finis
 
 ---
 
+## 2026-05-24 — process_session() wired; 7-task roadmap active
+
+Implemented `process_session()` with callback-based design. Both `main.py` and `run.py` now construct backend-specific camera processor closures and pass them to `process_session()`. 4 new tests (replaced 1 stub test). All 189 tests pass.
+
+Key design insight: `run.py` session dispatch had to move from before model setup (line 976) to after it (line 1044) so the PoseTracker and smoother are available for the callback.
+
+Observation: the rtmlib path (`run.py`) has no CSV export for any mode (single-source or multi-cam). Adding CSV export to the rtmlib path would be a valuable enhancement but is separate from the multi-cam orchestration work.
+
+Next session: Task #2 (solve_charuco) or Task #4 (fuse_session_frame) — both are partially unblocked. Task #2 is independent; Task #4 depends on #1 (now complete).
+
+---
+
 ## 2026-05-24 — Jitter/drop fixes shipped; multi-cam roadmap created
 
 Shipped jitter + detection drop fixes (commit `231b609`). Three changes:

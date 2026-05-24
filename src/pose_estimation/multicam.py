@@ -12,9 +12,10 @@ This module owns three concerns:
 2. **Iteration** — ``iter_synchronized_frames`` yields ``SessionFrame``
    dicts holding the per-camera BGR frames at each logical frame index,
    honouring per-camera ``sync_offset`` skip counts.
-3. **Processing** — ``process_session`` is a ``NotImplementedError``
-   stub.  Per-view pose estimation + ``triangulation.fuse_session_frame``
-   wiring is a follow-up.
+3. **Processing** — ``process_session`` orchestrates per-camera video
+   processing via a caller-supplied ``camera_processor`` callback,
+   managing output directory layout and progress reporting.  3D
+   triangulation wiring (``fuse_session_frame``) is a follow-up.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import pathlib
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any, cast
 
 import cv2
@@ -341,26 +342,79 @@ def _open_session_captures(session: Session) -> list[cv2.VideoCapture]:
 
 
 # ---------------------------------------------------------------------------
-# Processing (stub)
+# Processing
 # ---------------------------------------------------------------------------
 
+_DEFAULT_OUTPUT_DIR = "output"
 
-def process_session(session: Session, **kwargs: Any) -> Any:
-    """Run the full multi-camera pipeline (per-view + triangulation).
 
-    Not yet wired.  Follow-up tracks per-view pipeline reuse and
-    ``triangulation.fuse_session_frame`` integration.  See
-    ``.claude/tech/multicam.md`` for the planned data flow.
+def _resolve_session_output(
+    session: Session, output_dir: str | pathlib.Path | None
+) -> pathlib.Path:
+    """Determine the output directory for a session's results.
+
+    Layout: ``<output_dir>/<session_id>/``.  When *output_dir* is
+    ``None``, defaults to ``output/`` alongside the session's parent.
     """
-    raise NotImplementedError(
-        "process_session is not yet wired. The scaffolding (Session, "
-        "iter_synchronized_frames, calibration IO, triangulation stubs) "
-        "is in place; per-view processing and 3D fusion are tracked as a "
-        f"follow-up. Called with session_id={session.session_id!r}, "
-        f"n_cameras={session.n_cameras}, "
-        f"calibration={'present' if session.calibration is not None else 'absent'}, "
-        f"extra kwargs={sorted(kwargs)}."
+    if output_dir is not None:
+        base = pathlib.Path(output_dir)
+    else:
+        base = session.directory.parent / _DEFAULT_OUTPUT_DIR
+    return base / session.session_id
+
+
+def process_session(
+    session: Session,
+    *,
+    camera_processor: Callable[..., Any],
+    output_dir: str | pathlib.Path | None = None,
+) -> dict[str, Any]:
+    """Run per-camera processing for every camera in *session*.
+
+    ``camera_processor`` is called once per camera as::
+
+        camera_processor(
+            source=<str>,           # absolute path to the camera's video
+            output_csv=<Path>,      # per-camera CSV path
+            output_diag=<Path>,     # per-camera diagnostics CSV path
+            video_name=<str>,       # display label: ``session_id/cam_name``
+        )
+
+    The callback encapsulates all backend-specific logic (model setup,
+    inference, smoothing, CSV writing); ``process_session`` handles only
+    session-level orchestration: output directory creation, camera
+    iteration, and progress reporting.
+
+    Returns a dict mapping camera name → the value returned by
+    ``camera_processor`` for that camera.
+    """
+    session_out = _resolve_session_output(session, output_dir)
+    session_out.mkdir(parents=True, exist_ok=True)
+
+    print(
+        f"\nSession {session.session_id!r}: processing {session.n_cameras} camera(s) "
+        f"→ {session_out}"
     )
+
+    results: dict[str, Any] = {}
+    for i, cam in enumerate(session.cameras, 1):
+        source = str((session.directory / cam.file).resolve())
+        csv_path = session_out / f"{cam.name}.csv"
+        diag_path = session_out / f"{cam.name}_diag.csv"
+        video_name = f"{session.session_id}/{cam.name}"
+
+        print(f"\n  [{i}/{session.n_cameras}] {cam.name} ({cam.file})")
+        results[cam.name] = camera_processor(
+            source=source,
+            output_csv=csv_path,
+            output_diag=diag_path,
+            video_name=video_name,
+        )
+        print(f"    CSV:  {csv_path}")
+        print(f"    Diag: {diag_path}")
+
+    print(f"\nSession {session.session_id!r}: complete ({session.n_cameras} cameras)")
+    return results
 
 
 __all__ = [

@@ -27,7 +27,7 @@ python -m pose_estimation.main --tracking hands|hands-arms|body
 
 Key flags: `--source`, `--batch-dir`, `--session-dir`, `--sessions-dir`, `--calibration`, `--output-dir`, `--device`, `--model-dir`, `--tracking`, `--single-subject`, `--headless`, `--metrics-detail`, `--postprocess`, `--savgol-window`, `--savgol-polyorder`, `--no-flip`.
 
-Multi-camera flags (`--session-dir`, `--sessions-dir`, `--calibration`) are mutually exclusive with `--source`/`--batch-dir`. They resolve a `Session` (per `tech/multicam.md`) and call `process_session(...)`, which is currently a `NotImplementedError` stub — the CLI prints the parsed configuration before the error so users can verify discovery.
+Multi-camera flags (`--session-dir`, `--sessions-dir`, `--calibration`) are mutually exclusive with `--source`/`--batch-dir`. They resolve a `Session` (per `tech/multicam.md`) and call `process_session(...)` with a MediaPipe camera processor callback that wraps `process_video()`. Per-camera CSVs are written to `<output-dir>/<session_id>/camN.csv`.
 
 ## `run.py` — unified entry point (rtmlib + MediaPipe)
 
@@ -52,7 +52,7 @@ python -m pose_estimation.run --headless                               # no disp
 
 All rtmlib models share the YOLOX-m detector (640×640). Detector + pose URLs are pinned in `MODEL_REGISTRY`. Models download on first run.
 
-`--session-dir`/`--sessions-dir`/`--calibration` route through the same multi-camera dispatcher as `main.py`. With `--model mediapipe`, `_run_mediapipe` forwards these flags to `pose-estimation` via subprocess.
+`--session-dir`/`--sessions-dir`/`--calibration` route through the same multi-camera dispatcher as `main.py`, using an rtmlib camera processor callback that wraps `process_source()`. Session dispatch occurs after model setup so the pose tracker, smoother, and bone smoother are available. With `--model mediapipe`, `_run_mediapipe` forwards these flags to `pose-estimation` via subprocess.
 
 ## `benchmark.py` — parameter sweep
 

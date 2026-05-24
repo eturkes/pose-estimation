@@ -16,7 +16,7 @@
 | `postprocess.py` | Savitzky-Golay offline smoothing (`savgol_smooth_csv`). |
 | `metrics.py` | `MetricsCollector`, `ConstraintDiagnostics`, `SmoothingDiagnostics` — per-frame quality metrics. |
 | `benchmark.py` | Parameter sweep harness (subprocess fan-out, `--config` YAML). |
-| `multicam.py` | Multi-camera `Session` discovery + synchronized iteration. `process_session` is a stub. See `tech/multicam.md`. |
+| `multicam.py` | Multi-camera `Session` discovery + synchronized iteration. `process_session` orchestrates per-camera processing via callback. See `tech/multicam.md`. |
 | `calibration.py` | Camera-calibration JSON IO + validation. `solve_charuco` is a stub. See `tech/calibration.md`. |
 | `calibration_cli.py` | `pose-estimation-calibrate` console script (`verify` works; `solve`/`capture` stubs). |
 | `triangulation.py` | 3D triangulation math primitives (DLT, projection, undistort). `fuse_session_frame` is a stub. |
