@@ -10,6 +10,20 @@ Transient working notes — anything from "current investigation" to "half-finis
 
 ---
 
+## 2026-05-24 — Tasks #1 and #2 complete; #3 next
+
+Completed roadmap tasks #1 (keypoint mapping) and #2 (CSV export wiring) in this session.
+
+**Task #1 result:** `mapping.py` with `coco_to_mediapipe()` — translates rtmlib (n_persons, n_kps, 2) + scores to frame_to_rows() interface. Supports 133-kp wholebody (RTMW-L, DWPose-M) and 17-kp body-only (RTMPose-M) across all tracking modes. 28 tests.
+
+**Task #2 result:** `process_source()` now accepts `output_csv`/`video_name` params. Each frame: smoothed keypoints → coco_to_mediapipe → frame_to_rows → CSV. Wired into all dispatch modes (single-source, batch-dir, session). `--output-dir` flag added to run.py argparse. 9 tests.
+
+**Next session (Task #3):** R pipeline compatibility. Need `renv::restore()` first (deps not installed on host). Then run `clinical_features.R` on a synthetic CSV from the rtmlib path. R 4.6.0 is available, renv bootstrapped, but tidyverse packages missing.
+
+Key fact for Task #3: `clinical_features.R` accesses columns via `body_col(tracking, side, keypoint, coord)` which produces e.g. `arm_left_shoulder_x`. Our export uses `ARM_KEYPOINT_NAMES` which produces identical column names. Also accesses `left_hand_0_x` (hand wrist = landmark 0) — matches our `_fill_hand_side` output. Schema should be compatible; needs verification run.
+
+---
+
 ## 2026-05-24 — Clinical Pipeline E2E roadmap (8 tasks)
 
 User confirmed: 3-cam footage still incoming, calibration solver deferred. Priority is **Clinical Pipeline E2E**: video → CSV → clinical features → longitudinal analysis.
