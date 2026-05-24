@@ -10,7 +10,7 @@
 | `detection.py` | SSD anchor generation, NMS, decoding. |
 | `processing.py` | Preprocess, crop, landmark inference, hands→arms matching, `process_frame`, `tracking_pose_indices()`, `select_primary_body`. |
 | `drawing.py` | Catmull-Rom splines, skeleton rendering, overlay blending. |
-| `smoothing.py` | One Euro Filter (`OneEuroFilter`, `PoseSmoother`) — confidence-weighted temporal smoothing. |
+| `smoothing.py` | One Euro Filter (`OneEuroFilter`, `PoseSmoother`) — confidence-weighted temporal smoothing with velocity-aware outlier rejection. |
 | `constraints.py` | `BoneLengthSmoother`, `clamp_joint_angles`, `BONE_SEGMENTS{,_BODY}`, `ANGLE_LIMITS{,_BODY}`. |
 | `export.py` | CSV schema (`frame_to_rows`, `open_csv_writer`, `wrist_to_side`). |
 | `postprocess.py` | Savitzky-Golay offline smoothing (`savgol_smooth_csv`). |
@@ -34,7 +34,7 @@ Treat this list as the stable surface. Internal helpers (leading `_`) may move f
 2. Pose detection (skipped in `hands` mode).
 3. Arm-guided hand ROI fallback when palm detection is weak.
 4. Landmark inference.
-5. Smoothing — `PoseSmoother` (One Euro, confidence-weighted).
+5. Smoothing — `PoseSmoother` (One Euro, confidence-weighted, velocity-aware outlier rejection).
 6. Bone-length constraints — `BoneLengthSmoother`.
 7. Joint-angle limits — `clamp_joint_angles`.
 8. Hand↔arm matching — Hungarian assignment via `scipy.optimize.linear_sum_assignment`, with distality reject (hand closer to shoulder midpoint than wrist).

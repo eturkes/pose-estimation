@@ -16,6 +16,20 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-05-24 — Jitter reduction: outlier rejection, hand smoothing increase, multi-frame detection carry
+
+**Context.** User reported tracking jitter/instability and hand detection drops affecting both MediaPipe and rtmlib backends. Investigation identified three root causes: (1) single-frame keypoint spikes corrupting the velocity estimate in the One Euro filter, (2) hand min_cutoff=1.0 providing near-zero smoothing for slow hand movements, (3) detection-level carry-forward limited to 1 frame causing frequent crop loss.
+**Decision.**
+1. **Velocity-aware outlier rejection** in both `OneEuroFilter` (smoothing.py) and `_OneEuro` (run.py): before filtering, the unexpected component of displacement (beyond velocity prediction) is clamped per-keypoint to `outlier_cap` pixels (default 30, env: `POSE_BENCH_OUTLIER_CAP`). Predicted movement passes through fully. 0 disables.
+2. **Hand min_cutoff lowered** from 1.0 to 0.5 in both `PoseSmoother._hand_mc` and `REGION_PARAMS` (run.py). Doubles the smoothing for slow hand movements while preserving fast-movement responsiveness via beta.
+3. **Detection EMA alpha lowered** from 0.5 to 0.35 (`DEFAULT_DET_SMOOTH_ALPHA`). Gives 65% weight to the previous detection's crop, reducing crop-induced landmark jitter.
+4. **Multi-frame detection carry-forward** extended from 1 to 3 frames (`DEFAULT_DET_CARRY_FRAMES`, env: `POSE_BENCH_DET_CARRY_FRAMES`). Uses `_carry_count` tracking instead of boolean `_carried`. Velocity prediction shifts carried detections per frame. Score decays 0.7× per frame.
+**Alternatives considered.** (a) Kalman filter replacement for One Euro: rejected — One Euro's adaptive cutoff is better suited to the variable-speed hand movements in clinical settings; Kalman requires tuning process/measurement noise. (b) Learned neural smoother (SmoothNet, N-euro): rejected — requires pre-trained weights and adds inference latency. (c) Per-keypoint-group parameters beyond body/hands: deferred — the outlier cap handles the worst offenders (fingertip spikes) without adding region complexity.
+**Consequences.** All new parameters are env-var tunable and included in `sweep_default.yaml`. Existing benchmark results remain reproducible via `POSE_BENCH_HAND_MIN_CUTOFF=1.0 POSE_BENCH_DET_SMOOTH_ALPHA=0.5 POSE_BENCH_OUTLIER_CAP=0 POSE_BENCH_DET_CARRY_FRAMES=1`. Three new tests in `test_smoothing.py` (outlier cap behavior) and one updated test in `test_detection.py` (multi-frame carry expiry).
+**References.** `smoothing.py:37,69-82`, `run.py:109,153-158,174-187`, `processing.py:55,59,194-211,230-270`, `tests/test_smoothing.py:200-250`, `tests/test_detection.py:52-65`, `sweep_default.yaml`.
+
+---
+
 ## 2026-05-24 — CLAUDE.md revision: expanded directives, full agent-write permission
 
 **Context.** User rewrote CLAUDE.md with expanded and refined directives. Key policy change: CLAUDE.md was previously owner-approval-only; it is now fully agent-writable ("rewrite CLAUDE.md at any time"). Other changes: added directory-scoping constraint ("constrain development to the directory you are launched in and its children"), explicit commit-timing rules (commit at end of cohesive work, defer during mid-iteration), security audit scheduling, test suite guidance (permissible but warn against overtesting), KISS/UNIX/refactor guidance, expanded objectivity directive (first principles, scientific method, benchmarking), memory system must be kept up-to-date to avoid drift. Minor wording changes throughout.

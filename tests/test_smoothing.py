@@ -195,3 +195,56 @@ def test_hand_confidence_smoothing():
     assert move_lo < move_hi, (
         f"Low hand_flag should move less: move_lo={move_lo:.2f}, move_hi={move_hi:.2f}"
     )
+
+
+# ---- Outlier rejection --------------------------------------------------------
+
+
+def test_outlier_cap_suppresses_spike():
+    """A single-frame spike beyond outlier_cap should be clamped."""
+    lm = _make_landmarks(12)[:, :2]  # (12, 2) for 2D keypoints
+    filt = OneEuroFilter(min_cutoff=0.3, beta=0.5, outlier_cap=20.0)
+
+    filt(lm, 0.0)
+    filt(lm + 1.0, 1 / 30)  # small movement to establish velocity
+
+    # Spike: one keypoint jumps 100 pixels in one frame
+    spiked = lm + 2.0
+    spiked[5] += 100.0
+    result = filt(spiked, 2 / 30)
+
+    # Keypoint 5 should be clamped well below the 100px spike
+    displacement_5 = np.linalg.norm(result[5] - lm[5])
+    assert displacement_5 < 50.0, f"Spike was not suppressed: {displacement_5:.1f}px"
+
+
+def test_outlier_cap_zero_disables():
+    """outlier_cap=0 should produce identical results to no cap."""
+    lm = _make_landmarks(12)[:, :2]
+    f_off = OneEuroFilter(min_cutoff=0.3, beta=0.5, outlier_cap=0.0)
+    f_default = OneEuroFilter(min_cutoff=0.3, beta=0.5)
+
+    for t in np.linspace(0, 1, 20):
+        noisy = lm + np.random.RandomState(int(t * 1000)).randn(*lm.shape) * 10
+        r_off = f_off(noisy, t)
+        r_default = f_default(noisy, t)
+        np.testing.assert_allclose(r_off, r_default, atol=1e-12)
+
+
+def test_outlier_cap_allows_predicted_movement():
+    """Movement consistent with velocity should pass through unclamped."""
+    lm = np.zeros((5, 2))
+    filt = OneEuroFilter(min_cutoff=0.3, beta=0.5, outlier_cap=10.0)
+    dt = 1 / 30
+
+    filt(lm, 0.0)
+    # Establish a strong rightward velocity (50 px/s → ~1.67 px/frame)
+    for i in range(1, 10):
+        filt(lm + np.array([i * 1.67, 0.0]), i * dt)
+
+    # Large step consistent with built-up velocity: should NOT be clamped
+    consistent_step = lm + np.array([10 * 1.67 + 2.0, 0.0])
+    result = filt(consistent_step, 10 * dt)
+    # Result should track near the input (within filter smoothing)
+    displacement = np.abs(result[:, 0] - consistent_step[:, 0])
+    assert np.all(displacement < 10.0), f"Predicted movement was wrongly clamped: {displacement}"

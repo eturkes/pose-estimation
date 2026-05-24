@@ -106,7 +106,7 @@ REGION_PARAMS = [
     ("body", 0, 17, 0.3, 0.5),
     ("feet", 17, 23, 0.3, 0.5),
     ("face", 23, 91, 0.3, 0.5),
-    ("hands", 91, 133, 1.0, 0.3),
+    ("hands", 91, 133, 0.5, 0.3),
 ]
 
 # ---------------------------------------------------------------------------
@@ -150,11 +150,12 @@ def _frame_to_surface(frame):
 class _OneEuro:
     """Minimal One Euro Filter for array-valued signals."""
 
-    def __init__(self, min_cutoff=0.5, beta=0.5, d_cutoff=1.0, gamma=2.0):
+    def __init__(self, min_cutoff=0.5, beta=0.5, d_cutoff=1.0, gamma=2.0, outlier_cap=0.0):
         self.min_cutoff = min_cutoff
         self.beta = beta
         self.d_cutoff = d_cutoff
         self.gamma = gamma
+        self.outlier_cap = outlier_cap
         self.x_prev = None
         self.dx_prev = None
         self.t_prev = None
@@ -169,13 +170,29 @@ class _OneEuro:
         assert self.x_prev is not None
         assert self.dx_prev is not None
         dt = max(t - self.t_prev, 1e-6)
+
+        # Outlier rejection: cap the unexpected component of displacement.
+        x_use = x
+        if self.outlier_cap > 0 and x.ndim == 2:
+            diff = x - self.x_prev
+            predicted_step = self.dx_prev * dt
+            unexpected = diff - predicted_step
+            norms_sq = np.einsum("ij,ij->i", unexpected, unexpected)
+            cap_sq = self.outlier_cap * self.outlier_cap
+            mask = norms_sq > cap_sq
+            if mask.any():
+                norms = np.sqrt(norms_sq)
+                s = np.ones(norms.shape)
+                np.divide(self.outlier_cap, norms, out=s, where=mask)
+                x_use = self.x_prev + predicted_step + unexpected * s[:, None]
+
         a_d = 1.0 / (1.0 + 1.0 / (2 * np.pi * self.d_cutoff * dt))
-        dx = (x - self.x_prev) / dt
+        dx = (x_use - self.x_prev) / dt
         dx_hat = a_d * dx + (1 - a_d) * self.dx_prev
 
         cutoff = self.min_cutoff + self.beta * np.abs(dx_hat)
         a = 1.0 / (1.0 + 1.0 / (2 * np.pi * cutoff * dt))
-        x_hat = a * x + (1 - a) * self.x_prev
+        x_hat = a * x_use + (1 - a) * self.x_prev
 
         # Confidence weighting: low-confidence keypoints are pulled toward
         # the previous position, resisting noisy input.
@@ -214,6 +231,7 @@ class KeypointSmoother:
         match_thresh=150,
         carry_damping=0.8,
         min_track_age=3,
+        outlier_cap=30.0,
     ):
         self.min_cutoff = min_cutoff
         self.beta = beta
@@ -222,6 +240,7 @@ class KeypointSmoother:
         self.match_thresh = match_thresh
         self.carry_damping = carry_damping
         self.min_track_age = min_track_age
+        self.outlier_cap = outlier_cap
         self.tracks = []
 
     def reset(self):
@@ -230,9 +249,13 @@ class KeypointSmoother:
 
     def _make_filters(self, n_kps):
         """Create per-region or single filter depending on keypoint count."""
+        oc = self.outlier_cap
         if n_kps == 133:
-            return {name: _OneEuro(min_cutoff=mc, beta=b) for name, _, _, mc, b in REGION_PARAMS}
-        return {"all": _OneEuro(min_cutoff=self.min_cutoff, beta=self.beta)}
+            return {
+                name: _OneEuro(min_cutoff=mc, beta=b, outlier_cap=oc)
+                for name, _, _, mc, b in REGION_PARAMS
+            }
+        return {"all": _OneEuro(min_cutoff=self.min_cutoff, beta=self.beta, outlier_cap=oc)}
 
     def _apply_filters(self, filters, kp, t, confidence):
         """Apply region-aware or single filter to keypoints."""

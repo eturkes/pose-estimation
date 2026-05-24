@@ -29,15 +29,17 @@ class OneEuroFilter:
         "dx_prev",
         "gamma",
         "min_cutoff",
+        "outlier_cap",
         "t_prev",
         "x_prev",
     )
 
-    def __init__(self, min_cutoff=1.0, beta=0.5, d_cutoff=1.0, gamma=2.0):
+    def __init__(self, min_cutoff=1.0, beta=0.5, d_cutoff=1.0, gamma=2.0, outlier_cap=0.0):
         self.min_cutoff = min_cutoff
         self.beta = beta
         self.d_cutoff = d_cutoff
         self.gamma = gamma
+        self.outlier_cap = outlier_cap
         # Cache the derivative-filter time constant; only depends on d_cutoff.
         self._tau_d = 1.0 / (_TWO_PI * d_cutoff)
         self.x_prev = None
@@ -63,6 +65,22 @@ class OneEuroFilter:
         # dx_hat (derivative) and x_hat (state update) — saves an alloc
         # and a subtract op vs recomputing.
         diff = x - x_prev
+
+        # Outlier rejection: cap the unexpected component of displacement.
+        # Predicted movement (from velocity) passes through; only the
+        # surprise beyond outlier_cap pixels is clamped per keypoint.
+        if self.outlier_cap > 0 and x.ndim == 2:
+            predicted_step = self.dx_prev * dt
+            unexpected = diff - predicted_step
+            norms_sq = np.einsum("ij,ij->i", unexpected, unexpected)
+            cap_sq = self.outlier_cap * self.outlier_cap
+            mask = norms_sq > cap_sq
+            if mask.any():
+                norms = np.sqrt(norms_sq)
+                s = np.ones(norms.shape)
+                np.divide(self.outlier_cap, norms, out=s, where=mask)
+                diff = predicted_step + unexpected * s[:, None]
+
         scale = a_d / dt
         dx_hat = diff * scale + self.dx_prev * (1.0 - a_d)
 
@@ -123,7 +141,7 @@ class PoseSmoother:
     One Euro Filters to reduce jitter while preserving responsiveness.
     Body uses heavier smoothing (min_cutoff=0.3) with confidence-weighted
     blending from per-keypoint visibility scores; hands use moderate
-    smoothing (min_cutoff=1.0) for fast finger movements.
+    smoothing (min_cutoff=0.5) for fast finger movements.
 
     During brief detection dropouts (carry-forward), body tracks
     extrapolate using the last velocity estimate from the One Euro Filter
@@ -140,10 +158,11 @@ class PoseSmoother:
         # PoseSmoother is constructed (i.e. once per subprocess invocation).
         self._body_mc = float(os.environ.get("POSE_BENCH_BODY_MIN_CUTOFF", "0.3"))
         self._body_b = float(os.environ.get("POSE_BENCH_BODY_BETA", "0.5"))
-        self._hand_mc = float(os.environ.get("POSE_BENCH_HAND_MIN_CUTOFF", "1.0"))
+        self._hand_mc = float(os.environ.get("POSE_BENCH_HAND_MIN_CUTOFF", "0.5"))
         self._hand_b = float(os.environ.get("POSE_BENCH_HAND_BETA", "0.3"))
         self._gamma = float(os.environ.get("POSE_BENCH_CONFIDENCE_GAMMA", "2.0"))
         self._grace = int(os.environ.get("POSE_BENCH_CARRY_GRACE", "10"))
+        self._outlier_cap = float(os.environ.get("POSE_BENCH_OUTLIER_CAP", "30"))
         self.body_tracks = []
         self.hand_tracks = []
         self._n_active_bodies = 0
@@ -359,7 +378,10 @@ class PoseSmoother:
             # Ellipsis-aware: works on (n_kp, 3) and stacked (n_lm, n_kp, 3).
             get_anchor=lambda lm: (lm[..., si[0], :2] + lm[..., si[1], :2]) / 2,
             new_filter_fn=lambda: OneEuroFilter(
-                min_cutoff=self._body_mc, beta=self._body_b, gamma=self._gamma
+                min_cutoff=self._body_mc,
+                beta=self._body_b,
+                gamma=self._gamma,
+                outlier_cap=self._outlier_cap,
             ),
             t=t,
             grace=self._grace,
@@ -387,7 +409,10 @@ class PoseSmoother:
             hand_landmarks or [],
             get_anchor=lambda lm: lm[..., 0, :2],
             new_filter_fn=lambda: OneEuroFilter(
-                min_cutoff=self._hand_mc, beta=self._hand_b, gamma=self._gamma
+                min_cutoff=self._hand_mc,
+                beta=self._hand_b,
+                gamma=self._gamma,
+                outlier_cap=self._outlier_cap,
             ),
             t=t,
             grace=grace,

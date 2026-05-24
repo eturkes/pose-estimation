@@ -49,18 +49,22 @@ def test_one_frame_dropout_carries():
 # ---- Two-frame dropout: no second carry ------------------------------------
 
 
-def test_two_frame_dropout_no_carry():
-    """A detection already carried is not carried again (1-frame grace)."""
+def test_multi_frame_carry_expires():
+    """Detection carry expires after DEFAULT_DET_CARRY_FRAMES (3) frames."""
     det1 = _make_det(0.5, 0.5, score=0.8)
 
-    # Frame 2: dropout → carry
-    frame2 = _smooth_detections([], [det1])
-    assert len(frame2) == 1
-    assert frame2[0].get("_carried") is True
+    # Frames 2-4: carry continues (up to 3 frames)
+    prev = [det1]
+    for i in range(3):
+        carried = _smooth_detections([], prev)
+        assert len(carried) == 1, f"carry frame {i + 1} should keep the detection"
+        assert carried[0].get("_carried") is True
+        assert carried[0].get("_carry_count") == i + 1
+        prev = carried
 
-    # Frame 3: dropout again with the carried detection as prev
-    frame3 = _smooth_detections([], frame2)
-    assert len(frame3) == 0
+    # Frame 5: carry expired (3 frames used up)
+    expired = _smooth_detections([], prev)
+    assert len(expired) == 0
 
 
 # ---- Carry score decay ------------------------------------------------------

@@ -52,10 +52,11 @@ SHOULDER_KPS_33 = (11, 12)
 # ---------------------------------------------------------------------------
 
 # Detection-level smoothing
-DEFAULT_DET_SMOOTH_ALPHA = 0.5  # EMA blend between previous and current
+DEFAULT_DET_SMOOTH_ALPHA = 0.35  # EMA blend between previous and current
 DET_MATCH_THRESHOLD_PALM = 0.15  # normalised image-space distance
 DET_MATCH_THRESHOLD_POSE = 0.10
-CARRIED_DET_SCORE_DECAY = 0.7  # confidence multiplier when carried one frame
+CARRIED_DET_SCORE_DECAY = 0.7  # confidence multiplier per carried frame
+DEFAULT_DET_CARRY_FRAMES = 3  # detection-level carry-forward grace period
 
 # Synthetic palm detections derived from the forearm
 SYNTHETIC_HAND_CENTRE_OFFSET = 0.4  # fraction of forearm length past wrist
@@ -191,10 +192,24 @@ def _palm_centres_list(dets):
 
 
 def _carry_detection(det):
-    """Return a one-frame carry-forward copy of *det* with decayed score."""
+    """Return a carry-forward copy of *det* with decayed score.
+
+    Tracks ``_carry_count`` to support multi-frame carry-forward.
+    Velocity prediction shifts keypoints/box when ``_velocity`` is present.
+    """
     out = dict(det)
-    out["score"] = out["score"] * CARRIED_DET_SCORE_DECAY
+    out["_carry_count"] = det.get("_carry_count", 0) + 1
+    out["score"] = det["score"] * CARRIED_DET_SCORE_DECAY
     out["_carried"] = True
+    vel = det.get("_velocity")
+    if vel is not None:
+        out["keypoints"] = det["keypoints"] + vel
+        box_shift = np.array(
+            [vel[:, 0].mean(), vel[:, 1].mean(), vel[:, 0].mean(), vel[:, 1].mean()],
+            dtype=det["box"].dtype,
+        )
+        out["box"] = det["box"] + box_shift
+        out["_velocity"] = vel
     return out
 
 
@@ -206,22 +221,21 @@ def _smooth_detections(new_dets, prev_dets, match_threshold=DET_MATCH_THRESHOLD_
     their keypoints and boxes blended; unmatched detections pass through
     as-is.
 
-    Previous detections that have no match in *new_dets* are carried
-    forward for one frame with decayed confidence
-    (``score *= CARRIED_DET_SCORE_DECAY``).  A detection already marked
-    ``_carried`` will not be carried again, limiting the grace period
-    to a single frame.
+    Previous detections without a match are carried forward for up to
+    ``DEFAULT_DET_CARRY_FRAMES`` frames (env: ``POSE_BENCH_DET_CARRY_FRAMES``)
+    with decayed confidence and velocity-predicted position.
     """
     if alpha is None:
         alpha = float(os.environ.get("POSE_BENCH_DET_SMOOTH_ALPHA", str(DEFAULT_DET_SMOOTH_ALPHA)))
+    max_carry = int(os.environ.get("POSE_BENCH_DET_CARRY_FRAMES", str(DEFAULT_DET_CARRY_FRAMES)))
 
-    # Indices of prev_dets eligible for carry-forward (not already carried)
     carry_eligible = set()
     if prev_dets:
-        carry_eligible = {i for i, d in enumerate(prev_dets) if not d.get("_carried")}
+        carry_eligible = {
+            i for i, d in enumerate(prev_dets) if d.get("_carry_count", 0) < max_carry
+        }
 
     if not prev_dets or not new_dets:
-        # No new detections: carry forward eligible prev_dets for one frame
         if not new_dets and carry_eligible:
             return [_carry_detection(prev_dets[i]) for i in sorted(carry_eligible)]
         return list(new_dets) if new_dets else []
@@ -229,32 +243,30 @@ def _smooth_detections(new_dets, prev_dets, match_threshold=DET_MATCH_THRESHOLD_
     new_centers = _detection_centres_array(new_dets)
     prev_centers = _detection_centres_array(prev_dets)
 
-    # Optimal assignment via Hungarian algorithm.  ``np.hypot`` on explicit
-    # dx/dy avoids the per-axis-norm path inside ``np.linalg.norm``, which
-    # has measurable Python-side overhead at our tiny (≤4, ≤4) sizes.
     dx = new_centers[:, 0:1] - prev_centers[None, :, 0]
     dy = new_centers[:, 1:2] - prev_centers[None, :, 1]
     cost = np.hypot(dx, dy)
     row_ind, col_ind = linear_sum_assignment(cost)
 
-    # new index -> prev index
     matched = {r: c for r, c in zip(row_ind, col_ind, strict=False) if cost[r, c] < match_threshold}
 
     smoothed = []
     for i, new_det in enumerate(new_dets):
         if i in matched:
             prev = prev_dets[matched[i]]
+            blended_kp = alpha * new_det["keypoints"] + (1 - alpha) * prev["keypoints"]
             smoothed.append(
                 {
-                    "keypoints": alpha * new_det["keypoints"] + (1 - alpha) * prev["keypoints"],
+                    "keypoints": blended_kp,
                     "box": alpha * new_det["box"] + (1 - alpha) * prev["box"],
                     "score": new_det["score"],
+                    "_velocity": new_det["keypoints"] - prev["keypoints"],
+                    "_carry_count": 0,
                 }
             )
         else:
             smoothed.append(new_det)
 
-    # Carry forward unmatched, non-carried prev_dets for one frame
     matched_prev = set(matched.values())
     smoothed.extend(_carry_detection(prev_dets[i]) for i in sorted(carry_eligible - matched_prev))
 

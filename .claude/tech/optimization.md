@@ -29,6 +29,8 @@ python -m pose_estimation.benchmark --source v.mp4 --config sweep_default.yaml
 | `bone_distal_weight` | Fraction of bone-length correction applied to distal keypoint (default 0.8). |
 | `carry_grace` | Frames to keep using a carried detection. |
 | `carry_damping` | Velocity decay for carry-forward extrapolation (default 0.8). |
+| `outlier_cap` | Max unexpected displacement (px) before clamping (default 30). 0 disables. |
+| `det_carry_frames` | Detection-level carry-forward grace period (default 3). |
 
 ### Sweep configs
 

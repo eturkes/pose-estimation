@@ -22,3 +22,9 @@ bone_tolerance: [0.25, 0.4, 0.6]
 
 # Carry-forward grace period (frames)
 carry_grace: [5, 10, 15]
+
+# Outlier rejection cap (pixels of unexpected displacement)
+outlier_cap: [15, 30, 50]
+
+# Detection-level carry-forward frames
+det_carry_frames: [1, 3, 5]
