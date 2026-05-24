@@ -10,6 +10,25 @@ Transient working notes — anything from "current investigation" to "half-finis
 
 ---
 
+## 2026-05-24 — Session 2B complete: Movement quality scores
+
+Added 3 new movement quality metrics + 1 SAL improvement to `clinical_features.R`:
+
+1. **normalized_jerk()**: Dimensionless jerk metric (Hogan & Sternad 2009). Applied to wrist and fingertip per side per window. NJ = sqrt(T^5 / (2*a^2) * integral(jerk^2 dt)). Lower = smoother (min-jerk ≈ 18.97).
+2. **movement_efficiency()**: path_length / straight_line_distance for wrist per side per window. 1.0 = perfectly straight.
+3. **compensatory_pattern_index**: Pearson cor(trunk_lean, max(L/R reach)) per window. Body mode only (requires hip keypoints). Uses new `trunk_lean_angle()` helper (reusable for session 2C).
+4. **SAL fc parameter**: `spectral_arc_length(v, fs, fc)` — frequency cutoff now configurable (default 10 Hz unchanged, matches Balasubramanian et al. 2012).
+
+New window columns (per side): `{side}_wrist_normalized_jerk`, `{side}_wrist_movement_efficiency`, `{side}_fingertip_normalized_jerk`. Plus `compensatory_pattern_index` (single column). Bilateral comparison extended from 3 to 6 metric pairs (9 new bilateral columns).
+
+Total new columns in _clinical_windows.csv: 6 (per-side metrics) + 1 (CPI) + 9 (new bilateral × 3 each) = 16.
+
+Tests: 248 passing (1 new: body-mode window quality metrics). Ruff clean.
+
+**Roadmap status:** 1A ✓, 1B ✓, 2A ✓, 2B ✓ → Next: 2C (trunk/torso metrics) or 2D (temporal segmentation, blocked by 2B which is now done).
+
+---
+
 ## 2026-05-24 — Session 2A complete: Bilateral comparison metrics
 
 Added `compute_bilateral()` helper to `clinical_features.R` and wired it into both `compute_frame_features()` (9 metric pairs × 3 bilateral columns = 27 new columns) and `compute_window_features()` (3 metric pairs × 3 = 9 new columns). Total: 36 new bilateral columns across the two output CSVs.
