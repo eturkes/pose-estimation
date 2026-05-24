@@ -443,17 +443,25 @@ for (f in files) {
          width = 8, height = 7, dpi = 150)
 
   # 4. UMAP.
-  cat("  Running UMAP...\n")
-  umap_coords <- run_umap(scale(feat))
+  # Drop zero-variance columns before scaling (scale() produces NaN for sd=0).
+  feat_var <- feat[, apply(feat, 2, \(x) sd(x, na.rm = TRUE) > 1e-12), drop = FALSE]
+  if (ncol(feat_var) < 2) {
+    cat("  Skipping UMAP — fewer than 2 variable features.\n")
+  } else {
+    cat("  Running UMAP...\n")
+    feat_scaled <- scale(feat_var)
+    feat_scaled[is.na(feat_scaled)] <- 0
+    umap_coords <- run_umap(feat_scaled)
 
-  p_umap_t <- plot_umap_time(umap_coords, meta, title)
-  ggsave(paste0(stem, "_umap.png"), p_umap_t,
-         width = 8, height = 7, dpi = 150)
-
-  p_umap_v <- plot_umap_video(umap_coords, meta, title)
-  if (!is.null(p_umap_v)) {
-    ggsave(paste0(stem, "_umap_video.png"), p_umap_v,
+    p_umap_t <- plot_umap_time(umap_coords, meta, title)
+    ggsave(paste0(stem, "_umap.png"), p_umap_t,
            width = 8, height = 7, dpi = 150)
+
+    p_umap_v <- plot_umap_video(umap_coords, meta, title)
+    if (!is.null(p_umap_v)) {
+      ggsave(paste0(stem, "_umap_video.png"), p_umap_v,
+             width = 8, height = 7, dpi = 150)
+    }
   }
 
   # 5. Feature ranking table.

@@ -49,6 +49,15 @@ SESSION_FORMAT_VERSION = 1
 """Current ``format_version`` recognised by ``discover_session``."""
 
 
+def _safe_resolve(base: pathlib.Path, ref: str) -> pathlib.Path:
+    """Resolve *ref* relative to *base*, rejecting path traversal."""
+    resolved = (base / ref).resolve()
+    base_resolved = base.resolve()
+    if not str(resolved).startswith(str(base_resolved) + "/") and resolved != base_resolved:
+        raise SessionError(f"path traversal detected: {ref!r} escapes {base}")
+    return resolved
+
+
 class SessionError(ValueError):
     """Raised when a session directory cannot be parsed into a valid Session."""
 
@@ -230,7 +239,7 @@ def _cameras_from_manifest(
                     f"matching {name}.{{{','.join(e.lstrip('.') for e in VIDEO_EXTENSIONS)}}} exists"
                 )
         else:
-            file_path = (directory / str(file_ref)).resolve()
+            file_path = _safe_resolve(directory, str(file_ref))
         if not file_path.is_file():
             raise SessionError(f"{directory}: cameras[{i}] ({name!r}) file not found: {file_path}")
         sync_offset = int(entry.get("sync_offset", 0))
@@ -271,7 +280,7 @@ def _resolve_calibration(
             raise CalibrationError(f"calibration file not found: {p}")
         return load_calibration(p)
     if manifest_ref is not None:
-        p = (directory / str(manifest_ref)).resolve()
+        p = _safe_resolve(directory, str(manifest_ref))
         if not p.is_file():
             raise CalibrationError(
                 f"{directory / SESSION_MANIFEST_FILENAME}: calibration "

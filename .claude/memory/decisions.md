@@ -16,6 +16,36 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-05-24 — main.py/run.py refactor: analysis shows not worthwhile
+
+**Context.** Roadmap task #7 proposed extracting shared patterns (CLI args, video loop, pygame setup, batch iteration, progress reporting) from main.py (827 lines) and run.py (1193 lines).
+**Decision.** After line-by-line analysis, skip the refactor. Only ~15 lines are truly duplicated; they're embedded in semantically divergent loops with different return types (bool vs latency list), state management (MediaPipe internals vs rtmlib tracker), and CSV handling. Extracting shared code would add indirection without meaningful dedup.
+**Alternatives considered.** (a) Extract a `VideoCaptureCommon` module for generic parts: rejected — the generic parts (progress string formatting) are too sparse to justify a new module. (b) Unify around a base class: rejected — different return types and initialization sequences prevent a clean interface.
+**Consequences.** The two entry points remain self-contained. If drift becomes a problem, the progress-reporting string formatting (~15 lines) is the best extraction candidate.
+**References.** `.claude/memory/scratchpad.md` (analysis notes).
+
+---
+
+## 2026-05-24 — Path traversal fix in session.json manifest parsing
+
+**Context.** Security audit identified two path traversal vulnerabilities in multicam.py where `session.json` camera file references and calibration paths were resolved without validating they stay within the session directory.
+**Decision.** Added `_safe_resolve(base, ref)` helper that resolves relative paths and rejects any result that escapes the base directory. Applied to both camera file resolution (line 240) and calibration path resolution (line 281).
+**Alternatives considered.** (a) Restrict to filename-only (no slashes): rejected — legitimate use cases include subdirectory references like `raw/cam1.mp4`. (b) Symlink-aware check with `os.path.realpath`: rejected — `pathlib.Path.resolve()` already follows symlinks, and the string-prefix check is sufficient.
+**Consequences.** Manifest files with `../` traversal references now raise `SessionError`. Two new tests guard the behavior.
+**References.** `multicam.py:56-62`, `tests/test_multicam.py:166-193`.
+
+---
+
+## 2026-05-24 — R environment migrated to R 4.6.0
+
+**Context.** R was upgraded from 4.5 to 4.6.0 on the host. The renv lockfile (targeting R 4.5) used package versions with C API calls (`Rf_findVar`, `Rf_allocSExp`) removed in R 4.6.
+**Decision.** Install all packages at latest CRAN versions (R 4.6-compatible) via `install.packages()`, then `renv::snapshot()` to update the lockfile. Updated Matrix to 1.7-5, renv to 1.2.3, and all tidyverse packages to current CRAN releases. System deps installed: libfontconfig1-dev, libfreetype6-dev, libx11-dev, libharfbuzz-dev, libfribidi-dev, libpng-dev, libtiff-dev, libjpeg-dev, libwebp-dev.
+**Alternatives considered.** (a) Pin R 4.5 in the project: rejected — R 4.6.0 is the system version and we should track it. (b) Use binary packages from Posit PPM: rejected — not available for Debian Trixie/openSUSE.
+**Consequences.** renv.lock now targets R 4.6.0. Future `renv::restore()` on R 4.6+ hosts should work directly. R 4.5 compatibility is not guaranteed (package versions may use R 4.6 features).
+**References.** `renv.lock`, `renv/activate.R`.
+
+---
+
 ## 2026-05-24 — Clinical Pipeline E2E roadmap: 8-task plan
 
 **Context.** User confirmed: 3-cam footage still incoming, calibration solver deferred. Highest priority is end-to-end clinical pipeline (video → CSV → clinical features → longitudinal analysis). Investigation revealed the rtmlib backend (RTMW-L, default and most capable model) has zero CSV export — completely blocking the R analysis pipeline for any rtmlib-processed footage.

@@ -15,7 +15,6 @@ from .calibration import (
     load_session_calibration,
     save_calibration,
 )
-from .mapping import coco_to_mediapipe
 from .constraints import (
     ANGLE_LIMITS,
     ANGLE_LIMITS_BODY,
@@ -24,6 +23,7 @@ from .constraints import (
     BoneLengthSmoother,
     clamp_joint_angles,
 )
+from .mapping import coco_to_mediapipe
 from .models import download_and_compile_models
 from .multicam import (
     Session,
@@ -69,8 +69,8 @@ __all__ = [
     "SessionCamera",
     "SessionError",
     "SessionFrame",
-    "coco_to_mediapipe",
     "clamp_joint_angles",
+    "coco_to_mediapipe",
     "discover_session",
     "discover_sessions",
     "download_and_compile_models",

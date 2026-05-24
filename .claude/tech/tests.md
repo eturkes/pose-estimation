@@ -39,6 +39,12 @@ All tests live in `tests/`. Run with `uv run pytest`. Pytest is configured stric
 | `tests/test_multicam.py` | `multicam.py` session discovery (manifest + glob), calibration auto-load, sync offsets, `iter_synchronized_frames`, `process_session` callback invocation + output dir creation. Uses MJPG/AVI synthetic videos. |
 | `tests/test_triangulation.py` | `triangulation.py` projection / undistort / weighted DLT primitives; `fuse_session_frame` stub. |
 
+## R pipeline integration
+
+| File | Covers |
+|------|--------|
+| `tests/test_r_pipeline.py` | End-to-end R pipeline compatibility: verifies rtmlib-mapped CSVs (via `coco_to_mediapipe` + `frame_to_rows`) are consumable by `clinical_features.R`. Tests CSV schema for hands-arms/body/17-kp modes, runs R clinical pipeline on synthetic data, verifies output columns. Skipped when R unavailable. |
+
 ## Infrastructure
 
 | File | Covers |

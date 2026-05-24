@@ -64,11 +64,11 @@ compute_deltas <- function(long, flag_sd = 1) {
       ),
       flagged = {
         bl_sd <- first(value_sd)
-        if_else(
-          !is.na(bl_sd) & bl_sd > 1e-12,
-          abs(delta_from_baseline) > flag_sd * bl_sd,
-          NA
-        )
+        if (is.na(bl_sd) || bl_sd <= 1e-12) {
+          rep(NA, n())
+        } else {
+          abs(delta_from_baseline) > flag_sd * bl_sd
+        }
       }
     ) |>
     ungroup()

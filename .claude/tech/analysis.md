@@ -46,6 +46,15 @@ R deps are managed by `renv` (lockfile: `renv.lock`). Install with `renv::restor
 
 - `analysis/analysis_summary.Rmd` — R Markdown report; renders to `analysis/analysis_summary.html` (committed for browsing).
 
+## Edge-case resilience
+
+All scripts handle degenerate inputs gracefully after 2026-05-24 hardening:
+
+- **Short videos** (<10 frames): `clinical_features.R` emits per-frame features, skips windowed features. `temporal_clinical.R` skips videos <10 rows with a message.
+- **Zero-variance features**: `compare_clinical.R`, `clinical_dimreduce.R`, `features.R` warn and skip heatmap/PCA/UMAP plots when insufficient variable features remain.
+- **Missing hand data**: columns filled with NA/blank; R scripts use safe column extraction (`ex()` returns NA vector for absent columns).
+- **Single video/patient**: correlation/longitudinal scripts produce output but flag insufficient data.
+
 ## Aggregation convention
 
 Per-video aggregation (used by correlation / longitudinal / dimreduce / compare): mean, median, SD, min, max for frame features; mean, SD for window features. Implemented once in `aggregate_per_video()` (`utils.R`); always reuse rather than duplicate.

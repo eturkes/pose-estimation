@@ -2,9 +2,9 @@
 
 ## Host
 
-- Linux (currently openSUSE / kernel 7.0.5-1-default per session host).
+- Linux (currently openSUSE / kernel 7.0.9-1-default per session host).
 - GNOME Wayland — the reason `pygame-ce` is used for display (Qt-bundled OpenCV does not render on Wayland).
-- Python 3.10+ required (`>=3.10` in `pyproject.toml`); host Python is Homebrew 3.14.
+- Python 3.10+ required (`>=3.10` in `pyproject.toml`); host Python is 3.13 (see `.python-version`).
 
 ## Python toolchain
 

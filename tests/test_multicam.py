@@ -163,6 +163,33 @@ def test_discover_session_manifest_file_missing_raises(tmp_path: pathlib.Path):
         discover_session(session_dir)
 
 
+def test_discover_session_manifest_path_traversal_camera(tmp_path: pathlib.Path):
+    session_dir = tmp_path / "session_pt"
+    session_dir.mkdir()
+    manifest = {
+        "format_version": 1,
+        "session_id": "pt",
+        "cameras": [{"name": "evil", "file": "../../etc/passwd"}],
+    }
+    (session_dir / SESSION_MANIFEST_FILENAME).write_text(json.dumps(manifest))
+    with pytest.raises(SessionError, match="path traversal"):
+        discover_session(session_dir)
+
+
+def test_discover_session_manifest_path_traversal_calibration(tmp_path: pathlib.Path):
+    session_dir = tmp_path / "session_pt2"
+    _write_synthetic_video(session_dir / "cam1.mp4")
+    manifest = {
+        "format_version": 1,
+        "session_id": "pt2",
+        "cameras": [{"name": "cam1", "file": "cam1.mp4"}],
+        "calibration": "../../etc/passwd",
+    }
+    (session_dir / SESSION_MANIFEST_FILENAME).write_text(json.dumps(manifest))
+    with pytest.raises(SessionError, match="path traversal"):
+        discover_session(session_dir)
+
+
 def test_session_camera_rejects_negative_sync_offset():
     with pytest.raises(SessionError, match="non-negative"):
         SessionCamera(name="x", file=pathlib.Path("/dev/null"), sync_offset=-1)

@@ -126,7 +126,10 @@ feat_cols <- feat_cols[map_lgl(feat_cols, \(c) {
 })]
 
 if (length(feat_cols) < 2) {
-  stop("Fewer than 2 variable features remain after filtering.")
+  message("Warning: Fewer than 2 variable features remain after filtering. ",
+          "Skipping dimensionality reduction.")
+  cat("\nDone (insufficient variable features for PCA/UMAP).\n")
+  quit(save = "no", status = 0)
 }
 
 cat(sprintf("Using %d features after dropping zero-variance / high-NA columns.\n",

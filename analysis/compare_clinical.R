@@ -126,7 +126,10 @@ feat_cols <- feat_cols[map_lgl(feat_cols, \(c) {
 })]
 
 if (length(feat_cols) == 0) {
-  stop("No variable features remain after filtering.")
+  message("Warning: No variable features remain after filtering. ",
+          "Skipping radar/heatmap plots.")
+  cat("\nDone (summary CSV only — no plots).\n")
+  quit(save = "no", status = 0)
 }
 
 # ------------------------------------------------------------------
