@@ -89,6 +89,7 @@ class OneEuroFilter:
             return x.copy()
 
         x_prev = self.x_prev
+        assert self.dx_prev is not None
         dt = t - self.t_prev
         if dt < 1e-6:
             dt = 1e-6

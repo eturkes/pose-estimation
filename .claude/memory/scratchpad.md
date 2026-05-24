@@ -10,6 +10,32 @@ Transient working notes — anything from "current investigation" to "half-finis
 
 ---
 
+## 2026-05-24 — Maintenance cycle complete
+
+**Python deps:** All at latest (openvino 2026.1.0, onnxruntime 1.26.0, opencv 4.13.0, numpy 2.4.6, scipy 1.17.1, pygame-ce 2.5.7, rtmlib 0.0.15, ruff 0.15.14, ty 0.0.39, pytest 9.0.3). `uv lock --upgrade` produced no changes. `uv sync` removed orphaned mpmath/sympy.
+
+**R deps:** renv::update() found all current. Installed shiny + 7 transitive deps (httpuv, later, otel, promises, commonmark, sourcetools, xtable) to resolve out-of-sync warning from renv detecting shiny as used via bslib/rmarkdown. renv::snapshot() updated lockfile. All 17 R pipeline tests pass.
+
+**CVE audit:** No known CVEs for any dependency at current versions. Nearest was CVE-2025-53644 (OpenCV JPEG parsing) fixed in 4.12.0 — our 4.13.0 is clear.
+
+**Code security audit (2 findings fixed):**
+1. `multicam.py:_safe_resolve` — replaced string-prefix path traversal check with `Path.is_relative_to()` (more robust, handles root directory edge case).
+2. `multicam.py:_find_glob_for_name` — added path separator rejection for camera `name` field from session.json. Previously, a crafted name like `../../etc/passwd` could construct paths outside the session directory. New test added.
+
+**Type checker fixes (18 ty diagnostics → 0):**
+- `smoothing.py` — added assert for `self.dx_prev is not None` after early return guard.
+- `metrics.py` — inlined `raw_xy is not None` checks replacing boolean indirection.
+- `test_multicam.py` — added `# ty: ignore[missing-argument]` on intentional missing-arg test.
+- `test_r_pipeline.py`, `test_rtmlib_csv_export.py` — added `assert reader.fieldnames is not None` before `list()` calls.
+
+**Linter:** Clean. **Formatter:** Clean. **Tests:** 252 passing (+1 new: camera name path traversal).
+
+**Tech notes drift:** conventions.md had stale "files agents may not modify" section (CLAUDE.md is now agent-writable per 2026-05-24 decision). Fixed. All other notes verified accurate.
+
+**Roadmap status:** Phase 1 ✓, Phase 2 ✓, Phase 3 pending (awaiting footage), Phase 4 (this session) ✓.
+
+---
+
 ## 2026-05-24 — Session 2D complete: Temporal movement segmentation
 
 Added velocity-profile + aperture-derivative movement segmentation to `clinical_features.R`:

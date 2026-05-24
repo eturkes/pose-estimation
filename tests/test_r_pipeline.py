@@ -238,6 +238,7 @@ class TestCSVSchemaHandsArms:
         expected = make_csv_header(TRACKING_HANDS_ARMS)
         with csv_path.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             assert list(reader.fieldnames) == expected
 
     def test_row_count(self, tmp_path):
@@ -290,6 +291,7 @@ class TestCSVSchemaBody:
         expected = make_csv_header(TRACKING_BODY)
         with csv_path.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             assert list(reader.fieldnames) == expected
 
     def test_body_columns_for_clinical(self, tmp_path):
@@ -313,6 +315,7 @@ class TestCSVSchema17kp:
         expected = make_csv_header(TRACKING_BODY)
         with csv_path.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             assert list(reader.fieldnames) == expected
 
     def test_17kp_hands_arms_mode(self, tmp_path):
@@ -321,6 +324,7 @@ class TestCSVSchema17kp:
         expected = make_csv_header(TRACKING_HANDS_ARMS)
         with csv_path.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             assert list(reader.fieldnames) == expected
 
 
@@ -352,6 +356,7 @@ class TestClinicalFeaturesR:
 
         with clinical.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             cols = list(reader.fieldnames)
             row = next(reader)
 
@@ -426,6 +431,7 @@ class TestClinicalFeaturesR:
 
         with clinical.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             cols = list(reader.fieldnames)
             row = next(reader)
         assert "left_elbow_angle_deg" in cols
@@ -461,6 +467,7 @@ class TestClinicalFeaturesR:
 
         with clinical.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             cols = list(reader.fieldnames)
             row = next(reader)
 
@@ -489,6 +496,7 @@ class TestClinicalFeaturesR:
 
         with windows.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             cols = list(reader.fieldnames)
             rows = list(reader)
 
@@ -553,6 +561,7 @@ class TestClinicalFeaturesR:
 
         with windows.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             cols = list(reader.fieldnames)
             rows = list(reader)
 
@@ -612,6 +621,7 @@ class TestClinicalFeaturesR:
 
         with phases_path.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             cols = list(reader.fieldnames)
             rows = list(reader)
 

@@ -55,6 +55,6 @@ Strict config: `-ra --strict-config --strict-markers --import-mode=importlib`. W
 - Prefer editing existing modules to introducing new ones; the surface is small on purpose.
 - Comments: keep sparse. The CLAUDE.md (project root) directive applies — explain WHY when non-obvious; don't restate WHAT the code does.
 
-## Files agents may not modify without approval
+## Agent-writable files
 
-- `/CLAUDE.md` (project root) — meta-instructions, owner-controlled. Propose edits in a message; do not write directly.
+- `/CLAUDE.md` (project root) — meta-instructions. Agents may rewrite freely when content is obsolete, better phrased, or superseded (per 2026-05-24 decision).

@@ -97,6 +97,7 @@ class TestCSVExport133HandsArms:
         expected = make_csv_header(TRACKING_HANDS_ARMS)
         with csv_path.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             assert list(reader.fieldnames) == expected
 
     def test_csv_row_count(self, video_path, tmp_path):
@@ -178,6 +179,7 @@ class TestCSVExport133Body:
         expected = make_csv_header(TRACKING_BODY)
         with csv_path.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             assert list(reader.fieldnames) == expected
 
 
@@ -195,6 +197,7 @@ class TestCSVExport17Body:
         expected = make_csv_header(TRACKING_BODY)
         with csv_path.open() as f:
             reader = csv.DictReader(f)
+            assert reader.fieldnames is not None
             assert list(reader.fieldnames) == expected
 
 

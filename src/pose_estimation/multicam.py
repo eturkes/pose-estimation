@@ -53,7 +53,7 @@ def _safe_resolve(base: pathlib.Path, ref: str) -> pathlib.Path:
     """Resolve *ref* relative to *base*, rejecting path traversal."""
     resolved = (base / ref).resolve()
     base_resolved = base.resolve()
-    if not str(resolved).startswith(str(base_resolved) + "/") and resolved != base_resolved:
+    if not resolved.is_relative_to(base_resolved):
         raise SessionError(f"path traversal detected: {ref!r} escapes {base}")
     return resolved
 
@@ -253,6 +253,8 @@ def _cameras_from_glob(directory: pathlib.Path) -> list[SessionCamera]:
 
 
 def _find_glob_for_name(directory: pathlib.Path, name: str) -> pathlib.Path | None:
+    if "/" in name or "\\" in name:
+        raise SessionError(f"camera name contains path separator: {name!r}")
     for ext in VIDEO_EXTENSIONS:
         candidate = directory / f"{name}{ext}"
         if candidate.is_file():

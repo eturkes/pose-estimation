@@ -190,6 +190,22 @@ def test_discover_session_manifest_path_traversal_calibration(tmp_path: pathlib.
         discover_session(session_dir)
 
 
+def test_discover_session_manifest_path_traversal_camera_name(
+    tmp_path: pathlib.Path,
+):
+    _ensure_video_codec_available(tmp_path)
+    session_dir = tmp_path / "session_pt_name"
+    _write_synthetic_video(session_dir / "cam1.avi")
+    manifest = {
+        "format_version": 1,
+        "session_id": "pt_name",
+        "cameras": [{"name": "../../etc/passwd"}],
+    }
+    (session_dir / SESSION_MANIFEST_FILENAME).write_text(json.dumps(manifest))
+    with pytest.raises(SessionError, match="path separator"):
+        discover_session(session_dir)
+
+
 def test_session_camera_rejects_negative_sync_offset():
     with pytest.raises(SessionError, match="non-negative"):
         SessionCamera(name="x", file=pathlib.Path("/dev/null"), sync_offset=-1)
@@ -423,4 +439,4 @@ def test_process_session_requires_camera_processor(tmp_path: pathlib.Path):
     assert _write_synthetic_video(session_dir / "cam1.avi")
     session = discover_session(session_dir)
     with pytest.raises(TypeError, match="camera_processor"):
-        process_session(session)
+        process_session(session)  # ty: ignore[missing-argument]
