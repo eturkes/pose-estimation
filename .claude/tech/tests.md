@@ -24,6 +24,12 @@ All tests live in `tests/`. Run with `uv run pytest`. Pytest is configured stric
 | `tests/test_rtmw_matching.py` | Matching specific to rtmlib outputs. |
 | `tests/test_rtmw_regions.py` | Region cropping & keypoint subset extraction. |
 
+## Keypoint mapping
+
+| File | Covers |
+|------|--------|
+| `tests/test_mapping.py` | `mapping.py` COCO-WholeBody→MediaPipe translation: output shapes for 133/17-kp x each tracking mode, coordinate correctness, edge cases, round-trip through `frame_to_rows`. |
+
 ## Multi-camera
 
 | File | Covers |

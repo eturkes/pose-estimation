@@ -74,6 +74,10 @@ def test_calibration_surface_exported():
     assert pe.MultiCamPipelineState is not None
 
 
+def test_mapping_surface_exported():
+    assert callable(pe.coco_to_mediapipe)
+
+
 def test_triangulation_surface_exported():
     assert callable(pe.fuse_session_frame)
 
