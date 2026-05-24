@@ -2,7 +2,7 @@
 
 This project's agent context is split for selective loading:
 
-1. **`/CLAUDE.md`** — meta-instructions (how you operate, memory, decisions, etc.). Read first. Owner-approval required to modify.
+1. **`/CLAUDE.md`** — meta-instructions (how you operate, memory, decisions, etc.). Read first. Agent-writable.
 2. **`.claude/INDEX.md`** — manifest of project-specific tech notes and memory files. Read second. Load `.claude/tech/*.md` on demand from there.
 3. **`.claude/prompts/kickoff.md`** — reusable session bootstrap prompt.
 

@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-05-24 — CLAUDE.md revision: expanded directives, full agent-write permission
+
+**Context.** User rewrote CLAUDE.md with expanded and refined directives. Key policy change: CLAUDE.md was previously owner-approval-only; it is now fully agent-writable ("rewrite CLAUDE.md at any time"). Other changes: added directory-scoping constraint ("constrain development to the directory you are launched in and its children"), explicit commit-timing rules (commit at end of cohesive work, defer during mid-iteration), security audit scheduling, test suite guidance (permissible but warn against overtesting), KISS/UNIX/refactor guidance, expanded objectivity directive (first principles, scientific method, benchmarking), memory system must be kept up-to-date to avoid drift. Minor wording changes throughout.
+**Decision.** Propagate the CLAUDE.md-is-agent-writable policy to all downstream files that previously enforced the approval gate: `.claude/INDEX.md` authoring rules, `AGENTS.md` pointer description, `.claude/prompts/kickoff.md` step 1. Record via this decision entry. Supersedes the approval constraint in the 2026-05-16 decision below.
+**Alternatives considered.** None — this is a direct propagation of an owner-authored policy change.
+**Consequences.** Agents may now rewrite CLAUDE.md freely when content is obsolete, better phrased, or superseded. All references to the old approval gate are updated. The 2026-05-16 decision entry remains as historical record but its approval constraint is superseded.
+**References.** `/CLAUDE.md`, `.claude/INDEX.md:50`, `AGENTS.md:5`, `.claude/prompts/kickoff.md:9`.
+
+---
+
 ## 2026-05-18 — Multi-camera (3-cam) scaffolding: Session + Calibration + Triangulation
 
 **Context.** New 3-camera footage is incoming; user wants the codebase prepped. Confirmed: footage arrives as 3 separate video files per session; end goal is 3D triangulated pose; no calibration data yet (workflow needed); deliverable for this round is architecture scaffolding + CLI surface only (no per-view processing, no 3D fusion implementation).

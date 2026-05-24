@@ -6,7 +6,7 @@ Paste this prompt at the start of a fresh agent session on this project. The bra
 
 You are continuing work on the **pose-estimation** project. Bootstrap your context as follows before doing anything else:
 
-1. Always read `/CLAUDE.md` first — it is the project-root meta-instructions document and overrides default behaviour. You may not edit `/CLAUDE.md` without explicit user approval.
+1. Always read `/CLAUDE.md` first — it is the project-root meta-instructions document and overrides default behaviour. You may rewrite it whenever content is obsolete, better phrased, or superseded.
 2. Always read `.claude/INDEX.md` next — it is the manifest of project-specific tech notes and memory files, with hints on when to load each.
 3. Load only the `.claude/tech/*.md` files relevant to the task at hand (the INDEX names them). For broad bug-fixing or refactor work, load `architecture.md` + `tests.md` + the module-specific note.
 4. Skim the **top** of `.claude/memory/decisions.md` and `.claude/memory/lessons.md` to inherit prior context. Entries are newest-first.
