@@ -16,6 +16,26 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-05-24 — Clinical Pipeline E2E roadmap: 8-task plan
+
+**Context.** User confirmed: 3-cam footage still incoming, calibration solver deferred. Highest priority is end-to-end clinical pipeline (video → CSV → clinical features → longitudinal analysis). Investigation revealed the rtmlib backend (RTMW-L, default and most capable model) has zero CSV export — completely blocking the R analysis pipeline for any rtmlib-processed footage.
+**Decision.** 8-task roadmap prioritizing rtmlib CSV export as the keystone:
+1. COCO-WholeBody → MediaPipe keypoint mapping layer (unblocked)
+2. Wire CSV export into rtmlib process_source() (blocked by #1)
+3. Test CSV schema compat with R pipeline (blocked by #2)
+4. Harden R scripts for edge cases (blocked by #3)
+5. E2E clinical pipeline smoke test (blocked by #3, parallel with #4)
+6. Dependency update + security audit (independent)
+7. Proactive refactor: main.py/run.py dedup (blocked by #2)
+8. Tech notes drift audit (independent)
+
+Session prompts written to `.claude/prompts/sessions.md` for autonomous execution.
+**Alternatives considered.** (a) Unified backend-agnostic CSV schema replacing the MediaPipe schema: rejected — would break all existing R scripts and require coordinated migration. (b) rtmlib-native 133-column CSV + R script dual-schema support: rejected — doubles R script complexity for no user benefit. (c) Map rtmlib output to MediaPipe schema: chosen — R scripts work unchanged, mapping is well-defined, clinical keypoints (shoulders/elbows/wrists/hands) have direct COCO-WholeBody equivalents.
+**Consequences.** rtmlib CSV export will match the existing MediaPipe schema column-for-column. Some MediaPipe-specific body keypoints (eye_inner/outer, mouth corners) will be approximated or NaN-filled when produced by rtmlib — this is acceptable since clinical features use only shoulders/elbows/wrists/hands. The mapping layer adds a small abstraction but enables the entire downstream analysis pipeline.
+**References.** `.claude/prompts/sessions.md`, `.claude/memory/scratchpad.md` (roadmap notes), task list (8 tasks).
+
+---
+
 ## 2026-05-24 — process_session() callback-based orchestration pattern
 
 **Context.** `process_session()` was a `NotImplementedError` stub. Both `main.py` (MediaPipe) and `run.py` (rtmlib) have different per-frame processing pipelines with different state requirements (models/anchors vs PoseTracker/smoother), different output capabilities (CSV export vs latency-only), and different initialization sequences. A single `process_session()` implementation must support both backends without duplicating entry-point-specific logic.

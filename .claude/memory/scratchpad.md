@@ -10,6 +10,32 @@ Transient working notes — anything from "current investigation" to "half-finis
 
 ---
 
+## 2026-05-24 — Clinical Pipeline E2E roadmap (8 tasks)
+
+User confirmed: 3-cam footage still incoming, calibration solver deferred. Priority is **Clinical Pipeline E2E**: video → CSV → clinical features → longitudinal analysis.
+
+Critical blocker identified: rtmlib backend (RTMW-L 133-keypoint, the default and most capable model) has **zero CSV export**. The entire R analysis pipeline is unreachable from rtmlib-processed footage.
+
+Roadmap (dependency order):
+1. COCO-WholeBody → MediaPipe keypoint mapping layer (unblocked)
+2. Wire CSV export into rtmlib process_source() (blocked by #1)
+3. Test rtmlib CSV schema compat with R pipeline (blocked by #2)
+4. Harden R scripts for edge cases + both backends (blocked by #3)
+5. E2E clinical pipeline smoke test (blocked by #3)
+6. Dependency update + security audit (independent)
+7. Proactive refactor: main.py/run.py dedup (blocked by #2)
+8. Tech notes drift audit (independent)
+
+Tasks #4/#5 can run in parallel after #3. Tasks #6/#8 are independent and can run anytime.
+
+Keypoint mapping notes (for Task #1):
+- COCO-WholeBody 133: body(0-16) + feet(17-22) + face(23-90) + left_hand(91-111) + right_hand(112-132)
+- hands-arms mode needs: shoulders(5,6), elbows(7,8), wrists(9,10) from COCO body, finger bases from hand (MCP joints at hand offsets 5,9,17), plus full 21-kp hand ranges
+- body mode: COCO body 0-16 maps to ~20 of MediaPipe's 33; feet 17-22 partially cover the rest; some MP keypoints (eye_inner/outer, mouth_left/right) need face keypoint mapping or NaN fill
+- RTMPose-M (17 kps): body-only, maps directly to COCO body 0-16 subset
+
+---
+
 ## 2026-05-24 — process_session() wired; 7-task roadmap active
 
 Implemented `process_session()` with callback-based design. Both `main.py` and `run.py` now construct backend-specific camera processor closures and pass them to `process_session()`. 4 new tests (replaced 1 stub test). All 189 tests pass.
