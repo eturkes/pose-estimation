@@ -269,9 +269,7 @@ class TestClinicalFeaturesR:
             "fingertip_displacement",
         ]
         bilateral_suffixes = ["_symmetry_ratio", "_dominance_index", "_abs_diff"]
-        expected_bilateral = [
-            f"{m}{s}" for m in bilateral_metrics for s in bilateral_suffixes
-        ]
+        expected_bilateral = [f"{m}{s}" for m in bilateral_metrics for s in bilateral_suffixes]
         for feat in expected_features:
             assert feat in cols, f"Missing clinical feature column: {feat}"
         for feat in expected_bilateral:
@@ -338,12 +336,22 @@ class TestClinicalFeaturesR:
             "right_wrist_velocity_mean",
             "left_wrist_velocity_peak",
             "right_wrist_velocity_peak",
+            "left_wrist_normalized_jerk",
+            "right_wrist_normalized_jerk",
+            "left_wrist_movement_efficiency",
+            "right_wrist_movement_efficiency",
+            "left_fingertip_normalized_jerk",
+            "right_fingertip_normalized_jerk",
+            "compensatory_pattern_index",
         ]
         # Bilateral window metrics.
         window_bilateral_metrics = [
             "wrist_sal",
             "wrist_velocity_mean",
             "wrist_velocity_peak",
+            "wrist_normalized_jerk",
+            "wrist_movement_efficiency",
+            "fingertip_normalized_jerk",
         ]
         window_bilateral_cols = [
             f"{m}{s}"
@@ -363,6 +371,46 @@ class TestClinicalFeaturesR:
             val = first_win[col]
             assert val != "", f"Bilateral window {col} is empty"
             assert val != "NA", f"Bilateral window {col} is NA"
+
+    def test_body_mode_window_quality_metrics(self, tmp_path):
+        """Body mode should produce compensatory_pattern_index and quality metrics."""
+        csv_path = tmp_path / "synth_body.csv"
+        _generate_csv(csv_path, TRACKING_BODY)
+
+        result = subprocess.run(
+            ["Rscript", str(_CLINICAL_R), str(csv_path)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, f"R script failed:\n{result.stderr}"
+
+        windows = tmp_path / "synth_body_clinical_windows.csv"
+        assert windows.exists(), "Body mode did not produce _clinical_windows.csv"
+
+        with windows.open() as f:
+            reader = csv.DictReader(f)
+            cols = list(reader.fieldnames)
+            rows = list(reader)
+
+        assert len(rows) > 0, "Body mode window CSV has no data rows"
+
+        quality_cols = [
+            "left_wrist_normalized_jerk",
+            "right_wrist_normalized_jerk",
+            "left_wrist_movement_efficiency",
+            "right_wrist_movement_efficiency",
+            "left_fingertip_normalized_jerk",
+            "right_fingertip_normalized_jerk",
+            "compensatory_pattern_index",
+        ]
+        for col in quality_cols:
+            assert col in cols, f"Missing quality metric column: {col}"
+
+        first = rows[0]
+        for col in quality_cols:
+            val = first[col]
+            assert val != "", f"Quality metric {col} is empty in body mode"
 
     def test_directory_mode(self, tmp_path):
         """clinical_features.R can accept a directory of CSVs."""

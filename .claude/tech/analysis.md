@@ -22,7 +22,7 @@ R deps are managed by `renv` (lockfile: `renv.lock`). Install with `renv::restor
 | Script | Inputs | Outputs |
 |--------|--------|---------|
 | `features.R` | landmark CSVs | Variance ranking, correlation heatmap, scree plot, biplot, UMAP, feature ranking CSV. Requires `uwot`, `tidyverse`. |
-| `clinical_features.R` | landmark CSVs (hands-arms or body) | `*_clinical.csv` (per-frame): elbow flexion, wrist deviation, finger spread, reach distance (raw + shoulder-normalised), grasp aperture (thumb–index, thumb–pinky), wrist/fingertip displacement, **bilateral comparison** (symmetry ratio, dominance index, absolute difference for each metric pair). `*_clinical_windows.csv` (1 s windows, 50 % overlap): spectral arc length (SAL), mean + peak wrist velocity, **bilateral comparison** for each window metric. Hands-only CSVs skipped (no arm keypoints). Helpers: `angle_at_vertex`, `dist_3d`, `spectral_arc_length`, `compute_bilateral`. |
+| `clinical_features.R` | landmark CSVs (hands-arms or body) | `*_clinical.csv` (per-frame): elbow flexion, wrist deviation, finger spread, reach distance (raw + shoulder-normalised), grasp aperture (thumb–index, thumb–pinky), wrist/fingertip displacement, **bilateral comparison** (symmetry ratio, dominance index, absolute difference for each metric pair). `*_clinical_windows.csv` (1 s windows, 50 % overlap): spectral arc length (SAL, configurable fc), mean + peak wrist velocity, **normalized jerk** (wrist + fingertip), **movement efficiency** (wrist), **compensatory pattern index** (body mode only), **bilateral comparison** for each window metric. Hands-only CSVs skipped (no arm keypoints). Helpers: `angle_at_vertex`, `dist_3d`, `spectral_arc_length`, `normalized_jerk`, `movement_efficiency`, `trunk_lean_angle`, `compute_bilateral`. |
 
 ## Clinical comparison / longitudinal
 
@@ -71,15 +71,47 @@ Added by `compute_bilateral()` in `clinical_features.R:58-78`. Applied to all pe
 
 Applied to: `elbow_angle_deg`, `wrist_deviation_deg`, `finger_spread_deg`, `reach_raw`, `reach_norm`, `grasp_aperture_thumb_index`, `grasp_aperture_thumb_pinky`, `wrist_displacement`, `fingertip_displacement`.
 
-### Per-window bilateral metrics (3 pairs × 3 = 9 columns)
-
-Applied to: `wrist_sal`, `wrist_velocity_mean`, `wrist_velocity_peak`.
-
 ### Edge cases
 
 - One side NA → all three bilateral metrics are NA (R's NA propagation).
 - Both sides zero → symmetry_ratio = NA, dominance_index = NA, abs_diff = 0 (guarded by denom > 1e-12).
 - SAL (negative values): abs() ensures correct ratio/dominance computation. Positive dominance_index for SAL means right side has larger |SAL| = less smooth.
+
+## Movement quality metrics
+
+Added to `compute_window_features()` in `clinical_features.R`. Provide smoothness, efficiency, and compensation analysis per sliding window.
+
+### Normalized Jerk (Hogan & Sternad 2009)
+
+Dimensionless jerk metric: `NJ = sqrt(T^5 / (2 * a^2) * integral(||jerk||^2 dt))`.
+- `T` = window duration (seconds), `a` = path length (amplitude), jerk = 3rd derivative of position.
+- Lower NJ = smoother movement; minimum-jerk trajectory gives ~18.97.
+- Applied to wrist (`{side}_wrist_normalized_jerk`) and index fingertip (`{side}_fingertip_normalized_jerk`).
+- Guards: returns NA when n < 5 frames or amplitude < 1e-10.
+
+### Movement Efficiency
+
+Path curvature ratio: `ME = path_length / straight_line_distance`.
+- 1.0 = perfectly straight start-to-end movement; higher = more curved/corrective.
+- Applied to wrist trajectory (`{side}_wrist_movement_efficiency`).
+- Guard: returns NA when start ≈ end (straight_line < 1e-10).
+
+### Compensatory Pattern Index (body mode only)
+
+Pearson correlation between `trunk_lean_angle` and `max(left_reach, right_reach)` within each window.
+- `trunk_lean_angle`: unsigned angle (degrees) between shoulder-midpoint→hip-midpoint vector and vertical. 0 = upright, 90 = horizontal.
+- High positive CPI suggests trunk compensation for limited arm ROM.
+- Requires hip keypoints → body mode only; NA in hands-arms mode.
+- Guard: requires ≥5 non-NA frame pairs for meaningful correlation.
+- Column: `compensatory_pattern_index` (not lateralised — single value per window).
+
+### SAL frequency cutoff
+
+`spectral_arc_length(v, fs, fc = SAL_FREQ_CUTOFF)` — the `fc` parameter (default 10 Hz) is now configurable. 10 Hz matches Balasubramanian et al. (2012/2015) for upper-limb movements. Higher cutoffs (up to 20 Hz) may be appropriate for fast movements; the function clamps to Nyquist automatically.
+
+### Per-window bilateral metrics (6 pairs × 3 = 18 columns)
+
+Applied to: `wrist_sal`, `wrist_velocity_mean`, `wrist_velocity_peak`, `wrist_normalized_jerk`, `wrist_movement_efficiency`, `fingertip_normalized_jerk`.
 
 ## Aggregation convention
 

@@ -106,7 +106,7 @@ dist_3d <- function(ax, ay, az, bx, by, bz) {
 #' @param fs Scalar — sampling frequency in Hz.
 #' @return Negative scalar; more negative = less smooth.  Returns
 #'   \code{NA_real_} when the input is too short or degenerate.
-spectral_arc_length <- function(v, fs) {
+spectral_arc_length <- function(v, fs, fc = SAL_FREQ_CUTOFF) {
   v <- v[!is.na(v)]
   n <- length(v)
   if (n < 4 || fs <= 0) return(NA_real_)
@@ -121,8 +121,7 @@ spectral_arc_length <- function(v, fs) {
 
   freqs <- seq(0, fs / 2, length.out = length(V))
 
-  # Adaptive cutoff: SAL_FREQ_CUTOFF or Nyquist, whichever is lower.
-  fc <- min(SAL_FREQ_CUTOFF, fs / 2)
+  fc <- min(fc, fs / 2)
   keep <- freqs <= fc
   V     <- V[keep]
   freqs <- freqs[keep]
@@ -132,6 +131,77 @@ spectral_arc_length <- function(v, fs) {
   dfreq <- diff(freqs) / fc
   dV    <- diff(V)
   -sum(sqrt(dfreq^2 + dV^2))
+}
+
+#' Normalized Jerk — dimensionless movement smoothness metric.
+#'
+#' Hogan & Sternad (2009): NJ = sqrt(T^5 / (2 * a^2) * integral(||jerk||^2 dt)).
+#' Lower NJ = smoother; minimum-jerk trajectory gives ~18.97.
+#'
+#' @param x,y,z Numeric vectors — 3D position time series.
+#' @param fs Scalar — sampling frequency in Hz.
+#' @return Positive scalar (dimensionless). NA when input is too short or
+#'   amplitude is negligible.
+normalized_jerk <- function(x, y, z, fs) {
+  ok <- !is.na(x) & !is.na(y) & !is.na(z)
+  x <- x[ok]; y <- y[ok]; z <- z[ok]
+  n <- length(x)
+  if (n < 5 || fs <= 0) return(NA_real_)
+
+  dt <- 1 / fs
+  T_dur <- (n - 1) * dt
+
+  amplitude <- sum(sqrt(diff(x)^2 + diff(y)^2 + diff(z)^2))
+  if (amplitude < 1e-10) return(NA_real_)
+
+  vx <- diff(x) * fs;  vy <- diff(y) * fs;  vz <- diff(z) * fs
+  ax <- diff(vx) * fs;  ay <- diff(vy) * fs;  az <- diff(vz) * fs
+  jx <- diff(ax) * fs;  jy <- diff(ay) * fs;  jz <- diff(az) * fs
+
+  integral_jerk_sq <- sum(jx^2 + jy^2 + jz^2) * dt
+  sqrt(T_dur^5 / (2 * amplitude^2) * integral_jerk_sq)
+}
+
+#' Movement Efficiency — path curvature ratio.
+#'
+#' Ratio of path length to straight-line (start→end) distance.
+#' 1.0 = perfectly straight; higher = more curved/corrective.
+#'
+#' @param x,y,z Numeric vectors — 3D position time series.
+#' @return Scalar >= 1.0. NA when start ≈ end or input is too short.
+movement_efficiency <- function(x, y, z) {
+  ok <- !is.na(x) & !is.na(y) & !is.na(z)
+  x <- x[ok]; y <- y[ok]; z <- z[ok]
+  n <- length(x)
+  if (n < 2) return(NA_real_)
+
+  path_len <- sum(sqrt(diff(x)^2 + diff(y)^2 + diff(z)^2))
+  straight <- sqrt((x[n] - x[1])^2 + (y[n] - y[1])^2 + (z[n] - z[1])^2)
+
+  if (straight < 1e-10) return(NA_real_)
+  path_len / straight
+}
+
+#' Trunk lean angle from vertical (2D, unsigned).
+#'
+#' Angle between the shoulder-midpoint→hip-midpoint vector and the
+#' vertical axis, in degrees. Vectorised over frames. 0 = upright,
+#' 90 = fully horizontal. Body mode only (requires hip keypoints).
+#'
+#' @param lsh_x,lsh_y,rsh_x,rsh_y Left/right shoulder x,y.
+#' @param lhip_x,lhip_y,rhip_x,rhip_y Left/right hip x,y.
+#' @return Numeric vector of unsigned angles in degrees.
+trunk_lean_angle <- function(lsh_x, lsh_y, rsh_x, rsh_y,
+                             lhip_x, lhip_y, rhip_x, rhip_y) {
+  sh_mx <- (lsh_x + rsh_x) / 2
+  sh_my <- (lsh_y + rsh_y) / 2
+  hip_mx <- (lhip_x + rhip_x) / 2
+  hip_my <- (lhip_y + rhip_y) / 2
+
+  dx <- sh_mx - hip_mx
+  dy <- sh_my - hip_my  # image coords: +y = down, so upright → dy < 0
+
+  atan2(abs(dx), abs(dy)) * 180 / pi
 }
 
 # ------------------------------------------------------------------
@@ -293,6 +363,9 @@ compute_window_features <- function(df, frame_features, tracking,
   bcol <- function(side, kp, coord) {
     paste0(prefix, "_", side, "_", kp, "_", coord)
   }
+  hcol <- function(side, idx, coord) {
+    paste0(side, "_hand_", idx, "_", coord)
+  }
 
   groups <- frame_features |>
     select(video, person_idx) |>
@@ -307,6 +380,7 @@ compute_window_features <- function(df, frame_features, tracking,
 
     mask <- df$video == vid & df$person_idx == pid
     sub_df <- df[mask, ]
+    sub_ff <- frame_features[mask, ]
 
     ts <- as.numeric(sub_df$timestamp_sec)
     n  <- length(ts)
@@ -341,27 +415,72 @@ compute_window_features <- function(df, frame_features, tracking,
         wr_y <- as.numeric(sub_df[[bcol(side, "wrist", "y")]])[win_mask]
         wr_z <- as.numeric(sub_df[[bcol(side, "wrist", "z")]])[win_mask]
 
-        if (all(is.na(wr_x))) {
-          row[[paste0(side, "_wrist_sal")]]           <- NA_real_
-          row[[paste0(side, "_wrist_velocity_mean")]]  <- NA_real_
-          row[[paste0(side, "_wrist_velocity_peak")]]  <- NA_real_
-          next
+        wrist_na <- all(is.na(wr_x))
+
+        if (wrist_na) {
+          row[[paste0(side, "_wrist_sal")]]              <- NA_real_
+          row[[paste0(side, "_wrist_velocity_mean")]]     <- NA_real_
+          row[[paste0(side, "_wrist_velocity_peak")]]     <- NA_real_
+          row[[paste0(side, "_wrist_normalized_jerk")]]   <- NA_real_
+          row[[paste0(side, "_wrist_movement_efficiency")]] <- NA_real_
+        } else {
+          dx <- diff(wr_x);  dy <- diff(wr_y);  dz <- diff(wr_z)
+          speed <- sqrt(dx^2 + dy^2 + dz^2) * fs
+
+          row[[paste0(side, "_wrist_sal")]] <-
+            spectral_arc_length(speed, fs)
+          row[[paste0(side, "_wrist_velocity_mean")]] <-
+            mean(speed, na.rm = TRUE)
+          row[[paste0(side, "_wrist_velocity_peak")]] <-
+            max(speed, na.rm = TRUE)
+          row[[paste0(side, "_wrist_normalized_jerk")]] <-
+            normalized_jerk(wr_x, wr_y, wr_z, fs)
+          row[[paste0(side, "_wrist_movement_efficiency")]] <-
+            movement_efficiency(wr_x, wr_y, wr_z)
         }
 
-        dx <- diff(wr_x);  dy <- diff(wr_y);  dz <- diff(wr_z)
-        speed <- sqrt(dx^2 + dy^2 + dz^2) * fs
+        # Fingertip (index tip, hand landmark 8) normalized jerk.
+        ft_x <- as.numeric(sub_df[[hcol(side, 8, "x")]])[win_mask]
+        ft_y <- as.numeric(sub_df[[hcol(side, 8, "y")]])[win_mask]
+        ft_z <- as.numeric(sub_df[[hcol(side, 8, "z")]])[win_mask]
 
-        row[[paste0(side, "_wrist_sal")]] <-
-          spectral_arc_length(speed, fs)
-        row[[paste0(side, "_wrist_velocity_mean")]] <-
-          mean(speed, na.rm = TRUE)
-        row[[paste0(side, "_wrist_velocity_peak")]] <-
-          max(speed, na.rm = TRUE)
+        row[[paste0(side, "_fingertip_normalized_jerk")]] <-
+          if (all(is.na(ft_x))) NA_real_
+          else normalized_jerk(ft_x, ft_y, ft_z, fs)
+      }
+
+      # Compensatory pattern index (body mode only — requires hips).
+      if (tracking == "body") {
+        lsh_x <- as.numeric(sub_df[["body_left_shoulder_x"]])[win_mask]
+        lsh_y <- as.numeric(sub_df[["body_left_shoulder_y"]])[win_mask]
+        rsh_x <- as.numeric(sub_df[["body_right_shoulder_x"]])[win_mask]
+        rsh_y <- as.numeric(sub_df[["body_right_shoulder_y"]])[win_mask]
+        lhip_x <- as.numeric(sub_df[["body_left_hip_x"]])[win_mask]
+        lhip_y <- as.numeric(sub_df[["body_left_hip_y"]])[win_mask]
+        rhip_x <- as.numeric(sub_df[["body_right_hip_x"]])[win_mask]
+        rhip_y <- as.numeric(sub_df[["body_right_hip_y"]])[win_mask]
+
+        lean <- trunk_lean_angle(lsh_x, lsh_y, rsh_x, rsh_y,
+                                 lhip_x, lhip_y, rhip_x, rhip_y)
+
+        win_ff <- sub_ff[win_mask, ]
+        reach <- pmax(win_ff$left_reach_raw, win_ff$right_reach_raw,
+                      na.rm = TRUE)
+
+        row[["compensatory_pattern_index"]] <-
+          if (sum(!is.na(lean) & !is.na(reach)) >= 5)
+            cor(lean, reach, use = "complete.obs")
+          else NA_real_
+      } else {
+        row[["compensatory_pattern_index"]] <- NA_real_
       }
 
       # Bilateral comparison for window metrics.
       window_bilateral <- c("wrist_sal", "wrist_velocity_mean",
-                            "wrist_velocity_peak")
+                            "wrist_velocity_peak",
+                            "wrist_normalized_jerk",
+                            "wrist_movement_efficiency",
+                            "fingertip_normalized_jerk")
       for (metric in window_bilateral) {
         bl <- compute_bilateral(
           row[[paste0("left_", metric)]],
