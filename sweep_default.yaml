@@ -28,3 +28,12 @@ outlier_cap: [15, 30, 50]
 
 # Detection-level carry-forward frames
 det_carry_frames: [1, 3, 5]
+
+# Adaptive smoothing: rest-period cutoff (Hz) — lower = heavier smoothing at rest
+# Set to "none" to disable adaptive smoothing
+body_rest_cutoff: [0.02, 0.05, 0.1]
+hand_rest_cutoff: [0.05, 0.15, 0.3]
+
+# Speed thresholds for regime classification (px/frame)
+rest_speed: [1.0, 2.0, 3.0]
+fast_speed: [8.0, 10.0, 15.0]

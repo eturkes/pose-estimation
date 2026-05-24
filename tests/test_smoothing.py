@@ -248,3 +248,138 @@ def test_outlier_cap_allows_predicted_movement():
     # Result should track near the input (within filter smoothing)
     displacement = np.abs(result[:, 0] - consistent_step[:, 0])
     assert np.all(displacement < 10.0), f"Predicted movement was wrongly clamped: {displacement}"
+
+
+# ---- Adaptive smoothing (movement-phase-aware min_cutoff) --------------------
+
+
+def test_adaptive_rest_smooths_more_than_fixed():
+    """During stationary input, adaptive mode should smooth more than fixed."""
+    lm = _make_landmarks(12)[:, :2]
+    dt = 1 / 30
+    f_fixed = OneEuroFilter(min_cutoff=0.3, beta=0.5)
+    f_adapt = OneEuroFilter(min_cutoff=0.3, beta=0.5, rest_cutoff=0.05)
+
+    # Warm up both filters with stationary data so smoothed_speed settles
+    for i in range(30):
+        noise = np.random.RandomState(i).randn(*lm.shape) * 2
+        f_fixed(lm + noise, i * dt)
+        f_adapt(lm + noise, i * dt)
+
+    # Apply a small perturbation — adaptive (at rest) should resist more
+    bump = lm + 8.0
+    r_fixed = f_fixed(bump, 30 * dt)
+    r_adapt = f_adapt(bump, 30 * dt)
+
+    move_fixed = np.linalg.norm(r_fixed - lm)
+    move_adapt = np.linalg.norm(r_adapt - lm)
+    assert move_adapt < move_fixed, (
+        f"Adaptive should resist more during rest: adapt={move_adapt:.2f}, fixed={move_fixed:.2f}"
+    )
+
+
+def test_adaptive_fast_movement_matches_fixed():
+    """During sustained fast movement, adaptive cutoff should equal min_cutoff."""
+    lm = np.zeros((8, 2))
+    dt = 1 / 30
+    f_fixed = OneEuroFilter(min_cutoff=0.3, beta=0.5)
+    f_adapt = OneEuroFilter(
+        min_cutoff=0.3, beta=0.5, rest_cutoff=0.05, rest_speed=2.0, fast_speed=10.0
+    )
+
+    # Sustained fast movement (20 px/frame) for many frames
+    for i in range(60):
+        pos = lm + np.array([i * 20.0, 0.0])
+        f_fixed(pos, i * dt)
+        f_adapt(pos, i * dt)
+
+    # After sustained fast movement, both should produce nearly identical output
+    final_pos = lm + np.array([60 * 20.0, 0.0])
+    r_fixed = f_fixed(final_pos, 60 * dt)
+    r_adapt = f_adapt(final_pos, 60 * dt)
+
+    np.testing.assert_allclose(r_adapt, r_fixed, atol=0.5)
+
+
+def test_adaptive_rest_to_movement_recovers():
+    """Transition from rest to fast movement: lag should clear within frames."""
+    lm = np.zeros((6, 2))
+    dt = 1 / 30
+    filt = OneEuroFilter(
+        min_cutoff=0.3,
+        beta=0.5,
+        rest_cutoff=0.05,
+        rest_speed=2.0,
+        fast_speed=10.0,
+        speed_alpha=0.15,
+    )
+
+    # 30 frames at rest
+    for i in range(30):
+        filt(lm + np.random.RandomState(i).randn(*lm.shape) * 0.5, i * dt)
+
+    # Start fast movement (25 px/frame rightward)
+    lag_frames = 0
+    for i in range(30, 50):
+        frame = i - 30
+        pos = lm + np.array([(frame + 1) * 25.0, 0.0])
+        result = filt(pos, i * dt)
+        tracking_error = np.abs(result[:, 0] - pos[:, 0]).mean()
+        if tracking_error > 50.0:
+            lag_frames += 1
+
+    # Adaptive mode should recover from rest-level smoothing quickly:
+    # at most a few frames of elevated lag during transition
+    assert lag_frames <= 5, f"Too many high-lag frames during transition: {lag_frames}"
+
+
+def test_adaptive_disabled_with_none():
+    """rest_cutoff=None should produce identical results to no adaptive args."""
+    lm = _make_landmarks(12)[:, :2]
+    f_plain = OneEuroFilter(min_cutoff=0.3, beta=0.5)
+    f_none = OneEuroFilter(min_cutoff=0.3, beta=0.5, rest_cutoff=None)
+
+    for t in np.linspace(0, 1, 30):
+        noisy = lm + np.random.RandomState(int(t * 1000)).randn(*lm.shape) * 5
+        r_plain = f_plain(noisy, t)
+        r_none = f_none(noisy, t)
+        np.testing.assert_allclose(r_none, r_plain, atol=1e-12)
+
+
+def test_adaptive_per_keypoint_independence():
+    """Keypoints at different speeds should get different effective cutoffs."""
+    dt = 1 / 30
+    filt = OneEuroFilter(
+        min_cutoff=0.3,
+        beta=0.0,
+        rest_cutoff=0.05,
+        rest_speed=2.0,
+        fast_speed=10.0,
+    )
+
+    # Keypoint 0 stays still, keypoint 1 moves fast
+    frames = 40
+    for i in range(frames):
+        pos = np.array([[0.0, 0.0], [i * 20.0, 0.0]])
+        filt(pos, i * dt)
+
+    # After warmup, check smoothed_speed: kp0 ≈ rest, kp1 ≈ fast
+    speed = filt._smoothed_speed
+    assert speed is not None
+    assert speed[0] < 3.0, f"Stationary kp speed too high: {speed[0]:.2f}"
+    assert speed[1] > 5.0, f"Moving kp speed too low: {speed[1]:.2f}"
+
+
+def test_pose_smoother_adaptive_default():
+    """PoseSmoother with default env vars should create adaptive filters."""
+    smoother = PoseSmoother()
+    lm = [_make_landmarks(12)]
+    vis = [np.ones(12)]
+
+    # Initialize tracks
+    smoother.smooth_bodies(lm, vis, 0.0)
+
+    # The body filter should have rest_cutoff set
+    filt = smoother.body_tracks[0][0]
+    assert filt.rest_cutoff is not None
+    assert filt.rest_cutoff < filt.min_cutoff

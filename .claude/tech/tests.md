@@ -6,7 +6,7 @@ All tests live in `tests/`. Run with `uv run pytest`. Pytest is configured stric
 
 | File | Covers |
 |------|--------|
-| `tests/test_smoothing.py` | `OneEuroFilter`, hand and body smoothing paths. |
+| `tests/test_smoothing.py` | `OneEuroFilter`, hand and body smoothing paths, adaptive min_cutoff (rest/fast regime, transition, per-keypoint independence, disable-via-None). |
 | `tests/test_constraints.py` | Bone-length smoothing, joint-angle clamping. |
 | `tests/test_matching.py` | Hungarian hand→arm matching, distality reject. |
 | `tests/test_detection.py` | NMS, detection EMA smoothing, carry-forward. |

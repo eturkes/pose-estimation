@@ -10,6 +10,20 @@ Transient working notes — anything from "current investigation" to "half-finis
 
 ---
 
+## 2026-05-24 — Session 1B complete: Adaptive smoothing
+
+Implemented movement-phase-aware min_cutoff adaptation in both filter implementations (OneEuroFilter in smoothing.py, _OneEuro in run.py). Core mechanism: per-keypoint EMA of velocity magnitude classifies each keypoint as REST/SLOW/FAST, then interpolates effective min_cutoff between rest_cutoff (heavy smoothing) and min_cutoff (normal). Beta mechanism still handles fast movement via cutoff += beta*|speed|; adaptive mode only affects the floor.
+
+Defaults: body rest_cutoff=0.05 (6x heavier than mc=0.3), hand rest_cutoff=0.15 (3.3x heavier than mc=0.5). Thresholds: rest_speed=2.0, fast_speed=10.0 px/frame. Speed EMA alpha=0.1 (~10 frame time constant).
+
+Design choice: embedded adaptive logic directly in the filter __call__ rather than wrapper/mixin (KISS — no extra class, no indirection, backwards-compatible via rest_cutoff=None). PoseSmoother and KeypointSmoother pass env-var-driven rest_cutoff through to their filter constructors.
+
+6 new tests, 247 total passing. sweep_default.yaml updated with 4 new params.
+
+**Roadmap status:** 1A ✓, 1B ✓ → Phase 1 complete. Next: Phase 2 (2A-2D clinical metrics in R).
+
+---
+
 ## 2026-05-24 — New roadmap: Stability + Clinical Metrics + 3D Pipeline
 
 User confirmed: jitter/drops persist across backends/modes, and four categories of new clinical metrics needed (trunk/torso, movement quality, bilateral comparison, temporal segmentation). 3-cam footage is ~2-4 weeks away.

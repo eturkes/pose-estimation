@@ -8,6 +8,16 @@ from scipy.optimize import linear_sum_assignment
 _TWO_PI = 2.0 * np.pi
 
 
+def _parse_optional_float(env_var, default):
+    """Parse an env var as float, returning None if set to 'none' or empty."""
+    val = os.environ.get(env_var, "")
+    if val == "":
+        return default
+    if val.lower() == "none":
+        return None
+    return float(val)
+
+
 class OneEuroFilter:
     """One Euro Filter for smoothing noisy real-time signals.
 
@@ -23,23 +33,48 @@ class OneEuroFilter:
     """
 
     __slots__ = (
+        "_smoothed_speed",
         "_tau_d",
         "beta",
         "d_cutoff",
         "dx_prev",
+        "fast_speed",
         "gamma",
         "min_cutoff",
         "outlier_cap",
+        "rest_cutoff",
+        "rest_speed",
+        "speed_alpha",
         "t_prev",
         "x_prev",
     )
 
-    def __init__(self, min_cutoff=1.0, beta=0.5, d_cutoff=1.0, gamma=2.0, outlier_cap=0.0):
+    def __init__(
+        self,
+        min_cutoff=1.0,
+        beta=0.5,
+        d_cutoff=1.0,
+        gamma=2.0,
+        outlier_cap=0.0,
+        rest_cutoff=None,
+        rest_speed=2.0,
+        fast_speed=10.0,
+        speed_alpha=0.1,
+    ):
         self.min_cutoff = min_cutoff
         self.beta = beta
         self.d_cutoff = d_cutoff
         self.gamma = gamma
         self.outlier_cap = outlier_cap
+        # Adaptive min_cutoff: when rest_cutoff is set, the effective
+        # min_cutoff interpolates between rest_cutoff (at low velocity)
+        # and min_cutoff (at high velocity) per keypoint.  Velocity is
+        # tracked via an EMA of per-keypoint speed in px/frame.
+        self.rest_cutoff = rest_cutoff
+        self.rest_speed = rest_speed
+        self.fast_speed = fast_speed
+        self.speed_alpha = speed_alpha
+        self._smoothed_speed = None
         # Cache the derivative-filter time constant; only depends on d_cutoff.
         self._tau_d = 1.0 / (_TWO_PI * d_cutoff)
         self.x_prev = None
@@ -88,7 +123,28 @@ class OneEuroFilter:
         # then convert directly to a = dt/(dt + 1/(2π*cutoff)).
         abs_dx = np.abs(dx_hat)
         abs_dx *= self.beta
-        abs_dx += self.min_cutoff  # = cutoff
+
+        # Adaptive min_cutoff: during rest (low velocity), lower the
+        # cutoff floor for heavier smoothing.  During fast movement,
+        # beta*|speed| dominates and min_cutoff is irrelevant.
+        if self.rest_cutoff is not None and x.ndim == 2:
+            kp_speed = np.sqrt(np.einsum("ij,ij->i", dx_hat, dx_hat)) * dt
+            if self._smoothed_speed is None:
+                self._smoothed_speed = kp_speed.copy()
+            else:
+                a_s = self.speed_alpha
+                self._smoothed_speed += a_s * (kp_speed - self._smoothed_speed)
+            rng = self.fast_speed - self.rest_speed
+            if rng > 0:
+                t_interp = (self._smoothed_speed - self.rest_speed) / rng
+                np.clip(t_interp, 0.0, 1.0, out=t_interp)
+                effective_mc = self.rest_cutoff + t_interp * (self.min_cutoff - self.rest_cutoff)
+            else:
+                effective_mc = np.full_like(self._smoothed_speed, self.min_cutoff)
+            abs_dx += effective_mc[:, None]
+        else:
+            abs_dx += self.min_cutoff
+
         # a = dt / (dt + 1/(2π*cutoff)) = (2π*cutoff*dt) / (2π*cutoff*dt + 1)
         abs_dx *= _TWO_PI * dt
         a = abs_dx / (abs_dx + 1.0)
@@ -163,6 +219,12 @@ class PoseSmoother:
         self._gamma = float(os.environ.get("POSE_BENCH_CONFIDENCE_GAMMA", "2.0"))
         self._grace = int(os.environ.get("POSE_BENCH_CARRY_GRACE", "10"))
         self._outlier_cap = float(os.environ.get("POSE_BENCH_OUTLIER_CAP", "30"))
+        # Adaptive smoothing: lower effective min_cutoff during rest for
+        # heavier smoothing of stationary keypoints.  "none" disables.
+        self._body_rest_cutoff = _parse_optional_float("POSE_BENCH_BODY_REST_CUTOFF", 0.05)
+        self._hand_rest_cutoff = _parse_optional_float("POSE_BENCH_HAND_REST_CUTOFF", 0.15)
+        self._rest_speed = float(os.environ.get("POSE_BENCH_REST_SPEED", "2.0"))
+        self._fast_speed = float(os.environ.get("POSE_BENCH_FAST_SPEED", "10.0"))
         self.body_tracks = []
         self.hand_tracks = []
         self._n_active_bodies = 0
@@ -382,6 +444,9 @@ class PoseSmoother:
                 beta=self._body_b,
                 gamma=self._gamma,
                 outlier_cap=self._outlier_cap,
+                rest_cutoff=self._body_rest_cutoff,
+                rest_speed=self._rest_speed,
+                fast_speed=self._fast_speed,
             ),
             t=t,
             grace=self._grace,
@@ -413,6 +478,9 @@ class PoseSmoother:
                 beta=self._hand_b,
                 gamma=self._gamma,
                 outlier_cap=self._outlier_cap,
+                rest_cutoff=self._hand_rest_cutoff,
+                rest_speed=self._rest_speed,
+                fast_speed=self._fast_speed,
             ),
             t=t,
             grace=grace,

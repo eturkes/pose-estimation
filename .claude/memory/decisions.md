@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-05-24 — Adaptive min_cutoff: movement-phase-aware smoothing
+
+**Context.** Session 1A added outlier rejection, lower hand min_cutoff, and multi-frame carry — but fixed min_cutoff still allowed 1-5px jitter during rest periods. The One Euro filter's beta mechanism handles fast movement well (cutoff rises with speed), but the min_cutoff floor is constant — during rest, small noise passes through unchanged.
+**Decision.** Added per-keypoint adaptive min_cutoff that interpolates between `rest_cutoff` (at low velocity) and `min_cutoff` (at high velocity). Velocity tracked via EMA of per-keypoint speed (px/frame) from the filtered derivative dx_hat. Implemented directly inside OneEuroFilter.__call__ (smoothing.py) and _OneEuro.__call__ (run.py), gated by `rest_cutoff is not None and x.ndim == 2`. PoseSmoother and KeypointSmoother pass rest_cutoff from env vars to their filter constructors. Defaults: body rest_cutoff=0.05, hand rest_cutoff=0.15, rest_speed=2.0, fast_speed=10.0.
+**Alternatives considered.** (a) Wrapper/mixin class around OneEuroFilter: rejected — adds indirection without benefit; the adaptation is 15 lines inside __call__ and disabled cleanly via rest_cutoff=None. (b) Kalman-style velocity regime estimator: rejected — EMA is simpler, has a single tunable (speed_alpha), and dx_hat is already a filtered derivative. (c) Global-speed adaptation (same cutoff for all keypoints): rejected — per-keypoint is strictly better (shoulder stays smooth during a wrist reach). (d) Opt-in (default disabled): rejected — adaptive mode with well-chosen defaults is strictly better; disable via env var POSE_BENCH_*_REST_CUTOFF=none.
+**Consequences.** Enabled by default for both backends. 4 new env vars (POSE_BENCH_BODY_REST_CUTOFF, POSE_BENCH_HAND_REST_CUTOFF, POSE_BENCH_REST_SPEED, POSE_BENCH_FAST_SPEED). Backwards compatibility: setting rest_cutoff=none or rest_cutoff equal to min_cutoff disables the adaptation. 6 new tests in test_smoothing.py.
+**References.** `smoothing.py:37-48,97-117`, `run.py:163-190,218-237`, `tests/test_smoothing.py:254-340`, `sweep_default.yaml`.
+
+---
+
 ## 2026-05-24 — Roadmap: Stability + Clinical Metrics + 3D Pipeline
 
 **Context.** Previous E2E roadmap complete. User reports persistent jitter/drops across all backends/modes and needs four categories of new clinical metrics (trunk/torso, movement quality, bilateral comparison, temporal segmentation). 3-cam footage ~2-4 weeks away.

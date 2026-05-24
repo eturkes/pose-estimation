@@ -31,6 +31,10 @@ python -m pose_estimation.benchmark --source v.mp4 --config sweep_default.yaml
 | `carry_damping` | Velocity decay for carry-forward extrapolation (default 0.8). |
 | `outlier_cap` | Max unexpected displacement (px) before clamping (default 30). 0 disables. |
 | `det_carry_frames` | Detection-level carry-forward grace period (default 3). |
+| `body_rest_cutoff` | Adaptive: min_cutoff floor during rest for body (default 0.05). "none" disables. |
+| `hand_rest_cutoff` | Adaptive: min_cutoff floor during rest for hands (default 0.15). "none" disables. |
+| `rest_speed` | Speed threshold (px/frame) below which keypoints are "at rest" (default 2.0). |
+| `fast_speed` | Speed threshold (px/frame) above which normal min_cutoff applies (default 10.0). |
 
 ### Sweep configs
 

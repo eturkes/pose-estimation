@@ -19,9 +19,9 @@ Paste the kickoff prompt from `prompts/kickoff.md`, then append one of the task 
 
 Four phases. Phases 1-2 are the immediate priority (jitter fixes + clinical metrics). Phase 3 (3D pipeline) starts when 3-cam footage timeline firms up (~weeks away). Phase 4 is periodic maintenance.
 
-### Phase 1: Tracking stability
-- 1A: Investigate and fix remaining jitter/drops (all backends/modes)
-- 1B: Adaptive smoothing based on movement phase (blocked by 1A)
+### Phase 1: Tracking stability ✓
+- 1A: ✓ Investigate and fix remaining jitter/drops (all backends/modes)
+- 1B: ✓ Adaptive smoothing based on movement phase
 
 ### Phase 2: Clinical metrics expansion
 - 2A: Bilateral comparison metrics (independent)

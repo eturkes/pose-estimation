@@ -19,6 +19,7 @@ Requirements:
 
 import argparse
 import collections
+import os
 import pathlib
 import subprocess
 import sys
@@ -144,6 +145,16 @@ def _frame_to_surface(frame):
     return pygame.surfarray.make_surface(rgb.transpose(1, 0, 2))
 
 
+def _parse_rest_cutoff(env_var, default):
+    """Parse an env var as optional float (returns None for 'none' or empty)."""
+    val = os.environ.get(env_var, "")
+    if val == "":
+        return default
+    if val.lower() == "none":
+        return None
+    return float(val)
+
+
 # ---------------------------------------------------------------------------
 # Temporal smoothing — reduces frame-to-frame keypoint jitter
 # ---------------------------------------------------------------------------
@@ -152,12 +163,28 @@ def _frame_to_surface(frame):
 class _OneEuro:
     """Minimal One Euro Filter for array-valued signals."""
 
-    def __init__(self, min_cutoff=0.5, beta=0.5, d_cutoff=1.0, gamma=2.0, outlier_cap=0.0):
+    def __init__(
+        self,
+        min_cutoff=0.5,
+        beta=0.5,
+        d_cutoff=1.0,
+        gamma=2.0,
+        outlier_cap=0.0,
+        rest_cutoff=None,
+        rest_speed=2.0,
+        fast_speed=10.0,
+        speed_alpha=0.1,
+    ):
         self.min_cutoff = min_cutoff
         self.beta = beta
         self.d_cutoff = d_cutoff
         self.gamma = gamma
         self.outlier_cap = outlier_cap
+        self.rest_cutoff = rest_cutoff
+        self.rest_speed = rest_speed
+        self.fast_speed = fast_speed
+        self.speed_alpha = speed_alpha
+        self._smoothed_speed = None
         self.x_prev = None
         self.dx_prev = None
         self.t_prev = None
@@ -192,7 +219,24 @@ class _OneEuro:
         dx = (x_use - self.x_prev) / dt
         dx_hat = a_d * dx + (1 - a_d) * self.dx_prev
 
-        cutoff = self.min_cutoff + self.beta * np.abs(dx_hat)
+        # Adaptive min_cutoff: during rest, lower the cutoff floor.
+        if self.rest_cutoff is not None and x.ndim == 2:
+            kp_speed = np.sqrt(np.einsum("ij,ij->i", dx_hat, dx_hat)) * dt
+            if self._smoothed_speed is None:
+                self._smoothed_speed = kp_speed.copy()
+            else:
+                a_s = self.speed_alpha
+                self._smoothed_speed += a_s * (kp_speed - self._smoothed_speed)
+            rng = self.fast_speed - self.rest_speed
+            if rng > 0:
+                t_interp = np.clip((self._smoothed_speed - self.rest_speed) / rng, 0.0, 1.0)
+                effective_mc = self.rest_cutoff + t_interp * (self.min_cutoff - self.rest_cutoff)
+            else:
+                effective_mc = np.full_like(self._smoothed_speed, self.min_cutoff)
+            cutoff = effective_mc[:, None] + self.beta * np.abs(dx_hat)
+        else:
+            cutoff = self.min_cutoff + self.beta * np.abs(dx_hat)
+
         a = 1.0 / (1.0 + 1.0 / (2 * np.pi * cutoff * dt))
         x_hat = a * x_use + (1 - a) * self.x_prev
 
@@ -234,6 +278,10 @@ class KeypointSmoother:
         carry_damping=0.8,
         min_track_age=3,
         outlier_cap=30.0,
+        rest_cutoff=None,
+        hand_rest_cutoff=None,
+        rest_speed=2.0,
+        fast_speed=10.0,
     ):
         self.min_cutoff = min_cutoff
         self.beta = beta
@@ -243,6 +291,10 @@ class KeypointSmoother:
         self.carry_damping = carry_damping
         self.min_track_age = min_track_age
         self.outlier_cap = outlier_cap
+        self.rest_cutoff = rest_cutoff
+        self.hand_rest_cutoff = hand_rest_cutoff
+        self.rest_speed = rest_speed
+        self.fast_speed = fast_speed
         self.tracks = []
 
     def reset(self):
@@ -252,12 +304,29 @@ class KeypointSmoother:
     def _make_filters(self, n_kps):
         """Create per-region or single filter depending on keypoint count."""
         oc = self.outlier_cap
+        rs, fs = self.rest_speed, self.fast_speed
         if n_kps == 133:
             return {
-                name: _OneEuro(min_cutoff=mc, beta=b, outlier_cap=oc)
+                name: _OneEuro(
+                    min_cutoff=mc,
+                    beta=b,
+                    outlier_cap=oc,
+                    rest_cutoff=self.hand_rest_cutoff if name == "hands" else self.rest_cutoff,
+                    rest_speed=rs,
+                    fast_speed=fs,
+                )
                 for name, _, _, mc, b in REGION_PARAMS
             }
-        return {"all": _OneEuro(min_cutoff=self.min_cutoff, beta=self.beta, outlier_cap=oc)}
+        return {
+            "all": _OneEuro(
+                min_cutoff=self.min_cutoff,
+                beta=self.beta,
+                outlier_cap=oc,
+                rest_cutoff=self.rest_cutoff,
+                rest_speed=rs,
+                fast_speed=fs,
+            )
+        }
 
     def _apply_filters(self, filters, kp, t, confidence):
         """Apply region-aware or single filter to keypoints."""
@@ -1091,7 +1160,16 @@ def main():
         to_openpose=False,
     )
 
-    smoother = None if args.no_smooth else KeypointSmoother()
+    smoother = (
+        None
+        if args.no_smooth
+        else KeypointSmoother(
+            rest_cutoff=_parse_rest_cutoff("POSE_BENCH_BODY_REST_CUTOFF", 0.05),
+            hand_rest_cutoff=_parse_rest_cutoff("POSE_BENCH_HAND_REST_CUTOFF", 0.15),
+            rest_speed=float(os.environ.get("POSE_BENCH_REST_SPEED", "2.0")),
+            fast_speed=float(os.environ.get("POSE_BENCH_FAST_SPEED", "10.0")),
+        )
+    )
 
     bone_smoother = None
     if not args.no_constraints:
