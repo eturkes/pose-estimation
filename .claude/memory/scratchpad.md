@@ -10,6 +10,18 @@ Transient working notes — anything from "current investigation" to "half-finis
 
 ---
 
+## 2026-05-24 — Session 2A complete: Bilateral comparison metrics
+
+Added `compute_bilateral()` helper to `clinical_features.R` and wired it into both `compute_frame_features()` (9 metric pairs × 3 bilateral columns = 27 new columns) and `compute_window_features()` (3 metric pairs × 3 = 9 new columns). Total: 36 new bilateral columns across the two output CSVs.
+
+Key design: uses abs() internally so the formulas work for both non-negative metrics (angles, distances) and negative metrics (SAL). Division-by-zero guard at denom > 1e-12. R's NA propagation handles missing-side gracefully.
+
+Tests: updated test_r_pipeline.py with bilateral column assertions for both per-frame and per-window outputs. All 247 tests pass. Ruff clean.
+
+**Roadmap status:** 1A ✓, 1B ✓, 2A ✓ → Next: 2B (movement quality scores), 2C (trunk/torso metrics), or both in parallel.
+
+---
+
 ## 2026-05-24 — Session 1B complete: Adaptive smoothing
 
 Implemented movement-phase-aware min_cutoff adaptation in both filter implementations (OneEuroFilter in smoothing.py, _OneEuro in run.py). Core mechanism: per-keypoint EMA of velocity magnitude classifies each keypoint as REST/SLOW/FAST, then interpolates effective min_cutoff between rest_cutoff (heavy smoothing) and min_cutoff (normal). Beta mechanism still handles fast movement via cutoff += beta*|speed|; adaptive mode only affects the floor.

@@ -50,6 +50,32 @@ hand_col <- function(side, idx, coord) {
 }
 
 # ------------------------------------------------------------------
+# Bilateral comparison helpers
+# ------------------------------------------------------------------
+
+#' Compute bilateral symmetry metrics from left/right vectors.
+#'
+#' Uses abs() internally — works for both non-negative metrics (angles,
+#' distances) and negative metrics (SAL).
+#'
+#' @param L Numeric vector — left-side values.
+#' @param R Numeric vector — right-side values.
+#' @return Named list of 3 vectors: symmetry_ratio (0–1, 1=symmetric),
+#'   dominance_index (-1 to 1, positive=right has larger magnitude),
+#'   abs_diff (≥0, raw asymmetry in original units).
+compute_bilateral <- function(L, R) {
+  aL <- abs(L)
+  aR <- abs(R)
+  denom <- aL + aR
+
+  sym <- ifelse(denom > 1e-12, pmin(aL, aR) / pmax(aL, aR), NA_real_)
+  dom <- ifelse(denom > 1e-12, (aR - aL) / denom, NA_real_)
+  dif <- abs(R - L)
+
+  list(symmetry_ratio = sym, dominance_index = dom, abs_diff = dif)
+}
+
+# ------------------------------------------------------------------
 # Geometry helpers (unit-testable)
 # ------------------------------------------------------------------
 
@@ -237,6 +263,23 @@ compute_frame_features <- function(df, tracking) {
     }
   }
 
+  # --- Bilateral comparison metrics ---
+  bilateral_metrics <- c(
+    "elbow_angle_deg", "wrist_deviation_deg", "finger_spread_deg",
+    "reach_raw", "reach_norm",
+    "grasp_aperture_thumb_index", "grasp_aperture_thumb_pinky",
+    "wrist_displacement", "fingertip_displacement"
+  )
+  for (metric in bilateral_metrics) {
+    bl <- compute_bilateral(
+      result[[paste0("left_", metric)]],
+      result[[paste0("right_", metric)]]
+    )
+    result[[paste0(metric, "_symmetry_ratio")]]  <- bl$symmetry_ratio
+    result[[paste0(metric, "_dominance_index")]]  <- bl$dominance_index
+    result[[paste0(metric, "_abs_diff")]]         <- bl$abs_diff
+  }
+
   result
 }
 
@@ -314,6 +357,19 @@ compute_window_features <- function(df, frame_features, tracking,
           mean(speed, na.rm = TRUE)
         row[[paste0(side, "_wrist_velocity_peak")]] <-
           max(speed, na.rm = TRUE)
+      }
+
+      # Bilateral comparison for window metrics.
+      window_bilateral <- c("wrist_sal", "wrist_velocity_mean",
+                            "wrist_velocity_peak")
+      for (metric in window_bilateral) {
+        bl <- compute_bilateral(
+          row[[paste0("left_", metric)]],
+          row[[paste0("right_", metric)]]
+        )
+        row[[paste0(metric, "_symmetry_ratio")]]  <- bl$symmetry_ratio
+        row[[paste0(metric, "_dominance_index")]]  <- bl$dominance_index
+        row[[paste0(metric, "_abs_diff")]]         <- bl$abs_diff
       }
 
       ri <- ri + 1L

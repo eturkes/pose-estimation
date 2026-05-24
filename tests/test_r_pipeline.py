@@ -256,8 +256,26 @@ class TestClinicalFeaturesR:
             "left_fingertip_displacement",
             "right_fingertip_displacement",
         ]
+        # Bilateral comparison columns for each metric pair.
+        bilateral_metrics = [
+            "elbow_angle_deg",
+            "wrist_deviation_deg",
+            "finger_spread_deg",
+            "reach_raw",
+            "reach_norm",
+            "grasp_aperture_thumb_index",
+            "grasp_aperture_thumb_pinky",
+            "wrist_displacement",
+            "fingertip_displacement",
+        ]
+        bilateral_suffixes = ["_symmetry_ratio", "_dominance_index", "_abs_diff"]
+        expected_bilateral = [
+            f"{m}{s}" for m in bilateral_metrics for s in bilateral_suffixes
+        ]
         for feat in expected_features:
             assert feat in cols, f"Missing clinical feature column: {feat}"
+        for feat in expected_bilateral:
+            assert feat in cols, f"Missing bilateral feature column: {feat}"
 
         for feat in expected_features:
             if "displacement" in feat:
@@ -265,6 +283,14 @@ class TestClinicalFeaturesR:
             val = row[feat]
             assert val != "", f"Feature {feat} is empty on frame 0"
             assert val != "NA", f"Feature {feat} is NA on frame 0"
+
+        # Bilateral metrics: non-displacement ones should have values on frame 0.
+        for feat in expected_bilateral:
+            if "displacement" in feat:
+                continue  # first frame displacement is NA → bilateral is NA
+            val = row[feat]
+            assert val != "", f"Bilateral feature {feat} is empty on frame 0"
+            assert val != "NA", f"Bilateral feature {feat} is NA on frame 0"
 
     def test_body_mode_clinical_output(self, tmp_path):
         csv_path = tmp_path / "synth_body.csv"
@@ -313,10 +339,30 @@ class TestClinicalFeaturesR:
             "left_wrist_velocity_peak",
             "right_wrist_velocity_peak",
         ]
+        # Bilateral window metrics.
+        window_bilateral_metrics = [
+            "wrist_sal",
+            "wrist_velocity_mean",
+            "wrist_velocity_peak",
+        ]
+        window_bilateral_cols = [
+            f"{m}{s}"
+            for m in window_bilateral_metrics
+            for s in ["_symmetry_ratio", "_dominance_index", "_abs_diff"]
+        ]
         for col in expected_window_cols:
             assert col in cols, f"Missing window feature column: {col}"
+        for col in window_bilateral_cols:
+            assert col in cols, f"Missing bilateral window column: {col}"
 
         assert len(rows) > 0, "Window CSV has no data rows"
+
+        # Bilateral window values should be non-empty in the first window.
+        first_win = rows[0]
+        for col in window_bilateral_cols:
+            val = first_win[col]
+            assert val != "", f"Bilateral window {col} is empty"
+            assert val != "NA", f"Bilateral window {col} is NA"
 
     def test_directory_mode(self, tmp_path):
         """clinical_features.R can accept a directory of CSVs."""

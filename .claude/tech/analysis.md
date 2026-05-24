@@ -22,7 +22,7 @@ R deps are managed by `renv` (lockfile: `renv.lock`). Install with `renv::restor
 | Script | Inputs | Outputs |
 |--------|--------|---------|
 | `features.R` | landmark CSVs | Variance ranking, correlation heatmap, scree plot, biplot, UMAP, feature ranking CSV. Requires `uwot`, `tidyverse`. |
-| `clinical_features.R` | landmark CSVs (hands-arms or body) | `*_clinical.csv` (per-frame): elbow flexion, wrist deviation, finger spread, reach distance (raw + shoulder-normalised), grasp aperture (thumb–index, thumb–pinky), wrist/fingertip displacement. `*_clinical_windows.csv` (1 s windows, 50 % overlap): spectral arc length (SAL), mean + peak wrist velocity. Hands-only CSVs skipped (no arm keypoints). Helpers: `angle_at_vertex`, `dist_3d`, `spectral_arc_length`. |
+| `clinical_features.R` | landmark CSVs (hands-arms or body) | `*_clinical.csv` (per-frame): elbow flexion, wrist deviation, finger spread, reach distance (raw + shoulder-normalised), grasp aperture (thumb–index, thumb–pinky), wrist/fingertip displacement, **bilateral comparison** (symmetry ratio, dominance index, absolute difference for each metric pair). `*_clinical_windows.csv` (1 s windows, 50 % overlap): spectral arc length (SAL), mean + peak wrist velocity, **bilateral comparison** for each window metric. Hands-only CSVs skipped (no arm keypoints). Helpers: `angle_at_vertex`, `dist_3d`, `spectral_arc_length`, `compute_bilateral`. |
 
 ## Clinical comparison / longitudinal
 
@@ -54,6 +54,32 @@ All scripts handle degenerate inputs gracefully after 2026-05-24 hardening:
 - **Zero-variance features**: `compare_clinical.R`, `clinical_dimreduce.R`, `features.R` warn and skip heatmap/PCA/UMAP plots when insufficient variable features remain.
 - **Missing hand data**: columns filled with NA/blank; R scripts use safe column extraction (`ex()` returns NA vector for absent columns).
 - **Single video/patient**: correlation/longitudinal scripts produce output but flag insufficient data.
+
+## Bilateral comparison metrics
+
+Added by `compute_bilateral()` in `clinical_features.R:58-78`. Applied to all per-side metric pairs in both per-frame and per-window outputs.
+
+### Formulas (using abs() internally for sign-agnostic handling)
+
+| Metric | Formula | Range | Interpretation |
+|--------|---------|-------|----------------|
+| `{metric}_symmetry_ratio` | min(abs(L), abs(R)) / max(abs(L), abs(R)) | [0, 1] | 1.0 = perfect symmetry; 0 = one side absent/zero |
+| `{metric}_dominance_index` | (abs(R) − abs(L)) / (abs(R) + abs(L)) | [−1, 1] | Positive = right has larger magnitude; 0 = symmetric |
+| `{metric}_abs_diff` | abs(R − L) | [0, ∞) | Raw asymmetry in original metric units |
+
+### Per-frame bilateral metrics (9 pairs × 3 = 27 columns)
+
+Applied to: `elbow_angle_deg`, `wrist_deviation_deg`, `finger_spread_deg`, `reach_raw`, `reach_norm`, `grasp_aperture_thumb_index`, `grasp_aperture_thumb_pinky`, `wrist_displacement`, `fingertip_displacement`.
+
+### Per-window bilateral metrics (3 pairs × 3 = 9 columns)
+
+Applied to: `wrist_sal`, `wrist_velocity_mean`, `wrist_velocity_peak`.
+
+### Edge cases
+
+- One side NA → all three bilateral metrics are NA (R's NA propagation).
+- Both sides zero → symmetry_ratio = NA, dominance_index = NA, abs_diff = 0 (guarded by denom > 1e-12).
+- SAL (negative values): abs() ensures correct ratio/dominance computation. Positive dominance_index for SAL means right side has larger |SAL| = less smooth.
 
 ## Aggregation convention
 
