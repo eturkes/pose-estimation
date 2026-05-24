@@ -26,7 +26,7 @@ Four phases. Phases 1-2 are the immediate priority (jitter fixes + clinical metr
 ### Phase 2: Clinical metrics expansion
 - 2A: ✓ Bilateral comparison metrics
 - 2B: ✓ Movement quality scores (normalized jerk, movement efficiency, CPI)
-- 2C: Trunk/torso metrics — body mode only (independent)
+- 2C: ✓ Trunk/torso metrics — body mode only (trunk lean, lateral lean, rotation, posture symmetry)
 - 2D: Temporal movement segmentation (unblocked — 2B complete)
 
 ### Phase 3: 3D pipeline implementation

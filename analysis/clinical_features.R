@@ -204,6 +204,57 @@ trunk_lean_angle <- function(lsh_x, lsh_y, rsh_x, rsh_y,
   atan2(abs(dx), abs(dy)) * 180 / pi
 }
 
+#' Trunk lateral lean — signed angle in the frontal plane.
+#'
+#' Vectorised. 0 = upright, positive = leaning right (shoulders right
+#' of hips), negative = leaning left. Image coords: +y = down.
+#'
+#' @inheritParams trunk_lean_angle
+#' @return Numeric vector of signed angles in degrees.
+trunk_lean_lateral <- function(lsh_x, lsh_y, rsh_x, rsh_y,
+                               lhip_x, lhip_y, rhip_x, rhip_y) {
+  sh_mx <- (lsh_x + rsh_x) / 2
+  sh_my <- (lsh_y + rsh_y) / 2
+  hip_mx <- (lhip_x + rhip_x) / 2
+  hip_my <- (lhip_y + rhip_y) / 2
+
+  dx <- sh_mx - hip_mx       # positive = shoulders right of hips
+  dy <- sh_my - hip_my       # negative when upright (+y down)
+
+  # atan2(lateral, vertical_up): vertical_up = -dy for image coords
+  atan2(dx, -dy) * 180 / pi
+}
+
+#' Trunk rotation — shoulder line vs hip line angle difference.
+#'
+#' Signed angle between the shoulder line (left→right) and the hip
+#' line (left→right) in image-plane 2D. Positive = shoulders rotated
+#' clockwise relative to hips (viewed from front). Vectorised.
+#'
+#' @inheritParams trunk_lean_angle
+#' @return Numeric vector of signed angles in degrees, wrapped to (-180, 180].
+trunk_rotation <- function(lsh_x, lsh_y, rsh_x, rsh_y,
+                           lhip_x, lhip_y, rhip_x, rhip_y) {
+  sh_angle  <- atan2(rsh_y - lsh_y, rsh_x - lsh_x)
+  hip_angle <- atan2(rhip_y - lhip_y, rhip_x - lhip_x)
+
+  d <- sh_angle - hip_angle
+  atan2(sin(d), cos(d)) * 180 / pi
+}
+
+#' Posture symmetry — normalised shoulder height asymmetry.
+#'
+#' (left_shoulder_y − right_shoulder_y) / shoulder_width. In image
+#' coords (+y down): positive = right shoulder higher (left dropped),
+#' negative = left shoulder higher (right dropped). Vectorised.
+#'
+#' @param lsh_x,lsh_y,rsh_x,rsh_y Left/right shoulder x,y.
+#' @return Numeric vector, dimensionless. NA when shoulder width ≈ 0.
+posture_symmetry <- function(lsh_x, lsh_y, rsh_x, rsh_y) {
+  sh_width <- sqrt((rsh_x - lsh_x)^2 + (rsh_y - lsh_y)^2)
+  ifelse(sh_width > 1e-6, (lsh_y - rsh_y) / sh_width, NA_real_)
+}
+
 # ------------------------------------------------------------------
 # Per-frame feature computation
 # ------------------------------------------------------------------
@@ -350,6 +401,35 @@ compute_frame_features <- function(df, tracking) {
     result[[paste0(metric, "_abs_diff")]]         <- bl$abs_diff
   }
 
+  # --- Trunk/torso metrics (body mode only — requires hip keypoints) ---
+  if (tracking == "body") {
+    lsh_x  <- ex("body_left_shoulder_x")
+    lsh_y  <- ex("body_left_shoulder_y")
+    rsh_x  <- ex("body_right_shoulder_x")
+    rsh_y  <- ex("body_right_shoulder_y")
+    lhip_x <- ex("body_left_hip_x")
+    lhip_y <- ex("body_left_hip_y")
+    rhip_x <- ex("body_right_hip_x")
+    rhip_y <- ex("body_right_hip_y")
+
+    result[["trunk_lean_deg"]] <-
+      trunk_lean_angle(lsh_x, lsh_y, rsh_x, rsh_y,
+                       lhip_x, lhip_y, rhip_x, rhip_y)
+    result[["trunk_lean_lateral_deg"]] <-
+      trunk_lean_lateral(lsh_x, lsh_y, rsh_x, rsh_y,
+                         lhip_x, lhip_y, rhip_x, rhip_y)
+    result[["trunk_rotation_deg"]] <-
+      trunk_rotation(lsh_x, lsh_y, rsh_x, rsh_y,
+                     lhip_x, lhip_y, rhip_x, rhip_y)
+    result[["posture_symmetry"]] <-
+      posture_symmetry(lsh_x, lsh_y, rsh_x, rsh_y)
+  } else {
+    result[["trunk_lean_deg"]]         <- NA_real_
+    result[["trunk_lean_lateral_deg"]] <- NA_real_
+    result[["trunk_rotation_deg"]]     <- NA_real_
+    result[["posture_symmetry"]]       <- NA_real_
+  }
+
   result
 }
 
@@ -449,7 +529,7 @@ compute_window_features <- function(df, frame_features, tracking,
           else normalized_jerk(ft_x, ft_y, ft_z, fs)
       }
 
-      # Compensatory pattern index (body mode only — requires hips).
+      # Body-mode-only metrics (CPI + trunk/torso — require hip keypoints).
       if (tracking == "body") {
         lsh_x <- as.numeric(sub_df[["body_left_shoulder_x"]])[win_mask]
         lsh_y <- as.numeric(sub_df[["body_left_shoulder_y"]])[win_mask]
@@ -471,8 +551,33 @@ compute_window_features <- function(df, frame_features, tracking,
           if (sum(!is.na(lean) & !is.na(reach)) >= 5)
             cor(lean, reach, use = "complete.obs")
           else NA_real_
+
+        # Trunk/torso windowed summaries from per-frame values.
+        tl  <- win_ff$trunk_lean_deg
+        tll <- win_ff$trunk_lean_lateral_deg
+        tr  <- win_ff$trunk_rotation_deg
+        ps  <- win_ff$posture_symmetry
+
+        row[["trunk_lean_mean"]]          <- mean(tl, na.rm = TRUE)
+        row[["trunk_lean_sd"]]            <- sd(tl, na.rm = TRUE)
+        row[["trunk_lean_range"]]         <- diff(range(tl, na.rm = TRUE))
+        row[["trunk_lean_lateral_mean"]]  <- mean(tll, na.rm = TRUE)
+        row[["trunk_lean_lateral_sd"]]    <- sd(tll, na.rm = TRUE)
+        row[["trunk_rotation_mean"]]      <- mean(tr, na.rm = TRUE)
+        row[["trunk_rotation_sd"]]        <- sd(tr, na.rm = TRUE)
+        row[["posture_symmetry_mean"]]    <- mean(ps, na.rm = TRUE)
+        row[["posture_symmetry_sd"]]      <- sd(ps, na.rm = TRUE)
       } else {
-        row[["compensatory_pattern_index"]] <- NA_real_
+        row[["compensatory_pattern_index"]]  <- NA_real_
+        row[["trunk_lean_mean"]]             <- NA_real_
+        row[["trunk_lean_sd"]]               <- NA_real_
+        row[["trunk_lean_range"]]            <- NA_real_
+        row[["trunk_lean_lateral_mean"]]     <- NA_real_
+        row[["trunk_lean_lateral_sd"]]       <- NA_real_
+        row[["trunk_rotation_mean"]]         <- NA_real_
+        row[["trunk_rotation_sd"]]           <- NA_real_
+        row[["posture_symmetry_mean"]]       <- NA_real_
+        row[["posture_symmetry_sd"]]         <- NA_real_
       }
 
       # Bilateral comparison for window metrics.

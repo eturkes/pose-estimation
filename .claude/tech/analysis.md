@@ -22,7 +22,7 @@ R deps are managed by `renv` (lockfile: `renv.lock`). Install with `renv::restor
 | Script | Inputs | Outputs |
 |--------|--------|---------|
 | `features.R` | landmark CSVs | Variance ranking, correlation heatmap, scree plot, biplot, UMAP, feature ranking CSV. Requires `uwot`, `tidyverse`. |
-| `clinical_features.R` | landmark CSVs (hands-arms or body) | `*_clinical.csv` (per-frame): elbow flexion, wrist deviation, finger spread, reach distance (raw + shoulder-normalised), grasp aperture (thumb–index, thumb–pinky), wrist/fingertip displacement, **bilateral comparison** (symmetry ratio, dominance index, absolute difference for each metric pair). `*_clinical_windows.csv` (1 s windows, 50 % overlap): spectral arc length (SAL, configurable fc), mean + peak wrist velocity, **normalized jerk** (wrist + fingertip), **movement efficiency** (wrist), **compensatory pattern index** (body mode only), **bilateral comparison** for each window metric. Hands-only CSVs skipped (no arm keypoints). Helpers: `angle_at_vertex`, `dist_3d`, `spectral_arc_length`, `normalized_jerk`, `movement_efficiency`, `trunk_lean_angle`, `compute_bilateral`. |
+| `clinical_features.R` | landmark CSVs (hands-arms or body) | `*_clinical.csv` (per-frame): elbow flexion, wrist deviation, finger spread, reach distance (raw + shoulder-normalised), grasp aperture (thumb–index, thumb–pinky), wrist/fingertip displacement, **bilateral comparison** (symmetry ratio, dominance index, absolute difference for each metric pair), **trunk/torso metrics** (body mode only: trunk lean, lateral lean, trunk rotation, posture symmetry). `*_clinical_windows.csv` (1 s windows, 50 % overlap): spectral arc length (SAL, configurable fc), mean + peak wrist velocity, **normalized jerk** (wrist + fingertip), **movement efficiency** (wrist), **compensatory pattern index** (body mode only), **trunk windowed summaries** (body mode only: mean/sd/range), **bilateral comparison** for each window metric. Hands-only CSVs skipped (no arm keypoints). Helpers: `angle_at_vertex`, `dist_3d`, `spectral_arc_length`, `normalized_jerk`, `movement_efficiency`, `trunk_lean_angle`, `trunk_lean_lateral`, `trunk_rotation`, `posture_symmetry`, `compute_bilateral`. |
 
 ## Clinical comparison / longitudinal
 
@@ -112,6 +112,39 @@ Pearson correlation between `trunk_lean_angle` and `max(left_reach, right_reach)
 ### Per-window bilateral metrics (6 pairs × 3 = 18 columns)
 
 Applied to: `wrist_sal`, `wrist_velocity_mean`, `wrist_velocity_peak`, `wrist_normalized_jerk`, `wrist_movement_efficiency`, `fingertip_normalized_jerk`.
+
+## Trunk/torso metrics (body mode only)
+
+Added to `compute_frame_features()` in `clinical_features.R`, gated behind `tracking == "body"`. Hands-arms and hands modes receive NA for all trunk columns (columns are still emitted for schema consistency).
+
+### Per-frame columns
+
+| Column | Formula | Range | Interpretation |
+|--------|---------|-------|----------------|
+| `trunk_lean_deg` | `trunk_lean_angle()`: unsigned angle between shoulder-midpoint→hip-midpoint vector and vertical | [0, 90] deg | 0 = upright, 90 = horizontal |
+| `trunk_lean_lateral_deg` | `trunk_lean_lateral()`: `atan2(dx, -dy)` where dx = sh_mid_x − hip_mid_x, dy = sh_mid_y − hip_mid_y | (−90, 90) deg | Positive = leaning right, negative = leaning left |
+| `trunk_rotation_deg` | `trunk_rotation()`: angle difference between shoulder line (L→R) and hip line (L→R) | (−180, 180] deg | Positive = shoulders rotated clockwise relative to hips (viewed from front) |
+| `posture_symmetry` | `posture_symmetry()`: (lsh_y − rsh_y) / shoulder_width_2d | (−1, 1) | Positive = right shoulder higher (left dropped); NA when shoulder width ≈ 0 |
+
+### Per-window columns (mean + SD of per-frame values; trunk_lean also gets range)
+
+| Column | Source |
+|--------|--------|
+| `trunk_lean_mean`, `trunk_lean_sd`, `trunk_lean_range` | `trunk_lean_deg` |
+| `trunk_lean_lateral_mean`, `trunk_lean_lateral_sd` | `trunk_lean_lateral_deg` |
+| `trunk_rotation_mean`, `trunk_rotation_sd` | `trunk_rotation_deg` |
+| `posture_symmetry_mean`, `posture_symmetry_sd` | `posture_symmetry` |
+
+### Helpers (`clinical_features.R:194-262`)
+
+- `trunk_lean_angle()` — unsigned total lean (existing, also used by CPI).
+- `trunk_lean_lateral()` — signed lateral lean in frontal plane.
+- `trunk_rotation()` — shoulder vs hip line angle difference.
+- `posture_symmetry()` — normalised shoulder height asymmetry.
+
+### Body-mode gate
+
+Requires hip keypoints (`body_left_hip_*`, `body_right_hip_*`) which only exist in body mode (33 MediaPipe keypoints). Hands-arms mode has 12 arm keypoints (shoulders → finger bases) — no hips. The gate checks `tracking == "body"` in both `compute_frame_features()` and `compute_window_features()`.
 
 ## Aggregation convention
 

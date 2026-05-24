@@ -308,8 +308,52 @@ class TestClinicalFeaturesR:
         with clinical.open() as f:
             reader = csv.DictReader(f)
             cols = list(reader.fieldnames)
+            row = next(reader)
         assert "left_elbow_angle_deg" in cols
         assert "left_reach_norm" in cols
+
+        trunk_cols = [
+            "trunk_lean_deg",
+            "trunk_lean_lateral_deg",
+            "trunk_rotation_deg",
+            "posture_symmetry",
+        ]
+        for col in trunk_cols:
+            assert col in cols, f"Missing trunk column: {col}"
+            val = row[col]
+            assert val != "", f"Trunk metric {col} is empty in body mode"
+            assert val != "NA", f"Trunk metric {col} is NA in body mode"
+
+    def test_hands_arms_trunk_columns_are_na(self, tmp_path):
+        """Hands-arms mode should produce trunk columns but with NA values."""
+        csv_path = tmp_path / "synth_hands-arms.csv"
+        _generate_csv(csv_path, TRACKING_HANDS_ARMS)
+
+        result = subprocess.run(
+            ["Rscript", str(_CLINICAL_R), str(csv_path)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, f"R script failed:\n{result.stderr}"
+
+        clinical = tmp_path / "synth_hands-arms_clinical.csv"
+        assert clinical.exists()
+
+        with clinical.open() as f:
+            reader = csv.DictReader(f)
+            cols = list(reader.fieldnames)
+            row = next(reader)
+
+        trunk_cols = [
+            "trunk_lean_deg",
+            "trunk_lean_lateral_deg",
+            "trunk_rotation_deg",
+            "posture_symmetry",
+        ]
+        for col in trunk_cols:
+            assert col in cols, f"Missing trunk column in hands-arms mode: {col}"
+            assert row[col] == "NA", f"Trunk {col} should be NA in hands-arms mode"
 
     def test_windows_have_sal_features(self, tmp_path):
         csv_path = tmp_path / "synth_hands-arms.csv"
@@ -373,7 +417,7 @@ class TestClinicalFeaturesR:
             assert val != "NA", f"Bilateral window {col} is NA"
 
     def test_body_mode_window_quality_metrics(self, tmp_path):
-        """Body mode should produce compensatory_pattern_index and quality metrics."""
+        """Body mode should produce compensatory_pattern_index, quality, and trunk metrics."""
         csv_path = tmp_path / "synth_body.csv"
         _generate_csv(csv_path, TRACKING_BODY)
 
@@ -411,6 +455,23 @@ class TestClinicalFeaturesR:
         for col in quality_cols:
             val = first[col]
             assert val != "", f"Quality metric {col} is empty in body mode"
+
+        trunk_window_cols = [
+            "trunk_lean_mean",
+            "trunk_lean_sd",
+            "trunk_lean_range",
+            "trunk_lean_lateral_mean",
+            "trunk_lean_lateral_sd",
+            "trunk_rotation_mean",
+            "trunk_rotation_sd",
+            "posture_symmetry_mean",
+            "posture_symmetry_sd",
+        ]
+        for col in trunk_window_cols:
+            assert col in cols, f"Missing trunk window column: {col}"
+            val = first[col]
+            assert val != "", f"Trunk window metric {col} is empty in body mode"
+            assert val != "NA", f"Trunk window metric {col} is NA in body mode"
 
     def test_directory_mode(self, tmp_path):
         """clinical_features.R can accept a directory of CSVs."""

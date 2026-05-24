@@ -10,6 +10,25 @@ Transient working notes — anything from "current investigation" to "half-finis
 
 ---
 
+## 2026-05-24 — Session 2C complete: Trunk/torso metrics (body mode)
+
+Added 4 trunk/torso metrics to `clinical_features.R`, all gated behind `tracking == "body"`:
+
+1. **trunk_lean_deg**: Reuses existing `trunk_lean_angle()` — unsigned total lean from vertical (0 = upright).
+2. **trunk_lean_lateral_deg**: New `trunk_lean_lateral()` — signed lateral lean via `atan2(dx, -dy)`. Positive = leaning right.
+3. **trunk_rotation_deg**: New `trunk_rotation()` — signed angle difference between shoulder line (L→R) and hip line (L→R). Positive = clockwise rotation (viewed from front).
+4. **posture_symmetry**: New `posture_symmetry()` — (lsh_y − rsh_y) / shoulder_width_2d. Positive = right shoulder higher.
+
+Per-frame: 4 new columns. Per-window: 9 new columns (mean/sd/range for lean, mean/sd for the other three).
+
+Non-body modes: columns emitted with NA values for schema consistency across modes.
+
+Tests: 249 passing (1 new: hands-arms trunk columns are NA). Ruff clean.
+
+**Roadmap status:** 1A ✓, 1B ✓, 2A ✓, 2B ✓, 2C ✓ → Next: 2D (temporal segmentation, only remaining Phase 2 task).
+
+---
+
 ## 2026-05-24 — Session 2B complete: Movement quality scores
 
 Added 3 new movement quality metrics + 1 SAL improvement to `clinical_features.R`:
