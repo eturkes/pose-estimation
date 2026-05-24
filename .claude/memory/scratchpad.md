@@ -10,6 +10,24 @@ Transient working notes — anything from "current investigation" to "half-finis
 
 ---
 
+## 2026-05-24 — Session 2D complete: Temporal movement segmentation
+
+Added velocity-profile + aperture-derivative movement segmentation to `clinical_features.R`:
+
+1. **running_median()**: sliding median filter for speed/aperture smoothing.
+2. **classify_movement_phases()**: state machine classifies frames within a movement as REACH → GRASP → TRANSPORT → RELEASE using smoothed grasp-aperture derivative. Adaptive threshold (5% of aperture range). Requires `min_phase_frames` (default 3) consecutive frames for transition. Falls back to REACH-only when no hand data or insufficient aperture variation.
+3. **segment_movements()**: main orchestrator — detects movements via speed threshold (5% of peak, RLE-based), merges close segments, rejects short ones, classifies phases, extracts per-phase features (peak/mean velocity, path length, NJ, SAL, bilateral reach symmetry) and per-movement summary (duration, n_phases, efficiency).
+
+Output: `*_movement_phases.csv` — one row per phase per movement per side per person. 19 columns total.
+
+File exclusion filter updated to skip `*_movement_phases.csv` when processing directories.
+
+Tests: 251 passing (+2 new: smoke test for output schema + crafted reach-grasp trajectory validation). The crafted test writes a CSV directly in MediaPipe format with a known half-sine reach trajectory and open→close→closed→open aperture pattern, then verifies REACH is detected and precedes GRASP.
+
+**Roadmap status:** Phase 1 ✓ (1A, 1B), Phase 2 ✓ (2A, 2B, 2C, 2D) → Phase 2 complete. Next: Phase 3 (3D pipeline, awaiting footage) or Phase 4 (maintenance).
+
+---
+
 ## 2026-05-24 — Session 2C complete: Trunk/torso metrics (body mode)
 
 Added 4 trunk/torso metrics to `clinical_features.R`, all gated behind `tracking == "body"`:

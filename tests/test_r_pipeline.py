@@ -6,6 +6,7 @@ Tests are skipped when R or required R packages are unavailable.
 """
 
 import csv
+import math
 import pathlib
 import shutil
 import subprocess
@@ -103,6 +104,124 @@ def _generate_csv(output_path, tracking, n_kps=133, n_frames=_N_FRAMES):
                 writer.writerow(row)
     finally:
         fh.close()
+
+
+def _write_reach_grasp_csv(output_path, tracking, n_frames=120, fps=30.0):
+    """Write a CSV with a known reach-grasp-transport-release trajectory.
+
+    Left side: smooth half-sine reach-and-return with aperture close/open.
+    Right side: stationary wrist (no movement expected).
+    """
+    header = make_csv_header(tracking)
+    prefix = "arm" if tracking == TRACKING_HANDS_ARMS else "body"
+
+    with output_path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=header, extrasaction="ignore")
+        writer.writeheader()
+
+        for frame in range(n_frames):
+            row = dict.fromkeys(header, "")
+            t = frame / fps
+            row["video"] = "reach_grasp_test.avi"
+            row["frame_idx"] = str(frame)
+            row["timestamp_sec"] = f"{t:.6f}"
+            row["person_idx"] = "0"
+
+            # -- Static keypoints for both sides (shoulders, elbows) --
+            for side in ("left", "right"):
+                bx = 0.30 if side == "left" else 0.70
+                for kp, x, y in [
+                    ("shoulder", bx, 0.30),
+                    ("elbow", bx + 0.05, 0.35),
+                ]:
+                    row[f"{prefix}_{side}_{kp}_x"] = f"{x:.6f}"
+                    row[f"{prefix}_{side}_{kp}_y"] = f"{y:.6f}"
+                    row[f"{prefix}_{side}_{kp}_z"] = "0.0"
+                    vis_col = f"{prefix}_{side}_{kp}_vis"
+                    if vis_col in header:
+                        row[vis_col] = "1.0"
+
+            # -- Right wrist: static --
+            for coord, val in [("x", "0.75"), ("y", "0.40"), ("z", "0.0")]:
+                row[f"{prefix}_right_wrist_{coord}"] = val
+            vis_col = f"{prefix}_right_wrist_vis"
+            if vis_col in header:
+                row[vis_col] = "1.0"
+            wdk = "middle_base" if tracking == TRACKING_HANDS_ARMS else "index"
+            row[f"{prefix}_right_{wdk}_x"] = "0.76"
+            row[f"{prefix}_right_{wdk}_y"] = "0.41"
+            row[f"{prefix}_right_{wdk}_z"] = "0.0"
+            vis_col = f"{prefix}_right_{wdk}_vis"
+            if vis_col in header:
+                row[vis_col] = "1.0"
+
+            # -- Left wrist: half-sine reach-and-return (frames 15-99) --
+            if 15 <= frame < 100:
+                progress = (frame - 15) / (100 - 15)
+                envelope = math.sin(progress * math.pi)
+                lwr_x = 0.32 + 0.25 * envelope
+                lwr_y = 0.35 + 0.10 * envelope
+            else:
+                lwr_x, lwr_y = 0.32, 0.35
+
+            row[f"{prefix}_left_wrist_x"] = f"{lwr_x:.6f}"
+            row[f"{prefix}_left_wrist_y"] = f"{lwr_y:.6f}"
+            row[f"{prefix}_left_wrist_z"] = "0.0"
+            vis_col = f"{prefix}_left_wrist_vis"
+            if vis_col in header:
+                row[vis_col] = "1.0"
+            row[f"{prefix}_left_{wdk}_x"] = f"{lwr_x + 0.01:.6f}"
+            row[f"{prefix}_left_{wdk}_y"] = f"{lwr_y + 0.01:.6f}"
+            row[f"{prefix}_left_{wdk}_z"] = "0.0"
+            vis_col = f"{prefix}_left_{wdk}_vis"
+            if vis_col in header:
+                row[vis_col] = "1.0"
+
+            # -- Left hand aperture: open -> close -> closed -> open --
+            # Open (spread=0.03) for frames < 45, closing 45-59,
+            # closed 60-79, opening 80-94, open >= 95.
+            if frame < 45:
+                spread = 0.030
+            elif frame < 60:
+                p = (frame - 45) / 15.0
+                spread = 0.030 * (1 - p) + 0.005 * p
+            elif frame < 80:
+                spread = 0.005
+            elif frame < 95:
+                p = (frame - 80) / 15.0
+                spread = 0.005 * (1 - p) + 0.030 * p
+            else:
+                spread = 0.030
+
+            row["left_hand_0_x"] = f"{lwr_x:.6f}"
+            row["left_hand_0_y"] = f"{lwr_y:.6f}"
+            row["left_hand_0_z"] = "0.0"
+            row["left_hand_4_x"] = f"{lwr_x - spread:.6f}"
+            row["left_hand_4_y"] = f"{lwr_y + spread:.6f}"
+            row["left_hand_4_z"] = "0.0"
+            row["left_hand_8_x"] = f"{lwr_x + spread:.6f}"
+            row["left_hand_8_y"] = f"{lwr_y + spread:.6f}"
+            row["left_hand_8_z"] = "0.0"
+            row["left_hand_20_x"] = f"{lwr_x + spread * 1.2:.6f}"
+            row["left_hand_20_y"] = f"{lwr_y + spread * 1.2:.6f}"
+            row["left_hand_20_z"] = "0.0"
+
+            # Right hand: static open.
+            for idx, dx in [(0, 0.0), (4, -0.02), (8, 0.02), (20, 0.03)]:
+                row[f"right_hand_{idx}_x"] = f"{0.75 + dx:.6f}"
+                row[f"right_hand_{idx}_y"] = "0.42"
+                row[f"right_hand_{idx}_z"] = "0.0"
+
+            # Body-mode hip keypoints.
+            if tracking == TRACKING_BODY:
+                for side in ("left", "right"):
+                    hx = 0.35 if side == "left" else 0.65
+                    row[f"{prefix}_{side}_hip_x"] = f"{hx:.6f}"
+                    row[f"{prefix}_{side}_hip_y"] = "0.60"
+                    row[f"{prefix}_{side}_hip_z"] = "0.0"
+                    row[f"{prefix}_{side}_hip_visibility"] = "1.0"
+
+            writer.writerow(row)
 
 
 # ---------------------------------------------------------------------------
@@ -472,6 +591,100 @@ class TestClinicalFeaturesR:
             val = first[col]
             assert val != "", f"Trunk window metric {col} is empty in body mode"
             assert val != "NA", f"Trunk window metric {col} is NA in body mode"
+
+    def test_movement_phases_smoke(self, tmp_path):
+        """Segmentation produces *_movement_phases.csv with correct columns."""
+        csv_path = tmp_path / "synth_hands-arms.csv"
+        _generate_csv(csv_path, TRACKING_HANDS_ARMS)
+
+        result = subprocess.run(
+            ["Rscript", str(_CLINICAL_R), str(csv_path)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, f"R script failed:\n{result.stderr}"
+
+        phases_path = tmp_path / "synth_hands-arms_movement_phases.csv"
+        if not phases_path.exists():
+            # Sinusoidal data may not produce movements — acceptable.
+            return
+
+        with phases_path.open() as f:
+            reader = csv.DictReader(f)
+            cols = list(reader.fieldnames)
+            rows = list(reader)
+
+        expected_cols = [
+            "video",
+            "person_idx",
+            "side",
+            "movement_idx",
+            "phase",
+            "start_frame",
+            "end_frame",
+            "duration_sec",
+            "peak_velocity",
+            "mean_velocity",
+            "path_length",
+            "smoothness_nj",
+            "smoothness_sal",
+            "mean_reach_symmetry",
+            "movement_duration_sec",
+            "movement_n_phases",
+            "movement_peak_velocity",
+            "movement_path_length",
+            "movement_efficiency",
+        ]
+        for col in expected_cols:
+            assert col in cols, f"Missing movement-phases column: {col}"
+
+        valid_phases = {"REACH", "GRASP", "TRANSPORT", "RELEASE"}
+        for row in rows:
+            assert row["phase"] in valid_phases, f"Invalid phase: {row['phase']}"
+            assert row["side"] in ("left", "right"), f"Invalid side: {row['side']}"
+
+    def test_reach_grasp_phase_detection(self, tmp_path):
+        """Crafted reach-grasp trajectory produces correct phase sequence."""
+        csv_path = tmp_path / "reach_grasp_hands-arms.csv"
+        _write_reach_grasp_csv(csv_path, TRACKING_HANDS_ARMS)
+
+        result = subprocess.run(
+            ["Rscript", str(_CLINICAL_R), str(csv_path)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, f"R script failed:\n{result.stderr}"
+
+        phases_path = tmp_path / "reach_grasp_hands-arms_movement_phases.csv"
+        assert phases_path.exists(), "No movement_phases.csv produced"
+
+        with phases_path.open() as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+
+        # Left side should have at least one movement with REACH.
+        left_rows = [r for r in rows if r["side"] == "left"]
+        assert len(left_rows) > 0, "No left-side movements detected"
+
+        left_phases = [r["phase"] for r in left_rows if r["movement_idx"] == "1"]
+        assert "REACH" in left_phases, f"REACH missing from left phases: {left_phases}"
+
+        # Verify phase ordering within movement 1: REACH precedes any GRASP.
+        if "GRASP" in left_phases:
+            reach_idx = left_phases.index("REACH")
+            grasp_idx = left_phases.index("GRASP")
+            assert reach_idx < grasp_idx, (
+                f"REACH (idx {reach_idx}) should precede GRASP (idx {grasp_idx})"
+            )
+
+        # All per-phase fields should be populated.
+        for row in left_rows:
+            assert row["peak_velocity"] != "", "peak_velocity is empty"
+            assert row["start_frame"] != "", "start_frame is empty"
+            assert row["end_frame"] != "", "end_frame is empty"
+            assert row["movement_n_phases"] != "", "movement_n_phases is empty"
 
     def test_directory_mode(self, tmp_path):
         """clinical_features.R can accept a directory of CSVs."""

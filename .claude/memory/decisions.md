@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-05-24 — Temporal movement segmentation: velocity + aperture state machine
+
+**Context.** Phase 2 clinical metrics (bilateral comparison, movement quality, trunk/torso) were complete. The final Phase 2 task is automated temporal segmentation to enable per-phase analysis ("is the reach phase getting smoother over sessions?") rather than whole-trial averages.
+**Decision.** Implemented three functions in `clinical_features.R`: `running_median()` (sliding median filter), `classify_movement_phases()` (aperture-derivative state machine for REACH/GRASP/TRANSPORT/RELEASE classification), `segment_movements()` (speed-threshold movement detection via RLE + phase classification + per-phase feature extraction). Output: `*_movement_phases.csv` with 19 columns (per-phase: velocity, path, NJ, SAL, symmetry; per-movement: duration, n_phases, efficiency). State machine uses adaptive threshold (5% of aperture range) with min_phase_frames debounce (default 3). Falls back to REACH-only without hand data. Wired into main loop after window features.
+**Alternatives considered.** (a) ML-based segmentation (HMM, LSTM): rejected — requires labelled training data, not interpretable for clinicians, and the rule-based approach matches the structured tasks (reach-grasp-transport-release) in clinical protocols. (b) Peak-detection event-based approach: rejected — less robust than the derivative-threshold state machine for noisy aperture signals. (c) Global speed-only segmentation (no phase sub-classification): rejected — clinical value comes from per-phase metrics (reach smoothness vs transport smoothness), not just movement detection. (d) Separate R script for segmentation: rejected — segmentation uses the same clinical features already computed, so co-locating avoids redundant file IO and ensures schema consistency.
+**Consequences.** New output file `*_movement_phases.csv` added to each run. File exclusion filter updated to skip it during directory-mode processing. 251 total tests (2 new). Phase 2 is now complete (2A-2D all done). Phase 3 (3D pipeline) is the next major work item.
+**References.** `analysis/clinical_features.R:608-860`, `tests/test_r_pipeline.py:108-230`, `.claude/tech/analysis.md` (segmentation section).
+
+---
+
 ## 2026-05-24 — Adaptive min_cutoff: movement-phase-aware smoothing
 
 **Context.** Session 1A added outlier rejection, lower hand min_cutoff, and multi-frame carry — but fixed min_cutoff still allowed 1-5px jitter during rest periods. The One Euro filter's beta mechanism handles fast movement well (cutoff rises with speed), but the min_cutoff floor is constant — during rest, small noise passes through unchanged.

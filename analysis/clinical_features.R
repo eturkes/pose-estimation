@@ -606,6 +606,335 @@ compute_window_features <- function(df, frame_features, tracking,
 }
 
 # ------------------------------------------------------------------
+# Movement phase segmentation
+# ------------------------------------------------------------------
+
+#' Running median filter (smooths a time series while preserving edges).
+#'
+#' @param x Numeric vector.
+#' @param k Window width (uses floor(k/2) on each side).
+#' @return Smoothed numeric vector of same length as \code{x}.
+running_median <- function(x, k = 5L) {
+  n <- length(x)
+  if (n == 0L) return(x)
+  half <- as.integer(floor(k / 2))
+  out <- numeric(n)
+  for (i in seq_len(n)) {
+    lo <- max(1L, i - half)
+    hi <- min(n, i + half)
+    out[i] <- median(x[lo:hi], na.rm = TRUE)
+  }
+  out
+}
+
+#' Classify frames within a movement into REACH/GRASP/TRANSPORT/RELEASE.
+#'
+#' Uses smoothed grasp-aperture derivative to detect grasp (closing) and
+#' release (opening) events. Without aperture data or insufficient aperture
+#' variation, the entire movement is labelled REACH (pointing task).
+#'
+#' State machine: REACH -> GRASP -> TRANSPORT -> RELEASE.
+#' Transitions may be skipped (e.g. no aperture change -> REACH only).
+#'
+#' @param speed_seg Numeric vector — smoothed speed per frame within movement.
+#' @param aperture_seg Numeric vector — grasp aperture (thumb-index distance).
+#' @param speed_thresh Scalar — speed threshold used for movement detection.
+#' @param min_phase_frames Integer — minimum consecutive frames to trigger a
+#'   phase transition (debounce).
+#' @return Character vector of phase labels, same length as \code{speed_seg}.
+classify_movement_phases <- function(speed_seg, aperture_seg,
+                                     speed_thresh,
+                                     min_phase_frames = 3L) {
+  m <- length(speed_seg)
+  phases <- rep("REACH", m)
+
+  if (all(is.na(aperture_seg)) || m < min_phase_frames * 2L) return(phases)
+
+  # Smooth aperture; fill NAs with LOCF then NOCB.
+  ap <- running_median(aperture_seg, 3L)
+  for (i in 2:m) {
+    if (is.na(ap[i]) && !is.na(ap[i - 1L])) ap[i] <- ap[i - 1L]
+  }
+  if (is.na(ap[1L])) {
+    first_valid <- which(!is.na(ap))[1L]
+    if (is.na(first_valid)) return(phases)
+    ap[seq_len(first_valid - 1L)] <- ap[first_valid]
+  }
+  if (any(is.na(ap))) return(phases)
+
+  # Smoothed aperture derivative.
+  ap_d <- c(0, diff(ap))
+  ap_d <- running_median(ap_d, 3L)
+
+  # Adaptive threshold: 5% of aperture range within the movement.
+  ap_range <- diff(range(ap, na.rm = TRUE))
+  if (ap_range < 1e-8) return(phases)
+  ap_thresh <- ap_range * 0.05
+
+  # --- Find GRASP: first sustained run of ap_d < -ap_thresh ---
+  grasp_start <- NA_integer_
+  grasp_end <- NA_integer_
+  run_len <- 0L
+  for (i in seq_len(m)) {
+    if (!is.na(ap_d[i]) && ap_d[i] < -ap_thresh) {
+      run_len <- run_len + 1L
+      if (run_len >= min_phase_frames && is.na(grasp_start)) {
+        grasp_start <- i - min_phase_frames + 1L
+      }
+    } else {
+      if (!is.na(grasp_start) && is.na(grasp_end)) grasp_end <- i - 1L
+      run_len <- 0L
+    }
+  }
+  if (!is.na(grasp_start) && is.na(grasp_end)) grasp_end <- m
+
+  if (is.na(grasp_start)) return(phases)
+  phases[grasp_start:grasp_end] <- "GRASP"
+
+  if (grasp_end >= m) return(phases)
+
+  # --- Find RELEASE: sustained run of ap_d > ap_thresh after GRASP ---
+  release_start <- NA_integer_
+  run_len <- 0L
+  for (i in (grasp_end + 1L):m) {
+    if (!is.na(ap_d[i]) && ap_d[i] > ap_thresh) {
+      run_len <- run_len + 1L
+      if (run_len >= min_phase_frames && is.na(release_start)) {
+        release_start <- i - min_phase_frames + 1L
+      }
+    } else {
+      run_len <- 0L
+    }
+  }
+
+  if (!is.na(release_start)) {
+    if (release_start - grasp_end >= min_phase_frames) {
+      phases[(grasp_end + 1L):(release_start - 1L)] <- "TRANSPORT"
+    }
+    phases[release_start:m] <- "RELEASE"
+  } else if (grasp_end < m) {
+    phases[(grasp_end + 1L):m] <- "TRANSPORT"
+  }
+
+  phases
+}
+
+#' Detect and segment movements from landmark data.
+#'
+#' Velocity-profile segmentation of wrist trajectory with sub-phase
+#' classification via grasp-aperture analysis. Produces one row per
+#' phase per movement per side per person.
+#'
+#' Algorithm:
+#'   1. Compute wrist speed, smooth with running median.
+#'   2. Detect above-threshold segments (RLE), merge close ones, reject
+#'      short ones.
+#'   3. Within each movement, classify phases via aperture derivative.
+#'   4. Extract per-phase features (velocity, path, NJ, SAL, symmetry).
+#'
+#' @param df Data frame — raw landmark CSV (from read_csv).
+#' @param frame_features Data frame — output of compute_frame_features().
+#' @param tracking Character — tracking mode ("body" or "hands-arms").
+#' @param speed_thresh_pct Fraction of peak speed for onset/offset (0.05).
+#' @param min_movement_frames Minimum frames to count as a movement (5).
+#' @param min_gap_frames Maximum gap between segments before merging (3).
+#' @param median_k Running-median filter width for speed smoothing (5).
+#' @param min_phase_frames Minimum frames for a sub-phase (3).
+#' @return Tibble with one row per phase. Empty tibble if no movements.
+segment_movements <- function(df, frame_features, tracking,
+                              speed_thresh_pct = 0.05,
+                              min_movement_frames = 5L,
+                              min_gap_frames = 3L,
+                              median_k = 5L,
+                              min_phase_frames = 3L) {
+  prefix <- if (tracking == "body") "body" else "arm"
+  bcol <- function(side, kp, coord) {
+    paste0(prefix, "_", side, "_", kp, "_", coord)
+  }
+
+  groups <- frame_features |>
+    select(video, person_idx) |>
+    distinct()
+
+  all_rows <- list()
+  ri <- 0L
+
+  for (g in seq_len(nrow(groups))) {
+    vid <- groups$video[g]
+    pid <- groups$person_idx[g]
+
+    mask <- df$video == vid & as.integer(df$person_idx) == pid
+    sub_df <- df[mask, ]
+    sub_ff <- frame_features[mask, ]
+
+    ts <- as.numeric(sub_df$timestamp_sec)
+    frame_idxs <- as.integer(sub_df$frame_idx)
+    n <- length(ts)
+    if (n < min_movement_frames) next
+
+    dt_median <- median(diff(ts), na.rm = TRUE)
+    if (is.na(dt_median) || dt_median <= 0) next
+    fs <- 1 / dt_median
+
+    for (side in c("left", "right")) {
+      wr_x <- as.numeric(sub_df[[bcol(side, "wrist", "x")]])
+      wr_y <- as.numeric(sub_df[[bcol(side, "wrist", "y")]])
+      wr_z <- as.numeric(sub_df[[bcol(side, "wrist", "z")]])
+      if (all(is.na(wr_x))) next
+
+      # Speed (coord-units/sec); NA → 0 for threshold comparison.
+      dx <- c(0, diff(wr_x))
+      dy <- c(0, diff(wr_y))
+      dz <- c(0, diff(wr_z))
+      speed_raw <- sqrt(dx^2 + dy^2 + dz^2) * fs
+      speed_raw[is.na(speed_raw)] <- 0
+      speed <- running_median(speed_raw, median_k)
+
+      peak_speed <- max(speed)
+      if (peak_speed < 1e-10) next
+      speed_thresh <- peak_speed * speed_thresh_pct
+
+      # --- Detect active segments via RLE ---
+      active <- speed > speed_thresh
+      rle_res <- rle(active)
+      cum_len <- cumsum(rle_res$lengths)
+      seg_starts <- c(1L, cum_len[-length(cum_len)] + 1L)
+
+      active_idx <- which(rle_res$values)
+      if (length(active_idx) == 0L) next
+
+      segs <- data.frame(
+        start = seg_starts[active_idx],
+        end   = cum_len[active_idx]
+      )
+
+      # Merge segments separated by <= min_gap_frames.
+      if (nrow(segs) > 1L) {
+        merged <- list(segs[1L, ])
+        for (i in 2:nrow(segs)) {
+          last <- merged[[length(merged)]]
+          if (segs$start[i] - last$end <= min_gap_frames) {
+            merged[[length(merged)]]$end <- segs$end[i]
+          } else {
+            merged[[length(merged) + 1L]] <- segs[i, ]
+          }
+        }
+        segs <- do.call(rbind, merged)
+      }
+
+      # Reject short segments.
+      segs <- segs[segs$end - segs$start + 1L >= min_movement_frames,
+                   , drop = FALSE]
+      if (nrow(segs) == 0L) next
+
+      # Aperture and bilateral symmetry vectors for this person × side.
+      aperture <- as.numeric(
+        sub_ff[[paste0(side, "_grasp_aperture_thumb_index")]]
+      )
+      reach_sym_col <- "reach_raw_symmetry_ratio"
+      reach_sym <- if (reach_sym_col %in% names(sub_ff))
+        as.numeric(sub_ff[[reach_sym_col]]) else rep(NA_real_, n)
+
+      # --- Process each movement ---
+      movement_idx <- 0L
+      for (s in seq_len(nrow(segs))) {
+        movement_idx <- movement_idx + 1L
+        si <- segs$start[s]
+        ei <- segs$end[s]
+        seg_range <- si:ei
+
+        speed_seg    <- speed[seg_range]
+        aperture_seg <- aperture[seg_range]
+        wr_x_seg     <- wr_x[seg_range]
+        wr_y_seg     <- wr_y[seg_range]
+        wr_z_seg     <- wr_z[seg_range]
+        ts_seg       <- ts[seg_range]
+        fi_seg       <- frame_idxs[seg_range]
+
+        # Phase classification.
+        phase_labels <- classify_movement_phases(
+          speed_seg, aperture_seg, speed_thresh, min_phase_frames
+        )
+
+        # Per-movement summary.
+        mvmt_dur      <- ts_seg[length(ts_seg)] - ts_seg[1L]
+        mvmt_peak_vel <- max(speed_seg, na.rm = TRUE)
+        mvmt_path     <- sum(sqrt(diff(wr_x_seg)^2 + diff(wr_y_seg)^2 +
+                                  diff(wr_z_seg)^2), na.rm = TRUE)
+        mvmt_eff      <- movement_efficiency(wr_x_seg, wr_y_seg, wr_z_seg)
+
+        # Collapse consecutive same-phase frames into phase segments.
+        phase_rle <- rle(phase_labels)
+        n_phases  <- length(phase_rle$lengths)
+        phase_cum <- cumsum(phase_rle$lengths)
+        phase_s   <- c(1L, phase_cum[-n_phases] + 1L)
+
+        for (p in seq_len(n_phases)) {
+          pi_s <- phase_s[p]
+          pi_e <- phase_cum[p]
+          p_range    <- pi_s:pi_e
+          orig_range <- seg_range[p_range]
+
+          p_speed <- speed_seg[p_range]
+          p_wr_x  <- wr_x_seg[p_range]
+          p_wr_y  <- wr_y_seg[p_range]
+          p_wr_z  <- wr_z_seg[p_range]
+          p_ts    <- ts_seg[p_range]
+
+          p_dur <- if (length(p_ts) > 1L) {
+            p_ts[length(p_ts)] - p_ts[1L]
+          } else 0
+
+          p_path <- if (length(p_wr_x) > 1L) {
+            sum(sqrt(diff(p_wr_x)^2 + diff(p_wr_y)^2 + diff(p_wr_z)^2),
+                na.rm = TRUE)
+          } else 0
+
+          p_nj  <- normalized_jerk(p_wr_x, p_wr_y, p_wr_z, fs)
+          p_sal <- spectral_arc_length(p_speed, fs)
+
+          p_sym <- reach_sym[orig_range]
+          p_mean_sym <- if (any(!is.na(p_sym))) {
+            mean(p_sym, na.rm = TRUE)
+          } else NA_real_
+
+          ri <- ri + 1L
+          all_rows[[ri]] <- tibble(
+            video                 = vid,
+            person_idx            = pid,
+            side                  = side,
+            movement_idx          = as.integer(movement_idx),
+            phase                 = phase_rle$values[p],
+            start_frame           = fi_seg[pi_s],
+            end_frame             = fi_seg[pi_e],
+            duration_sec          = round(p_dur, 4),
+            peak_velocity         = round(max(p_speed, na.rm = TRUE), 6),
+            mean_velocity         = round(mean(p_speed, na.rm = TRUE), 6),
+            path_length           = round(p_path, 6),
+            smoothness_nj         = if (!is.na(p_nj)) round(p_nj, 4)
+                                    else NA_real_,
+            smoothness_sal        = if (!is.na(p_sal)) round(p_sal, 4)
+                                    else NA_real_,
+            mean_reach_symmetry   = if (!is.na(p_mean_sym))
+                                      round(p_mean_sym, 4)
+                                    else NA_real_,
+            movement_duration_sec = round(mvmt_dur, 4),
+            movement_n_phases     = as.integer(n_phases),
+            movement_peak_velocity = round(mvmt_peak_vel, 6),
+            movement_path_length  = round(mvmt_path, 6),
+            movement_efficiency   = if (!is.na(mvmt_eff)) round(mvmt_eff, 4)
+                                    else NA_real_
+          )
+        }
+      }
+    }
+  }
+
+  if (ri == 0L) return(tibble())
+  bind_rows(all_rows[seq_len(ri)])
+}
+
+# ------------------------------------------------------------------
 # Main
 # ------------------------------------------------------------------
 
@@ -619,7 +948,7 @@ if (dir.exists(path)) {
   files <- list.files(path, pattern = "\\.csv$", full.names = TRUE)
   files <- files[!str_detect(
     basename(files),
-    "(metrics|kp_detail|diag|summary|smooth|feature_rank|clinical[_a-z]*)\\.csv$"
+    "(metrics|kp_detail|diag|summary|smooth|feature_rank|clinical[_a-z]*|movement_phases)\\.csv$"
   )]
   if (length(files) == 0) stop("No landmark CSVs found in ", path)
 } else {
@@ -661,6 +990,19 @@ for (f in files) {
     cat(sprintf("  Wrote %d windows → %s\n", nrow(windows), basename(out_win)))
   } else {
     cat("  No windows produced (video may be too short).\n")
+  }
+
+  # Movement phase segmentation.
+  cat("  Segmenting movements...\n")
+  phases <- segment_movements(df, clinical, tracking)
+
+  if (nrow(phases) > 0) {
+    out_phases <- paste0(stem, "_movement_phases.csv")
+    write_csv(phases, out_phases)
+    cat(sprintf("  Wrote %d phases → %s\n", nrow(phases),
+                basename(out_phases)))
+  } else {
+    cat("  No movements detected.\n")
   }
 
   cat("  Done.\n")

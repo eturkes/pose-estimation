@@ -146,6 +146,61 @@ Added to `compute_frame_features()` in `clinical_features.R`, gated behind `trac
 
 Requires hip keypoints (`body_left_hip_*`, `body_right_hip_*`) which only exist in body mode (33 MediaPipe keypoints). Hands-arms mode has 12 arm keypoints (shoulders → finger bases) — no hips. The gate checks `tracking == "body"` in both `compute_frame_features()` and `compute_window_features()`.
 
+## Temporal movement segmentation
+
+Added by `segment_movements()` in `clinical_features.R`. Produces `*_movement_phases.csv` alongside the existing per-frame and per-window outputs.
+
+### Algorithm
+
+1. **Movement detection**: per-side wrist speed (coord-units/sec) smoothed with `running_median(k=5)`. Above-threshold segments detected via RLE where threshold = `speed_thresh_pct` × peak speed (default 5%). Close segments merged (gap ≤ `min_gap_frames`, default 3). Short segments rejected (< `min_movement_frames`, default 5).
+
+2. **Phase classification** (`classify_movement_phases()`): state machine within each movement using smoothed grasp-aperture derivative:
+   - **REACH** — default (hand moving, aperture stable/open)
+   - **GRASP** — first sustained run of aperture derivative < −threshold (closing)
+   - **TRANSPORT** — between GRASP end and RELEASE start (moving with closed aperture)
+   - **RELEASE** — sustained run of aperture derivative > +threshold (opening)
+   - Transitions require `min_phase_frames` (default 3) consecutive frames. Aperture threshold is adaptive: 5% of aperture range within the movement. Without hand data, entire movement stays REACH.
+
+3. **Per-phase feature extraction**: peak/mean velocity, path length, normalized jerk, SAL, mean bilateral reach symmetry ratio.
+
+4. **Per-movement summary** (denormalized across phase rows): total duration, number of phases, peak velocity, total path length, movement efficiency.
+
+### Output schema (`*_movement_phases.csv`)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `video` | string | Source video name |
+| `person_idx` | int | Person index |
+| `side` | string | "left" or "right" |
+| `movement_idx` | int | Movement number (per side, 1-based) |
+| `phase` | string | REACH, GRASP, TRANSPORT, or RELEASE |
+| `start_frame`, `end_frame` | int | Frame range (inclusive) |
+| `duration_sec` | float | Phase duration |
+| `peak_velocity`, `mean_velocity` | float | Speed statistics (coord/sec) |
+| `path_length` | float | Cumulative wrist displacement |
+| `smoothness_nj` | float | Normalized jerk (NA if < 5 frames) |
+| `smoothness_sal` | float | Spectral arc length (NA if < 4 frames) |
+| `mean_reach_symmetry` | float | Mean reach_raw_symmetry_ratio during phase |
+| `movement_duration_sec` | float | Total movement duration |
+| `movement_n_phases` | int | Distinct phases in this movement |
+| `movement_peak_velocity` | float | Peak speed across entire movement |
+| `movement_path_length` | float | Total path length across movement |
+| `movement_efficiency` | float | Path length / straight-line distance |
+
+### Helpers
+
+- `running_median(x, k)` — sliding median filter preserving edges.
+- `classify_movement_phases()` — aperture-derivative state machine.
+- `segment_movements()` — main orchestrator (movement detection + phase classification + feature extraction).
+
+### Edge cases
+
+- **No hand data** → all phases labelled REACH (pointing/reaching tasks).
+- **Low aperture variation** (range < 1e-8) → all phases labelled REACH.
+- **Very short video** (< `min_movement_frames`) → no movements detected.
+- **Static wrist** (peak speed < 1e-10) → no movements detected.
+- **Hands-only mode** → skipped (same as all other clinical features).
+
 ## Aggregation convention
 
 Per-video aggregation (used by correlation / longitudinal / dimreduce / compare): mean, median, SD, min, max for frame features; mean, SD for window features. Implemented once in `aggregate_per_video()` (`utils.R`); always reuse rather than duplicate.

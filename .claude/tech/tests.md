@@ -43,7 +43,7 @@ All tests live in `tests/`. Run with `uv run pytest`. Pytest is configured stric
 
 | File | Covers |
 |------|--------|
-| `tests/test_r_pipeline.py` | End-to-end R pipeline compatibility: verifies rtmlib-mapped CSVs (via `coco_to_mediapipe` + `frame_to_rows`) are consumable by `clinical_features.R`. Tests CSV schema for hands-arms/body/17-kp modes, runs R clinical pipeline on synthetic data, verifies output columns. Skipped when R unavailable. |
+| `tests/test_r_pipeline.py` | End-to-end R pipeline compatibility: verifies rtmlib-mapped CSVs (via `coco_to_mediapipe` + `frame_to_rows`) are consumable by `clinical_features.R`. Tests CSV schema for hands-arms/body/17-kp modes, runs R clinical pipeline on synthetic data, verifies output columns including movement-phase segmentation (smoke test + crafted reach-grasp trajectory). Skipped when R unavailable. |
 
 ## Infrastructure
 
