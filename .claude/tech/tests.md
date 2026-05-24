@@ -17,6 +17,7 @@ All tests live in `tests/`. Run with `uv run pytest`. Pytest is configured stric
 
 | File | Covers |
 |------|--------|
+| `tests/test_rtmlib_csv_export.py` | `run.py` CSV export via `process_source()`: schema correctness, row counts, coordinate normalization, video_name handling. Uses mock tracker + synthetic video. |
 | `tests/test_rtmw_age_gating.py` | Age-based gating of stale detections. |
 | `tests/test_rtmw_confidence.py` | Confidence handling for the 133-keypoint output. |
 | `tests/test_rtmw_constraints.py` | Constraint behaviour on rtmlib keypoints. |

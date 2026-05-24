@@ -29,6 +29,8 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 
 from .constraints import BoneLengthSmoother
+from .export import frame_to_rows, open_csv_writer
+from .mapping import coco_to_mediapipe
 from .multicam import (
     SessionError,
     discover_session,
@@ -722,6 +724,11 @@ def parse_args():
         "--det-frequency", type=int, default=7, help="Run detector every N frames (default: 7)"
     )
     p.add_argument("--headless", action="store_true", help="No display — just print latency stats")
+    p.add_argument(
+        "--output-dir",
+        default=None,
+        help="Directory for CSV output. Per-source CSVs are written here.",
+    )
     p.add_argument("--max-frames", type=int, default=0, help="Stop after N frames (0 = unlimited)")
     p.add_argument("--no-smooth", action="store_true", help="Disable temporal smoothing")
     p.add_argument("--no-constraints", action="store_true", help="Disable bone-length constraints")
@@ -734,9 +741,22 @@ def parse_args():
 
 
 def process_source(
-    args, pose_tracker, source_str, draw_skeleton, smoother=None, bone_smoother=None, screen=None
+    args,
+    pose_tracker,
+    source_str,
+    draw_skeleton,
+    smoother=None,
+    bone_smoother=None,
+    screen=None,
+    output_csv=None,
+    video_name=None,
 ):
-    """Process a single video/camera source.  Returns latency list (ms)."""
+    """Process a single video/camera source.  Returns latency list (ms).
+
+    When *output_csv* is a path, per-frame keypoints are mapped to the
+    MediaPipe CSV schema and written to that file.  *video_name* is the
+    label written into the CSV ``video`` column (defaults to filename).
+    """
     source = int(source_str) if source_str.isdigit() else source_str
     cap = _open_capture(source, source_str)
     if cap is None:
@@ -755,6 +775,15 @@ def process_source(
     use_pygame = not args.headless and screen is not None
     if use_pygame:
         import pygame
+
+    # CSV export setup
+    csv_fh = None
+    csv_writer = None
+    csv_video_name = video_name or (
+        pathlib.Path(source_str).name if not source_str.isdigit() else "webcam"
+    )
+    if output_csv is not None:
+        csv_fh, csv_writer = open_csv_writer(output_csv, tracking=args.tracking)
 
     latencies = []
     processing_times = collections.deque(maxlen=60)
@@ -801,6 +830,27 @@ def process_source(
             )
             n_kps = keypoints.shape[1] if n_persons > 0 else 0
 
+            # CSV export
+            if csv_writer is not None and n_persons > 0:
+                timestamp = (frame_idx - 1) / fps_video if fps_video > 0 else 0.0
+                body_lm, body_vis, hand_lm, matches = coco_to_mediapipe(
+                    keypoints, scores, n_kps, args.tracking
+                )
+                rows = frame_to_rows(
+                    video_name=csv_video_name,
+                    frame_idx=frame_idx,
+                    timestamp_sec=timestamp,
+                    frame_h=h,
+                    frame_w=w,
+                    body_landmarks=body_lm,
+                    body_visibilities=body_vis,
+                    hand_landmarks=hand_lm,
+                    matches=matches,
+                    tracking=args.tracking,
+                )
+                for row in rows:
+                    csv_writer.writerow(row)
+
             if frame_idx <= 5 or frame_idx % 50 == 0:
                 mean_lat = np.mean(latencies[-50:])
                 print(
@@ -844,11 +894,11 @@ def process_source(
                     if frame_idx == 1:
                         fh, fw = img_show.shape[:2]
                         screen = pygame.display.set_mode((fw, fh))
-                        video_name = (
+                        _caption = (
                             pathlib.Path(source_str).name if not source_str.isdigit() else None
                         )
-                        if video_name:
-                            pygame.display.set_caption(f"{WINDOW_TITLE} — {video_name}")
+                        if _caption:
+                            pygame.display.set_caption(f"{WINDOW_TITLE} — {_caption}")
                     screen.blit(_frame_to_surface(img_show), (0, 0))
                     pygame.display.flip()
 
@@ -856,6 +906,9 @@ def process_source(
         print("\nInterrupted.")
     finally:
         cap.release()
+        if csv_fh is not None:
+            csv_fh.close()
+            print(f"  CSV written: {output_csv}")
 
     return latencies
 
@@ -900,6 +953,8 @@ def _run_mediapipe(args):
         cmd += ["--calibration", args.calibration]
     cmd += ["--device", args.device]
     cmd += ["--tracking", args.tracking]
+    if args.output_dir:
+        cmd += ["--output-dir", args.output_dir]
     if args.single_subject:
         cmd.append("--single-subject")
     if args.headless:
@@ -955,6 +1010,8 @@ def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoo
             smoother=smoother,
             bone_smoother=bone_smoother,
             screen=screen,
+            output_csv=str(output_csv),
+            video_name=video_name,
         )
         print_latency_summary(latencies)
         return latencies
@@ -1085,6 +1142,11 @@ def main():
         screen = _pg.display.set_mode((640, 480))
         _pg.display.set_caption(WINDOW_TITLE)
 
+    # ── Resolve output directory ───────────────────────────────────
+    out_dir = pathlib.Path(args.output_dir) if args.output_dir else None
+    if out_dir is not None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+
     # ── Process each source ─────────────────────────────────────────
     all_latencies = []
     try:
@@ -1093,6 +1155,11 @@ def main():
                 print(f"\n{'=' * 60}")
                 print(f"[{i + 1}/{len(sources)}] {src}")
                 print("=" * 60)
+
+            # Derive per-source CSV path
+            csv_path = None
+            if out_dir is not None and not src.isdigit():
+                csv_path = str(out_dir / (pathlib.Path(src).stem + ".csv"))
 
             if smoother is not None:
                 smoother.reset()
@@ -1104,6 +1171,7 @@ def main():
                 smoother=smoother,
                 bone_smoother=bone_smoother,
                 screen=screen,
+                output_csv=csv_path,
             )
             print_latency_summary(latencies)
             all_latencies.extend(latencies)
