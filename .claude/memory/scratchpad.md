@@ -10,6 +10,26 @@ Transient working notes — anything from "current investigation" to "half-finis
 
 ---
 
+## 2026-05-24 — New roadmap: Stability + Clinical Metrics + 3D Pipeline
+
+User confirmed: jitter/drops persist across backends/modes, and four categories of new clinical metrics needed (trunk/torso, movement quality, bilateral comparison, temporal segmentation). 3-cam footage is ~2-4 weeks away.
+
+Plan rationale:
+- **Phase 1 (Tracking stability)** is highest priority because noisy input corrupts ALL downstream clinical metrics. Fixing jitter first ensures the new metrics in Phase 2 are computed from clean data.
+- **Phase 2 (Clinical metrics)** is the bulk of the work. Four sub-tasks ordered by complexity: bilateral comparison (easiest, derives from existing per-side metrics) -> movement quality scores (extends SAL infrastructure) -> trunk/torso (body-mode gated, needs careful keypoint availability checks) -> temporal segmentation (most complex, benefits from having other metrics available for per-phase extraction).
+- **Phase 3 (3D pipeline)** can overlap with Phase 2 since they're independent codepaths. Start when footage timeline firms up. All stubs can be implemented and tested against synthetic data.
+- **Phase 4 (Maintenance)** is periodic and interleaved freely.
+
+Key design decisions for this plan:
+- Trunk metrics are body-mode only (hands-arms has NO hip keypoints). Must gate behind detect_tracking().
+- Temporal segmentation uses velocity-profile + grasp-aperture state machine (rule-based, interpretable for clinicians, avoids ML training data requirements).
+- Bilateral comparison uses min(L,R)/max(L,R) symmetry ratio (1.0 = symmetric) and (R-L)/(R+L) dominance index (signed, handles division-by-zero).
+- fuse_session_frame() can be implemented entirely with synthetic tests before real footage arrives.
+
+Session prompts updated in `.claude/prompts/sessions.md`. 10 tasks tracked.
+
+---
+
 ## 2026-05-24 — E2E roadmap complete; all 8 tasks resolved
 
 Session completed the full Clinical Pipeline E2E roadmap:

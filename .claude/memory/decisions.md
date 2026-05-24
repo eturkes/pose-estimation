@@ -16,6 +16,20 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-05-24 — Roadmap: Stability + Clinical Metrics + 3D Pipeline
+
+**Context.** Previous E2E roadmap complete. User reports persistent jitter/drops across all backends/modes and needs four categories of new clinical metrics (trunk/torso, movement quality, bilateral comparison, temporal segmentation). 3-cam footage ~2-4 weeks away.
+**Decision.** 10-task roadmap in 4 phases:
+- Phase 1 (Tracking stability): Investigate jitter + add adaptive smoothing. Highest priority — clean input is prerequisite for reliable clinical metrics.
+- Phase 2 (Clinical metrics): Bilateral comparison -> movement quality scores -> trunk/torso metrics -> temporal segmentation. Ordered by complexity; segmentation blocked by bilateral + quality.
+- Phase 3 (3D pipeline): fuse_session_frame() + solve_charuco() + 3D CSV/R. Implementable with synthetic data; validates against real footage when available.
+- Phase 4 (Maintenance): Periodic dependency/security/tech-notes cycle.
+**Alternatives considered.** (a) Wait for 3-cam footage before any new work: rejected — 2-4 week window is ideal for the substantial R-side clinical metrics work that's independent of 3D. (b) Start with temporal segmentation (highest clinical value): rejected — segmentation quality depends on having bilateral and quality metrics for per-phase characterization. (c) Unified Python+R clinical feature engine: rejected — R is the established clinical analysis language in this domain; maintaining the R pipeline is the right call.
+**Consequences.** Phase 2 adds ~4 new output files (*_clinical.csv gains columns; new *_movement_phases.csv). Trunk metrics are body-mode-only. When 3D arrives (Phase 3), clinical_features.R gains a 3D analysis path (*_clinical_3d.csv). The segmentation state machine is rule-based (interpretable for clinicians) rather than ML-based.
+**References.** `.claude/prompts/sessions.md` (session prompts), `.claude/memory/scratchpad.md` (plan rationale).
+
+---
+
 ## 2026-05-24 — main.py/run.py refactor: analysis shows not worthwhile
 
 **Context.** Roadmap task #7 proposed extracting shared patterns (CLI args, video loop, pygame setup, batch iteration, progress reporting) from main.py (827 lines) and run.py (1193 lines).
