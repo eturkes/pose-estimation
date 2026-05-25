@@ -40,6 +40,7 @@ Entry point for agent sessions. Load files on demand using the "when to load" hi
 | File | Use |
 |------|-----|
 | `prompts/kickoff.md` | Reusable kickoff prompt for fresh sessions. Paste into a new session to bootstrap context. |
+| `prompts/sessions.md` | Roadmap status + per-task session prompts. Load to check what's done vs pending. |
 
 ## Authoring rules
 

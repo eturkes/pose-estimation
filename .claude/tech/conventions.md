@@ -2,8 +2,8 @@
 
 ## Git
 
-- Commit subject line: under 50 characters; imperative mood.
-- Commit body line wrap: under 72 characters.
+- Commit timing: commit before every end-of-turn message that closes out a cohesive piece of work. Defer commits when mid-iteration and awaiting user input.
+- Commit messages: optimized for parsing by an LLM. Subject line under 50 characters, imperative mood. Body line wrap under 72 characters.
 - Before committing, always check whether `README.md`, `.gitignore`, `pyproject.toml`, or other housekeeping files need a matching update.
 - The user handles all commands that affect the remote (push, force-push, branch creation, etc.). Agents stop at the local commit.
 
