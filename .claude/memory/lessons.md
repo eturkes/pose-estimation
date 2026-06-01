@@ -15,6 +15,15 @@ Append-only. Each lesson should yield a positive, actionable rule (avoid "do not
 
 ---
 
+## 2026-06-01 — Reinstall R graphics sysreqs after container recreation
+
+**Symptom.** After a Distrobox container rebuild, `library(ragg)` failed (`libwebpmux.so.3: cannot open shared object file`) and `renv::restore()` warned that `libfontconfig1-dev`/`libfreetype6-dev` were missing — though the 2026-05-24 R migration had installed them.
+**Root cause.** apt-installed system packages live in the container, not the project. Recreating the container drops them while the project-local renv library survives, leaving its pre-compiled `.so` files (e.g. `ragg.so`) unable to find their runtime libs.
+**Rule (positive form).** After a container recreation, first reinstall the documented R-graphics sysreqs (the apt list in the 2026-05-24 "R environment migrated" decision), then verify with `Rscript -e 'library(ragg); library(ggplot2)'`. A durable fix is a project setup script encoding that list.
+**Where to check.** `.claude/memory/decisions.md` (2026-05-24 R migration — canonical apt list), `.claude/tech/environment.md`.
+
+---
+
 ## 2026-05-24 — Always validate resolved paths stay within the expected directory
 
 **Symptom.** Security audit found `(base / user_ref).resolve()` in multicam.py accepts `../` traversal in session.json manifest fields.

@@ -55,6 +55,12 @@ Strict config: `-ra --strict-config --strict-markers --import-mode=importlib`. W
 - Prefer editing existing modules to introducing new ones; the surface is small on purpose.
 - Comments: keep sparse. The CLAUDE.md (project root) directive applies — explain WHY when non-obvious; don't restate WHAT the code does.
 
+## Working style (agents)
+
+- Subagents: when dispatching work, always run them on the most capable model (Opus) with maximum thinking — the same tier the main session uses. Multi-agent councils/teams are encouraged for hard problems (per CLAUDE.md).
+- Prose (docs, commit bodies, memory): dry, direct, concise, precise; assume a technical reader.
+- New behaviour: favour red-green-refactor (failing test → make it pass → refactor), balanced against the overtesting caution in CLAUDE.md and `tech/tests.md`.
+
 ## Agent-writable files
 
 - `/CLAUDE.md` (project root) — meta-instructions. Agents may rewrite freely when content is obsolete, better phrased, or superseded (per 2026-05-24 decision).

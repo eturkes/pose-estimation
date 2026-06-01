@@ -1,10 +1,11 @@
 # Environment
 
-## Host
+## Host / container
 
-- Linux (currently openSUSE / kernel 7.0.9-1-default per session host).
+- Two layers: an **openSUSE-based host** and a **Debian (trixie) Distrobox container** where agent sessions run. Home is shared across both, which is why `.venv` (host-created) and in-container R coexist — see the Container caveat below.
 - GNOME Wayland — the reason `pygame-ce` is used for display (Qt-bundled OpenCV does not render on Wayland).
-- Python 3.10+ required (`>=3.10` in `pyproject.toml`); host Python is 3.13 (see `.python-version`).
+- Python 3.10+ required; the exact interpreter is pinned in `.python-version` and the floor declared in `pyproject.toml`.
+- In-container agent tooling: language servers (LSP) and persistent REPLs via `bgcmd` (`~/.local/bin/bgcmd`) — prefer these for interactive inspection over one-shot scripts.
 
 ## Python toolchain
 

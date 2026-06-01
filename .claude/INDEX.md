@@ -48,5 +48,6 @@ Entry point for agent sessions. Load files on demand using the "when to load" hi
 - Always cross-reference with `path/to/file.py:line` so navigation is cheap.
 - Always keep tech notes accurate to current code; correct drift the moment you spot it.
 - Always append to `memory/` rather than overwrite, unless pruning redundant entries.
+- Always make each entry earn its place: capture only what the code, project docs, and Git history do not. Omit drift-prone specifics like package/version numbers — they live in `uv.lock` / `renv.lock` and commits.
 - `/CLAUDE.md` (project root meta-instructions) is agent-writable — rewrite freely when content is obsolete, better phrased, or superseded.
 - README.md is the public/human-discoverable face; keep it concise but informative.

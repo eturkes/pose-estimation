@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-01 — CLAUDE.md alignment audit + R-environment maintenance
+
+**Context.** User revised CLAUDE.md (home-dir maintenance directive; "entries must add value beyond docs/code/Git — package versions are bloat"; dry-prose rule; subagents must use the largest model + TDD/multi-agent councils; Debian-Distrobox-on-openSUSE env detail with LSP/`bgcmd` tooling; agent-oriented-languages pointer) and asked for any downstream work.
+**Decision.** Propagated each actionable directive to a single canonical home (no duplication, per the new value rule): `tech/environment.md` gained the two-layer host/container model + in-container LSP/`bgcmd` tooling and dropped drift-prone kernel/Python-version literals; `INDEX.md` authoring rules gained "each entry earns its place; omit version numbers (they live in lockfiles/commits)"; `tech/conventions.md` gained a "Working style (agents)" section (subagent-model rule, dry prose, red-green-refactor); pruned incidental package versions from the R-4.6 migration entry. Acted on the maintenance directive: removed the orphaned renv R-4.5 library tree (111 dangling symlinks), healed 5 dangling R-4.6 links via `renv::restore()`, reinstalled the documented R-graphics apt sysreqs a container rebuild had dropped (ragg/ggplot2 verified loading), cleaned the apt cache.
+**Alternatives considered.** (a) Retroactively scrub every version string from the append-only logs: rejected — load-bearing versions (R 4.6 C-API break, dplyr 1.2+ recycle change) are the *point* of those entries; only incidental ones pruned. (b) Duplicate the subagent directive into `kickoff.md` for visibility: rejected — it already lives in CLAUDE.md, which every session reads first; duplicating violates the new value rule. (c) Delete the dangling R-4.6 links as cruft: rejected — they are recorded in `renv.lock`, so `renv::restore()` is the correct heal. (d) Author a persistent setup script for the R sysreqs: deferred — depends on the user's container-recreation cadence (offered as a follow-up).
+**Consequences.** Agent docs carry the new directives at single canonical locations. The renv library is consistent with the lock (0 dangling). R-graphics sysreqs must be reinstalled after any container *recreation* (recorded as a lesson). No code or test changes; this is a docs + environment-hygiene change.
+**References.** `/CLAUDE.md`, `.claude/tech/environment.md`, `.claude/tech/conventions.md`, `.claude/INDEX.md`, `.claude/memory/lessons.md` (2026-06-01 entry).
+
+---
+
 ## 2026-05-24 — Temporal movement segmentation: velocity + aperture state machine
 
 **Context.** Phase 2 clinical metrics (bilateral comparison, movement quality, trunk/torso) were complete. The final Phase 2 task is automated temporal segmentation to enable per-phase analysis ("is the reach phase getting smoother over sessions?") rather than whole-trial averages.
@@ -73,7 +83,7 @@ Append-only log of decisions that future sessions must respect. Always add new e
 ## 2026-05-24 — R environment migrated to R 4.6.0
 
 **Context.** R was upgraded from 4.5 to 4.6.0 on the host. The renv lockfile (targeting R 4.5) used package versions with C API calls (`Rf_findVar`, `Rf_allocSExp`) removed in R 4.6.
-**Decision.** Install all packages at latest CRAN versions (R 4.6-compatible) via `install.packages()`, then `renv::snapshot()` to update the lockfile. Updated Matrix to 1.7-5, renv to 1.2.3, and all tidyverse packages to current CRAN releases. System deps installed: libfontconfig1-dev, libfreetype6-dev, libx11-dev, libharfbuzz-dev, libfribidi-dev, libpng-dev, libtiff-dev, libjpeg-dev, libwebp-dev.
+**Decision.** Install all packages at latest CRAN versions (R 4.6-compatible) via `install.packages()`, then `renv::snapshot()` to update the lockfile. Updated Matrix, renv, and all tidyverse packages to current CRAN releases. System deps installed: libfontconfig1-dev, libfreetype6-dev, libx11-dev, libharfbuzz-dev, libfribidi-dev, libpng-dev, libtiff-dev, libjpeg-dev, libwebp-dev.
 **Alternatives considered.** (a) Pin R 4.5 in the project: rejected — R 4.6.0 is the system version and we should track it. (b) Use binary packages from Posit PPM: rejected — not available for Debian Trixie/openSUSE.
 **Consequences.** renv.lock now targets R 4.6.0. Future `renv::restore()` on R 4.6+ hosts should work directly. R 4.5 compatibility is not guaranteed (package versions may use R 4.6 features).
 **References.** `renv.lock`, `renv/activate.R`.
