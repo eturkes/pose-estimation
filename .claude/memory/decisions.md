@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-01 — compaction.sh relocated to $HOME/.claude/ (supersedes the root-level-tool entry below)
+
+**Context.** User revised CLAUDE.md again: the gauge directive's path changed from a bare `compaction.sh` to `$HOME/.claude/compaction.sh`, and the wrap-up threshold dropped 90%→80%. Inspection: `$HOME/.claude/compaction.sh` is a symlink to a shared cross-project dir (`…/pro/agents/claude/compaction.sh`) and is a newer, evolved script — dual-mode (manual transcript read when `CLAUDE_CODE_SESSION_ID` is set; statusline stdin-JSON otherwise) with 80% baked into its statusline coloring (red ≥80%, yellow ≥60%). The repo-root copy committed earlier today (`92ebc14`) was the older manual-only version and is now a stale duplicate.
+**Decision.** Treated the relocation as: the gauge is a shared agent meta-tool owned globally, not a per-project file. `git rm` the repo-root `compaction.sh` (obsolete duplicate, no longer referenced by CLAUDE.md) and removed the now-empty "Root-level agent helpers" section from `INDEX.md`. Left the canonical global script untouched — it already encodes 80% and lives outside this project's root (out of scope per CLAUDE.md's directory constraint). Verified it runs here (`16% 31K/200K`; `jq` present). This supersedes the same-day "Incorporate compaction.sh … as a root-level agent tool" entry below.
+**Alternatives considered.** (a) Keep the repo-root copy and just bump 90→80: rejected — yields two divergent copies of one tool and contradicts CLAUDE.md, which now points at `$HOME/.claude/`. (b) Re-catalog the global tool in INDEX.md: rejected — INDEX.md manifests *project* files; a global `~/.claude` tool is not one, and CLAUDE.md (read first every session) already states its path + invocation, so a catalog row would duplicate and drift (the value rule). (c) Edit the global script's threshold: unnecessary (already 80%) and out of scope (outside the project root, shared across projects — user owns it).
+**Consequences.** Repo root no longer carries a shell script; the prior entry's "retain it during keep-root-clean passes" guidance is void. Invoke the gauge as `sh $HOME/.claude/compaction.sh` (per CLAUDE.md). If the user's global `~/.claude/` layout changes, the CLAUDE.md path needs revisiting. No pipeline or test impact.
+**References.** `/CLAUDE.md` (compaction directive: 80% + `$HOME/.claude/compaction.sh`), `.claude/INDEX.md` (section removed), commit `92ebc14` (added the now-removed copy).
+
+---
+
 ## 2026-06-01 — Incorporate compaction.sh context gauge as a root-level agent tool
 
 **Context.** User revised CLAUDE.md to direct agents to "monitor your context usage often using the supplied `compaction.sh`" and dropped an untracked `compaction.sh` at the repo root. The behavioural workflow (wrap up at ≥90%; user runs `/compact` since auto-compact is off) was already specified in CLAUDE.md, and the script's own header is self-documenting.
