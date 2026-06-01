@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-01 — Incorporate compaction.sh context gauge as a root-level agent tool
+
+**Context.** User revised CLAUDE.md to direct agents to "monitor your context usage often using the supplied `compaction.sh`" and dropped an untracked `compaction.sh` at the repo root. The behavioural workflow (wrap up at ≥90%; user runs `/compact` since auto-compact is off) was already specified in CLAUDE.md, and the script's own header is self-documenting.
+**Decision.** Treated "incorporate" as verify + git-track + catalog, not re-document. Verified it runs here (`jq` present, correct `NN% used/window`, `sh -n` clean, logic reviewed) and committed it alongside the CLAUDE.md edit. Cataloged it in `INDEX.md` under a new "Root-level agent helpers" section (location + invocation + `jq` dep), deferring the behavioural directive to CLAUDE.md.
+**Alternatives considered.** (a) Move it to `scripts/`: rejected — `scripts/` holds ruff-linted Python *pipeline* tooling; a POSIX agent meta-tool is a different class, and CLAUDE.md references it bare (`compaction.sh`), implying root. (b) List it among README "Entry points": rejected — README is human-facing and pipeline-scoped; this tool is agent-only. (c) Restate the wrap-up workflow in `kickoff.md`/`conventions.md`: rejected — it already lives in CLAUDE.md (read first every session); duplicating violates the value rule (same reasoning as the 2026-06-01 subagent-directive entry below). (d) Install shellcheck to audit it: skipped — a working, read-only, syntactically valid ~40-line script; live-run + `sh -n` suffice, and an apt install/cleanup is churn past the point of value.
+**Consequences.** A lone shell script now lives at the repo root by design; future "keep root clean" passes should retain it. It depends on `jq` and on Claude Code's `~/.claude/projects/*.jsonl` transcript layout + `CLAUDE_CODE_*` env vars — if that layout changes, the gauge needs revisiting. No pipeline or test impact.
+**References.** `compaction.sh`, `/CLAUDE.md` (compaction directive), `.claude/INDEX.md` (Root-level agent helpers).
+
+---
+
 ## 2026-06-01 — CLAUDE.md alignment audit + R-environment maintenance
 
 **Context.** User revised CLAUDE.md (home-dir maintenance directive; "entries must add value beyond docs/code/Git — package versions are bloat"; dry-prose rule; subagents must use the largest model + TDD/multi-agent councils; Debian-Distrobox-on-openSUSE env detail with LSP/`bgcmd` tooling; agent-oriented-languages pointer) and asked for any downstream work.
