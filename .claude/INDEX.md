@@ -42,6 +42,14 @@ Entry point for agent sessions. Load files on demand using the "when to load" hi
 | `prompts/kickoff.md` | Reusable kickoff prompt for fresh sessions. Paste into a new session to bootstrap context. |
 | `prompts/sessions.md` | Roadmap status + per-task session prompts. Load to check what's done vs pending. |
 
+## Root-level agent helpers
+
+Repo-root scripts that serve agent sessions (not the pipeline):
+
+| File | Use |
+|------|-----|
+| `../compaction.sh` | Context-window gauge. `sh compaction.sh` prints `NN% used/window` (e.g. `30% 61K/200K`). Dual-mode: manual when `CLAUDE_CODE_SESSION_ID` is set (reads the session transcript), statusline otherwise (stdin JSON, colorised ≥60%/≥80%). When to act (wrap up at ≥80%; user runs `/compact`): `/CLAUDE.md`. Read-only; needs `jq`. Byte-identical mirror of `$HOME/.claude/compaction.sh` — keep the two in sync. |
+
 ## Authoring rules
 
 - Always prefer editing `tech/*.md` over `AGENTS.md` (which is now a pointer).

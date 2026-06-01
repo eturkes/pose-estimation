@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-01 — compaction.sh kept in-repo as a mirror of the global gauge (reverses the relocation)
+
+**Context.** After the prior turn removed the repo-root `compaction.sh` (treating `$HOME/.claude/compaction.sh` as the sole canonical home), the user reversed course: re-added a repo-root `compaction.sh` and reworded CLAUDE.md back to "the supplied `compaction.sh`" (bare path ⇒ in-repo), retaining the 80% threshold. The re-added file is byte-identical to the canonical global script (`…/pro/agents/claude/compaction.sh`, symlinked at `$HOME/.claude/`): dual-mode (manual transcript read + statusline stdin-JSON), 80%/60% statusline coloring.
+**Decision.** Incorporated the user's file as-is: `git add` the repo-root `compaction.sh` (verified identical to canonical, mode 100755, `sh -n` clean, runs: `30% 61K/200K`) and restored the "Root-level agent helpers" section in `INDEX.md`, corrected to 80% + dual-mode + a "byte-identical mirror of `$HOME/.claude/compaction.sh`, keep in sync" note. Authored nothing — the user-supplied content is the current canonical version, so the repo copy is a faithful mirror, not a divergent variant.
+**Alternatives considered.** (a) Resurrect the older removed copy (parent of `899a10e`): rejected — it was manual-only with a stale 90% comment; the user's file is the newer 80%/dual-mode version. (b) Overwrite the user's file with my own authored version: rejected — it is already current canonical and verified; overwriting risks regressions and ignores what the user placed. (c) Strip the statusline half for a repo-only manual gauge: rejected — divergence from canonical defeats the mirror, and the manual branch already covers `sh compaction.sh`.
+**Consequences.** Two copies of the gauge now exist (repo root + `$HOME/.claude/`) and must be kept in sync (noted in `INDEX.md`). The repo root again carries a shell script by design — retain it during keep-root-clean passes. Supersedes the same-day "relocated to $HOME/.claude/" entry below, whose "repo root no longer carries a shell script" / "retain removal" guidance is now void. No pipeline or test impact.
+**References.** `/CLAUDE.md` (compaction directive: 80% + bare `compaction.sh`), `compaction.sh`, `.claude/INDEX.md` (Root-level agent helpers).
+
+---
+
 ## 2026-06-01 — compaction.sh relocated to $HOME/.claude/ (supersedes the root-level-tool entry below)
 
 **Context.** User revised CLAUDE.md again: the gauge directive's path changed from a bare `compaction.sh` to `$HOME/.claude/compaction.sh`, and the wrap-up threshold dropped 90%→80%. Inspection: `$HOME/.claude/compaction.sh` is a symlink to a shared cross-project dir (`…/pro/agents/claude/compaction.sh`) and is a newer, evolved script — dual-mode (manual transcript read when `CLAUDE_CODE_SESSION_ID` is set; statusline stdin-JSON otherwise) with 80% baked into its statusline coloring (red ≥80%, yellow ≥60%). The repo-root copy committed earlier today (`92ebc14`) was the older manual-only version and is now a stale duplicate.
