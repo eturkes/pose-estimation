@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-04 — Relocation repair: rewrite .venv absolute paths in place (offline) over uv sync
+
+**Context.** The project was moved from `~/Documents/pro/pose-estimation` to `~/Projects/pose-estimation`. The move broke the venv's hardcoded absolute paths: the editable `.pth` (→ `ModuleNotFoundError` on `import pose_estimation`), all `bin/*` shebangs, and `activate*` `VIRTUAL_ENV`. The `output`/`videos` symlinks (relative), `.venv/bin/python` (→ system `/usr/bin/python3.13`), renv library symlinks (0 dangling), and all text config/source/docs survived the move untouched.
+**Decision.** Repaired in place from inside the container with a binary-safe Python rewrite (old→new on `.venv` **text** files only — 27 files: bin scripts, activate variants, editable `_editable_impl_*.pth`, `direct_url.json`), skipping all `*.pyc`/`*.so` (path byte-length differs by 5; an in-place edit would corrupt them). Cleared regenerable caches carrying the old path (project `__pycache__`, `.ruff_cache`). Left `.venv` site-packages `.pyc` and renv `.so` (cosmetic embedded build/`co_filename` strings; recompiling gigabytes for a debug string is unjustified churn). Verified: editable import, console scripts, 252/252 pytest, renv loads `ragg`/`dplyr`/`ggplot2` at the new path.
+**Alternatives considered.** (a) `uv sync` on the host (the canonical refresh): deferred to the user — CLAUDE.md reserves host commands for the user and the env note flags in-container sync as unreliable; the offline rewrite is deterministic, network-free, and the exact inverse of the move. (b) Recreate the venv from `uv.lock`: rejected — re-downloads multi-GB deps (torch/openvino/mediapipe) to fix pure path strings. (c) `sed -i` across every matching file: rejected — would corrupt `.so`/`.pyc` (length change), and the shell's `grep` is a profile function that hides dot-dir matches, making enumeration unreliable (use `find -exec grep`/Python).
+**Consequences.** A later host `uv sync` reconciles cleanly (rewritten paths are already correct). If uv's editable mechanism changes (e.g. an `__editable__` finder replacing the plain `.pth`), the repair file list shifts but the principle holds (text-only rewrite, skip binaries). No code or test changes.
+**References.** `.claude/tech/environment.md` (Relocation), `.claude/memory/lessons.md` (2026-06-04).
+
+---
+
 ## 2026-06-01 — compaction.sh kept in-repo as a mirror of the global gauge (reverses the relocation)
 
 **Context.** After the prior turn removed the repo-root `compaction.sh` (treating `$HOME/.claude/compaction.sh` as the sole canonical home), the user reversed course: re-added a repo-root `compaction.sh` and reworded CLAUDE.md back to "the supplied `compaction.sh`" (bare path ⇒ in-repo), retaining the 80% threshold. The re-added file is byte-identical to the canonical global script (`…/pro/agents/claude/compaction.sh`, symlinked at `$HOME/.claude/`): dual-mode (manual transcript read + statusline stdin-JSON), 80%/60% statusline coloring.

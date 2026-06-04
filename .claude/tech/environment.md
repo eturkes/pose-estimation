@@ -12,7 +12,7 @@
 - Manager: `uv` (`pyproject.toml` + `uv.lock`, both committed).
 - Build backend: `hatchling`; wheels package `src/pose_estimation`.
 - Interpreter pin: `.python-version` (read by `uv`).
-- Virtualenv: `.venv/` (created on the host; symlinks are absolute and not portable across containers).
+- Virtualenv: `.venv/` (created on the host). `bin/*` shebangs, `activate*` (`VIRTUAL_ENV`), and the editable `*.pth` hardcode the project's **absolute path**, so a project move or container path change needs repair (see Relocation below).
 - Install / sync: `uv sync` (the assistant must run this on the host; it does not work from inside a container).
 
 ### Adding a Python dependency
@@ -43,4 +43,14 @@
 
 ## Container caveat
 
-You may not be able to run `uv sync` or activate `.venv` from inside a container — `.venv` contains absolute symlinks to the host Python binary. Run sync on the host; in-container work assumes `.venv` already exists and is healthy.
+Run `uv sync` on the host (per CLAUDE.md the user owns host commands); in-container work assumes `.venv` already exists and is healthy. `.venv/bin/python` targets system `/usr/bin/python3.13` (`pyvenv.cfg` `home = /usr/bin`), which resolves in both host and container — so the interpreter symlink survives a move, but the absolute paths in Relocation below do not.
+
+## Relocation (moved project root)
+
+Moving the project breaks the venv's hardcoded absolute paths and leaves stale paths in regenerable caches. Repair:
+
+- Canonical: re-run `uv sync` on the host.
+- Offline / in-container: rewrite old→new path in `.venv` **text** files only — `bin/*` shebangs, `activate*` (`VIRTUAL_ENV`), `site-packages/_editable_impl_*.pth` (this one breaks `import pose_estimation`), `dist-info/direct_url.json`. Always skip `*.pyc`/`*.so`: old vs new paths differ in byte length, so an in-place edit corrupts the binary — and they carry the path only as cosmetic build-dir / `co_filename` strings.
+- Clear regenerable caches embedding the old path: project `__pycache__`, `.ruff_cache`.
+- Survive a move untouched: `.venv/bin/python` (→ system), renv library symlinks (0 dangling), renv `.so` (cosmetic). Verify: `import pose_estimation`, a console script, `pytest`, `Rscript -e 'renv::project()'`.
+- Enumerate matches with `find -exec grep` or Python, not bare `grep -r`: the shell's `grep` is a profile **function** that prunes dot-dirs, so `grep -r .venv` silently reports nothing.

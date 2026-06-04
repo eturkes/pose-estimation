@@ -15,6 +15,15 @@ Append-only. Each lesson should yield a positive, actionable rule (avoid "do not
 
 ---
 
+## 2026-06-04 — Repair venv absolute paths after a project move; never byte-edit .pyc/.so
+
+**Symptom.** After the project was relocated (`~/Documents/pro/pose-estimation` → `~/Projects/pose-estimation`), `import pose_estimation` raised `ModuleNotFoundError` and every `.venv/bin/*` console script (pytest, pose-estimation, coverage) had a dead shebang.
+**Root cause.** A uv `.venv` hardcodes the project's absolute path in `bin/*` shebangs, `activate*` (`VIRTUAL_ENV`), and the editable `_editable_impl_*.pth` (→ old `src/`). Moving the directory invalidates all of them. Stale paths also linger harmlessly in regenerable caches (`*.pyc` `co_filename`, `.ruff_cache`) and as cosmetic build strings in renv `.so` — none of which break loading.
+**Rule (positive form).** After a move, first rewrite old→new in `.venv` **text** files only (shebangs, `activate*`, editable `.pth`, `direct_url.json`) and clear `__pycache__`/`.ruff_cache`; always skip `*.pyc`/`*.so` (path lengths differ → in-place edit corrupts the binary). Enumerate with `find -exec grep` or Python, since the shell's `grep` is a profile **function** that prunes dot-dirs (so `grep -r .venv` silently finds nothing). Verify with `import pose_estimation`, a console script, `pytest`, `Rscript -e 'renv::project()'`. Canonical alternative: `uv sync` on the host.
+**Where to check.** `.claude/tech/environment.md` (Relocation section).
+
+---
+
 ## 2026-06-01 — Reinstall R graphics sysreqs after container recreation
 
 **Symptom.** After a Distrobox container rebuild, `library(ragg)` failed (`libwebpmux.so.3: cannot open shared object file`) and `renv::restore()` warned that `libfontconfig1-dev`/`libfreetype6-dev` were missing — though the 2026-05-24 R migration had installed them.
