@@ -22,6 +22,7 @@ Tooling reminders:
 - Display: `pygame-ce` (Wayland-compatible). OpenCV is `opencv-python-headless`.
 - Devices: NPU default; `--device {NPU|CPU|GPU}` on `main.py` / `run.py`. rtmlib supports `--backend {onnxruntime|openvino}`.
 - Data dirs (`videos/`, `output/`, `model/`) are git-ignored — keep patient data out of commits.
+- Navigate code via the repo map instead of whole-file reads: `rg '\bSYMBOL\b' .claude/repomap.md` → `path:line`, then `Read(path, offset=line)`. Regenerate after editing code: `python scripts/repomap.py` (drift-guarded by `tests/test_repomap.py`).
 
 Then proceed with: <TASK>
 

@@ -5,12 +5,14 @@
 | File | Role |
 |------|------|
 | `main.py` | MediaPipe pipeline entry point; CLI, capture loop, pygame display, CSV export. |
-| `run.py` | Unified entry point with rtmlib backends (RTMW-L, DWPose-M, RTMPose-M) + MediaPipe delegate. Holds `MODEL_REGISTRY`. |
+| `run.py` | Unified entry point with rtmlib backends (RTMW-L, DWPose-M, RTMPose-M) + MediaPipe delegate. Holds `MODEL_REGISTRY`, CLI, capture loop. Smoother → `rtmlib_smoothing.py`; OpenVINO patch → `rtmlib_openvino.py` (both re-imported). |
 | `models.py` | Downloads MediaPipe TFLite, converts to OpenVINO IR, compiles. Checksum-validated. |
 | `detection.py` | SSD anchor generation, NMS, decoding. |
 | `processing.py` | Preprocess, crop, landmark inference, hands→arms matching, `process_frame`, `tracking_pose_indices()`, `select_primary_body`. |
 | `drawing.py` | Catmull-Rom splines, skeleton rendering, overlay blending. |
-| `smoothing.py` | One Euro Filter (`OneEuroFilter`, `PoseSmoother`) — confidence-weighted temporal smoothing with velocity-aware outlier rejection and adaptive min_cutoff (heavier smoothing during rest, normal during movement). |
+| `smoothing.py` | One Euro Filter (`OneEuroFilter`, `PoseSmoother`) — confidence-weighted temporal smoothing with velocity-aware outlier rejection and adaptive min_cutoff (heavier smoothing during rest, normal during movement). MediaPipe path. |
+| `rtmlib_smoothing.py` | rtmlib-path keypoint smoother: `_OneEuro`, `KeypointSmoother`, `REGION_PARAMS`, `_KP_*`. Parallel to `smoothing.py`; re-exported from `run.py` (tests import via `pose_estimation.run`). |
+| `rtmlib_openvino.py` | Self-contained OpenVINO-backend monkey-patch for rtmlib (`_patch_rtmlib_openvino`). No `run.py` globals. |
 | `constraints.py` | `BoneLengthSmoother`, `clamp_joint_angles`, `BONE_SEGMENTS{,_BODY}`, `ANGLE_LIMITS{,_BODY}`. |
 | `mapping.py` | COCO-WholeBody → MediaPipe keypoint schema mapping (`coco_to_mediapipe`). Translates rtmlib output to `frame_to_rows()` interface. |
 | `export.py` | CSV schema (`frame_to_rows`, `open_csv_writer`, `wrist_to_side`). |

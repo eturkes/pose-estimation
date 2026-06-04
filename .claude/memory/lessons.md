@@ -15,6 +15,15 @@ Append-only. Each lesson should yield a positive, actionable rule (avoid "do not
 
 ---
 
+## 2026-06-04 — When judging a split seam, audit every free name in the block, not a hand-picked list
+
+**Symptom.** While splitting `run.py` I also scoped extracting the cropping helpers from `processing.py` into a new module. It failed late: `get_hand_crop` references `PALM_WRIST_KP_IDX`/`PALM_FINGER_KP_IDX`, which five other `processing.py` sites and a test also use, so extraction forces a circular import (new module ↔ `processing.py`). I abandoned that split after scoping it.
+**Root cause.** I vetted a hand-picked list of constants the function "obviously" needed instead of enumerating every free name (globals, constants, helpers) referenced inside the candidate block. The coupling lived in names I had not listed.
+**Rule (positive form).** Before extracting a block, first enumerate every free name it references (walk the AST or `rg` each global) and confirm each either moves with the block or stays importable one-directionally. Treat any name shared with the source module's other sites as coupling that blocks a clean extraction; split only when the seam is acyclic.
+**Where to check.** `.claude/memory/decisions.md` (2026-06-04 token-efficiency program), `src/pose_estimation/processing.py` (`PALM_*_KP_IDX` shared sites).
+
+---
+
 ## 2026-06-04 — Repair venv absolute paths after a project move; never byte-edit .pyc/.so
 
 **Symptom.** After the project was relocated (`~/Documents/pro/pose-estimation` → `~/Projects/pose-estimation`), `import pose_estimation` raised `ModuleNotFoundError` and every `.venv/bin/*` console script (pytest, pose-estimation, coverage) had a dead shebang.
