@@ -58,7 +58,7 @@ Repo-root scripts that serve agent sessions (not the pipeline):
 
 | File | Use |
 |------|-----|
-| `../compaction.sh` | Context-window gauge. `sh compaction.sh` prints `NN% used/window` (e.g. `30% 61K/200K`). Dual-mode: manual when `CLAUDE_CODE_SESSION_ID` is set (reads the session transcript), statusline otherwise (stdin JSON, colorised ≥60%/≥80%). When to act (wrap up at ≥80%; user runs `/compact`): `/CLAUDE.md`. Read-only; needs `jq`. Byte-identical mirror of `$HOME/.claude/compaction.sh` — keep the two in sync. |
+| `../compaction.sh` | Context-window gauge. `sh compaction.sh` prints `NN% used/window` (e.g. `30% 61K/200K`) from the session transcript (located via `CLAUDE_CODE_SESSION_ID`, else newest `*.jsonl`). Window 200K when `CLAUDE_CODE_DISABLE_1M_CONTEXT` is truthy, else 1M. When to act (wrap up at ≥80%; user runs `/compact`): `/CLAUDE.md`. Read-only; needs `jq`. Statusline is a separate script (`statusline.sh`). Byte-identical mirror of `$HOME/.claude/compaction.sh` — keep the two in sync. |
 
 ## Authoring rules
 

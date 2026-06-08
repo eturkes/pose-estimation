@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-08 — `compaction.sh` slimmed to single transcript-read mode
+
+**Context.** `compaction.sh` carried a statusline branch (stdin-JSON parse + 60%/80% ANSI coloring) beside the manual transcript read. The live statusline is a separate script (`$HOME/.claude/statusline.sh`, per `$HOME/.claude/settings.json`), so that branch was dead code in both the repo copy and the canonical home mirror.
+**Decision.** Adopted the user's slimmed `compaction.sh`: one path that reads the session transcript (via `CLAUDE_CODE_SESSION_ID`, else newest `*.jsonl`) and prints `N% used/window`; dropped the redundant `w>0` guard (the `case` always sets `w`). Verified byte-identical to the canonical mirror, `sh -n` clean, all three paths run (session-id, fallback, 1M window). Updated the INDEX.md helper row to match.
+**Alternatives considered.** Keep dual-mode — the "repo-root `compaction.sh` re-added" entry below rejected stripping it ("divergence from canonical defeats the mirror"): superseded, because the canonical mirror was itself slimmed, so no divergence remains and the statusline is owned by `statusline.sh`.
+**Consequences.** `compaction.sh` is a manual gauge only; any future statusline work belongs in `statusline.sh`. Keep the repo copy and `$HOME/.claude/compaction.sh` byte-identical.
+**References.** `compaction.sh`, `.claude/INDEX.md` (Root-level agent helpers row); supersedes the option-(c) rejection in the 2026-06-08 "repo-root `compaction.sh` re-added" entry below.
+
+---
+
 ## 2026-06-08 — `/session` → `/session-prompt` command rename
 
 **Context.** The bootstrap slash command was named `/session`, overloading "session" — already used by `.claude/prompts/sessions.md` (the roadmap) and the multicam `Session` abstraction. The name also did not signal that the command emits the session-bootstrap *prompt*.
