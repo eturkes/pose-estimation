@@ -16,7 +16,13 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
-## 2026-06-04 — Token-efficiency program: repo map + nav discipline + run.py concern-split
+## 2026-06-08 — Read() deny-list in .claude/settings.json (CLAUDE.md directive)
+
+**Context.** CLAUDE.md now mandates maintaining `permissions.deny` `Read()` rules so sessions can't waste context on low-value reads (one lock file ≈ 75K tokens).
+**Decision.** Deny `Read()` on: env/library trees (`.venv`, `renv`), binary model dirs (`model`, `mediapipe`), patient data + pipeline outputs (`videos`, `output`, `benchmark_output`), lock files (`uv.lock`, `renv.lock`), `LICENSE`, `.git`, caches (`__pycache__`, `.pytest_cache`, `.ruff_cache`, `.Rproj.user`), rendered analysis artifacts (`analysis/*.html`, `*_files`, `*_cache`). Escape hatch for rare legitimate needs (e.g. checking a pinned version, sampling an output CSV, reading third-party source in `.venv`): Bash `rg`/`head`/`sed -n` — token-cheaper than Read anyway.
+**Alternatives considered.** Denying `.claude/repomap.md` to force `rg`-only use: rejected — Grep/offset-Read of the map is part of the documented nav flow. Leaving `.venv` readable for third-party debugging: rejected — Bash sampling covers it with less token risk.
+**Consequences.** Maintenance criterion when adding paths: deny anything large, binary, regenerable, or boilerplate whose full read provides little benefit; keep small, hand-edited sources readable. Update the list when gitignore gains a new data/artifact dir. A denied Read mid-task is a signal to switch to Bash sampling, never a hard blocker.
+**References.** `.claude/settings.json`, `/CLAUDE.md` (200K-context bullet), `.claude/INDEX.md` (Layout).
 
 **Context.** Working this repo cost excess tokens: no symbol index forced whole-file reads of 800–1271-line modules, and bootstrap pulled large memory/docs. User approved a four-lever fix: (1) a grep-able repo map, (2) prune memory/docs, (3) navigation-discipline docs, (4) split large files — accepting that splitting is behaviour-affecting.
 **Decision.** (1) `scripts/repomap.py` generates `.claude/repomap.md` — `path:line: signature` lines (Python via stdlib `ast`, R via regex) over `git ls-files`, so `rg SYMBOL .claude/repomap.md` returns a jump target; drift-guarded by `tests/test_repomap.py` (`--check` subprocess, mirroring `test_public_api.py`). (2) Collapsed the three same-day compaction.sh entries here into one and added nav hints to `INDEX.md`/`kickoff.md`/`conventions.md`. (3) Documented the `rg → path:line → Read(offset)` workflow. (4) Split `run.py` 1271→782 by extracting two self-contained concern modules — `rtmlib_smoothing.py` (`_OneEuro`, `KeypointSmoother`, `REGION_PARAMS`, `_KP_*`) and `rtmlib_openvino.py` (`_patch_rtmlib_openvino`) — re-imported into `run.py`, leaving the public surface and console scripts unchanged.

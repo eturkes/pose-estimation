@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.venv/**)",
+      "Read(./renv/**)",
+      "Read(./model/**)",
+      "Read(./mediapipe/**)",
+      "Read(./videos/**)",
+      "Read(./output/**)",
+      "Read(./benchmark_output/**)",
+      "Read(./uv.lock)",
+      "Read(./renv.lock)",
+      "Read(./LICENSE)",
+      "Read(./.git/**)",
+      "Read(./**/__pycache__/**)",
+      "Read(./.pytest_cache/**)",
+      "Read(./.ruff_cache/**)",
+      "Read(./.Rproj.user/**)",
+      "Read(./analysis/*.html)",
+      "Read(./analysis/*_files/**)",
+      "Read(./analysis/*_cache/**)"
+    ]
+  }
+}
