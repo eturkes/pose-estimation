@@ -10,12 +10,15 @@ Transient working notes — anything from "current investigation" to "half-finis
 
 ---
 
-## 2026-06-01 — CLAUDE.md alignment audit + R-env maintenance
+## 2026-06-08 — Maintenance cycle (Session 4)
 
-User revised CLAUDE.md; this session propagated the changes and acted on the maintenance directive. Full record in `decisions.md` and `lessons.md` (both 2026-06-01). Highlights:
+Full pass; everything green. Durable records: `decisions.md` (cv2 single-wheel override), `lessons.md` (deny-list blocks Bash too), `tech/environment.md` (env-model rewrite).
 
-- **Doc propagation** (single canonical home each, no duplication): `environment.md` (Debian-Distrobox/openSUSE two-layer model + LSP/`bgcmd` tooling; dropped drift-prone version literals); `INDEX.md` authoring rule (entries omit version numbers); `conventions.md` "Working style (agents)" (subagent-model + dry prose + red-green-refactor); pruned incidental versions from the R-4.6 migration decision. `kickoff.md` left untouched (the subagent directive already lives in CLAUDE.md).
-- **Maintenance:** removed orphaned renv R-4.5 tree (111 dangling links); `renv::restore()` healed 5 dangling R-4.6 links (0 remain); reinstalled R-graphics apt sysreqs a container rebuild had dropped (ragg/ggplot2 verified loading); apt cache cleaned.
-- **Deferred / offered:** a persistent setup script for the R sysreqs (depends on container-recreation cadence); agent-oriented-languages exploration (CLAUDE.md pointer — forward-looking, no doc change needed yet).
+- **Python deps:** coverage 7.14.1, idna 3.18, openvino 2026.2.0, ruff 0.15.16, tqdm 4.68.1, ty 0.0.44. 295/295 tests, ruff+format+ty clean on upgraded toolchain.
+- **R deps:** callr 3.8.0, clipr 0.8.1, xfun 0.58; snapshotted; 19/19 R-pipeline tests.
+- **cv2 hygiene:** rtmlib was coinstalling opencv-python + contrib over our headless wheel (file-stomping, mixed runtime). Excluded via `[tool.uv] override-dependencies`; headless reinstalled; suite green.
+- **Security:** pip-audit on locked export — zero known vulns; `_safe_resolve` coverage unchanged and sound; new 3B/3C surface adds no data-driven path joins; subprocess use is list-form argv throughout. Web sweep surfaced nothing newer.
+- **Env-model change discovered:** container home now separate (`/var/home/eturkes/debian`); project via `/run/host/...`; uv 0.11.x in-container; venv container-native — `uv sync` in-container is canonical now (environment.md rewritten). Host-side venv use would need a host-side sync (would then break container use).
+- **Open question for user:** if the pipeline is ever launched from the host (NPU runs?), the container-native venv won't resolve there — flagged in session summary.
 
-**Project status:** Phase 1 ✓ (stability), Phase 2 ✓ (clinical metrics), Phase 3 pending (3D pipeline, awaiting footage), Phase 4 ongoing (maintenance).
+**Project status:** Phases 1–3 ✓ (3D pipeline synthetic-validated); Phase 4 maintenance current as of today. Next roadmap seed: real 3-cam footage validation; deferred items: 3D-aware downstream aggregation, multi-person cross-camera identity matching.

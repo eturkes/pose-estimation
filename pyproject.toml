@@ -81,6 +81,14 @@ types = [
 [tool.uv]
 required-version = ">=0.11"
 package = true
+# rtmlib declares opencv-python + opencv-contrib-python. All cv2 wheels unpack the same
+# cv2/ tree, so coinstallation file-stomps nondeterministically (contrib's binary was
+# observed shadowing headless). We ship cv2 exactly once via opencv-python-headless;
+# rtmlib uses no contrib-only modules and cv2.aruco lives in main OpenCV since 4.7.
+override-dependencies = [
+    "opencv-python; sys_platform == 'never'",
+    "opencv-contrib-python; sys_platform == 'never'",
+]
 
 [tool.pytest.ini_options]
 minversion = "9.0"

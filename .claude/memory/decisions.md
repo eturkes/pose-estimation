@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-08 — Single cv2 wheel via uv override-dependencies (maintenance)
+
+**Context.** Maintenance audit found three cv2 wheels coinstalled: rtmlib declares `opencv-python` + `opencv-contrib-python` alongside our `opencv-python-headless`. All cv2 wheels unpack the same `cv2/` tree, so coinstallation file-stomps nondeterministically — runtime showed a mixed install (contrib's `ximgproc` present, headless GUI behaviour, install-order dependent).
+**Decision.** `[tool.uv] override-dependencies` excludes rtmlib's two wheels with always-false markers (`sys_platform == 'never'`); cv2 ships exactly once via headless. Repair sequence after editing overrides: `uv lock && uv sync && uv sync --reinstall-package opencv-python-headless` (uninstalling the stompers removes shared files headless also owns).
+**Alternatives considered.** Forking rtmlib (heavy for a metadata-only problem); switching our dep to contrib-headless to match rtmlib (still two wheels, ships unused modules).
+**Consequences.** rtmlib must keep working against headless cv2 — verified: its installed source references no contrib-only modules, and the full suite (incl. charuco/aruco) is green. Any future dependency declaring another cv2 wheel needs the same override. Legacy-charuco note: `calibrateCameraCharuco*` is absent from contrib at 4.13 too — the 3B modern-API decision holds regardless of wheel.
+**References.** `pyproject.toml` (`[tool.uv]`), `.claude/tech/environment.md` (single cv2 wheel policy), `.claude/tech/calibration.md` (API constraint).
+
+---
+
 ## 2026-06-08 — ChArUco solver via modern OpenCV API in a separate charuco.py (Session 3B)
 
 **Context.** Session 3B spec called for `cv2.aruco.calibrateCameraCharucoExtended`, but that function (and `calibrateCameraCharuco`) is contrib-only and ABSENT from opencv-python-headless ≥ 4.7 (we ship 4.13). The solver also needs cv2 + multicam, while `calibration.py` was deliberately cv2-free.

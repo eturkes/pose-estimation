@@ -17,7 +17,7 @@ You are continuing work on the **pose-estimation** project. Bootstrap your conte
 9. Use TaskCreate for any plan with three or more distinct steps; mark each task `completed` the moment its work is done.
 
 Tooling reminders:
-- Python: `uv` + `.venv/` (created on host). `uv run ruff check --fix`, `uv run ruff format`, `uv run ty check`, `uv run pytest`.
+- Python: `uv` + `.venv/` (container-native). `uv run ruff check --fix`, `uv run ruff format`, `uv run ty check`, `uv run pytest`.
 - R: `renv`; install with `renv::restore()`.
 - Display: `pygame-ce` (Wayland-compatible). OpenCV is `opencv-python-headless`.
 - Devices: NPU default; `--device {NPU|CPU|GPU}` on `main.py` / `run.py`. rtmlib supports `--backend {onnxruntime|openvino}`.

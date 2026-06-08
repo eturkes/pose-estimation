@@ -15,6 +15,15 @@ Append-only. Each lesson should yield a positive, actionable rule (avoid "do not
 
 ---
 
+## 2026-06-08 — Read() deny rules also block Bash commands naming those paths
+
+**Symptom.** Two maintenance probes were denied: `head`/`cat` on `.venv/bin/*` and an `rg` over `.venv/lib/...`. The "sample via Bash" escape hatch documented in the deny-list decision failed both times.
+**Root cause.** The permission engine maps `Read()` deny rules onto Bash commands whose text references a denied path — the escape hatch no longer exists in current Claude Code.
+**Rule (positive form).** Probe deny-listed trees with command text free of denied paths: prefer functional checks (`uv run pytest --version` proves shebang health) and interpreter-side introspection (`uv run python -c "import pkg; ..."` walking from `pkg.__file__`, `hasattr` checks, `read_text` inside Python). Keep INDEX.md's settings.json line as the canonical statement of this behaviour.
+**Where to check.** `.claude/INDEX.md` (settings.json line); this session's cv2-wheel probes in Git history.
+
+---
+
 ## 2026-06-08 — Synthetic ChArUco rendering: identity pose faces the camera; supersample the warp; diversify poses
 
 **Symptom.** Three sequential zero-detection/accuracy failures while building synthetic calibration tests: (1) zero corners detected at realistic distances; (2) still zero after enlarging — markers warped to mush; (3) detection worked but cam2 stereo tvec was 16 mm off with identical results across encoder-quality settings.

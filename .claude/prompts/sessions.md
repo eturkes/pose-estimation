@@ -17,7 +17,7 @@ Paste the kickoff prompt from `prompts/kickoff.md`, then append one of the task 
 
 ## Current roadmap: Stability + Clinical Metrics + 3D Pipeline (2026-05-24)
 
-Four phases. Phases 1-2 are the immediate priority (jitter fixes + clinical metrics). Phase 3 (3D pipeline) starts when 3-cam footage timeline firms up (~weeks away). Phase 4 is periodic maintenance.
+Four phases. Phases 1–3 complete (2026-06-08, synthetic-data validated). Phase 4 (periodic maintenance) is the only standing item; last run 2026-06-08. Real-footage validation of the 3D pipeline awaits 3-cam captures — that is the natural seed for the next roadmap.
 
 ### Phase 1: Tracking stability ✓
 - 1A: ✓ Investigate and fix remaining jitter/drops (all backends/modes)
@@ -178,7 +178,7 @@ Context: Clinical trials involve structured tasks (reach-grasp-transport-release
 
 ---
 
-## Session 3A: Implement fuse_session_frame()
+## Session 3A: Implement fuse_session_frame() ✓
 
 ```
 Execute: Implement the 3D triangulation fusion policy layer in triangulation.py.
