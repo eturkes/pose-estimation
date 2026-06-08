@@ -67,12 +67,13 @@ Spawns headless subprocesses with `POSE_BENCH_*` env-var overrides. See `tech/op
 ## `calibration_cli.py` — multi-camera calibration
 
 ```bash
-pose-estimation-calibrate verify --calibration calib.json
-pose-estimation-calibrate solve --session-dir videos/calib_session/ --output calib.json
-pose-estimation-calibrate capture --session-dir videos/calib_session/
+pose-estimation-calibrate verify  --calibration calib.json
+pose-estimation-calibrate solve   --session-dir videos/calib_session/ --output calib.json
+pose-estimation-calibrate board   --output board.png
+pose-estimation-calibrate capture --session-dir videos/calib_session/ --devices 0,1,2
 ```
 
-`verify` loads + prints a calibration summary (works now). `solve` and `capture` are `NotImplementedError`/print-only stubs covering the planned ChArUco workflow described in `tech/calibration.md`.
+`verify` prints a summary; `solve` runs the ChArUco solver (`charuco.py`); `board` renders the printable pattern; `capture` records synchronized per-camera AVIs via a pygame grid (SPACE = save one frame per camera). Full flags + workflow: `tech/calibration.md`.
 
 ## `postprocess.py` — offline Savitzky-Golay
 

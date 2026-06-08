@@ -15,7 +15,6 @@ from pose_estimation.calibration import (
     load_calibration,
     load_session_calibration,
     save_calibration,
-    solve_charuco,
     utc_timestamp,
 )
 
@@ -199,13 +198,8 @@ def test_invalid_json_raises(tmp_path: pathlib.Path):
 
 
 # ---------------------------------------------------------------------------
-# Solver stub + helpers
+# Helpers (the ChArUco solver itself is covered by test_charuco.py)
 # ---------------------------------------------------------------------------
-
-
-def test_solve_charuco_is_stub(tmp_path: pathlib.Path):
-    with pytest.raises(NotImplementedError, match="not yet wired"):
-        solve_charuco(tmp_path)
 
 
 def test_utc_timestamp_iso_format():

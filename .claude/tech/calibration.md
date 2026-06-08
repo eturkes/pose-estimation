@@ -1,6 +1,8 @@
 # Camera calibration
 
-Multi-camera 3D triangulation needs per-camera intrinsics (`K`, distortion) and extrinsics (rotation + translation in a shared world frame). This document describes the file format, IO contract, and the (planned) ChArUco-based solve workflow.
+Multi-camera 3D triangulation needs per-camera intrinsics (`K`, distortion) and extrinsics (rotation + translation in a shared world frame). This document describes the file format, IO contract, and the ChArUco-based solve workflow.
+
+Module split: `calibration.py` is cv2-free (IO + validation); the solver lives in `charuco.py` (imports calibration/multicam/_types, acyclic).
 
 ## File format
 
@@ -65,30 +67,37 @@ load_session_calibration(session_dir)      # auto-discovers <session>/calibratio
 
 The CLI passes `--calibration` if provided; otherwise it falls back to `load_session_calibration()`.
 
-## Planned solve workflow (charuco)
+## Solve workflow (charuco.py)
 
-`calibration.solve_charuco()` is a `NotImplementedError` stub. The intended pipeline:
+`charuco.solve_charuco(session_dir, *, board=None, world_frame=None, max_frames=50, min_corners=6, min_shared_frames=5) -> SessionCalibration`:
 
-1. **Capture.** Record N synchronized videos of an OpenCV ChArUco board. Move the board through the full working volume; cover all orientations.
-2. **Per-camera intrinsics.** For each camera independently:
-   - Detect ChArUco corners via `cv2.aruco.CharucoDetector`.
-   - Pick frames with ≥ 6 corners; subsample to ~50 frames spread across the video.
-   - Solve with `cv2.aruco.calibrateCameraCharucoExtended` → `K`, `distortion`, per-frame `(rvec, tvec)` board poses.
-3. **Pairwise extrinsics.** Choose `cam1` as the world reference. For each other camera, find frames where both cameras see the board, compute relative pose via `cv2.solvePnP` on shared 3D-2D correspondences, average over frames (or run a bundle adjustment step via `cv2.sba`/g2o/pycolmap for a refined estimate).
-4. **Bundle refinement (optional).** Joint refinement of all intrinsics + extrinsics minimising total reprojection error. Implementation TBD — Ceres via pycolmap is the most direct, scipy.optimize.least_squares is the dependency-free fallback.
-5. **Persist.** Write `calibration.json` with `solved_at` and `reprojection_error_px`.
+1. **Session discovery.** Reuses `multicam.discover_session` — same `cam*.{avi,mp4,...}` glob, `session.json` manifest, per-camera `sync_offset`. Detection frame indices are logical (`raw - sync_offset`), matching the 2D fusion convention.
+2. **Per-camera detection + intrinsics.** `cv2.aruco.CharucoDetector(board).detectBoard(img)` per frame → keep frames with ≥ `min_corners` corners → `_subsample` to ≤ `max_frames` (linspace) → `board.matchImagePoints` per frame → `cv2.calibrateCamera`. Needs ≥ `MIN_INTRINSIC_FRAMES` (8) usable frames.
+   - **API constraint**: `calibrateCameraCharuco`/`Extended` are ABSENT from opencv-python-headless ≥ 4.7 (contrib-only). The modern detectBoard→matchImagePoints→calibrateCamera path is the only option and is the current upstream recommendation.
+3. **Pairwise extrinsics.** `world_frame` defaults to the first camera name. For each other camera: intersect corner ids per logical frame (`np.intersect1d`), keep frames with ≥ `MIN_SHARED_CORNERS` (6) shared corners, need ≥ `min_shared_frames` frames; `cv2.stereoCalibrate(..., CALIB_FIX_INTRINSIC)`. Its `(R, T)` maps world-cam coords → other-cam coords = camera-from-world directly (world cam IS the world frame).
+   - **Topology limit**: direct pairs only — every camera must share board views with the world-frame camera. Chained extrinsics (A↔B↔C) are unsupported; arrange capture so the board is visible to the world camera + at least one other simultaneously.
+4. **Global reprojection RMS.** Per logical frame: anchor board pose via `solvePnP` in the world-frame camera (fallback: first detecting camera), lift board points to world (`x_w = R_aᵀ(x_a − t_a)`), reproject into every detecting camera. Stored as `reprojection_error_px`.
+5. **Persist.** Caller (CLI) writes via `save_calibration`. Solver tag: `"opencv-charuco"`.
 
-The ChArUco board geometry (square size, marker size, board layout, dictionary) lives in `calibration.CHARUCO_BOARD_DEFAULT` once implemented; capture script will print the recommended board for printing.
+No bundle-refinement stage: stereoCalibrate residuals + the global RMS check were sufficient on synthetic data (global RMS ≈ 0.4 px, f within 2%, rotation < 1°, translation < 15 mm on a 0.84 m baseline). Revisit only if real captures show drift.
+
+Board defaults (constants in `charuco.py`): 6×9 squares, `DICT_4X4_250`, 40 mm squares, 30 mm markers. `make_charuco_board()` validates marker < square; `render_charuco_board()` produces the printable image (texture mapping is identity: `texture_px = obj_m / square_size * px_per_square`, +y down).
+
+**Capture accuracy lesson**: a narrow board-pose cloud weakly constrains oblique cameras' intrinsics, and fx error couples into stereo tvec (16 mm error on synthetic data). Move the board through the full working volume — translation AND tilt diversity — not just the centre.
 
 ## CLI surface
 
 ```bash
-pose-estimation-calibrate verify --calibration calib.json
-pose-estimation-calibrate solve --session-dir videos/calib_session/ --output calib.json
-pose-estimation-calibrate capture --session-dir videos/calib_session/
+pose-estimation-calibrate verify  --calibration calib.json
+pose-estimation-calibrate solve   --session-dir videos/calib_session/ --output calib.json [--world-frame cam1] [--max-frames 50] [board args]
+pose-estimation-calibrate board   --output board.png [--px-per-square 240] [board args]
+pose-estimation-calibrate capture --session-dir videos/calib_session/ --devices 0,1,2 [--names cam1,cam2,cam3] [--width W --height H]
 ```
 
-`verify` is implemented (load + summary table). `solve` and `capture` are stubs that print the planned design when invoked.
+Board args: `--squares COLSxROWS --square-size-m 0.04 --marker-size-m 0.03`. All errors → stderr `ERROR: ...`, exit 2.
+
+- `board` renders a printable PNG and prints the physical pattern size; print at 100% scale and verify one square with a ruler.
+- `capture` opens a pygame grid of live feeds with green ChArUco-corner overlay; SPACE appends one synchronized frame per camera to per-camera MJPG AVIs (frame index = press index, so the videos are inherently synchronized and feed straight into `solve`); Q/ESC quits. Exit 1 if nothing captured.
 
 ## Numerical conventions
 
@@ -101,4 +110,4 @@ pose-estimation-calibrate capture --session-dir videos/calib_session/
 
 - Session abstraction: `tech/multicam.md`
 - Data sensitivity: calibration files capture lab geometry; treat as patient-adjacent. The `videos/` symlink is already git-ignored.
-- Tests: `tech/tests.md` (`test_calibration.py`)
+- Tests: `tech/tests.md` (`test_calibration.py` IO, `test_charuco.py` solver on synthetic renders, `test_calibration_cli.py` CLI wiring)

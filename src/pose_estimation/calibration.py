@@ -1,9 +1,8 @@
 """Camera calibration data layer.
 
 Loads, validates, and persists ``SessionCalibration`` JSON files used by
-the multi-camera pipeline.  The actual ChArUco-based solve workflow is
-a ``NotImplementedError`` stub; see ``.claude/tech/calibration.md`` for
-the planned procedure.
+the multi-camera pipeline.  This module is deliberately cv2-free; the
+ChArUco solve workflow lives in ``charuco.py``.
 
 The on-disk format is JSON with nested lists for matrices/vectors.
 ``load_calibration`` materialises ``np.ndarray`` instances so downstream
@@ -244,34 +243,13 @@ def _to_jsonable(calibration: SessionCalibration) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Solver (stub) — see .claude/tech/calibration.md for the planned workflow
+# Solver support — the ChArUco solve itself lives in charuco.py
 # ---------------------------------------------------------------------------
 
 
 def utc_timestamp() -> str:
     """ISO-8601 UTC ``solved_at`` value for fresh calibrations."""
     return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def solve_charuco(
-    session_dir: str | pathlib.Path,
-    *,
-    board: Any = None,  # cv2.aruco.CharucoBoard once wired
-    square_size_m: float = 0.04,
-    world_frame: str = "cam1",
-) -> SessionCalibration:
-    """Solve calibration from a ChArUco-target recording session.
-
-    Not yet implemented.  See ``.claude/tech/calibration.md`` for the
-    planned per-camera intrinsics + pairwise extrinsics + bundle
-    refinement workflow.  Wire-up tracked as a follow-up.
-    """
-    raise NotImplementedError(
-        "solve_charuco is not yet wired. See .claude/tech/calibration.md "
-        "for the planned ChArUco-based intrinsics + extrinsics workflow. "
-        f"Called with session_dir={session_dir!r}, square_size_m={square_size_m}, "
-        f"world_frame={world_frame!r}."
-    )
 
 
 __all__ = [
@@ -281,6 +259,5 @@ __all__ = [
     "load_calibration",
     "load_session_calibration",
     "save_calibration",
-    "solve_charuco",
     "utc_timestamp",
 ]

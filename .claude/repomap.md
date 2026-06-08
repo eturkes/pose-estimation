@@ -242,8 +242,8 @@ scripts/repomap.py:134: def _r_symbols(src: str) -> list[tuple[int, str]]
 scripts/repomap.py:147: def build() -> str
 scripts/repomap.py:161: def main(argv: list[str] | None=None) -> int
 
-# src/pose_estimation/__init__.py (95 lines)
-src/pose_estimation/__init__.py:53: __all__ = list[40]
+# src/pose_estimation/__init__.py (98 lines)
+src/pose_estimation/__init__.py:54: __all__ = list[42]
 
 # src/pose_estimation/_types.py (171 lines)
 src/pose_estimation/_types.py:58: class HandDetectionDiag(TypedDict)
@@ -261,31 +261,63 @@ src/pose_estimation/benchmark.py:139: def run_single(source, output_dir, run_lab
 src/pose_estimation/benchmark.py:219: def generate_grid(sweep_spec)
 src/pose_estimation/benchmark.py:239: def main()
 
-# src/pose_estimation/calibration.py (287 lines)
-src/pose_estimation/calibration.py:25: CALIBRATION_FORMAT_VERSION = int
-src/pose_estimation/calibration.py:28: CALIBRATION_FILENAME = str
-src/pose_estimation/calibration.py:31: _DISTORTION_LENGTHS = tuple[5]
-src/pose_estimation/calibration.py:34: _WORLD_FRAME_TOLERANCE = float
-src/pose_estimation/calibration.py:38: class CalibrationError(ValueError)
-src/pose_estimation/calibration.py:47: def load_calibration(path: str | pathlib.Path) -> SessionCalibration
-src/pose_estimation/calibration.py:64: def save_calibration(calibration: SessionCalibration, path: str | pathlib.Path) -> None
-src/pose_estimation/calibration.py:79: def load_session_calibration(session_dir: str | pathlib.Path) -> SessionCalibration | None
-src/pose_estimation/calibration.py:99: def _validate_jsonable(data: Any, *, source: str) -> None
-src/pose_estimation/calibration.py:142: def _validate_camera(cam: Any, *, index: int, source: str, seen_names: set[str]) -> None
-src/pose_estimation/calibration.py:182: def _is_zero_vec(v: list[float]) -> bool
-src/pose_estimation/calibration.py:186: def _approx_equal(a: float, b: float, tol: float=1e-09) -> bool
-src/pose_estimation/calibration.py:195: def _from_jsonable(data: Any, *, source: str) -> SessionCalibration
-src/pose_estimation/calibration.py:218: def _to_jsonable(calibration: SessionCalibration) -> dict[str, Any]
-src/pose_estimation/calibration.py:251: def utc_timestamp() -> str
-src/pose_estimation/calibration.py:256: def solve_charuco(session_dir: str | pathlib.Path, *, board: Any=None, square_size_m: float=0.04, world_frame: str='cam1') -> SessionCalibr…
-src/pose_estimation/calibration.py:277: __all__ = list[8]
+# src/pose_estimation/calibration.py (264 lines)
+src/pose_estimation/calibration.py:24: CALIBRATION_FORMAT_VERSION = int
+src/pose_estimation/calibration.py:27: CALIBRATION_FILENAME = str
+src/pose_estimation/calibration.py:30: _DISTORTION_LENGTHS = tuple[5]
+src/pose_estimation/calibration.py:33: _WORLD_FRAME_TOLERANCE = float
+src/pose_estimation/calibration.py:37: class CalibrationError(ValueError)
+src/pose_estimation/calibration.py:46: def load_calibration(path: str | pathlib.Path) -> SessionCalibration
+src/pose_estimation/calibration.py:63: def save_calibration(calibration: SessionCalibration, path: str | pathlib.Path) -> None
+src/pose_estimation/calibration.py:78: def load_session_calibration(session_dir: str | pathlib.Path) -> SessionCalibration | None
+src/pose_estimation/calibration.py:98: def _validate_jsonable(data: Any, *, source: str) -> None
+src/pose_estimation/calibration.py:141: def _validate_camera(cam: Any, *, index: int, source: str, seen_names: set[str]) -> None
+src/pose_estimation/calibration.py:181: def _is_zero_vec(v: list[float]) -> bool
+src/pose_estimation/calibration.py:185: def _approx_equal(a: float, b: float, tol: float=1e-09) -> bool
+src/pose_estimation/calibration.py:194: def _from_jsonable(data: Any, *, source: str) -> SessionCalibration
+src/pose_estimation/calibration.py:217: def _to_jsonable(calibration: SessionCalibration) -> dict[str, Any]
+src/pose_estimation/calibration.py:250: def utc_timestamp() -> str
+src/pose_estimation/calibration.py:255: __all__ = list[7]
 
-# src/pose_estimation/calibration_cli.py (140 lines)
-src/pose_estimation/calibration_cli.py:32: def _cmd_verify(args: argparse.Namespace) -> int
-src/pose_estimation/calibration_cli.py:58: def _cmd_solve(args: argparse.Namespace) -> int
-src/pose_estimation/calibration_cli.py:72: def _cmd_capture(args: argparse.Namespace) -> int
-src/pose_estimation/calibration_cli.py:84: def _build_parser() -> argparse.ArgumentParser
-src/pose_estimation/calibration_cli.py:132: def main(argv: list[str] | None=None) -> int
+# src/pose_estimation/calibration_cli.py (416 lines)
+src/pose_estimation/calibration_cli.py:50: def _print_summary(calib, source: str) -> None
+src/pose_estimation/calibration_cli.py:70: def _parse_squares(value: str) -> tuple[int, int]
+src/pose_estimation/calibration_cli.py:84: def _parse_devices(value: str) -> list[int]
+src/pose_estimation/calibration_cli.py:97: def _board_from_args(args: argparse.Namespace)
+src/pose_estimation/calibration_cli.py:105: def _add_board_args(parser: argparse.ArgumentParser) -> None
+src/pose_estimation/calibration_cli.py:132: def _cmd_verify(args: argparse.Namespace) -> int
+src/pose_estimation/calibration_cli.py:142: def _cmd_solve(args: argparse.Namespace) -> int
+src/pose_estimation/calibration_cli.py:160: def _cmd_board(args: argparse.Namespace) -> int
+src/pose_estimation/calibration_cli.py:187: _GRID_CELL_HEIGHT = int
+src/pose_estimation/calibration_cli.py:191: def _annotate_capture(frame: np.ndarray, corners, ids, name: str) -> np.ndarray
+src/pose_estimation/calibration_cli.py:209: def _compose_grid(frames: list[np.ndarray], cell_height: int=_GRID_CELL_HEIGHT) -> np.ndarray
+src/pose_estimation/calibration_cli.py:218: def _cmd_capture(args: argparse.Namespace) -> int
+src/pose_estimation/calibration_cli.py:251: def _capture_loop(caps: list, names: list[str], detector, session_dir: pathlib.Path) -> int
+src/pose_estimation/calibration_cli.py:331: def _build_parser() -> argparse.ArgumentParser
+src/pose_estimation/calibration_cli.py:408: def main(argv: list[str] | None=None) -> int
+
+# src/pose_estimation/charuco.py (449 lines)
+src/pose_estimation/charuco.py:42: CHARUCO_SQUARES_DEFAULT = tuple[2]
+src/pose_estimation/charuco.py:45: CHARUCO_SQUARE_SIZE_M_DEFAULT = float
+src/pose_estimation/charuco.py:48: CHARUCO_MARKER_SIZE_M_DEFAULT = float
+src/pose_estimation/charuco.py:51: CHARUCO_DICTIONARY_DEFAULT = attribute
+src/pose_estimation/charuco.py:54: CHARUCO_SOLVER_TAG = str
+src/pose_estimation/charuco.py:57: MIN_CORNERS_PER_FRAME = int
+src/pose_estimation/charuco.py:60: MIN_INTRINSIC_FRAMES = int
+src/pose_estimation/charuco.py:63: MIN_SHARED_FRAMES = int
+src/pose_estimation/charuco.py:66: MIN_SHARED_CORNERS = int
+src/pose_estimation/charuco.py:69: MAX_SOLVE_FRAMES = int
+src/pose_estimation/charuco.py:74: class CharucoDetection
+src/pose_estimation/charuco.py:91: def make_charuco_board(squares: tuple[int, int]=CHARUCO_SQUARES_DEFAULT, square_size_m: float=CHARUCO_SQUARE_SIZE_M_DEFAULT, marker_size_m:…
+src/pose_estimation/charuco.py:110: def render_charuco_board(board: cv2.aruco.CharucoBoard, *, px_per_square: int=240, margin_squares: float=0.25) -> np.ndarray
+src/pose_estimation/charuco.py:133: def detect_charuco_corners(video_path: str | pathlib.Path, board: cv2.aruco.CharucoBoard, *, sync_offset: int=0, min_corners: int=MIN_CORNE…
+src/pose_estimation/charuco.py:179: def _subsample(items: list, max_items: int) -> list
+src/pose_estimation/charuco.py:192: def _solve_intrinsics(detections: list[CharucoDetection], board: cv2.aruco.CharucoBoard, image_size: tuple[int, int]) -> tuple[np.ndarray, …
+src/pose_estimation/charuco.py:223: def _shared_correspondences(dets_a: dict[int, CharucoDetection], dets_b: dict[int, CharucoDetection], board: cv2.aruco.CharucoBoard, *, min…
+src/pose_estimation/charuco.py:252: def _solve_extrinsics(world_dets: dict[int, CharucoDetection], cam_dets: dict[int, CharucoDetection], board: cv2.aruco.CharucoBoard, world_…
+src/pose_estimation/charuco.py:294: def _global_reprojection_rms(per_camera_dets: dict[str, dict[int, CharucoDetection]], cameras: dict[str, CameraCalibration], board: cv2.aru…
+src/pose_estimation/charuco.py:353: def solve_charuco(session_dir: str | pathlib.Path, *, board: cv2.aruco.CharucoBoard | None=None, world_frame: str | None=None, max_frames: …
+src/pose_estimation/charuco.py:437: __all__ = list[10]
 
 # src/pose_estimation/constraints.py (270 lines)
 src/pose_estimation/constraints.py:14: BONE_SEGMENTS = list[6]
@@ -619,28 +651,67 @@ tests/test_benchmark_config.py:64: def test_missing_file_errors(tmp_path, parser
 tests/test_benchmark_config.py:70: def test_top_level_must_be_mapping(tmp_path, parser)
 tests/test_benchmark_config.py:77: def test_bad_coercion_errors(tmp_path, parser)
 
-# tests/test_calibration.py (217 lines)
-tests/test_calibration.py:28: def minimal_calibration_dict() -> dict
-tests/test_calibration.py:59: def calibration_path(tmp_path: pathlib.Path, minimal_calibration_dict: dict) -> pathlib.Path
-tests/test_calibration.py:70: def test_load_returns_typed_arrays(calibration_path: pathlib.Path)
-tests/test_calibration.py:87: def test_save_then_load_roundtrips(tmp_path: pathlib.Path, calibration_path: pathlib.Path)
-tests/test_calibration.py:103: def test_load_session_calibration_discovers_file(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
-tests/test_calibration.py:112: def test_load_session_calibration_returns_none_when_missing(tmp_path: pathlib.Path)
-tests/test_calibration.py:121: def _save_dict(tmp_path: pathlib.Path, data: dict) -> pathlib.Path
-tests/test_calibration.py:127: def test_unknown_format_version_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
-tests/test_calibration.py:133: def test_missing_world_frame_field_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
-tests/test_calibration.py:139: def test_world_frame_must_match_a_camera(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
-tests/test_calibration.py:145: def test_world_frame_camera_must_have_zero_pose(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
-tests/test_calibration.py:153: def test_duplicate_camera_name_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
-tests/test_calibration.py:159: def test_invalid_K_shape_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
-tests/test_calibration.py:165: def test_invalid_K_last_row_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
-tests/test_calibration.py:171: def test_invalid_distortion_length_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
-tests/test_calibration.py:177: def test_invalid_rvec_length_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
-tests/test_calibration.py:183: def test_negative_resolution_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
-tests/test_calibration.py:189: def test_load_missing_file_raises(tmp_path: pathlib.Path)
-tests/test_calibration.py:194: def test_invalid_json_raises(tmp_path: pathlib.Path)
-tests/test_calibration.py:206: def test_solve_charuco_is_stub(tmp_path: pathlib.Path)
-tests/test_calibration.py:211: def test_utc_timestamp_iso_format()
+# tests/test_calibration.py (211 lines)
+tests/test_calibration.py:27: def minimal_calibration_dict() -> dict
+tests/test_calibration.py:58: def calibration_path(tmp_path: pathlib.Path, minimal_calibration_dict: dict) -> pathlib.Path
+tests/test_calibration.py:69: def test_load_returns_typed_arrays(calibration_path: pathlib.Path)
+tests/test_calibration.py:86: def test_save_then_load_roundtrips(tmp_path: pathlib.Path, calibration_path: pathlib.Path)
+tests/test_calibration.py:102: def test_load_session_calibration_discovers_file(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
+tests/test_calibration.py:111: def test_load_session_calibration_returns_none_when_missing(tmp_path: pathlib.Path)
+tests/test_calibration.py:120: def _save_dict(tmp_path: pathlib.Path, data: dict) -> pathlib.Path
+tests/test_calibration.py:126: def test_unknown_format_version_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
+tests/test_calibration.py:132: def test_missing_world_frame_field_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
+tests/test_calibration.py:138: def test_world_frame_must_match_a_camera(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
+tests/test_calibration.py:144: def test_world_frame_camera_must_have_zero_pose(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
+tests/test_calibration.py:152: def test_duplicate_camera_name_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
+tests/test_calibration.py:158: def test_invalid_K_shape_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
+tests/test_calibration.py:164: def test_invalid_K_last_row_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
+tests/test_calibration.py:170: def test_invalid_distortion_length_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
+tests/test_calibration.py:176: def test_invalid_rvec_length_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
+tests/test_calibration.py:182: def test_negative_resolution_rejected(tmp_path: pathlib.Path, minimal_calibration_dict: dict)
+tests/test_calibration.py:188: def test_load_missing_file_raises(tmp_path: pathlib.Path)
+tests/test_calibration.py:193: def test_invalid_json_raises(tmp_path: pathlib.Path)
+tests/test_calibration.py:205: def test_utc_timestamp_iso_format()
+
+# tests/test_calibration_cli.py (221 lines)
+tests/test_calibration_cli.py:29: def _synthetic_calibration() -> SessionCalibration
+tests/test_calibration_cli.py:56: def test_verify_prints_summary(tmp_path: pathlib.Path, capsys: pytest.CaptureFixture)
+tests/test_calibration_cli.py:65: def test_verify_missing_file_errors(tmp_path: pathlib.Path, capsys: pytest.CaptureFixture)
+tests/test_calibration_cli.py:75: def test_solve_saves_and_summarises(tmp_path: pathlib.Path, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch)
+tests/test_calibration_cli.py:106: def test_solve_empty_session_errors(tmp_path: pathlib.Path, capsys: pytest.CaptureFixture)
+tests/test_calibration_cli.py:119: def test_board_writes_redetectable_png(tmp_path: pathlib.Path)
+tests/test_calibration_cli.py:133: def test_board_custom_geometry_dimensions(tmp_path: pathlib.Path)
+tests/test_calibration_cli.py:157: def test_board_rejects_marker_not_smaller_than_square(tmp_path: pathlib.Path, capsys: pytest.CaptureFixture)
+tests/test_calibration_cli.py:180: def test_parse_devices_valid_and_invalid()
+tests/test_calibration_cli.py:188: def test_parse_squares_valid_and_invalid()
+tests/test_calibration_cli.py:197: def test_compose_grid_scales_to_common_height()
+tests/test_calibration_cli.py:207: def test_capture_name_count_mismatch_errors(tmp_path: pathlib.Path, capsys: pytest.CaptureFixture)
+
+# tests/test_charuco.py (291 lines)
+tests/test_charuco.py:35: BOARD = make_charuco_board(...)
+tests/test_charuco.py:36: PX_PER_SQUARE = int
+tests/test_charuco.py:37: BOARD_IMG = render_charuco_board(...)
+tests/test_charuco.py:39: _SQ = BOARD.getSquareLength(...)
+tests/test_charuco.py:45: GT = dict[3]
+tests/test_charuco.py:65: CAM3_SYNC_OFFSET = int
+tests/test_charuco.py:67: _BG_GRAY = int
+tests/test_charuco.py:70: def _board_poses(n: int, seed: int=7) -> list[tuple[np.ndarray, np.ndarray]]
+tests/test_charuco.py:87: def _render_view(K: np.ndarray, rvec_cam: np.ndarray, tvec_cam: np.ndarray, rvec_board: np.ndarray, tvec_board: np.ndarray, size: tuple[int…
+tests/test_charuco.py:129: def _write_video(path: pathlib.Path, frames: list[np.ndarray], size: tuple[int, int]) -> None
+tests/test_charuco.py:140: def solved_session(tmp_path_factory: pytest.TempPathFactory)
+tests/test_charuco.py:165: def test_solve_recovers_intrinsics(solved_session)
+tests/test_charuco.py:175: def test_solve_recovers_extrinsics(solved_session)
+tests/test_charuco.py:186: def test_solve_world_frame_and_metadata(solved_session)
+tests/test_charuco.py:196: def test_solve_global_rms_small(solved_session)
+tests/test_charuco.py:200: def test_solve_roundtrips_through_save_load(solved_session, tmp_path: pathlib.Path)
+tests/test_charuco.py:211: def test_solve_unknown_world_frame_raises(solved_session, tmp_path: pathlib.Path)
+tests/test_charuco.py:220: def test_solve_no_detections_raises(tmp_path: pathlib.Path)
+tests/test_charuco.py:229: def test_solve_insufficient_overlap_raises(tmp_path: pathlib.Path)
+tests/test_charuco.py:252: def test_detect_charuco_corners_applies_sync_offset(tmp_path: pathlib.Path)
+tests/test_charuco.py:268: def test_detect_charuco_corners_missing_video_raises(tmp_path: pathlib.Path)
+tests/test_charuco.py:273: def test_make_charuco_board_rejects_oversized_marker()
+tests/test_charuco.py:278: def test_render_charuco_board_dimensions()
+tests/test_charuco.py:284: def test_subsample_spreads_and_caps()
 
 # tests/test_constraints.py (313 lines)
 tests/test_constraints.py:8: def _make_landmarks()
@@ -809,7 +880,7 @@ tests/test_processing.py:215: def test_affine_matrix_nan_inputs()
 tests/test_processing.py:223: def test_affine_matrix_inf_inputs()
 tests/test_processing.py:229: def test_affine_matrix_valid()
 
-# tests/test_public_api.py (92 lines)
+# tests/test_public_api.py (94 lines)
 tests/test_public_api.py:12: def test_smoothers_exported()
 tests/test_public_api.py:18: def test_pipeline_entry_points_exported()
 tests/test_public_api.py:25: def test_tracking_constants_exported()
@@ -819,9 +890,9 @@ tests/test_public_api.py:46: def test_savgol_helper_exported()
 tests/test_public_api.py:50: def test_models_helper_exported()
 tests/test_public_api.py:54: def test_multicam_surface_exported()
 tests/test_public_api.py:67: def test_calibration_surface_exported()
-tests/test_public_api.py:79: def test_mapping_surface_exported()
-tests/test_public_api.py:83: def test_triangulation_surface_exported()
-tests/test_public_api.py:89: def test_all_lists_only_existing_names()
+tests/test_public_api.py:81: def test_mapping_surface_exported()
+tests/test_public_api.py:85: def test_triangulation_surface_exported()
+tests/test_public_api.py:91: def test_all_lists_only_existing_names()
 
 # tests/test_r_pipeline.py (892 lines)
 tests/test_r_pipeline.py:28: _PROJECT_ROOT = attribute

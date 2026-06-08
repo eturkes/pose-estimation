@@ -16,6 +16,7 @@ from .calibration import (
     load_session_calibration,
     save_calibration,
 )
+from .charuco import make_charuco_board, solve_charuco
 from .constraints import (
     ANGLE_LIMITS,
     ANGLE_LIMITS_BODY,
@@ -84,11 +85,13 @@ __all__ = [
     "iter_synchronized_frames",
     "load_calibration",
     "load_session_calibration",
+    "make_charuco_board",
     "match_hands_to_arms",
     "process_frame",
     "process_session",
     "save_calibration",
     "savgol_smooth_csv",
     "select_primary_body",
+    "solve_charuco",
     "tracking_pose_indices",
 ]

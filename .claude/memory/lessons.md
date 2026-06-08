@@ -15,6 +15,15 @@ Append-only. Each lesson should yield a positive, actionable rule (avoid "do not
 
 ---
 
+## 2026-06-08 — Synthetic ChArUco rendering: identity pose faces the camera; supersample the warp; diversify poses
+
+**Symptom.** Three sequential zero-detection/accuracy failures while building synthetic calibration tests: (1) zero corners detected at realistic distances; (2) still zero after enlarging — markers warped to mush; (3) detection worked but cam2 stereo tvec was 16 mm off with identical results across encoder-quality settings.
+**Root cause.** (1) ArUco needs ≳ 25 px/square; boards at 2+ m were ~16 px/square. (2) Plain `warpPerspective` aliases 4×4 marker interiors into undetectable noise. (3) OpenCV planar targets use +z INTO the board, so an Rx(π) "face the camera" flip renders the mirrored back; and a narrow central pose cloud weakly constrains oblique cameras' intrinsics — the fx error couples directly into stereo translation (systematic, not noise).
+**Rule (positive form).** When rendering planar calibration targets: place boards near enough for ≳ 25 px/square; render via `getPerspectiveTransform` + 3× supersampled `warpPerspective` then `INTER_AREA` downscale; use identity-orientation-plus-tilts for board poses (identity already faces the camera; texture mapping is `texture_px = obj_m / square_size * px_per_square`, +y down). When calibration accuracy misses tolerance identically across encode-quality runs, treat it as estimation geometry — widen the pose cloud (translation AND tilt) rather than loosening the tolerance.
+**Where to check.** `tests/test_charuco.py` (`_render_view`, `_board_poses`), `.claude/tech/calibration.md` (capture accuracy lesson).
+
+---
+
 ## 2026-06-04 — When judging a split seam, audit every free name in the block, not a hand-picked list
 
 **Symptom.** While splitting `run.py` I also scoped extracting the cropping helpers from `processing.py` into a new module. It failed late: `get_hand_crop` references `PALM_WRIST_KP_IDX`/`PALM_FINGER_KP_IDX`, which five other `processing.py` sites and a test also use, so extraction forces a circular import (new module ↔ `processing.py`). I abandoned that split after scoping it.

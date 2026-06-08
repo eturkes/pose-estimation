@@ -31,7 +31,7 @@ Four phases. Phases 1-2 are the immediate priority (jitter fixes + clinical metr
 
 ### Phase 3: 3D pipeline implementation
 - 3A: ✓ fuse_session_frame() with synthetic tests
-- 3B: solve_charuco() + calibration CLI (independent)
+- 3B: ✓ solve_charuco() + calibration CLI
 - 3C: ✓ 3D CSV export + R analysis
 
 ### Phase 4: Maintenance (periodic, interleave freely)
@@ -202,7 +202,7 @@ Context: Math primitives (projection_matrix, undistort_points, triangulate_views
 
 ---
 
-## Session 3B: Implement solve_charuco() and calibration CLI
+## Session 3B: Implement solve_charuco() and calibration CLI ✓
 
 ```
 Execute: Implement ChArUco-based camera calibration solver.

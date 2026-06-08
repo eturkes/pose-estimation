@@ -68,6 +68,8 @@ def test_calibration_surface_exported():
     assert callable(pe.load_calibration)
     assert callable(pe.load_session_calibration)
     assert callable(pe.save_calibration)
+    assert callable(pe.solve_charuco)
+    assert callable(pe.make_charuco_board)
     assert issubclass(pe.CalibrationError, ValueError)
     # TypedDicts: importable so callers can annotate.
     assert pe.CameraCalibration is not None

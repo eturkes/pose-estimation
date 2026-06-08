@@ -65,9 +65,10 @@ Software sync only (no hardware genlock assumed). Three layers:
 | File | Role |
 |------|------|
 | `src/pose_estimation/multicam.py` | `Session` dataclass, `discover_session`, `iter_synchronized_frames`, `process_session` (callback-based orchestrator + post-hoc fusion hook), `fuse_session_outputs` → `SessionFusion` → `world3d.csv`. |
-| `src/pose_estimation/calibration.py` | `CameraCalibration` / `SessionCalibration` IO, validation, charuco solver (stub). See `tech/calibration.md`. |
+| `src/pose_estimation/calibration.py` | `CameraCalibration` / `SessionCalibration` IO + validation (cv2-free). See `tech/calibration.md`. |
+| `src/pose_estimation/charuco.py` | ChArUco board construction/rendering, corner detection, `solve_charuco` (intrinsics + pairwise extrinsics + global RMS). See `tech/calibration.md`. |
 | `src/pose_estimation/triangulation.py` | DLT helpers + `fuse_session_frame` policy layer (validity masking, weighted DLT, outlier-view rejection, cheirality flag, `FusionDiagnostics`). |
-| `src/pose_estimation/calibration_cli.py` | `pose-estimation-calibrate` console script. |
+| `src/pose_estimation/calibration_cli.py` | `pose-estimation-calibrate` console script (verify/solve/board/capture). |
 
 `_types.py` extensions: `CameraCalibration`, `SessionCalibration`, `SessionFrame`, `MultiCamPipelineState`, `FusionDiagnostics`.
 
@@ -81,10 +82,7 @@ Both `pose-estimation` (`main.py`) and `pose-estimation-run` (`run.py`) accept:
 | `--sessions-dir <dir>` | Iterate over all session subdirectories. |
 | `--calibration <file>` | Override calibration path. Otherwise the session's `calibration.json` (if present) is used. |
 
-New console script:
-- `pose-estimation-calibrate verify --calibration <file>` — load + print summary (works now).
-- `pose-estimation-calibrate solve --session-dir <dir> --output <file>` — charuco solve (stub).
-- `pose-estimation-calibrate capture --session-dir <dir>` — guided capture (stub).
+Console script `pose-estimation-calibrate` (verify/solve/board/capture): see `tech/calibration.md` § CLI surface.
 
 ## Processing flow
 
@@ -119,4 +117,4 @@ When `session.calibration` is present, `process_session()` ends by calling `fuse
 - R consumption of `world3d.csv` (gating, 3D features): `tech/analysis.md`
 - Per-camera tracking modes: `tech/tracking-modes.md`
 - CLI surface: `tech/entrypoints.md`
-- Tests: `tech/tests.md` (`test_multicam.py`, `test_calibration.py`)
+- Tests: `tech/tests.md` (`test_multicam.py`, `test_calibration.py`, `test_charuco.py`, `test_calibration_cli.py`)

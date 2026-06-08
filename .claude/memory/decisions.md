@@ -16,6 +16,21 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-08 — ChArUco solver via modern OpenCV API in a separate charuco.py (Session 3B)
+
+**Context.** Session 3B spec called for `cv2.aruco.calibrateCameraCharucoExtended`, but that function (and `calibrateCameraCharuco`) is contrib-only and ABSENT from opencv-python-headless ≥ 4.7 (we ship 4.13). The solver also needs cv2 + multicam, while `calibration.py` was deliberately cv2-free.
+**Decision.**
+1. **Modern API path**: `CharucoDetector.detectBoard` → `board.matchImagePoints` → `cv2.calibrateCamera` (intrinsics) and `cv2.stereoCalibrate(CALIB_FIX_INTRINSIC)` (pairwise extrinsics vs world cam). stereoCalibrate's (R,T) = camera-from-world directly because the world cam IS the world frame.
+2. **Module split**: solver in new `charuco.py` (imports calibration/multicam/_types, acyclic); `calibration.py` stays cv2-free IO/validation.
+3. **Direct-pair extrinsics only**: every camera must share board views with the world-frame camera; chains (A↔B↔C) unsupported and documented as a capture requirement.
+4. **Global RMS**: per logical frame, anchor board pose via solvePnP in the world cam (fallback first detector), lift to world, reproject into all detecting cameras. No bundle-adjustment stage — synthetic accuracy (f < 2%, rot < 1°, trans < 15 mm @ 0.84 m baseline, RMS ≈ 0.4 px) did not justify it.
+5. **Capture = frame-per-press**: pygame grid of live feeds; SPACE appends one frame per camera to per-camera MJPG AVIs, so frame index = press index and capture output feeds `solve` through the standard `discover_session` path with zero sync offsets.
+**Alternatives considered.** (a) Depend on opencv-contrib for the legacy charuco calibrate — rejected: replaces the headless wheel, legacy API deprecated upstream. (b) solvePnP-per-frame + pose averaging for extrinsics — rejected: stereoCalibrate jointly optimises over all shared frames and yields residuals for free. (c) Free-running capture recording — rejected: frame-per-press makes synchronization inherent rather than post-hoc.
+**Consequences.** Calibration sessions are ordinary `discover_session` directories (manifest + sync offsets work unchanged). Capture arrangement must give the world camera shared board views with every other camera. Board geometry constants live in `charuco.py`, not `calibration.py`.
+**References.** `src/pose_estimation/charuco.py`, `src/pose_estimation/calibration_cli.py`, `tests/test_charuco.py`, `tests/test_calibration_cli.py`, `.claude/tech/calibration.md`.
+
+---
+
 ## 2026-06-08 — world3d.csv schema + R 3D mode is an adapter, not a parallel path (Session 3C)
 
 **Context.** Session 3C: export fused 3D to CSV and make `clinical_features.R` produce metric clinical features from it. The 2D feature path already used `dist_3d`/`angle_at_vertex` (xyz-capable) and window-speed = dist×fs.
