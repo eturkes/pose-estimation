@@ -1,7 +1,6 @@
-# Session kickoff prompt
-
-Paste this prompt at the start of a fresh agent session on this project. The bracketed `<TASK>` line at the end is the only part the user (or steering message) needs to customise.
-
+---
+description: Bootstrap a pose-estimation session. Pass a task to override the roadmap, or leave blank to continue the roadmap.
+argument-hint: [TASK]
 ---
 
 You are continuing work on the **pose-estimation** project. Bootstrap your context as follows before doing anything else:
@@ -24,12 +23,10 @@ Tooling reminders:
 - Data dirs (`videos/`, `output/`, `model/`) are git-ignored — keep patient data out of commits.
 - Navigate code via the repo map instead of whole-file reads: `rg '\bSYMBOL\b' .claude/repomap.md` → `path:line`, then `Read(path, offset=line)`. Regenerate after editing code: `python scripts/repomap.py` (drift-guarded by `tests/test_repomap.py`).
 
-Then proceed with: <TASK>
+## Task for this session
 
----
+$ARGUMENTS
 
-## Tips for whoever pastes this
+**If the task line above is blank**, no override was given — continue the roadmap: open `.claude/prompts/sessions.md`, read the **Current roadmap** section, and pick up the next unfinished item (any task not marked ✓). Adopt that session's task block verbatim as your task. If every roadmap item is complete, the only standing work is the Phase 4 maintenance cycle — run it, then report that the roadmap is exhausted so the user can seed the next one.
 
-- The prompt is intentionally short. CLAUDE.md and `.claude/INDEX.md` carry the heavy context; the kickoff only points at them.
-- Replace `<TASK>` with the concrete request, or leave it blank to have the agent wait for follow-up.
-- If you want the agent to skip a step (e.g. "don't auto-edit tech notes"), append the override after the task line; CLAUDE.md treats user instructions as final say.
+**If a task is given**, treat it as an override for this session: it takes precedence over the roadmap. Any extra lines the user appended after it are steering notes and, per CLAUDE.md, are the final say.

@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-08 — kickoff prompt → `/session` slash command
+
+**Context.** The reusable session-bootstrap prompt lived at `.claude/prompts/kickoff.md` and had to be pasted by hand with `<TASK>` manually substituted. Claude Code auto-discovers project slash commands from `.claude/commands/*.md`, so the same prompt can be a first-class command.
+**Decision.** Moved the prompt into `.claude/commands/session.md` (frontmatter `description` + `argument-hint: [TASK]`), substituting `$ARGUMENTS` for `<TASK>`. `/session <TASK>` overrides the roadmap for the session; bare `/session` (empty `$ARGUMENTS`) routes to `.claude/prompts/sessions.md` and continues the **Current roadmap** from the next unfinished item, falling back to the Phase 4 maintenance cycle when all items are ✓. Deleted `kickoff.md`. Repointed the active references: `AGENTS.md`, `.claude/INDEX.md` (Layout tree + new `commands/` table), `.claude/prompts/sessions.md`.
+**Alternatives considered.** (a) Keep `kickoff.md` and make the command a thin wrapper that re-reads it: rejected — two sources of one prompt invite drift. (b) Retroactively rewrite the `kickoff.md` mentions in the older entries below: rejected — the append-only log records historical state accurately; this entry supersedes them for navigation. (c) Encode the roadmap-vs-override branch as command logic: not possible — slash commands are static prompt text, so the branch is phrased as an instruction the agent evaluates against `$ARGUMENTS`.
+**Consequences.** Fresh sessions start with `/session [TASK]` instead of a paste. The bootstrap prompt is now single-sourced in `session.md`; keep its steps in sync with CLAUDE.md / INDEX.md if those evolve. Older entries still cite `prompts/kickoff.md` paths — they are historical and resolve to `commands/session.md` going forward. Reverse by moving the body back to `prompts/kickoff.md` and dropping the frontmatter.
+**References.** `.claude/commands/session.md`, `AGENTS.md`, `.claude/INDEX.md`, `.claude/prompts/sessions.md`.
+
+---
+
 ## 2026-06-08 — Refactor pass: single One Euro impl, shared video_io.py, resolve_cli_sessions (partially supersedes 2026-05-24 "not worthwhile")
 
 **Context.** Proactive refactor sweep. Reference scan found 6 definition-only constants; the documented-parallel `rtmlib_smoothing._OneEuro` proved algebraically identical to `smoothing.OneEuroFilter` (same formulas, different fp op order; missing only the scalar-confidence fast path / `_tau_d` cache / `__slots__`); and main.py/run.py had grown twin helpers AFTER the 2026-05-24 "main/run refactor not worthwhile" analysis — with real drift: `VIDEO_EXTS` had `.flv`, `VIDEO_EXTENSIONS` did not, and the session-resolution block was byte-identical 20 lines in both `_dispatch_sessions`.
