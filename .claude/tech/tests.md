@@ -36,8 +36,8 @@ All tests live in `tests/`. Run with `uv run pytest`. Pytest is configured stric
 | File | Covers |
 |------|--------|
 | `tests/test_calibration.py` | `calibration.py` JSON IO, schema validation, `solve_charuco` stub. |
-| `tests/test_multicam.py` | `multicam.py` session discovery (manifest + glob), calibration auto-load, sync offsets, path traversal rejection (camera file, calibration path, camera name), `iter_synchronized_frames`, `process_session` callback invocation + output dir creation. Uses MJPG/AVI synthetic videos. |
-| `tests/test_triangulation.py` | `triangulation.py` projection / undistort / weighted DLT primitives; `fuse_session_frame` stub. |
+| `tests/test_multicam.py` | `multicam.py` session discovery (manifest + glob), calibration auto-load, sync offsets, path traversal rejection (camera file, calibration path, camera name), `iter_synchronized_frames`, `process_session` callback invocation + output dir creation + 3D-fusion hook (summary print, non-fatal failure), `read_csv_keypoints` round-trip, `fuse_session_outputs` (sync-offset alignment, missing-CSV/calibration errors). Uses MJPG/AVI synthetic videos + synthetic projected CSVs. |
+| `tests/test_triangulation.py` | `triangulation.py` projection / undistort / weighted DLT primitives; `fuse_session_frame` policy layer (noisy 3-cam <5mm, 2-cam <1cm, occlusion, insufficient views, outlier-view rejection, min_views, cheirality flag, confidence aggregation, validation errors). |
 
 ## R pipeline integration
 

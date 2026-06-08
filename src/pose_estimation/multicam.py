@@ -14,8 +14,10 @@ This module owns three concerns:
    honouring per-camera ``sync_offset`` skip counts.
 3. **Processing** — ``process_session`` orchestrates per-camera video
    processing via a caller-supplied ``camera_processor`` callback,
-   managing output directory layout and progress reporting.  3D
-   triangulation wiring (``fuse_session_frame``) is a follow-up.
+   managing output directory layout and progress reporting.  When the
+   session has calibration, it then fuses the per-camera CSVs into 3D
+   via ``fuse_session_outputs`` (CSV read-back → ``fuse_session_frame``
+   per logical frame).
 """
 
 from __future__ import annotations
@@ -29,12 +31,14 @@ from typing import Any, cast
 import cv2
 import numpy as np
 
-from ._types import SessionCalibration, SessionFrame
+from ._types import FusionDiagnostics, SessionCalibration, SessionFrame
 from .calibration import (
     CalibrationError,
     load_calibration,
     load_session_calibration,
 )
+from .export import read_csv_keypoints
+from .triangulation import fuse_session_frame
 
 SESSION_MANIFEST_FILENAME = "session.json"
 """Conventional name for the optional per-session manifest."""
@@ -392,9 +396,12 @@ def process_session(
         )
 
     The callback encapsulates all backend-specific logic (model setup,
-    inference, smoothing, CSV writing); ``process_session`` handles only
+    inference, smoothing, CSV writing); ``process_session`` handles
     session-level orchestration: output directory creation, camera
-    iteration, and progress reporting.
+    iteration, and progress reporting.  When the session carries
+    calibration, the per-camera CSVs are then fused into 3D via
+    ``fuse_session_outputs`` (non-fatal on failure — the 2D results
+    are already on disk).  ``world3d.csv`` export is not yet wired.
 
     Returns a dict mapping camera name → the value returned by
     ``camera_processor`` for that camera.
@@ -424,8 +431,139 @@ def process_session(
         print(f"    CSV:  {csv_path}")
         print(f"    Diag: {diag_path}")
 
+    if session.calibration is not None:
+        _fuse_and_report(session, output_dir)
+
     print(f"\nSession {session.session_id!r}: complete ({session.n_cameras} cameras)")
     return results
+
+
+# ---------------------------------------------------------------------------
+# 3D fusion (CSV read-back → fuse_session_frame per logical frame)
+# ---------------------------------------------------------------------------
+
+
+@dataclasses.dataclass
+class SessionFusion:
+    """Triangulated 3D output for one session.
+
+    ``frames`` holds one entry per fused logical frame index:
+    ``(frame_index, world, diag)`` with ``world`` of shape ``(N, 3)``
+    in metres (NaN rows where fusion failed) and per-keypoint
+    ``FusionDiagnostics``.  ``keypoint_names`` labels the ``N`` rows
+    (body/arm keypoints first, then ``{left,right}_hand_{0..20}``).
+    """
+
+    keypoint_names: list[str]
+    frames: list[tuple[int, np.ndarray, FusionDiagnostics]]
+
+
+def fuse_session_outputs(
+    session: Session,
+    output_dir: str | pathlib.Path | None = None,
+    *,
+    min_views: int = 2,
+) -> SessionFusion:
+    """Triangulate the per-camera CSVs of *session* into 3D keypoints.
+
+    Reads back ``<output_dir>/<session_id>/<cam>.csv`` for every
+    camera (skipping cameras whose CSV is absent), converts the
+    normalised coordinates to pixels via each camera's calibrated
+    resolution, aligns frame indices by subtracting ``sync_offset``
+    (CSV rows hold *raw* per-camera indices), and fuses every logical
+    frame observed by at least *min_views* cameras.
+
+    Only ``person_idx == 0`` rows are fused — cross-camera person
+    identity matching is not implemented.
+
+    Raises ``SessionError`` when the session has no calibration, a
+    camera lacks a calibration entry, cameras disagree on tracking
+    mode, or fewer than *min_views* CSVs exist.
+    """
+    if session.calibration is None:
+        raise SessionError(f"session {session.session_id!r}: 3D fusion requires calibration")
+    if min_views < 2:
+        raise ValueError(f"fuse_session_outputs: min_views must be >= 2 (got {min_views})")
+    calibration = session.calibration
+    session_out = _resolve_session_output(session, output_dir)
+
+    keypoint_names: list[str] | None = None
+    per_cam_frames: dict[str, dict[int, tuple[np.ndarray, np.ndarray]]] = {}
+    for cam in session.cameras:
+        csv_path = session_out / f"{cam.name}.csv"
+        if not csv_path.is_file():
+            continue
+        if cam.name not in calibration["cameras"]:
+            raise SessionError(
+                f"session {session.session_id!r}: camera {cam.name!r} has no calibration entry"
+            )
+        names, frames = read_csv_keypoints(csv_path)
+        if keypoint_names is None:
+            keypoint_names = names
+        elif names != keypoint_names:
+            raise SessionError(
+                f"session {session.session_id!r}: camera {cam.name!r} CSV keypoint set "
+                "differs from other cameras (mixed tracking modes?)"
+            )
+        # Normalised [0, 1] → pixels in the calibrated resolution.
+        scale = np.asarray(calibration["cameras"][cam.name]["resolution"], dtype=np.float64)
+        shifted: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+        for raw_idx, (kps, conf) in frames.items():
+            logical = raw_idx - cam.sync_offset
+            if logical >= 0:
+                shifted[logical] = (kps * scale, conf)
+        per_cam_frames[cam.name] = shifted
+
+    if keypoint_names is None or len(per_cam_frames) < min_views:
+        raise SessionError(
+            f"session {session.session_id!r}: 3D fusion needs >= {min_views} per-camera "
+            f"CSVs under {session_out} (found {len(per_cam_frames)})"
+        )
+
+    frame_counts: dict[int, int] = {}
+    for frames_map in per_cam_frames.values():
+        for idx in frames_map:
+            frame_counts[idx] = frame_counts.get(idx, 0) + 1
+
+    fused: list[tuple[int, np.ndarray, FusionDiagnostics]] = []
+    for idx in sorted(idx for idx, count in frame_counts.items() if count >= min_views):
+        kp_arrays: dict[str, np.ndarray] = {}
+        conf_arrays: dict[str, np.ndarray] = {}
+        for name, frames_map in per_cam_frames.items():
+            if idx in frames_map:
+                kp_arrays[name], conf_arrays[name] = frames_map[idx]
+        world, diag = fuse_session_frame(
+            kp_arrays,
+            calibration,
+            confidences=conf_arrays,
+            min_views=min_views,
+        )
+        fused.append((idx, world, diag))
+    return SessionFusion(keypoint_names=keypoint_names, frames=fused)
+
+
+def _fuse_and_report(session: Session, output_dir: str | pathlib.Path | None) -> None:
+    """Run 3D fusion over freshly written per-camera CSVs; warn on failure.
+
+    Failures are non-fatal: the per-camera CSVs are already on disk
+    and fusion can be re-run later via ``fuse_session_outputs``.
+    """
+    try:
+        fusion = fuse_session_outputs(session, output_dir)
+    except Exception as exc:
+        print(f"  WARNING: 3D fusion skipped: {exc}")
+        return
+    if not fusion.frames:
+        print("  3D fusion: no logical frame is visible from >= 2 cameras; nothing fused")
+        return
+    errs = np.concatenate([d["reprojection_error_px"] for _, _, d in fusion.frames])
+    views = np.concatenate([d["n_views"] for _, _, d in fusion.frames])
+    finite = np.isfinite(errs)
+    mean_err = float(np.mean(errs[finite])) if finite.any() else float("nan")
+    print(
+        f"  3D fusion: {len(fusion.frames)} frame(s), mean reprojection {mean_err:.2f}px, "
+        f"mean views/keypoint {float(np.mean(views)):.2f} — world3d.csv export not yet wired"
+    )
 
 
 __all__ = [
@@ -436,8 +574,10 @@ __all__ = [
     "Session",
     "SessionCamera",
     "SessionError",
+    "SessionFusion",
     "discover_session",
     "discover_sessions",
+    "fuse_session_outputs",
     "iter_synchronized_frames",
     "process_session",
 ]

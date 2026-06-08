@@ -234,16 +234,17 @@ scripts/repomap.py:134: def _r_symbols(src: str) -> list[tuple[int, str]]
 scripts/repomap.py:147: def build() -> str
 scripts/repomap.py:161: def main(argv: list[str] | None=None) -> int
 
-# src/pose_estimation/__init__.py (89 lines)
-src/pose_estimation/__init__.py:50: __all__ = list[37]
+# src/pose_estimation/__init__.py (95 lines)
+src/pose_estimation/__init__.py:53: __all__ = list[40]
 
-# src/pose_estimation/_types.py (155 lines)
+# src/pose_estimation/_types.py (171 lines)
 src/pose_estimation/_types.py:58: class HandDetectionDiag(TypedDict)
 src/pose_estimation/_types.py:67: class PipelineState(TypedDict)
 src/pose_estimation/_types.py:75: class CameraCalibration(TypedDict)
 src/pose_estimation/_types.py:92: class SessionCalibration(TypedDict)
 src/pose_estimation/_types.py:110: class SessionFrame(TypedDict)
-src/pose_estimation/_types.py:146: __all__ = list[7]
+src/pose_estimation/_types.py:122: class FusionDiagnostics(TypedDict)
+src/pose_estimation/_types.py:161: __all__ = list[8]
 
 # src/pose_estimation/benchmark.py (366 lines)
 src/pose_estimation/benchmark.py:41: TUNEABLE_PARAMS = dict[13]
@@ -323,18 +324,21 @@ src/pose_estimation/drawing.py:241: def draw_body_landmarks(img, body_landmarks,
 src/pose_estimation/drawing.py:285: def draw_hand_landmarks(img, hand_landmarks)
 src/pose_estimation/drawing.py:311: def draw_arm_hand_bridges(img, body_landmarks, hand_landmarks, matches)
 
-# src/pose_estimation/export.py (240 lines)
-src/pose_estimation/export.py:14: ARM_KEYPOINT_NAMES = list[12]
-src/pose_estimation/export.py:29: BODY_KEYPOINT_NAMES = list[33]
-src/pose_estimation/export.py:65: HAND_KEYPOINT_COUNT = int
-src/pose_estimation/export.py:68: def _body_keypoint_names(tracking)
-src/pose_estimation/export.py:75: def wrist_to_side(tracking)
-src/pose_estimation/export.py:82: def make_csv_header(tracking=TRACKING_HANDS_ARMS)
-src/pose_estimation/export.py:105: def _blank_hand_side(row, side)
-src/pose_estimation/export.py:113: def _fill_hand_side(row, side, hlm, frame_h, frame_w)
-src/pose_estimation/export.py:121: def _assign_hands_by_x(row, hand_landmarks, frame_h, frame_w)
-src/pose_estimation/export.py:131: def frame_to_rows(video_name, frame_idx, timestamp_sec, frame_h, frame_w, body_landmarks, body_visibilities, hand_landmarks, matches, track…
-src/pose_estimation/export.py:228: def open_csv_writer(output_path, tracking=TRACKING_HANDS_ARMS)
+# src/pose_estimation/export.py (324 lines)
+src/pose_estimation/export.py:16: ARM_KEYPOINT_NAMES = list[12]
+src/pose_estimation/export.py:31: BODY_KEYPOINT_NAMES = list[33]
+src/pose_estimation/export.py:67: HAND_KEYPOINT_COUNT = int
+src/pose_estimation/export.py:70: def _body_keypoint_names(tracking)
+src/pose_estimation/export.py:77: def wrist_to_side(tracking)
+src/pose_estimation/export.py:84: def make_csv_header(tracking=TRACKING_HANDS_ARMS)
+src/pose_estimation/export.py:107: def _blank_hand_side(row, side)
+src/pose_estimation/export.py:115: def _fill_hand_side(row, side, hlm, frame_h, frame_w)
+src/pose_estimation/export.py:123: def _assign_hands_by_x(row, hand_landmarks, frame_h, frame_w)
+src/pose_estimation/export.py:133: def frame_to_rows(video_name, frame_idx, timestamp_sec, frame_h, frame_w, body_landmarks, body_visibilities, hand_landmarks, matches, track…
+src/pose_estimation/export.py:230: def _keypoint_columns(tracking)
+src/pose_estimation/export.py:252: def _cell_to_float(value)
+src/pose_estimation/export.py:257: def read_csv_keypoints(csv_path)
+src/pose_estimation/export.py:312: def open_csv_writer(output_path, tracking=TRACKING_HANDS_ARMS)
 
 # src/pose_estimation/main.py (828 lines)
 src/pose_estimation/main.py:60: WINDOW_TITLE = str
@@ -409,34 +413,37 @@ src/pose_estimation/models.py:62: def _download_to(url, filepath)
 src/pose_estimation/models.py:81: def download_file(url, filepath, expected_sha256=None)
 src/pose_estimation/models.py:97: def download_and_compile_models(model_dir='model', device='NPU')
 
-# src/pose_estimation/multicam.py (444 lines)
-src/pose_estimation/multicam.py:39: SESSION_MANIFEST_FILENAME = str
-src/pose_estimation/multicam.py:42: VIDEO_EXTENSIONS = tuple[5]
-src/pose_estimation/multicam.py:45: CAMERA_GLOB = str
-src/pose_estimation/multicam.py:48: SESSION_FORMAT_VERSION = int
-src/pose_estimation/multicam.py:52: def _safe_resolve(base: pathlib.Path, ref: str) -> pathlib.Path
-src/pose_estimation/multicam.py:61: class SessionError(ValueError)
-src/pose_estimation/multicam.py:66: class SessionCamera
-src/pose_estimation/multicam.py:73: def SessionCamera.__post_init__(self) -> None
-src/pose_estimation/multicam.py:81: class Session
-src/pose_estimation/multicam.py:96: def Session.n_cameras(self) -> int
-src/pose_estimation/multicam.py:99: def Session.camera_names(self) -> list[str]
-src/pose_estimation/multicam.py:108: def discover_session(directory: str | pathlib.Path, *, calibration_path: str | pathlib.Path | None=None) -> Session
-src/pose_estimation/multicam.py:165: def discover_sessions(parent_dir: str | pathlib.Path) -> list[Session]
-src/pose_estimation/multicam.py:186: def _looks_like_session(directory: pathlib.Path) -> bool
-src/pose_estimation/multicam.py:193: def _iter_glob_videos(directory: pathlib.Path) -> Iterator[pathlib.Path]
-src/pose_estimation/multicam.py:198: def _load_manifest(path: pathlib.Path) -> dict[str, Any]
-src/pose_estimation/multicam.py:217: def _cameras_from_manifest(manifest: dict[str, Any], *, directory: pathlib.Path) -> list[SessionCamera]
-src/pose_estimation/multicam.py:250: def _cameras_from_glob(directory: pathlib.Path) -> list[SessionCamera]
-src/pose_estimation/multicam.py:255: def _find_glob_for_name(directory: pathlib.Path, name: str) -> pathlib.Path | None
-src/pose_estimation/multicam.py:265: def _assert_unique_names(cameras: list[SessionCamera], *, source: str) -> None
-src/pose_estimation/multicam.py:273: def _resolve_calibration(*, directory: pathlib.Path, explicit_path: str | pathlib.Path | None, manifest_ref: str | None) -> SessionCalibrat…
-src/pose_estimation/multicam.py:300: def iter_synchronized_frames(session: Session) -> Iterator[SessionFrame]
-src/pose_estimation/multicam.py:340: def _open_session_captures(session: Session) -> list[cv2.VideoCapture]
-src/pose_estimation/multicam.py:359: _DEFAULT_OUTPUT_DIR = str
-src/pose_estimation/multicam.py:362: def _resolve_session_output(session: Session, output_dir: str | pathlib.Path | None) -> pathlib.Path
-src/pose_estimation/multicam.py:377: def process_session(session: Session, *, camera_processor: Callable[..., Any], output_dir: str | pathlib.Path | None=None) -> dict[str, Any]
-src/pose_estimation/multicam.py:431: __all__ = list[11]
+# src/pose_estimation/multicam.py (584 lines)
+src/pose_estimation/multicam.py:43: SESSION_MANIFEST_FILENAME = str
+src/pose_estimation/multicam.py:46: VIDEO_EXTENSIONS = tuple[5]
+src/pose_estimation/multicam.py:49: CAMERA_GLOB = str
+src/pose_estimation/multicam.py:52: SESSION_FORMAT_VERSION = int
+src/pose_estimation/multicam.py:56: def _safe_resolve(base: pathlib.Path, ref: str) -> pathlib.Path
+src/pose_estimation/multicam.py:65: class SessionError(ValueError)
+src/pose_estimation/multicam.py:70: class SessionCamera
+src/pose_estimation/multicam.py:77: def SessionCamera.__post_init__(self) -> None
+src/pose_estimation/multicam.py:85: class Session
+src/pose_estimation/multicam.py:100: def Session.n_cameras(self) -> int
+src/pose_estimation/multicam.py:103: def Session.camera_names(self) -> list[str]
+src/pose_estimation/multicam.py:112: def discover_session(directory: str | pathlib.Path, *, calibration_path: str | pathlib.Path | None=None) -> Session
+src/pose_estimation/multicam.py:169: def discover_sessions(parent_dir: str | pathlib.Path) -> list[Session]
+src/pose_estimation/multicam.py:190: def _looks_like_session(directory: pathlib.Path) -> bool
+src/pose_estimation/multicam.py:197: def _iter_glob_videos(directory: pathlib.Path) -> Iterator[pathlib.Path]
+src/pose_estimation/multicam.py:202: def _load_manifest(path: pathlib.Path) -> dict[str, Any]
+src/pose_estimation/multicam.py:221: def _cameras_from_manifest(manifest: dict[str, Any], *, directory: pathlib.Path) -> list[SessionCamera]
+src/pose_estimation/multicam.py:254: def _cameras_from_glob(directory: pathlib.Path) -> list[SessionCamera]
+src/pose_estimation/multicam.py:259: def _find_glob_for_name(directory: pathlib.Path, name: str) -> pathlib.Path | None
+src/pose_estimation/multicam.py:269: def _assert_unique_names(cameras: list[SessionCamera], *, source: str) -> None
+src/pose_estimation/multicam.py:277: def _resolve_calibration(*, directory: pathlib.Path, explicit_path: str | pathlib.Path | None, manifest_ref: str | None) -> SessionCalibrat…
+src/pose_estimation/multicam.py:304: def iter_synchronized_frames(session: Session) -> Iterator[SessionFrame]
+src/pose_estimation/multicam.py:344: def _open_session_captures(session: Session) -> list[cv2.VideoCapture]
+src/pose_estimation/multicam.py:363: _DEFAULT_OUTPUT_DIR = str
+src/pose_estimation/multicam.py:366: def _resolve_session_output(session: Session, output_dir: str | pathlib.Path | None) -> pathlib.Path
+src/pose_estimation/multicam.py:381: def process_session(session: Session, *, camera_processor: Callable[..., Any], output_dir: str | pathlib.Path | None=None) -> dict[str, Any]
+src/pose_estimation/multicam.py:447: class SessionFusion
+src/pose_estimation/multicam.py:461: def fuse_session_outputs(session: Session, output_dir: str | pathlib.Path | None=None, *, min_views: int=2) -> SessionFusion
+src/pose_estimation/multicam.py:545: def _fuse_and_report(session: Session, output_dir: str | pathlib.Path | None) -> None
+src/pose_estimation/multicam.py:569: __all__ = list[13]
 
 # src/pose_estimation/postprocess.py (346 lines)
 src/pose_estimation/postprocess.py:18: def _odd_int(value)
@@ -572,14 +579,15 @@ src/pose_estimation/smoothing.py:499: def PoseSmoother.body_carry_state(self)
 src/pose_estimation/smoothing.py:510: def PoseSmoother.hand_carry_flags(self)
 src/pose_estimation/smoothing.py:515: def PoseSmoother.compute_smooth_delta(raw_landmarks, smoothed_landmarks)
 
-# src/pose_estimation/triangulation.py (189 lines)
-src/pose_estimation/triangulation.py:25: def projection_matrix(camera: CameraCalibration) -> np.ndarray
-src/pose_estimation/triangulation.py:40: def session_projection_matrices(calibration: SessionCalibration) -> dict[str, np.ndarray]
-src/pose_estimation/triangulation.py:45: def project_points(world_points: np.ndarray, camera: CameraCalibration) -> np.ndarray
-src/pose_estimation/triangulation.py:62: def undistort_points(image_points: np.ndarray, camera: CameraCalibration) -> np.ndarray
-src/pose_estimation/triangulation.py:76: def triangulate_views(projection_matrices: list[np.ndarray], points_per_view: list[np.ndarray], weights: list[np.ndarray] | None=None) -> n…
-src/pose_estimation/triangulation.py:153: def fuse_session_frame(session_frame: SessionFrame, per_camera_keypoints: dict[str, np.ndarray], calibration: SessionCalibration, *, confid…
-src/pose_estimation/triangulation.py:181: __all__ = list[6]
+# src/pose_estimation/triangulation.py (319 lines)
+src/pose_estimation/triangulation.py:23: def projection_matrix(camera: CameraCalibration) -> np.ndarray
+src/pose_estimation/triangulation.py:38: def session_projection_matrices(calibration: SessionCalibration) -> dict[str, np.ndarray]
+src/pose_estimation/triangulation.py:43: def project_points(world_points: np.ndarray, camera: CameraCalibration) -> np.ndarray
+src/pose_estimation/triangulation.py:60: def undistort_points(image_points: np.ndarray, camera: CameraCalibration) -> np.ndarray
+src/pose_estimation/triangulation.py:74: def triangulate_views(projection_matrices: list[np.ndarray], points_per_view: list[np.ndarray], weights: list[np.ndarray] | None=None) -> n…
+src/pose_estimation/triangulation.py:151: def _rotation_translation(camera: CameraCalibration) -> tuple[np.ndarray, np.ndarray]
+src/pose_estimation/triangulation.py:158: def fuse_session_frame(per_camera_keypoints: dict[str, np.ndarray], calibration: SessionCalibration, *, confidences: dict[str, np.ndarray] …
+src/pose_estimation/triangulation.py:311: __all__ = list[6]
 
 # tests/conftest.py (104 lines)
 tests/conftest.py:18: def make_random_landmarks()
@@ -733,35 +741,46 @@ tests/test_models_checksum.py:37: def test_verify_checksum_redownload_removes_fi
 tests/test_models_checksum.py:48: def test_verify_checksum_strict_raises(tmp_path)
 tests/test_models_checksum.py:56: def test_download_file_skips_if_cached_and_valid(tmp_path)
 
-# tests/test_multicam.py (443 lines)
-tests/test_multicam.py:29: _TEST_FRAME_COUNT = int
-tests/test_multicam.py:30: _TEST_FRAME_SIZE = tuple[2]
-tests/test_multicam.py:31: _TEST_FPS = float
-tests/test_multicam.py:34: def _write_synthetic_video(path: pathlib.Path, *, n_frames: int=_TEST_FRAME_COUNT, intensity: int=128) -> bool
-tests/test_multicam.py:63: def _ensure_video_codec_available(tmp_path: pathlib.Path) -> None
-tests/test_multicam.py:69: def _write_calibration(path: pathlib.Path, *, cameras: list[str]) -> None
-tests/test_multicam.py:97: def test_discover_session_glob_fallback(tmp_path: pathlib.Path)
-tests/test_multicam.py:111: def test_discover_session_empty_directory_raises(tmp_path: pathlib.Path)
-tests/test_multicam.py:118: def test_discover_session_not_a_directory_raises(tmp_path: pathlib.Path)
-tests/test_multicam.py:130: def test_discover_session_with_manifest(tmp_path: pathlib.Path)
-tests/test_multicam.py:153: def test_discover_session_manifest_file_missing_raises(tmp_path: pathlib.Path)
-tests/test_multicam.py:166: def test_discover_session_manifest_path_traversal_camera(tmp_path: pathlib.Path)
-tests/test_multicam.py:179: def test_discover_session_manifest_path_traversal_calibration(tmp_path: pathlib.Path)
-tests/test_multicam.py:193: def test_discover_session_manifest_path_traversal_camera_name(tmp_path: pathlib.Path)
-tests/test_multicam.py:209: def test_session_camera_rejects_negative_sync_offset()
-tests/test_multicam.py:214: def test_discover_session_manifest_unknown_format_version(tmp_path: pathlib.Path)
-tests/test_multicam.py:228: def test_discover_session_auto_loads_calibration(tmp_path: pathlib.Path)
-tests/test_multicam.py:241: def test_discover_session_explicit_calibration_overrides_auto(tmp_path: pathlib.Path)
-tests/test_multicam.py:260: def test_discover_session_explicit_calibration_missing_raises(tmp_path: pathlib.Path)
-tests/test_multicam.py:274: def test_discover_sessions_iterates_children(tmp_path: pathlib.Path)
-tests/test_multicam.py:291: def test_discover_sessions_not_a_directory_raises(tmp_path: pathlib.Path)
-tests/test_multicam.py:302: def test_iter_synchronized_frames_yields_aligned_batches(tmp_path: pathlib.Path)
-tests/test_multicam.py:322: def test_iter_sync_offset_skips_leading_frames(tmp_path: pathlib.Path)
-tests/test_multicam.py:344: def test_iter_sync_offset_exceeding_frames_raises(tmp_path: pathlib.Path)
-tests/test_multicam.py:370: def test_process_session_calls_processor_per_camera(tmp_path: pathlib.Path)
-tests/test_multicam.py:406: def test_process_session_creates_output_directory(tmp_path: pathlib.Path)
-tests/test_multicam.py:419: def test_process_session_default_output_dir(tmp_path: pathlib.Path)
-tests/test_multicam.py:436: def test_process_session_requires_camera_processor(tmp_path: pathlib.Path)
+# tests/test_multicam.py (700 lines)
+tests/test_multicam.py:39: _TEST_FRAME_COUNT = int
+tests/test_multicam.py:40: _TEST_FRAME_SIZE = tuple[2]
+tests/test_multicam.py:41: _TEST_FPS = float
+tests/test_multicam.py:44: def _write_synthetic_video(path: pathlib.Path, *, n_frames: int=_TEST_FRAME_COUNT, intensity: int=128) -> bool
+tests/test_multicam.py:73: def _ensure_video_codec_available(tmp_path: pathlib.Path) -> None
+tests/test_multicam.py:79: def _write_calibration(path: pathlib.Path, *, cameras: list[str]) -> None
+tests/test_multicam.py:107: def test_discover_session_glob_fallback(tmp_path: pathlib.Path)
+tests/test_multicam.py:121: def test_discover_session_empty_directory_raises(tmp_path: pathlib.Path)
+tests/test_multicam.py:128: def test_discover_session_not_a_directory_raises(tmp_path: pathlib.Path)
+tests/test_multicam.py:140: def test_discover_session_with_manifest(tmp_path: pathlib.Path)
+tests/test_multicam.py:163: def test_discover_session_manifest_file_missing_raises(tmp_path: pathlib.Path)
+tests/test_multicam.py:176: def test_discover_session_manifest_path_traversal_camera(tmp_path: pathlib.Path)
+tests/test_multicam.py:189: def test_discover_session_manifest_path_traversal_calibration(tmp_path: pathlib.Path)
+tests/test_multicam.py:203: def test_discover_session_manifest_path_traversal_camera_name(tmp_path: pathlib.Path)
+tests/test_multicam.py:219: def test_session_camera_rejects_negative_sync_offset()
+tests/test_multicam.py:224: def test_discover_session_manifest_unknown_format_version(tmp_path: pathlib.Path)
+tests/test_multicam.py:238: def test_discover_session_auto_loads_calibration(tmp_path: pathlib.Path)
+tests/test_multicam.py:251: def test_discover_session_explicit_calibration_overrides_auto(tmp_path: pathlib.Path)
+tests/test_multicam.py:270: def test_discover_session_explicit_calibration_missing_raises(tmp_path: pathlib.Path)
+tests/test_multicam.py:284: def test_discover_sessions_iterates_children(tmp_path: pathlib.Path)
+tests/test_multicam.py:301: def test_discover_sessions_not_a_directory_raises(tmp_path: pathlib.Path)
+tests/test_multicam.py:312: def test_iter_synchronized_frames_yields_aligned_batches(tmp_path: pathlib.Path)
+tests/test_multicam.py:332: def test_iter_sync_offset_skips_leading_frames(tmp_path: pathlib.Path)
+tests/test_multicam.py:354: def test_iter_sync_offset_exceeding_frames_raises(tmp_path: pathlib.Path)
+tests/test_multicam.py:380: def test_process_session_calls_processor_per_camera(tmp_path: pathlib.Path)
+tests/test_multicam.py:416: def test_process_session_creates_output_directory(tmp_path: pathlib.Path)
+tests/test_multicam.py:429: def test_process_session_default_output_dir(tmp_path: pathlib.Path)
+tests/test_multicam.py:446: def test_process_session_requires_camera_processor(tmp_path: pathlib.Path)
+tests/test_multicam.py:460: _ARM_BASE = np.array(...)
+tests/test_multicam.py:478: def _arm_world(frame_idx: int) -> np.ndarray
+tests/test_multicam.py:483: def _arc_calibration(session_id: str, names: tuple[str, ...]=('cam1', 'cam2', 'cam3')) -> SessionCalibration
+tests/test_multicam.py:515: def _write_camera_csv(csv_path: pathlib.Path, camera: CameraCalibration, n_frames: int, *, offset: int=0) -> None
+tests/test_multicam.py:551: def test_read_csv_keypoints_round_trip(tmp_path: pathlib.Path)
+tests/test_multicam.py:595: def test_read_csv_keypoints_rejects_foreign_csv(tmp_path: pathlib.Path)
+tests/test_multicam.py:602: def test_fuse_session_outputs_reconstructs_skeleton(tmp_path: pathlib.Path)
+tests/test_multicam.py:633: def test_fuse_session_outputs_requires_calibration(tmp_path: pathlib.Path)
+tests/test_multicam.py:643: def test_fuse_session_outputs_needs_min_views_csvs(tmp_path: pathlib.Path)
+tests/test_multicam.py:660: def test_process_session_fuses_when_calibrated(tmp_path: pathlib.Path, capsys)
+tests/test_multicam.py:683: def test_process_session_fusion_failure_warns(tmp_path: pathlib.Path, capsys)
 
 # tests/test_processing.py (235 lines)
 tests/test_processing.py:21: def _make_body(shoulder_l=(100, 200), elbow_l=(100, 300), wrist_l=(100, 400), shoulder_r=(300, 200), elbow_r=(300, 300), wrist_r=(300, 400))
@@ -777,7 +796,7 @@ tests/test_processing.py:215: def test_affine_matrix_nan_inputs()
 tests/test_processing.py:223: def test_affine_matrix_inf_inputs()
 tests/test_processing.py:229: def test_affine_matrix_valid()
 
-# tests/test_public_api.py (88 lines)
+# tests/test_public_api.py (92 lines)
 tests/test_public_api.py:12: def test_smoothers_exported()
 tests/test_public_api.py:18: def test_pipeline_entry_points_exported()
 tests/test_public_api.py:25: def test_tracking_constants_exported()
@@ -786,10 +805,10 @@ tests/test_public_api.py:38: def test_typed_dicts_exported()
 tests/test_public_api.py:46: def test_savgol_helper_exported()
 tests/test_public_api.py:50: def test_models_helper_exported()
 tests/test_public_api.py:54: def test_multicam_surface_exported()
-tests/test_public_api.py:65: def test_calibration_surface_exported()
-tests/test_public_api.py:77: def test_mapping_surface_exported()
-tests/test_public_api.py:81: def test_triangulation_surface_exported()
-tests/test_public_api.py:85: def test_all_lists_only_existing_names()
+tests/test_public_api.py:67: def test_calibration_surface_exported()
+tests/test_public_api.py:79: def test_mapping_surface_exported()
+tests/test_public_api.py:83: def test_triangulation_surface_exported()
+tests/test_public_api.py:89: def test_all_lists_only_existing_names()
 
 # tests/test_r_pipeline.py (716 lines)
 tests/test_r_pipeline.py:21: _PROJECT_ROOT = attribute
@@ -940,17 +959,28 @@ tests/test_smoothing.py:336: def test_adaptive_disabled_with_none()
 tests/test_smoothing.py:349: def test_adaptive_per_keypoint_independence()
 tests/test_smoothing.py:373: def test_pose_smoother_adaptive_default()
 
-# tests/test_triangulation.py (201 lines)
-tests/test_triangulation.py:29: def _make_cam(name: str, rvec: list[float], tvec: list[float], fx: float=1000.0, cx: float=960.0, cy: float=540.0) -> CameraCalibration
-tests/test_triangulation.py:47: def _three_camera_session() -> SessionCalibration
-tests/test_triangulation.py:72: def test_projection_matrix_world_frame_is_K_times_Rt()
-tests/test_triangulation.py:81: def test_session_projection_matrices_one_per_camera()
-tests/test_triangulation.py:94: def test_project_points_world_origin_at_principal_point()
-tests/test_triangulation.py:101: def test_undistort_points_is_identity_for_zero_distortion()
-tests/test_triangulation.py:113: def test_triangulate_views_recovers_world_points_under_two_views()
-tests/test_triangulation.py:134: def test_triangulate_views_three_views_improve_recovery()
-tests/test_triangulation.py:153: def test_triangulate_views_marks_insufficient_views_as_nan()
-tests/test_triangulation.py:170: def test_triangulate_views_shape_mismatch_raises()
-tests/test_triangulation.py:178: def test_triangulate_views_per_view_shape_raises()
-tests/test_triangulation.py:186: def test_triangulate_views_empty_input_raises()
-tests/test_triangulation.py:196: def test_fuse_session_frame_is_stub()
+# tests/test_triangulation.py (390 lines)
+tests/test_triangulation.py:30: def _make_cam(name: str, rvec: list[float], tvec: list[float], fx: float=1000.0, cx: float=960.0, cy: float=540.0, distortion: list[float] …
+tests/test_triangulation.py:53: def _three_camera_session(distortion: list[float] | None=None) -> SessionCalibration
+tests/test_triangulation.py:78: def test_projection_matrix_world_frame_is_K_times_Rt()
+tests/test_triangulation.py:87: def test_session_projection_matrices_one_per_camera()
+tests/test_triangulation.py:100: def test_project_points_world_origin_at_principal_point()
+tests/test_triangulation.py:107: def test_undistort_points_is_identity_for_zero_distortion()
+tests/test_triangulation.py:119: def test_triangulate_views_recovers_world_points_under_two_views()
+tests/test_triangulation.py:140: def test_triangulate_views_three_views_improve_recovery()
+tests/test_triangulation.py:159: def test_triangulate_views_marks_insufficient_views_as_nan()
+tests/test_triangulation.py:176: def test_triangulate_views_shape_mismatch_raises()
+tests/test_triangulation.py:184: def test_triangulate_views_per_view_shape_raises()
+tests/test_triangulation.py:192: def test_triangulate_views_empty_input_raises()
+tests/test_triangulation.py:201: _MILD_DISTORTION = list[5]
+tests/test_triangulation.py:204: _SKELETON = np.array(...)
+tests/test_triangulation.py:222: def _project_skeleton(calib: SessionCalibration, world: np.ndarray=_SKELETON, noise_px: float=0.0, seed: int=31) -> dict[str, np.ndarray]
+tests/test_triangulation.py:238: def test_fuse_recovers_noisy_skeleton_within_5mm()
+tests/test_triangulation.py:253: def test_fuse_works_with_one_camera_missing()
+tests/test_triangulation.py:271: def test_fuse_excludes_occluded_keypoints_per_view()
+tests/test_triangulation.py:285: def test_fuse_insufficient_views_yield_nan()
+tests/test_triangulation.py:304: def test_fuse_outlier_view_is_rejected()
+tests/test_triangulation.py:318: def test_fuse_min_views_three_drops_two_view_keypoints()
+tests/test_triangulation.py:333: def test_fuse_flags_cheirality_violations()
+tests/test_triangulation.py:362: def test_fuse_confidence_is_mean_of_contributing_views()
+tests/test_triangulation.py:374: def test_fuse_validation_errors()

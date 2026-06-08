@@ -55,10 +55,12 @@ def test_multicam_surface_exported():
     # Dataclasses / helpers for multi-camera sessions.
     assert pe.Session is not None
     assert pe.SessionCamera is not None
+    assert pe.SessionFusion is not None
     assert callable(pe.discover_session)
     assert callable(pe.discover_sessions)
     assert callable(pe.iter_synchronized_frames)
     assert callable(pe.process_session)
+    assert callable(pe.fuse_session_outputs)
     assert issubclass(pe.SessionError, ValueError)
 
 
@@ -80,6 +82,8 @@ def test_mapping_surface_exported():
 
 def test_triangulation_surface_exported():
     assert callable(pe.fuse_session_frame)
+    # Diagnostics TypedDict: importable so callers can annotate.
+    assert pe.FusionDiagnostics is not None
 
 
 def test_all_lists_only_existing_names():

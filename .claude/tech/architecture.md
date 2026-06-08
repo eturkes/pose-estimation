@@ -15,19 +15,19 @@
 | `rtmlib_openvino.py` | Self-contained OpenVINO-backend monkey-patch for rtmlib (`_patch_rtmlib_openvino`). No `run.py` globals. |
 | `constraints.py` | `BoneLengthSmoother`, `clamp_joint_angles`, `BONE_SEGMENTS{,_BODY}`, `ANGLE_LIMITS{,_BODY}`. |
 | `mapping.py` | COCO-WholeBody → MediaPipe keypoint schema mapping (`coco_to_mediapipe`). Translates rtmlib output to `frame_to_rows()` interface. |
-| `export.py` | CSV schema (`frame_to_rows`, `open_csv_writer`, `wrist_to_side`). |
+| `export.py` | CSV schema (`frame_to_rows`, `open_csv_writer`, `wrist_to_side`) + read-back for 3D fusion (`read_csv_keypoints`). |
 | `postprocess.py` | Savitzky-Golay offline smoothing (`savgol_smooth_csv`). |
 | `metrics.py` | `MetricsCollector`, `ConstraintDiagnostics`, `SmoothingDiagnostics` — per-frame quality metrics. |
 | `benchmark.py` | Parameter sweep harness (subprocess fan-out, `--config` YAML). |
-| `multicam.py` | Multi-camera `Session` discovery + synchronized iteration. `process_session` orchestrates per-camera processing via callback. See `tech/multicam.md`. |
+| `multicam.py` | Multi-camera `Session` discovery + synchronized iteration. `process_session` orchestrates per-camera processing via callback, then 3D-fuses CSVs when calibration present (`fuse_session_outputs`, `SessionFusion`). See `tech/multicam.md`. |
 | `calibration.py` | Camera-calibration JSON IO + validation. `solve_charuco` is a stub. See `tech/calibration.md`. |
 | `calibration_cli.py` | `pose-estimation-calibrate` console script (`verify` works; `solve`/`capture` stubs). |
-| `triangulation.py` | 3D triangulation math primitives (DLT, projection, undistort). `fuse_session_frame` is a stub. |
-| `_types.py` | `Detection`, `HandDetectionDiag`, `PipelineState`, `CameraCalibration`, `SessionCalibration`, `SessionFrame`, `MultiCamPipelineState` TypedDicts. |
+| `triangulation.py` | 3D triangulation: math primitives (DLT, projection, undistort) + `fuse_session_frame` policy layer (validity masking, confidence-weighted DLT, min-view enforcement, greedy outlier-view rejection, cheirality flag, reprojection diagnostics). |
+| `_types.py` | `Detection`, `HandDetectionDiag`, `PipelineState`, `CameraCalibration`, `SessionCalibration`, `SessionFrame`, `MultiCamPipelineState`, `FusionDiagnostics` TypedDicts. |
 
 ## Public API (re-exported from `src/pose_estimation/__init__.py`)
 
-`ANGLE_LIMITS`, `ANGLE_LIMITS_BODY`, `BONE_SEGMENTS`, `BONE_SEGMENTS_BODY`, `TRACKING_BODY`, `TRACKING_HANDS`, `TRACKING_HANDS_ARMS`, `BoneLengthSmoother`, `CalibrationError`, `CameraCalibration`, `Detection`, `HandDetectionDiag`, `MultiCamPipelineState`, `OneEuroFilter`, `PipelineState`, `PoseSmoother`, `Session`, `SessionCalibration`, `SessionCamera`, `SessionError`, `SessionFrame`, `coco_to_mediapipe`, `clamp_joint_angles`, `discover_session`, `discover_sessions`, `download_and_compile_models`, `fuse_session_frame`, `iter_synchronized_frames`, `load_calibration`, `load_session_calibration`, `match_hands_to_arms`, `process_frame`, `process_session`, `save_calibration`, `savgol_smooth_csv`, `select_primary_body`, `tracking_pose_indices`.
+`ANGLE_LIMITS`, `ANGLE_LIMITS_BODY`, `BONE_SEGMENTS`, `BONE_SEGMENTS_BODY`, `TRACKING_BODY`, `TRACKING_HANDS`, `TRACKING_HANDS_ARMS`, `BoneLengthSmoother`, `CalibrationError`, `CameraCalibration`, `Detection`, `FusionDiagnostics`, `HandDetectionDiag`, `MultiCamPipelineState`, `OneEuroFilter`, `PipelineState`, `PoseSmoother`, `Session`, `SessionCalibration`, `SessionCamera`, `SessionError`, `SessionFrame`, `coco_to_mediapipe`, `clamp_joint_angles`, `discover_session`, `discover_sessions`, `download_and_compile_models`, `fuse_session_frame`, `fuse_session_outputs`, `iter_synchronized_frames`, `load_calibration`, `load_session_calibration`, `match_hands_to_arms`, `process_frame`, `process_session`, `save_calibration`, `savgol_smooth_csv`, `select_primary_body`, `tracking_pose_indices`.
 
 Treat this list as the stable surface. Internal helpers (leading `_`) may move freely.
 

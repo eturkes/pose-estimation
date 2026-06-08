@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-08 — 3D fusion is post-hoc CSV read-back; fuse_session_frame signature finalised
+
+**Context.** Session 3A: implement the `fuse_session_frame` policy layer and wire it into `process_session()`. Per-camera keypoints are written to CSV by the `camera_processor` callback and never retained in memory, so the wiring needed a data source.
+**Decision.** (1) Fusion reads the per-camera CSVs back (`export.read_csv_keypoints`) after the camera loop: normalised coords → pixels via *calibrated* resolution, logical frame = raw − `sync_offset`, `person_idx==0` only. (2) `fuse_session_frame(per_camera_keypoints, calibration, *, confidences, min_views=2, min_confidence=0.0, max_view_reproj_px=20.0) → (world, FusionDiagnostics)` — the stub's `SessionFrame` param was dropped (images unused; caller carries the frame index) and the return became a tuple per the roadmap spec. (3) Policy: validity mask → weighted DLT → greedy worst-view rejection (only while > min_views remain) → cheirality *flagging* (never dropping). (4) `process_session` keeps its `dict[camera → result]` return; fusion result (`SessionFusion`) is produced by public `fuse_session_outputs()` and currently only summarised to stdout — the world3d.csv writer (3C) will consume it inside `process_session`. (5) Fusion failures in `process_session` warn and continue: 2D CSVs are already on disk, and an exception would abort remaining `--sessions-dir` batches.
+**Alternatives considered.** Returning keypoints from `camera_processor` (couples the callback contract of both backends, duplicates CSV content in memory); streaming lockstep multi-camera processing (major restructure, not needed for offline clinical use); raising on fusion failure (loses batch progress for a re-runnable step); reserved dict key for fusion in `process_session` results (collides with camera-name namespace).
+**Consequences.** Fusion accuracy is bounded by what the CSVs hold: smoothed, normalised, 6-decimal-rounded 2D (~1e-3 px quantisation — negligible). Multi-person 3D requires cross-camera identity matching first. 3C should call `fuse_session_outputs` and write `world3d.csv` from `SessionFusion`; re-running fusion without reprocessing video is already supported. With exactly `min_views` views an outlier view cannot be dropped — downstream must gate on `reprojection_error_px`.
+**References.** `src/pose_estimation/{triangulation,multicam,export,_types}.py`, `tests/test_{triangulation,multicam}.py`, `.claude/tech/multicam.md` (3D fusion section).
+
+---
+
 ## 2026-06-08 — Read() deny-list in .claude/settings.json (CLAUDE.md directive)
 
 **Context.** CLAUDE.md now mandates maintaining `permissions.deny` `Read()` rules so sessions can't waste context on low-value reads (one lock file ≈ 75K tokens).

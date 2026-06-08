@@ -19,11 +19,11 @@ output/<session_id>/
 ├── cam1_diag.csv       # per-camera diagnostics
 ├── cam2.csv
 ├── cam3.csv
-├── world3d.csv         # FUTURE: triangulated 3D keypoints (not yet wired)
+├── world3d.csv         # FUTURE (3D-export task): fusion runs in-memory; CSV export pending
 └── world3d_diag.csv    # FUTURE
 ```
 
-Per-camera CSV columns are unchanged from the single-source schema (`tech/tracking-modes.md`). The world3d schema lands when `triangulation.fuse_session_frame()` is wired.
+Per-camera CSV columns are unchanged from the single-source schema (`tech/tracking-modes.md`). Fusion (`fuse_session_outputs`) is wired; the world3d CSV schema is the remaining 3D-export task.
 
 ## `session.json` manifest (optional)
 
@@ -61,12 +61,12 @@ Software sync only (no hardware genlock assumed). Three layers:
 
 | File | Role |
 |------|------|
-| `src/pose_estimation/multicam.py` | `Session` dataclass, `discover_session`, `iter_synchronized_frames`, `process_session` (callback-based orchestrator). |
+| `src/pose_estimation/multicam.py` | `Session` dataclass, `discover_session`, `iter_synchronized_frames`, `process_session` (callback-based orchestrator + post-hoc fusion hook), `fuse_session_outputs` → `SessionFusion`. |
 | `src/pose_estimation/calibration.py` | `CameraCalibration` / `SessionCalibration` IO, validation, charuco solver (stub). See `tech/calibration.md`. |
-| `src/pose_estimation/triangulation.py` | DLT helpers + `fuse_session_frame` (stub). |
+| `src/pose_estimation/triangulation.py` | DLT helpers + `fuse_session_frame` policy layer (validity masking, weighted DLT, outlier-view rejection, cheirality flag, `FusionDiagnostics`). |
 | `src/pose_estimation/calibration_cli.py` | `pose-estimation-calibrate` console script. |
 
-`_types.py` extensions: `CameraCalibration`, `SessionCalibration`, `SessionFrame`, `MultiCamPipelineState`.
+`_types.py` extensions: `CameraCalibration`, `SessionCalibration`, `SessionFrame`, `MultiCamPipelineState`, `FusionDiagnostics`.
 
 ## CLI surface
 
@@ -98,7 +98,17 @@ The `camera_processor` callback encapsulates backend-specific logic:
 
 Both `_dispatch_sessions()` functions construct the callback from pre-initialized model state (models/anchors/tracker/smoother) and pass it to `process_session()`.
 
-Current state: per-camera 2D processing is fully wired. 3D fusion (`triangulation.fuse_session_frame`) is a follow-up — will be called inside `process_session()` after per-camera processing completes, when calibration is present.
+## 3D fusion (post-hoc, CSV read-back)
+
+When `session.calibration` is present, `process_session()` ends by calling `fuse_session_outputs(session, output_dir)` (non-fatal: failures print a WARNING — the 2D CSVs are already on disk and fusion can be re-run standalone). Data flow:
+
+1. `export.read_csv_keypoints(<cam>.csv)` per camera → `frame_idx → ((N,2) normalised kps, (N,) conf)`; `person_idx == 0` rows only (cross-camera person matching is out of scope); body/arm `_vis` is the confidence, hand keypoints get presence 1.0/0.0.
+2. Normalised → pixels via the camera's **calibrated** `resolution` (normalised coords make CSV resolution-independent).
+3. CSV rows hold *raw* per-camera frame indices → logical index = raw − `sync_offset` (negatives dropped).
+4. Every logical frame observed by ≥ `min_views` (default 2) cameras → `triangulation.fuse_session_frame(per_camera_kps_px, calibration, confidences=...)` → `(N,3)` world metres + `FusionDiagnostics` (n_views, confidence, reprojection_error_px, cheirality_ok).
+5. Result: `SessionFusion(keypoint_names, frames=[(frame_idx, world, diag), ...])` — in-memory only; `world3d.csv` export is the remaining 3D-export task.
+
+`fuse_session_frame` policy: a view contributes when coords are finite and conf > `min_confidence` (0.0); greedy outlier rejection re-triangulates while any view reprojects worse than `max_view_reproj_px` (20.0) and > `min_views` views remain; cheirality violations are flagged, not dropped; at exactly `min_views` a residual outlier stays visible via the reprojection diagnostic.
 
 ## Cross-references
 

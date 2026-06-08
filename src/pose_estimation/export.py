@@ -3,6 +3,8 @@
 import csv
 import pathlib
 
+import numpy as np
+
 from .processing import (
     TRACKING_BODY,
     TRACKING_HANDS,
@@ -223,6 +225,88 @@ def frame_to_rows(
         rows.append(row)
 
     return rows
+
+
+def _keypoint_columns(tracking):
+    """Return (names, specs) for one row's keypoint columns.
+
+    ``names[i]`` is the bare keypoint name (e.g. ``"arm_left_wrist"``,
+    ``"left_hand_4"``); ``specs[i]`` is ``(x_col, y_col, vis_col)``
+    with ``vis_col=None`` for hand keypoints (which carry no
+    visibility column).
+    """
+    names = []
+    specs = []
+    if tracking != TRACKING_HANDS:
+        prefix, kp_names = _body_keypoint_names(tracking)
+        for name in kp_names:
+            names.append(f"{prefix}_{name}")
+            specs.append((f"{prefix}_{name}_x", f"{prefix}_{name}_y", f"{prefix}_{name}_vis"))
+    for side in ("left", "right"):
+        for i in range(HAND_KEYPOINT_COUNT):
+            names.append(f"{side}_hand_{i}")
+            specs.append((f"{side}_hand_{i}_x", f"{side}_hand_{i}_y", None))
+    return names, specs
+
+
+def _cell_to_float(value):
+    """Parse one CSV cell: blank/missing → NaN."""
+    return float(value) if value not in ("", None) else float("nan")
+
+
+def read_csv_keypoints(csv_path):
+    """Read a per-camera keypoint CSV back into per-frame arrays.
+
+    Inverse of the ``frame_to_rows`` schema, for 3D-fusion read-back.
+    Tracking mode is inferred from the header.  Only ``person_idx == 0``
+    rows are read — cross-camera person identity matching is not
+    implemented, so multi-person fusion is out of scope.
+
+    Returns ``(keypoint_names, frames)``:
+    - ``keypoint_names``: bare names, one per keypoint (body/arm
+      keypoints first, then ``{left,right}_hand_{0..20}``).
+    - ``frames``: ``frame_idx → (kps, conf)`` where ``kps`` is
+      ``(N, 2)`` *normalised* [0, 1] coordinates (NaN where blank) and
+      ``conf`` is ``(N,)`` — the ``_vis`` column for body/arm
+      keypoints, 1.0/0.0 presence for hand keypoints.
+
+    Raises ``ValueError`` on a missing/foreign header.
+    """
+    csv_path = pathlib.Path(csv_path)
+    with csv_path.open("r", newline="") as fh:
+        reader = csv.DictReader(fh)
+        header = set(reader.fieldnames or [])
+        if "body_nose_x" in header:
+            tracking = TRACKING_BODY
+        elif "arm_left_shoulder_x" in header:
+            tracking = TRACKING_HANDS_ARMS
+        else:
+            tracking = TRACKING_HANDS
+        names, specs = _keypoint_columns(tracking)
+        required = {"frame_idx", "person_idx"} | {
+            col for spec in specs for col in spec if col is not None
+        }
+        missing = sorted(required - header)
+        if missing:
+            raise ValueError(f"{csv_path}: not a keypoint CSV (missing columns: {missing[:4]})")
+
+        frames = {}
+        for row in reader:
+            if row["person_idx"] not in ("0", ""):
+                continue
+            kps = np.empty((len(specs), 2), dtype=np.float64)
+            conf = np.empty(len(specs), dtype=np.float64)
+            for i, (x_col, y_col, vis_col) in enumerate(specs):
+                x = _cell_to_float(row[x_col])
+                y = _cell_to_float(row[y_col])
+                kps[i] = (x, y)
+                if vis_col is not None:
+                    vis = _cell_to_float(row[vis_col])
+                    conf[i] = vis if np.isfinite(vis) else 0.0
+                else:
+                    conf[i] = 1.0 if np.isfinite(x) and np.isfinite(y) else 0.0
+            frames[int(row["frame_idx"])] = (kps, conf)
+    return names, frames
 
 
 def open_csv_writer(output_path, tracking=TRACKING_HANDS_ARMS):

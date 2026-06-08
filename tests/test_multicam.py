@@ -9,17 +9,27 @@ import cv2
 import numpy as np
 import pytest
 
-from pose_estimation.calibration import CALIBRATION_FILENAME, CalibrationError
+from pose_estimation._types import CameraCalibration, SessionCalibration
+from pose_estimation.calibration import (
+    CALIBRATION_FILENAME,
+    CalibrationError,
+    save_calibration,
+)
+from pose_estimation.export import frame_to_rows, open_csv_writer, read_csv_keypoints
 from pose_estimation.multicam import (
     CAMERA_GLOB,
     SESSION_MANIFEST_FILENAME,
+    Session,
     SessionCamera,
     SessionError,
     discover_session,
     discover_sessions,
+    fuse_session_outputs,
     iter_synchronized_frames,
     process_session,
 )
+from pose_estimation.processing import TRACKING_HANDS_ARMS
+from pose_estimation.triangulation import project_points
 
 # ---------------------------------------------------------------------------
 # Video / calibration helpers
@@ -440,3 +450,250 @@ def test_process_session_requires_camera_processor(tmp_path: pathlib.Path):
     session = discover_session(session_dir)
     with pytest.raises(TypeError, match="camera_processor"):
         process_session(session)  # ty: ignore[missing-argument]
+
+
+# ---------------------------------------------------------------------------
+# 3D fusion — CSV read-back + fuse_session_outputs + process_session wiring
+# ---------------------------------------------------------------------------
+
+# 12 synthetic "arm" keypoints (hands-arms mode) spread through the volume.
+_ARM_BASE = np.array(
+    [
+        [-0.35, -0.25, 2.9],
+        [0.35, -0.25, 2.9],
+        [-0.45, 0.05, 3.0],
+        [0.45, 0.05, 3.0],
+        [-0.40, 0.30, 3.1],
+        [0.40, 0.30, 3.1],
+        [-0.38, 0.36, 3.1],
+        [0.38, 0.36, 3.1],
+        [-0.36, 0.38, 3.1],
+        [0.36, 0.38, 3.1],
+        [-0.34, 0.40, 3.1],
+        [0.34, 0.40, 3.1],
+    ]
+)
+
+
+def _arm_world(frame_idx: int) -> np.ndarray:
+    """Ground-truth skeleton at a logical frame (translates over time)."""
+    return _ARM_BASE + np.array([0.01, 0.004, 0.008]) * frame_idx
+
+
+def _arc_calibration(
+    session_id: str, names: tuple[str, ...] = ("cam1", "cam2", "cam3")
+) -> SessionCalibration:
+    """Cameras in a wide-baseline arc (world frame = first camera)."""
+    poses = [
+        ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]),
+        ([0.0, -0.3, 0.0], [-1.0, 0.0, 0.0]),
+        ([0.0, 0.3, 0.0], [1.0, 0.0, 0.0]),
+    ]
+    cameras = {}
+    for name, (rvec, tvec) in zip(names, poses, strict=False):
+        cameras[name] = CameraCalibration(
+            name=name,
+            resolution=(1920, 1080),
+            K=np.array(
+                [[1000.0, 0.0, 960.0], [0.0, 1000.0, 540.0], [0.0, 0.0, 1.0]], dtype=np.float64
+            ),
+            distortion=np.zeros(5, dtype=np.float64),
+            rvec=np.asarray(rvec, dtype=np.float64),
+            tvec=np.asarray(tvec, dtype=np.float64),
+        )
+    return SessionCalibration(
+        format_version=1,
+        session_id=session_id,
+        world_frame=names[0],
+        cameras=cameras,
+        reprojection_error_px=0.0,
+        solver="test",
+        solved_at="2026-05-18T12:00:00Z",
+    )
+
+
+def _write_camera_csv(
+    csv_path: pathlib.Path,
+    camera: CameraCalibration,
+    n_frames: int,
+    *,
+    offset: int = 0,
+) -> None:
+    """Project the ground-truth skeleton into *camera* and write its CSV.
+
+    Rows carry *raw* per-camera frame indices (logical + offset),
+    mirroring what per-camera 2D processing produces.
+    """
+    width, height = camera["resolution"]
+    fh, writer = open_csv_writer(csv_path, tracking=TRACKING_HANDS_ARMS)
+    try:
+        for f in range(n_frames):
+            px = project_points(_arm_world(f), camera)
+            lm = np.concatenate([px, np.zeros((len(px), 1))], axis=1)
+            vis = np.full(len(px), 0.9)
+            for row in frame_to_rows(
+                "v",
+                f + offset,
+                f / 30.0,
+                height,
+                width,
+                [lm],
+                [vis],
+                [],
+                [],
+                tracking=TRACKING_HANDS_ARMS,
+            ):
+                writer.writerow(row)
+    finally:
+        fh.close()
+
+
+def test_read_csv_keypoints_round_trip(tmp_path: pathlib.Path):
+    csv_path = tmp_path / "cam1.csv"
+    width, height = 1920, 1080
+    lm = np.array([[100.0 + 10 * i, 50.0 + 5 * i, 7.0] for i in range(12)])
+    vis = np.linspace(0.1, 1.0, 12)
+    fh, writer = open_csv_writer(csv_path, tracking=TRACKING_HANDS_ARMS)
+    try:
+        for row in frame_to_rows(
+            "v", 4, 0.13, height, width, [lm], [vis], [], [], tracking=TRACKING_HANDS_ARMS
+        ):
+            writer.writerow(row)
+        # Frame 5 has two people; only person_idx 0 must be read back.
+        for row in frame_to_rows(
+            "v",
+            5,
+            0.17,
+            height,
+            width,
+            [lm, lm + 50.0],
+            [vis, vis],
+            [],
+            [],
+            tracking=TRACKING_HANDS_ARMS,
+        ):
+            writer.writerow(row)
+    finally:
+        fh.close()
+
+    names, frames = read_csv_keypoints(csv_path)
+
+    assert len(names) == 12 + 42
+    assert names[0] == "arm_left_shoulder"
+    assert names[12] == "left_hand_0"
+    assert set(frames) == {4, 5}
+    for frame_idx in (4, 5):
+        kps, conf = frames[frame_idx]
+        np.testing.assert_allclose(kps[:12, 0], lm[:, 0] / width, atol=1e-6)
+        np.testing.assert_allclose(kps[:12, 1], lm[:, 1] / height, atol=1e-6)
+        np.testing.assert_allclose(conf[:12], vis, atol=1e-4)
+        # Hands were never observed: NaN coordinates, zero confidence.
+        assert np.all(np.isnan(kps[12:]))
+        assert np.all(conf[12:] == 0.0)
+
+
+def test_read_csv_keypoints_rejects_foreign_csv(tmp_path: pathlib.Path):
+    p = tmp_path / "foreign.csv"
+    p.write_text("a,b,c\n1,2,3\n")
+    with pytest.raises(ValueError, match="not a keypoint CSV"):
+        read_csv_keypoints(p)
+
+
+def test_fuse_session_outputs_reconstructs_skeleton(tmp_path: pathlib.Path):
+    calib = _arc_calibration("s3d")
+    out_base = tmp_path / "out"
+    session_out = out_base / "s3d"
+    session_out.mkdir(parents=True)
+    offsets = {"cam1": 0, "cam2": 2, "cam3": 0}
+    for name, off in offsets.items():
+        _write_camera_csv(session_out / f"{name}.csv", calib["cameras"][name], 5, offset=off)
+    session = Session(
+        session_id="s3d",
+        directory=tmp_path / "videos" / "s3d",
+        cameras=[
+            SessionCamera(name=n, file=pathlib.Path(f"{n}.mp4"), sync_offset=off)
+            for n, off in offsets.items()
+        ],
+        calibration=calib,
+    )
+
+    fusion = fuse_session_outputs(session, out_base)
+
+    assert fusion.keypoint_names[:2] == ["arm_left_shoulder", "arm_right_shoulder"]
+    assert [f for f, _, _ in fusion.frames] == list(range(5))
+    for frame_idx, world, diag in fusion.frames:
+        np.testing.assert_allclose(world[:12], _arm_world(frame_idx), atol=1e-3)
+        assert np.all(diag["n_views"][:12] == 3)
+        assert np.all(diag["cheirality_ok"][:12])
+        # Hand keypoints were never observed → NaN world, zero views.
+        assert np.all(np.isnan(world[12:]))
+        assert np.all(diag["n_views"][12:] == 0)
+
+
+def test_fuse_session_outputs_requires_calibration(tmp_path: pathlib.Path):
+    session = Session(
+        session_id="s",
+        directory=tmp_path,
+        cameras=[SessionCamera(name="cam1", file=pathlib.Path("cam1.mp4"))],
+    )
+    with pytest.raises(SessionError, match="requires calibration"):
+        fuse_session_outputs(session, tmp_path / "out")
+
+
+def test_fuse_session_outputs_needs_min_views_csvs(tmp_path: pathlib.Path):
+    calib = _arc_calibration("s1")
+    out_base = tmp_path / "out"
+    (out_base / "s1").mkdir(parents=True)
+    _write_camera_csv(out_base / "s1" / "cam1.csv", calib["cameras"]["cam1"], 2)
+    session = Session(
+        session_id="s1",
+        directory=tmp_path,
+        cameras=[
+            SessionCamera(name=n, file=pathlib.Path(f"{n}.mp4")) for n in ("cam1", "cam2", "cam3")
+        ],
+        calibration=calib,
+    )
+    with pytest.raises(SessionError, match="needs >= 2"):
+        fuse_session_outputs(session, out_base)
+
+
+def test_process_session_fuses_when_calibrated(tmp_path: pathlib.Path, capsys):
+    _ensure_video_codec_available(tmp_path)
+    session_dir = tmp_path / "scal"
+    for name in ("cam1", "cam2"):
+        assert _write_synthetic_video(session_dir / f"{name}.avi")
+    calib = _arc_calibration("scal", names=("cam1", "cam2"))
+    save_calibration(calib, session_dir / CALIBRATION_FILENAME)
+    session = discover_session(session_dir)
+    assert session.calibration is not None
+
+    def processor(*, source, output_csv, output_diag, video_name):
+        cam_name = video_name.split("/")[-1]
+        _write_camera_csv(output_csv, calib["cameras"][cam_name], 3)
+        return "ok"
+
+    results = process_session(session, camera_processor=processor, output_dir=tmp_path / "out")
+
+    captured = capsys.readouterr().out
+    assert "3D fusion: 3 frame(s)" in captured
+    assert "WARNING" not in captured
+    assert set(results) == {"cam1", "cam2"}
+
+
+def test_process_session_fusion_failure_warns(tmp_path: pathlib.Path, capsys):
+    """A fusion failure (no CSVs written) must not lose per-camera results."""
+    _ensure_video_codec_available(tmp_path)
+    session_dir = tmp_path / "swarn"
+    for name in ("cam1", "cam2"):
+        assert _write_synthetic_video(session_dir / f"{name}.avi")
+    calib = _arc_calibration("swarn", names=("cam1", "cam2"))
+    save_calibration(calib, session_dir / CALIBRATION_FILENAME)
+    session = discover_session(session_dir)
+
+    results = process_session(
+        session, camera_processor=lambda **_kw: "done", output_dir=tmp_path / "out"
+    )
+
+    captured = capsys.readouterr().out
+    assert "WARNING: 3D fusion skipped" in captured
+    assert results == {"cam1": "done", "cam2": "done"}

@@ -119,6 +119,21 @@ class SessionFrame(TypedDict):
     frames: dict[str, np.ndarray]  # BGR images, varying resolutions allowed
 
 
+class FusionDiagnostics(TypedDict):
+    """Per-keypoint diagnostics returned by ``fuse_session_frame``.
+
+    All arrays are length ``N`` (one entry per keypoint).  A keypoint
+    that could not be triangulated has ``NaN`` reprojection error,
+    zero confidence, and ``cheirality_ok=False``; its ``n_views``
+    still reports how many valid views were available.
+    """
+
+    n_views: np.ndarray  # (N,) int — views contributing to the estimate
+    confidence: np.ndarray  # (N,) float — mean confidence of contributing views
+    reprojection_error_px: np.ndarray  # (N,) float — mean over views; NaN if unfused
+    cheirality_ok: np.ndarray  # (N,) bool — fused and in front of all contributing cameras
+
+
 if sys.version_info >= (3, 11):
 
     class MultiCamPipelineState(TypedDict):
@@ -146,6 +161,7 @@ else:  # pragma: no cover - Python 3.10 fallback
 __all__ = [
     "CameraCalibration",
     "Detection",
+    "FusionDiagnostics",
     "HandDetectionDiag",
     "MultiCamPipelineState",
     "PipelineState",

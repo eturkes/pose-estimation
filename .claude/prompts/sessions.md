@@ -30,7 +30,7 @@ Four phases. Phases 1-2 are the immediate priority (jitter fixes + clinical metr
 - 2D: ✓ Temporal movement segmentation
 
 ### Phase 3: 3D pipeline implementation
-- 3A: fuse_session_frame() with synthetic tests (independent)
+- 3A: ✓ fuse_session_frame() with synthetic tests
 - 3B: solve_charuco() + calibration CLI (independent)
 - 3C: 3D CSV export + R analysis (blocked by 3A)
 
