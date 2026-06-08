@@ -4,7 +4,7 @@ Covers:
 - ``processing._detection_centres`` and ``_make_palm_keypoints``
 - ``processing._carry_detection`` (single source of truth for decay)
 - ``postprocess._odd_int`` argparse validator
-- ``main._safe_fps`` clamp behaviour
+- ``video_io.safe_fps`` clamp behaviour
 """
 
 from __future__ import annotations
@@ -14,11 +14,6 @@ import argparse
 import numpy as np
 import pytest
 
-from pose_estimation.main import (
-    FALLBACK_FPS,
-    MAX_REASONABLE_FPS,
-    _safe_fps,
-)
 from pose_estimation.postprocess import _odd_int
 from pose_estimation.processing import (
     CARRIED_DET_SCORE_DECAY,
@@ -29,6 +24,11 @@ from pose_estimation.processing import (
     _detection_centre,
     _detection_centres,
     _make_palm_keypoints,
+)
+from pose_estimation.video_io import (
+    FALLBACK_FPS,
+    MAX_REASONABLE_FPS,
+    safe_fps,
 )
 
 # ---------------------------------------------------------------------------
@@ -148,29 +148,29 @@ def test_odd_int_rejects_non_integer():
 
 
 # ---------------------------------------------------------------------------
-# _safe_fps
+# safe_fps
 # ---------------------------------------------------------------------------
 
 
 def test_safe_fps_passes_through_normal():
-    assert _safe_fps(30.0) == 30.0
-    assert _safe_fps(60.0) == 60.0
-    assert _safe_fps(24.0) == 24.0
+    assert safe_fps(30.0) == 30.0
+    assert safe_fps(60.0) == 60.0
+    assert safe_fps(24.0) == 24.0
 
 
 def test_safe_fps_replaces_zero_or_negative():
-    assert _safe_fps(0.0) == FALLBACK_FPS
-    assert _safe_fps(-1.0) == FALLBACK_FPS
+    assert safe_fps(0.0) == FALLBACK_FPS
+    assert safe_fps(-1.0) == FALLBACK_FPS
 
 
 def test_safe_fps_replaces_nonfinite():
-    assert _safe_fps(float("nan")) == FALLBACK_FPS
-    assert _safe_fps(float("inf")) == FALLBACK_FPS
+    assert safe_fps(float("nan")) == FALLBACK_FPS
+    assert safe_fps(float("inf")) == FALLBACK_FPS
 
 
 def test_safe_fps_replaces_outliers(capsys):
     # Above the upper bound — falls back to FALLBACK_FPS with a warning
-    result = _safe_fps(MAX_REASONABLE_FPS + 100)
+    result = safe_fps(MAX_REASONABLE_FPS + 100)
     assert result == FALLBACK_FPS
     captured = capsys.readouterr()
     assert "unusual FPS" in captured.out

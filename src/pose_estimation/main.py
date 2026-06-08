@@ -41,9 +41,8 @@ from .metrics import (
 from .models import download_and_compile_models
 from .multicam import (
     SessionError,
-    discover_session,
-    discover_sessions,
     process_session,
+    resolve_cli_sessions,
 )
 from .postprocess import _odd_int
 from .processing import (
@@ -56,9 +55,9 @@ from .processing import (
     tracking_pose_indices,
 )
 from .smoothing import PoseSmoother
+from .video_io import collect_video_files, frame_to_surface, open_capture, safe_fps
 
 WINDOW_TITLE = "Pose Estimation"
-VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
 DIAG_FIELDS = [
     "frame",
     "timestamp",
@@ -71,53 +70,6 @@ DIAG_FIELDS = [
     "hand_track_ages",
     "detections",
 ]
-
-
-FALLBACK_FPS = 30.0
-MIN_REASONABLE_FPS = 1.0
-MAX_REASONABLE_FPS = 240.0
-
-
-def _open_capture(source):
-    """Open a VideoCapture with diagnostic error messages.
-
-    Returns the open ``cv2.VideoCapture`` or ``None`` if the source
-    cannot be read, after printing a context-aware reason.
-    """
-    if isinstance(source, str):
-        path = pathlib.Path(source)
-        if not path.exists():
-            print(f"  ERROR: file not found: {source}")
-            return None
-        if not path.is_file():
-            print(f"  ERROR: not a regular file: {source}")
-            return None
-    cap = cv2.VideoCapture(source)
-    if not cap.isOpened():
-        if isinstance(source, int):
-            print(f"  ERROR: cannot open camera index {source} (no device or driver?).")
-        else:
-            print(f"  ERROR: cannot open {source} — check codec, codec packs, or file integrity.")
-        return None
-    return cap
-
-
-def _safe_fps(raw_fps):
-    """Clamp/validate an FPS reading from cv2; fall back to FALLBACK_FPS."""
-    if not np.isfinite(raw_fps) or raw_fps <= 0:
-        return FALLBACK_FPS
-    if raw_fps < MIN_REASONABLE_FPS or raw_fps > MAX_REASONABLE_FPS:
-        print(f"  WARNING: unusual FPS reported ({raw_fps:.2f}); using {FALLBACK_FPS}.")
-        return FALLBACK_FPS
-    return float(raw_fps)
-
-
-def frame_to_surface(frame):
-    """Convert a BGR OpenCV frame to a pygame Surface."""
-    import pygame
-
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    return pygame.surfarray.make_surface(rgb.transpose(1, 0, 2))
 
 
 def _oldest_tracks(items, ages, min_age, cap):
@@ -153,11 +105,11 @@ def process_video(
     Returns True if the user requested quit (ESC / window close),
     False if the video simply ended.
     """
-    cap = _open_capture(source)
+    cap = open_capture(source)
     if cap is None:
         return False
 
-    fps_source = _safe_fps(cap.get(cv2.CAP_PROP_FPS))
+    fps_source = safe_fps(cap.get(cv2.CAP_PROP_FPS))
     total_frames = max(0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT)))
 
     # Optionally set resolution for cameras
@@ -491,17 +443,6 @@ def process_video(
     return False
 
 
-def collect_video_files(directory):
-    """Return sorted list of video file paths in a directory."""
-    d = pathlib.Path(directory)
-    if not d.is_dir():
-        raise RuntimeError(f"Not a directory: {directory}")
-    files = sorted(p for p in d.iterdir() if p.is_file() and p.suffix.lower() in VIDEO_EXTENSIONS)
-    if not files:
-        raise RuntimeError(f"No video files found in: {directory}")
-    return files
-
-
 def _dispatch_sessions(args, *, tracking, headless, models, palm_anchors, pose_anchors, screen):
     """Resolve --session-dir / --sessions-dir and run per-camera processing.
 
@@ -509,36 +450,11 @@ def _dispatch_sessions(args, *, tracking, headless, models, palm_anchors, pose_a
     ``process_video`` with CSV/diagnostics/metrics setup, then hands
     off to ``process_session`` for per-camera orchestration.
     """
-    if args.session_dir and args.sessions_dir:
-        raise SessionError("--session-dir and --sessions-dir are mutually exclusive")
     try:
-        if args.session_dir:
-            sessions = [discover_session(args.session_dir, calibration_path=args.calibration)]
-        else:
-            if args.calibration is not None:
-                print(
-                    "WARNING: --calibration applies the same calibration to every "
-                    "discovered session; pass --session-dir for per-session overrides."
-                )
-            sessions = discover_sessions(args.sessions_dir)
-            if not sessions:
-                raise SessionError(f"no sessions discovered under {args.sessions_dir}")
-            if args.calibration is not None:
-                sessions = [
-                    discover_session(s.directory, calibration_path=args.calibration)
-                    for s in sessions
-                ]
+        sessions = resolve_cli_sessions(args.session_dir, args.sessions_dir, args.calibration)
     except SessionError as exc:
         print(f"ERROR: {exc}")
         return
-
-    print(f"Multi-camera dispatch: {len(sessions)} session(s)")
-    for s in sessions:
-        cal = "present" if s.calibration is not None else "absent"
-        print(
-            f"  {s.session_id}: {s.n_cameras} cameras "
-            f"({', '.join(s.camera_names())}); calibration: {cal}"
-        )
 
     def _camera_processor(*, source, output_csv, output_diag, video_name):
         output_csv.parent.mkdir(parents=True, exist_ok=True)

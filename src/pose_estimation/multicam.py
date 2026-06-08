@@ -187,6 +187,47 @@ def discover_sessions(parent_dir: str | pathlib.Path) -> list[Session]:
     return sessions
 
 
+def resolve_cli_sessions(
+    session_dir: str | pathlib.Path | None,
+    sessions_dir: str | pathlib.Path | None,
+    calibration_path: str | pathlib.Path | None = None,
+) -> list[Session]:
+    """Resolve the --session-dir / --sessions-dir CLI args into sessions.
+
+    Shared by both entry points' session dispatch.  Exactly one of
+    *session_dir* / *sessions_dir* must be given; raises ``SessionError``
+    on conflict or empty discovery.  Prints the dispatch summary.
+    """
+    if session_dir and sessions_dir:
+        raise SessionError("--session-dir and --sessions-dir are mutually exclusive")
+    if session_dir:
+        sessions = [discover_session(session_dir, calibration_path=calibration_path)]
+    else:
+        if calibration_path is not None:
+            print(
+                "WARNING: --calibration applies the same calibration to every "
+                "discovered session; pass --session-dir for per-session overrides."
+            )
+        if sessions_dir is None:
+            raise SessionError("one of --session-dir / --sessions-dir is required")
+        sessions = discover_sessions(sessions_dir)
+        if not sessions:
+            raise SessionError(f"no sessions discovered under {sessions_dir}")
+        if calibration_path is not None:
+            sessions = [
+                discover_session(s.directory, calibration_path=calibration_path) for s in sessions
+            ]
+
+    print(f"Multi-camera dispatch: {len(sessions)} session(s)")
+    for s in sessions:
+        cal = "present" if s.calibration is not None else "absent"
+        print(
+            f"  {s.session_id}: {s.n_cameras} cameras "
+            f"({', '.join(s.camera_names())}); calibration: {cal}"
+        )
+    return sessions
+
+
 def _looks_like_session(directory: pathlib.Path) -> bool:
     """Heuristic: directory contains a manifest or any cam*.{ext} file."""
     if (directory / SESSION_MANIFEST_FILENAME).is_file():

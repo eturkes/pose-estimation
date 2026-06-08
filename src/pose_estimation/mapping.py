@@ -15,10 +15,6 @@ from .processing import (
 # ---------------------------------------------------------------------------
 # COCO-WholeBody 133 index ranges
 # ---------------------------------------------------------------------------
-_COCO_BODY_END = 17
-_COCO_FEET_START = 17
-_COCO_FEET_END = 23
-_COCO_FACE_START = 23
 _COCO_LHAND_START = 91
 _COCO_LHAND_END = 112
 _COCO_RHAND_START = 112
@@ -26,7 +22,6 @@ _COCO_RHAND_END = 133
 
 # Hand sub-array offsets for MCP (base) joints
 _HAND_INDEX_MCP = 5
-_HAND_MIDDLE_MCP = 9
 _HAND_PINKY_MCP = 17
 _HAND_THUMB_CMC = 1
 

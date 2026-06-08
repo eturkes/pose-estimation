@@ -12,7 +12,7 @@ analysis/clinical_correlation.R:99: sig_stars <- function(p)
 analysis/clinical_correlation.R:109: plot_correlation_matrix <- function(cor_tbl, title_prefix)
 analysis/clinical_correlation.R:133: plot_scatter_top <- function(joined, cor_tbl, title_prefix, n_top = 6)
 
-# analysis/clinical_features.R (1146 lines)
+# analysis/clinical_features.R (1132 lines)
 analysis/clinical_features.R:54: detect_tracking <- function(cols)
 analysis/clinical_features.R:60: body_col <- function(tracking, side, keypoint, coord)
 analysis/clinical_features.R:65: hand_col <- function(side, idx, coord)
@@ -33,18 +33,16 @@ analysis/clinical_features.R:335: trunk_lean_sagittal_3d <- function(dy, dz)
 analysis/clinical_features.R:343: trunk_rotation_3d <- function(lsh_x, lsh_z, rsh_x, rsh_z, …)
 analysis/clinical_features.R:353: posture_symmetry_3d <- function(lsh_x, lsh_y, lsh_z, rsh_x, rsh_y, rsh_z)
 analysis/clinical_features.R:362: compute_frame_features <- function(df, tracking, is_3d = FALSE)
-analysis/clinical_features.R:365: bcol <- function(side, kp, coord)
-analysis/clinical_features.R:368: hcol <- function(side, idx, coord)
-analysis/clinical_features.R:378: ex <- function(cname)
-analysis/clinical_features.R:565: compute_window_features <- function(df, frame_features, tracking, …)
-analysis/clinical_features.R:568: bcol <- function(side, kp, coord)
-analysis/clinical_features.R:571: hcol <- function(side, idx, coord)
-analysis/clinical_features.R:681: safe_mean <- function(x)
-analysis/clinical_features.R:682: safe_sd <- function(x)
-analysis/clinical_features.R:745: running_median <- function(x, k = 5L)
-analysis/clinical_features.R:773: classify_movement_phases <- function(speed_seg, aperture_seg, …)
-analysis/clinical_features.R:872: segment_movements <- function(df, frame_features, tracking, …)
-analysis/clinical_features.R:879: bcol <- function(side, kp, coord)
+analysis/clinical_features.R:363: bcol <- function(side, kp, coord)
+analysis/clinical_features.R:372: ex <- function(cname)
+analysis/clinical_features.R:559: compute_window_features <- function(df, frame_features, tracking, …)
+analysis/clinical_features.R:561: bcol <- function(side, kp, coord)
+analysis/clinical_features.R:670: safe_mean <- function(x)
+analysis/clinical_features.R:671: safe_sd <- function(x)
+analysis/clinical_features.R:734: running_median <- function(x, k = 5L)
+analysis/clinical_features.R:762: classify_movement_phases <- function(speed_seg, aperture_seg, …)
+analysis/clinical_features.R:861: segment_movements <- function(df, frame_features, tracking, …)
+analysis/clinical_features.R:867: bcol <- function(side, kp, coord)
 
 # analysis/compare.R (189 lines)
 analysis/compare.R:22: flatten_json <- function(j, prefix = "")
@@ -384,53 +382,40 @@ src/pose_estimation/export.py:347: def _fmt_float(value, ndigits)
 src/pose_estimation/export.py:352: def write_world3d_csv(output_path, video_name, keypoint_names, frames)
 src/pose_estimation/export.py:388: def open_csv_writer(output_path, tracking=TRACKING_HANDS_ARMS)
 
-# src/pose_estimation/main.py (828 lines)
+# src/pose_estimation/main.py (744 lines)
 src/pose_estimation/main.py:60: WINDOW_TITLE = str
-src/pose_estimation/main.py:61: VIDEO_EXTENSIONS = set[5]
-src/pose_estimation/main.py:62: DIAG_FIELDS = list[10]
-src/pose_estimation/main.py:76: FALLBACK_FPS = float
-src/pose_estimation/main.py:77: MIN_REASONABLE_FPS = float
-src/pose_estimation/main.py:78: MAX_REASONABLE_FPS = float
-src/pose_estimation/main.py:81: def _open_capture(source)
-src/pose_estimation/main.py:105: def _safe_fps(raw_fps)
-src/pose_estimation/main.py:115: def frame_to_surface(frame)
-src/pose_estimation/main.py:123: def _oldest_tracks(items, ages, min_age, cap)
-src/pose_estimation/main.py:133: def process_video(source, flip, models, palm_anchors, pose_anchors, screen, csv_writer=None, video_name=None, single_subject=False, diag_wr…
-src/pose_estimation/main.py:494: def collect_video_files(directory)
-src/pose_estimation/main.py:505: def _dispatch_sessions(args, *, tracking, headless, models, palm_anchors, pose_anchors, screen)
-src/pose_estimation/main.py:580: def main()
+src/pose_estimation/main.py:61: DIAG_FIELDS = list[10]
+src/pose_estimation/main.py:75: def _oldest_tracks(items, ages, min_age, cap)
+src/pose_estimation/main.py:85: def process_video(source, flip, models, palm_anchors, pose_anchors, screen, csv_writer=None, video_name=None, single_subject=False, diag_wr…
+src/pose_estimation/main.py:446: def _dispatch_sessions(args, *, tracking, headless, models, palm_anchors, pose_anchors, screen)
+src/pose_estimation/main.py:496: def main()
 
-# src/pose_estimation/mapping.py (342 lines)
-src/pose_estimation/mapping.py:18: _COCO_BODY_END = int
-src/pose_estimation/mapping.py:19: _COCO_FEET_START = int
-src/pose_estimation/mapping.py:20: _COCO_FEET_END = int
-src/pose_estimation/mapping.py:21: _COCO_FACE_START = int
-src/pose_estimation/mapping.py:22: _COCO_LHAND_START = int
-src/pose_estimation/mapping.py:23: _COCO_LHAND_END = int
-src/pose_estimation/mapping.py:24: _COCO_RHAND_START = int
-src/pose_estimation/mapping.py:25: _COCO_RHAND_END = int
-src/pose_estimation/mapping.py:28: _HAND_INDEX_MCP = int
-src/pose_estimation/mapping.py:29: _HAND_MIDDLE_MCP = int
-src/pose_estimation/mapping.py:30: _HAND_PINKY_MCP = int
-src/pose_estimation/mapping.py:31: _HAND_THUMB_CMC = int
-src/pose_estimation/mapping.py:37: _COCO_TO_ARM = list[12]
-src/pose_estimation/mapping.py:57: _COCO_TO_BODY_DIRECT = list[21]
-src/pose_estimation/mapping.py:83: _FACE_OFFSET = int
-src/pose_estimation/mapping.py:84: _COCO_TO_BODY_FACE = list[6]
-src/pose_estimation/mapping.py:94: _COCO_TO_BODY_HAND = list[6]
-src/pose_estimation/mapping.py:104: _ARM_WRIST_LEFT = int
-src/pose_estimation/mapping.py:105: _ARM_WRIST_RIGHT = int
-src/pose_estimation/mapping.py:106: _BODY_WRIST_LEFT = int
-src/pose_estimation/mapping.py:107: _BODY_WRIST_RIGHT = int
-src/pose_estimation/mapping.py:110: def coco_to_mediapipe(keypoints, scores, n_kps, tracking)
-src/pose_estimation/mapping.py:148: def _xy_to_xyz(xy)
-src/pose_estimation/mapping.py:158: def _map_133(keypoints, scores, n_persons, tracking)
-src/pose_estimation/mapping.py:166: def _map_133_hands(keypoints, scores, n_persons)
-src/pose_estimation/mapping.py:181: def _map_133_arms(keypoints, scores, n_persons)
-src/pose_estimation/mapping.py:221: def _map_133_body(keypoints, scores, n_persons)
-src/pose_estimation/mapping.py:281: _COCO17_TO_BODY_DIRECT = list[17]
-src/pose_estimation/mapping.py:302: def _map_17(keypoints, scores, n_persons, tracking)
-src/pose_estimation/mapping.py:341: __all__ = list[1]
+# src/pose_estimation/mapping.py (337 lines)
+src/pose_estimation/mapping.py:18: _COCO_LHAND_START = int
+src/pose_estimation/mapping.py:19: _COCO_LHAND_END = int
+src/pose_estimation/mapping.py:20: _COCO_RHAND_START = int
+src/pose_estimation/mapping.py:21: _COCO_RHAND_END = int
+src/pose_estimation/mapping.py:24: _HAND_INDEX_MCP = int
+src/pose_estimation/mapping.py:25: _HAND_PINKY_MCP = int
+src/pose_estimation/mapping.py:26: _HAND_THUMB_CMC = int
+src/pose_estimation/mapping.py:32: _COCO_TO_ARM = list[12]
+src/pose_estimation/mapping.py:52: _COCO_TO_BODY_DIRECT = list[21]
+src/pose_estimation/mapping.py:78: _FACE_OFFSET = int
+src/pose_estimation/mapping.py:79: _COCO_TO_BODY_FACE = list[6]
+src/pose_estimation/mapping.py:89: _COCO_TO_BODY_HAND = list[6]
+src/pose_estimation/mapping.py:99: _ARM_WRIST_LEFT = int
+src/pose_estimation/mapping.py:100: _ARM_WRIST_RIGHT = int
+src/pose_estimation/mapping.py:101: _BODY_WRIST_LEFT = int
+src/pose_estimation/mapping.py:102: _BODY_WRIST_RIGHT = int
+src/pose_estimation/mapping.py:105: def coco_to_mediapipe(keypoints, scores, n_kps, tracking)
+src/pose_estimation/mapping.py:143: def _xy_to_xyz(xy)
+src/pose_estimation/mapping.py:153: def _map_133(keypoints, scores, n_persons, tracking)
+src/pose_estimation/mapping.py:161: def _map_133_hands(keypoints, scores, n_persons)
+src/pose_estimation/mapping.py:176: def _map_133_arms(keypoints, scores, n_persons)
+src/pose_estimation/mapping.py:216: def _map_133_body(keypoints, scores, n_persons)
+src/pose_estimation/mapping.py:276: _COCO17_TO_BODY_DIRECT = list[17]
+src/pose_estimation/mapping.py:297: def _map_17(keypoints, scores, n_persons, tracking)
+src/pose_estimation/mapping.py:336: __all__ = list[1]
 
 # src/pose_estimation/metrics.py (398 lines)
 src/pose_estimation/metrics.py:21: class FrameDiagnostics
@@ -457,7 +442,7 @@ src/pose_estimation/models.py:62: def _download_to(url, filepath)
 src/pose_estimation/models.py:81: def download_file(url, filepath, expected_sha256=None)
 src/pose_estimation/models.py:97: def download_and_compile_models(model_dir='model', device='NPU')
 
-# src/pose_estimation/multicam.py (604 lines)
+# src/pose_estimation/multicam.py (645 lines)
 src/pose_estimation/multicam.py:43: SESSION_MANIFEST_FILENAME = str
 src/pose_estimation/multicam.py:46: VIDEO_EXTENSIONS = tuple[5]
 src/pose_estimation/multicam.py:49: CAMERA_GLOB = str
@@ -471,23 +456,24 @@ src/pose_estimation/multicam.py:100: def Session.n_cameras(self) -> int
 src/pose_estimation/multicam.py:103: def Session.camera_names(self) -> list[str]
 src/pose_estimation/multicam.py:112: def discover_session(directory: str | pathlib.Path, *, calibration_path: str | pathlib.Path | None=None) -> Session
 src/pose_estimation/multicam.py:169: def discover_sessions(parent_dir: str | pathlib.Path) -> list[Session]
-src/pose_estimation/multicam.py:190: def _looks_like_session(directory: pathlib.Path) -> bool
-src/pose_estimation/multicam.py:197: def _iter_glob_videos(directory: pathlib.Path) -> Iterator[pathlib.Path]
-src/pose_estimation/multicam.py:202: def _load_manifest(path: pathlib.Path) -> dict[str, Any]
-src/pose_estimation/multicam.py:221: def _cameras_from_manifest(manifest: dict[str, Any], *, directory: pathlib.Path) -> list[SessionCamera]
-src/pose_estimation/multicam.py:254: def _cameras_from_glob(directory: pathlib.Path) -> list[SessionCamera]
-src/pose_estimation/multicam.py:259: def _find_glob_for_name(directory: pathlib.Path, name: str) -> pathlib.Path | None
-src/pose_estimation/multicam.py:269: def _assert_unique_names(cameras: list[SessionCamera], *, source: str) -> None
-src/pose_estimation/multicam.py:277: def _resolve_calibration(*, directory: pathlib.Path, explicit_path: str | pathlib.Path | None, manifest_ref: str | None) -> SessionCalibrat…
-src/pose_estimation/multicam.py:304: def iter_synchronized_frames(session: Session) -> Iterator[SessionFrame]
-src/pose_estimation/multicam.py:344: def _open_session_captures(session: Session) -> list[cv2.VideoCapture]
-src/pose_estimation/multicam.py:363: _DEFAULT_OUTPUT_DIR = str
-src/pose_estimation/multicam.py:366: def _resolve_session_output(session: Session, output_dir: str | pathlib.Path | None) -> pathlib.Path
-src/pose_estimation/multicam.py:381: def process_session(session: Session, *, camera_processor: Callable[..., Any], output_dir: str | pathlib.Path | None=None) -> dict[str, Any]
-src/pose_estimation/multicam.py:447: class SessionFusion
-src/pose_estimation/multicam.py:464: def fuse_session_outputs(session: Session, output_dir: str | pathlib.Path | None=None, *, min_views: int=2) -> SessionFusion
-src/pose_estimation/multicam.py:558: def _fuse_and_report(session: Session, output_dir: str | pathlib.Path | None) -> None
-src/pose_estimation/multicam.py:589: __all__ = list[13]
+src/pose_estimation/multicam.py:190: def resolve_cli_sessions(session_dir: str | pathlib.Path | None, sessions_dir: str | pathlib.Path | None, calibration_path: str | pathlib.P…
+src/pose_estimation/multicam.py:231: def _looks_like_session(directory: pathlib.Path) -> bool
+src/pose_estimation/multicam.py:238: def _iter_glob_videos(directory: pathlib.Path) -> Iterator[pathlib.Path]
+src/pose_estimation/multicam.py:243: def _load_manifest(path: pathlib.Path) -> dict[str, Any]
+src/pose_estimation/multicam.py:262: def _cameras_from_manifest(manifest: dict[str, Any], *, directory: pathlib.Path) -> list[SessionCamera]
+src/pose_estimation/multicam.py:295: def _cameras_from_glob(directory: pathlib.Path) -> list[SessionCamera]
+src/pose_estimation/multicam.py:300: def _find_glob_for_name(directory: pathlib.Path, name: str) -> pathlib.Path | None
+src/pose_estimation/multicam.py:310: def _assert_unique_names(cameras: list[SessionCamera], *, source: str) -> None
+src/pose_estimation/multicam.py:318: def _resolve_calibration(*, directory: pathlib.Path, explicit_path: str | pathlib.Path | None, manifest_ref: str | None) -> SessionCalibrat…
+src/pose_estimation/multicam.py:345: def iter_synchronized_frames(session: Session) -> Iterator[SessionFrame]
+src/pose_estimation/multicam.py:385: def _open_session_captures(session: Session) -> list[cv2.VideoCapture]
+src/pose_estimation/multicam.py:404: _DEFAULT_OUTPUT_DIR = str
+src/pose_estimation/multicam.py:407: def _resolve_session_output(session: Session, output_dir: str | pathlib.Path | None) -> pathlib.Path
+src/pose_estimation/multicam.py:422: def process_session(session: Session, *, camera_processor: Callable[..., Any], output_dir: str | pathlib.Path | None=None) -> dict[str, Any]
+src/pose_estimation/multicam.py:488: class SessionFusion
+src/pose_estimation/multicam.py:505: def fuse_session_outputs(session: Session, output_dir: str | pathlib.Path | None=None, *, min_views: int=2) -> SessionFusion
+src/pose_estimation/multicam.py:599: def _fuse_and_report(session: Session, output_dir: str | pathlib.Path | None) -> None
+src/pose_estimation/multicam.py:630: __all__ = list[13]
 
 # src/pose_estimation/postprocess.py (346 lines)
 src/pose_estimation/postprocess.py:18: def _odd_int(value)
@@ -503,7 +489,7 @@ src/pose_estimation/postprocess.py:150: def _smooth_column_with_nan(series, wind
 src/pose_estimation/postprocess.py:216: def savgol_smooth_csv(input_path, output_path, window=11, polyorder=3)
 src/pose_estimation/postprocess.py:304: def main()
 
-# src/pose_estimation/processing.py (999 lines)
+# src/pose_estimation/processing.py (996 lines)
 src/pose_estimation/processing.py:30: TRACKING_HANDS = str
 src/pose_estimation/processing.py:31: TRACKING_HANDS_ARMS = str
 src/pose_estimation/processing.py:32: TRACKING_BODY = str
@@ -532,53 +518,49 @@ src/pose_estimation/processing.py:72: MIN_BONE_LENGTH_PX = float
 src/pose_estimation/processing.py:75: PALM_KP_COUNT = int
 src/pose_estimation/processing.py:76: PALM_WRIST_KP_IDX = int
 src/pose_estimation/processing.py:77: PALM_FINGER_KP_IDX = int
-src/pose_estimation/processing.py:80: EPSILON = float
-src/pose_estimation/processing.py:83: def tracking_pose_indices(tracking)
-src/pose_estimation/processing.py:95: def _preprocess(frame, size, compiled_model)
-src/pose_estimation/processing.py:109: def run_detection(frame, compiled_model, input_size, anchors, num_keypoints)
-src/pose_estimation/processing.py:130: def _detection_centre(det)
-src/pose_estimation/processing.py:136: def _detection_centres(dets)
-src/pose_estimation/processing.py:141: def _detection_centres_array(dets)
-src/pose_estimation/processing.py:160: def _make_palm_keypoints(centre_norm, wrist_norm, finger_norm)
-src/pose_estimation/processing.py:173: def _palm_centres_list(dets)
-src/pose_estimation/processing.py:194: def _carry_detection(det)
-src/pose_estimation/processing.py:216: def _smooth_detections(new_dets, prev_dets, match_threshold=DET_MATCH_THRESHOLD_PALM, alpha=None)
-src/pose_estimation/processing.py:281: def _synthesise_hand_detections(body_landmarks, body_visibilities, existing_palm_dets, frame_h, frame_w, arm_chains=None, overlap_threshold…
-src/pose_estimation/processing.py:397: def _recrop_from_landmarks(prev_hand_landmarks, real_palm_dets, frame_h, frame_w, overlap_threshold=DETECTION_OVERLAP_THRESHOLD)
-src/pose_estimation/processing.py:497: def _affine_matrix(cx, cy, rotation, size, target_size)
-src/pose_estimation/processing.py:538: def get_pose_crop(img, detection, scale_factor=POSE_CROP_SCALE_FACTOR, target_size=POSE_LM_INPUT_SIZE)
-src/pose_estimation/processing.py:559: def get_hand_crop(img, detection, scale_factor=HAND_CROP_SCALE_FACTOR, target_size=HAND_INPUT_SIZE)
-src/pose_estimation/processing.py:586: def transform_landmarks_to_image(landmarks, M)
-src/pose_estimation/processing.py:629: def detect_pose_landmarks(frame, detection, pose_lm_compiled, keypoint_indices=None)
-src/pose_estimation/processing.py:668: def detect_hand_landmarks(frame, detection, hand_compiled)
-src/pose_estimation/processing.py:703: def match_hands_to_arms(body_landmarks, hand_landmarks, threshold=100, wrist_kps=None, shoulder_kps=None)
-src/pose_estimation/processing.py:784: def select_primary_body(body_landmarks, body_visibilities, hand_landmarks, matches)
-src/pose_estimation/processing.py:842: def process_frame(frame, models, palm_anchors, pose_anchors, prev_state=None, prev_hand_landmarks=None, det_score_threshold=None, lm_score_…
+src/pose_estimation/processing.py:80: def tracking_pose_indices(tracking)
+src/pose_estimation/processing.py:92: def _preprocess(frame, size, compiled_model)
+src/pose_estimation/processing.py:106: def run_detection(frame, compiled_model, input_size, anchors, num_keypoints)
+src/pose_estimation/processing.py:127: def _detection_centre(det)
+src/pose_estimation/processing.py:133: def _detection_centres(dets)
+src/pose_estimation/processing.py:138: def _detection_centres_array(dets)
+src/pose_estimation/processing.py:157: def _make_palm_keypoints(centre_norm, wrist_norm, finger_norm)
+src/pose_estimation/processing.py:170: def _palm_centres_list(dets)
+src/pose_estimation/processing.py:191: def _carry_detection(det)
+src/pose_estimation/processing.py:213: def _smooth_detections(new_dets, prev_dets, match_threshold=DET_MATCH_THRESHOLD_PALM, alpha=None)
+src/pose_estimation/processing.py:278: def _synthesise_hand_detections(body_landmarks, body_visibilities, existing_palm_dets, frame_h, frame_w, arm_chains=None, overlap_threshold…
+src/pose_estimation/processing.py:394: def _recrop_from_landmarks(prev_hand_landmarks, real_palm_dets, frame_h, frame_w, overlap_threshold=DETECTION_OVERLAP_THRESHOLD)
+src/pose_estimation/processing.py:494: def _affine_matrix(cx, cy, rotation, size, target_size)
+src/pose_estimation/processing.py:535: def get_pose_crop(img, detection, scale_factor=POSE_CROP_SCALE_FACTOR, target_size=POSE_LM_INPUT_SIZE)
+src/pose_estimation/processing.py:556: def get_hand_crop(img, detection, scale_factor=HAND_CROP_SCALE_FACTOR, target_size=HAND_INPUT_SIZE)
+src/pose_estimation/processing.py:583: def transform_landmarks_to_image(landmarks, M)
+src/pose_estimation/processing.py:626: def detect_pose_landmarks(frame, detection, pose_lm_compiled, keypoint_indices=None)
+src/pose_estimation/processing.py:665: def detect_hand_landmarks(frame, detection, hand_compiled)
+src/pose_estimation/processing.py:700: def match_hands_to_arms(body_landmarks, hand_landmarks, threshold=100, wrist_kps=None, shoulder_kps=None)
+src/pose_estimation/processing.py:781: def select_primary_body(body_landmarks, body_visibilities, hand_landmarks, matches)
+src/pose_estimation/processing.py:839: def process_frame(frame, models, palm_anchors, pose_anchors, prev_state=None, prev_hand_landmarks=None, det_score_threshold=None, lm_score_…
 
 # src/pose_estimation/rtmlib_openvino.py (133 lines)
 src/pose_estimation/rtmlib_openvino.py:12: _ORIG_BASE_INIT = NoneType
 src/pose_estimation/rtmlib_openvino.py:15: def _patch_rtmlib_openvino()
 
-# src/pose_estimation/rtmlib_smoothing.py (379 lines)
-src/pose_estimation/rtmlib_smoothing.py:13: _KP_ARMS = set[6]
-src/pose_estimation/rtmlib_smoothing.py:14: _KP_LHAND = set(...)
-src/pose_estimation/rtmlib_smoothing.py:15: _KP_RHAND = set(...)
-src/pose_estimation/rtmlib_smoothing.py:21: REGION_PARAMS = list[4]
-src/pose_estimation/rtmlib_smoothing.py:34: class _OneEuro
-src/pose_estimation/rtmlib_smoothing.py:37: def _OneEuro.__init__(self, min_cutoff=0.5, beta=0.5, d_cutoff=1.0, gamma=2.0, outlier_cap=0.0, rest_cutoff=None, rest_speed=2.0, fast_spee…
-src/pose_estimation/rtmlib_smoothing.py:63: def _OneEuro.__call__(self, x, t, confidence=None)
-src/pose_estimation/rtmlib_smoothing.py:130: class KeypointSmoother
-src/pose_estimation/rtmlib_smoothing.py:142: def KeypointSmoother.__init__(self, min_cutoff=0.5, beta=0.5, score_alpha=0.5, carry_frames=5, match_thresh=150, carry_damping=0.8, min_tra…
-src/pose_estimation/rtmlib_smoothing.py:171: def KeypointSmoother.reset(self)
-src/pose_estimation/rtmlib_smoothing.py:175: def KeypointSmoother._make_filters(self, n_kps)
-src/pose_estimation/rtmlib_smoothing.py:202: def KeypointSmoother._apply_filters(self, filters, kp, t, confidence)
-src/pose_estimation/rtmlib_smoothing.py:212: def KeypointSmoother._get_velocity(self, filters)
-src/pose_estimation/rtmlib_smoothing.py:225: def KeypointSmoother._extrapolate(self, last_kps, last_velocity, last_t, t, misses)
-src/pose_estimation/rtmlib_smoothing.py:246: def KeypointSmoother.__call__(self, keypoints, scores, t)
-src/pose_estimation/rtmlib_smoothing.py:326: def KeypointSmoother._match(self, det_centroids)
-src/pose_estimation/rtmlib_smoothing.py:343: def KeypointSmoother._carry(self, t=None)
+# src/pose_estimation/rtmlib_smoothing.py (280 lines)
+src/pose_estimation/rtmlib_smoothing.py:15: _KP_ARMS = set[6]
+src/pose_estimation/rtmlib_smoothing.py:16: _KP_LHAND = set(...)
+src/pose_estimation/rtmlib_smoothing.py:17: _KP_RHAND = set(...)
+src/pose_estimation/rtmlib_smoothing.py:23: REGION_PARAMS = list[4]
+src/pose_estimation/rtmlib_smoothing.py:31: class KeypointSmoother
+src/pose_estimation/rtmlib_smoothing.py:43: def KeypointSmoother.__init__(self, min_cutoff=0.5, beta=0.5, score_alpha=0.5, carry_frames=5, match_thresh=150, carry_damping=0.8, min_tra…
+src/pose_estimation/rtmlib_smoothing.py:72: def KeypointSmoother.reset(self)
+src/pose_estimation/rtmlib_smoothing.py:76: def KeypointSmoother._make_filters(self, n_kps)
+src/pose_estimation/rtmlib_smoothing.py:103: def KeypointSmoother._apply_filters(self, filters, kp, t, confidence)
+src/pose_estimation/rtmlib_smoothing.py:113: def KeypointSmoother._get_velocity(self, filters)
+src/pose_estimation/rtmlib_smoothing.py:126: def KeypointSmoother._extrapolate(self, last_kps, last_velocity, last_t, t, misses)
+src/pose_estimation/rtmlib_smoothing.py:147: def KeypointSmoother.__call__(self, keypoints, scores, t)
+src/pose_estimation/rtmlib_smoothing.py:227: def KeypointSmoother._match(self, det_centroids)
+src/pose_estimation/rtmlib_smoothing.py:244: def KeypointSmoother._carry(self, t=None)
 
-# src/pose_estimation/run.py (783 lines)
+# src/pose_estimation/run.py (697 lines)
 src/pose_estimation/run.py:55: _DET_URL = str
 src/pose_estimation/run.py:59: _DET_INPUT_SIZE = tuple[2]
 src/pose_estimation/run.py:61: MODEL_REGISTRY = dict[3]
@@ -586,24 +568,16 @@ src/pose_estimation/run.py:96: DEFAULT_MODEL = str
 src/pose_estimation/run.py:102: TRACKING_INDICES = dict[3]
 src/pose_estimation/run.py:112: BONE_SEGMENTS_WB = list[6]
 src/pose_estimation/run.py:121: BONE_SEGMENTS_WB_BODY = list[5]
-src/pose_estimation/run.py:129: VIDEO_EXTS = set[6]
-src/pose_estimation/run.py:130: WINDOW_TITLE = str
-src/pose_estimation/run.py:133: def _frame_to_surface(frame)
-src/pose_estimation/run.py:141: def _parse_rest_cutoff(env_var, default)
-src/pose_estimation/run.py:156: FALLBACK_FPS = float
-src/pose_estimation/run.py:157: MIN_REASONABLE_FPS = float
-src/pose_estimation/run.py:158: MAX_REASONABLE_FPS = float
-src/pose_estimation/run.py:161: def _open_capture(source, source_str)
-src/pose_estimation/run.py:185: def _safe_fps(raw_fps)
-src/pose_estimation/run.py:195: def collect_video_files(batch_dir)
-src/pose_estimation/run.py:204: def filter_single_subject(keypoints, scores)
-src/pose_estimation/run.py:215: def mask_tracking_scores(scores, tracking_mode)
-src/pose_estimation/run.py:236: def parse_args()
-src/pose_estimation/run.py:323: def process_source(args, pose_tracker, source_str, draw_skeleton, smoother=None, bone_smoother=None, screen=None, output_csv=None, video_na…
-src/pose_estimation/run.py:496: def print_latency_summary(latencies)
-src/pose_estimation/run.py:521: def _run_mediapipe(args)
-src/pose_estimation/run.py:549: def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoother, screen)
-src/pose_estimation/run.py:606: def main()
+src/pose_estimation/run.py:129: WINDOW_TITLE = str
+src/pose_estimation/run.py:132: def _parse_rest_cutoff(env_var, default)
+src/pose_estimation/run.py:142: def filter_single_subject(keypoints, scores)
+src/pose_estimation/run.py:153: def mask_tracking_scores(scores, tracking_mode)
+src/pose_estimation/run.py:174: def parse_args()
+src/pose_estimation/run.py:261: def process_source(args, pose_tracker, source_str, draw_skeleton, smoother=None, bone_smoother=None, screen=None, output_csv=None, video_na…
+src/pose_estimation/run.py:434: def print_latency_summary(latencies)
+src/pose_estimation/run.py:459: def _run_mediapipe(args)
+src/pose_estimation/run.py:487: def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoother, screen)
+src/pose_estimation/run.py:520: def main()
 
 # src/pose_estimation/smoothing.py (534 lines)
 src/pose_estimation/smoothing.py:8: _TWO_PI = binop
@@ -632,6 +606,16 @@ src/pose_estimation/triangulation.py:74: def triangulate_views(projection_matric
 src/pose_estimation/triangulation.py:151: def _rotation_translation(camera: CameraCalibration) -> tuple[np.ndarray, np.ndarray]
 src/pose_estimation/triangulation.py:158: def fuse_session_frame(per_camera_keypoints: dict[str, np.ndarray], calibration: SessionCalibration, *, confidences: dict[str, np.ndarray] …
 src/pose_estimation/triangulation.py:311: __all__ = list[6]
+
+# src/pose_estimation/video_io.py (72 lines)
+src/pose_estimation/video_io.py:13: FALLBACK_FPS = float
+src/pose_estimation/video_io.py:14: MIN_REASONABLE_FPS = float
+src/pose_estimation/video_io.py:15: MAX_REASONABLE_FPS = float
+src/pose_estimation/video_io.py:16: VIDEO_EXTS = set[6]
+src/pose_estimation/video_io.py:19: def open_capture(source, display=None)
+src/pose_estimation/video_io.py:45: def safe_fps(raw_fps)
+src/pose_estimation/video_io.py:55: def frame_to_surface(frame)
+src/pose_estimation/video_io.py:63: def collect_video_files(directory)
 
 # tests/conftest.py (104 lines)
 tests/conftest.py:18: def make_random_landmarks()

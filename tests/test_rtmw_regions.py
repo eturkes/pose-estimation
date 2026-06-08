@@ -5,7 +5,7 @@ import numpy as np
 from pose_estimation.run import (
     REGION_PARAMS,
     KeypointSmoother,
-    _OneEuro,
+    OneEuroFilter,
 )
 
 
@@ -56,7 +56,7 @@ def test_region_smoothing_differs_from_uniform():
 
     # Uniform smoother: override to use a single filter for all keypoints
     sm_uniform = KeypointSmoother()
-    sm_uniform._make_filters = lambda n: {"all": _OneEuro(min_cutoff=0.5, beta=0.5)}  # ty: ignore[invalid-assignment]
+    sm_uniform._make_filters = lambda n: {"all": OneEuroFilter(min_cutoff=0.5, beta=0.5)}  # ty: ignore[invalid-assignment]
     for step, f in enumerate(frames):
         r_uniform, _ = sm_uniform(f[np.newaxis], sc[np.newaxis], step * 0.033)
 

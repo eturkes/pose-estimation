@@ -1,11 +1,13 @@
 """rtmlib-path keypoint smoother for the 133-keypoint COCO-WholeBody layout.
 
-Parallel to ``smoothing.py`` (the MediaPipe-path filters); provides the One
-Euro Filter and the multi-person ``KeypointSmoother`` used by the rtmlib path.
+Provides the multi-person ``KeypointSmoother`` used by the rtmlib path; the
+One Euro Filter itself is the shared ``smoothing.OneEuroFilter``.
 """
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
+
+from .smoothing import OneEuroFilter
 
 # ---------------------------------------------------------------------------
 # COCO-WholeBody 133 keypoint tracking masks
@@ -24,107 +26,6 @@ REGION_PARAMS = [
     ("face", 23, 91, 0.3, 0.5),
     ("hands", 91, 133, 0.5, 0.3),
 ]
-
-
-# ---------------------------------------------------------------------------
-# Temporal smoothing — reduces frame-to-frame keypoint jitter
-# ---------------------------------------------------------------------------
-
-
-class _OneEuro:
-    """Minimal One Euro Filter for array-valued signals."""
-
-    def __init__(
-        self,
-        min_cutoff=0.5,
-        beta=0.5,
-        d_cutoff=1.0,
-        gamma=2.0,
-        outlier_cap=0.0,
-        rest_cutoff=None,
-        rest_speed=2.0,
-        fast_speed=10.0,
-        speed_alpha=0.1,
-    ):
-        self.min_cutoff = min_cutoff
-        self.beta = beta
-        self.d_cutoff = d_cutoff
-        self.gamma = gamma
-        self.outlier_cap = outlier_cap
-        self.rest_cutoff = rest_cutoff
-        self.rest_speed = rest_speed
-        self.fast_speed = fast_speed
-        self.speed_alpha = speed_alpha
-        self._smoothed_speed = None
-        self.x_prev = None
-        self.dx_prev = None
-        self.t_prev = None
-
-    def __call__(self, x, t, confidence=None):
-        if self.t_prev is None:
-            self.x_prev = x.copy()
-            self.dx_prev = np.zeros_like(x)
-            self.t_prev = t
-            return x.copy()
-
-        assert self.x_prev is not None
-        assert self.dx_prev is not None
-        dt = max(t - self.t_prev, 1e-6)
-
-        # Outlier rejection: cap the unexpected component of displacement.
-        x_use = x
-        if self.outlier_cap > 0 and x.ndim == 2:
-            diff = x - self.x_prev
-            predicted_step = self.dx_prev * dt
-            unexpected = diff - predicted_step
-            norms_sq = np.einsum("ij,ij->i", unexpected, unexpected)
-            cap_sq = self.outlier_cap * self.outlier_cap
-            mask = norms_sq > cap_sq
-            if mask.any():
-                norms = np.sqrt(norms_sq)
-                s = np.ones(norms.shape)
-                np.divide(self.outlier_cap, norms, out=s, where=mask)
-                x_use = self.x_prev + predicted_step + unexpected * s[:, None]
-
-        a_d = 1.0 / (1.0 + 1.0 / (2 * np.pi * self.d_cutoff * dt))
-        dx = (x_use - self.x_prev) / dt
-        dx_hat = a_d * dx + (1 - a_d) * self.dx_prev
-
-        # Adaptive min_cutoff: during rest, lower the cutoff floor.
-        if self.rest_cutoff is not None and x.ndim == 2:
-            kp_speed = np.sqrt(np.einsum("ij,ij->i", dx_hat, dx_hat)) * dt
-            if self._smoothed_speed is None:
-                self._smoothed_speed = kp_speed.copy()
-            else:
-                a_s = self.speed_alpha
-                self._smoothed_speed += a_s * (kp_speed - self._smoothed_speed)
-            rng = self.fast_speed - self.rest_speed
-            if rng > 0:
-                t_interp = np.clip((self._smoothed_speed - self.rest_speed) / rng, 0.0, 1.0)
-                effective_mc = self.rest_cutoff + t_interp * (self.min_cutoff - self.rest_cutoff)
-            else:
-                effective_mc = np.full_like(self._smoothed_speed, self.min_cutoff)
-            cutoff = effective_mc[:, None] + self.beta * np.abs(dx_hat)
-        else:
-            cutoff = self.min_cutoff + self.beta * np.abs(dx_hat)
-
-        a = 1.0 / (1.0 + 1.0 / (2 * np.pi * cutoff * dt))
-        x_hat = a * x_use + (1 - a) * self.x_prev
-
-        # Confidence weighting: low-confidence keypoints are pulled toward
-        # the previous position, resisting noisy input.
-        if confidence is not None:
-            w = np.clip(confidence, 0.0, 1.0)[:, None] ** self.gamma
-            result = w * x_hat + (1 - w) * self.x_prev
-        else:
-            result = x_hat
-
-        # ``result`` is returned and may be mutated by the caller, so keep
-        # a private copy as state.  ``dx_hat`` is fresh and never returned.
-        self.x_prev = result.copy()
-        self.dx_prev = dx_hat
-        self.t_prev = t
-        return result
 
 
 class KeypointSmoother:
@@ -178,7 +79,7 @@ class KeypointSmoother:
         rs, fs = self.rest_speed, self.fast_speed
         if n_kps == 133:
             return {
-                name: _OneEuro(
+                name: OneEuroFilter(
                     min_cutoff=mc,
                     beta=b,
                     outlier_cap=oc,
@@ -189,7 +90,7 @@ class KeypointSmoother:
                 for name, _, _, mc, b in REGION_PARAMS
             }
         return {
-            "all": _OneEuro(
+            "all": OneEuroFilter(
                 min_cutoff=self.min_cutoff,
                 beta=self.beta,
                 outlier_cap=oc,

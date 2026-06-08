@@ -76,9 +76,6 @@ PALM_KP_COUNT = 7
 PALM_WRIST_KP_IDX = 0
 PALM_FINGER_KP_IDX = 2
 
-# Numerical guard
-EPSILON = 1e-6
-
 
 def tracking_pose_indices(tracking):
     """Return (keypoint_indices, wrist_kps, shoulder_kps, arm_chains)."""

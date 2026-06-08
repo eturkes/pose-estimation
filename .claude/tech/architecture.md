@@ -10,8 +10,9 @@
 | `detection.py` | SSD anchor generation, NMS, decoding. |
 | `processing.py` | Preprocess, crop, landmark inference, hands→arms matching, `process_frame`, `tracking_pose_indices()`, `select_primary_body`. |
 | `drawing.py` | Catmull-Rom splines, skeleton rendering, overlay blending. |
-| `smoothing.py` | One Euro Filter (`OneEuroFilter`, `PoseSmoother`) — confidence-weighted temporal smoothing with velocity-aware outlier rejection and adaptive min_cutoff (heavier smoothing during rest, normal during movement). MediaPipe path. |
-| `rtmlib_smoothing.py` | rtmlib-path keypoint smoother: `_OneEuro`, `KeypointSmoother`, `REGION_PARAMS`, `_KP_*`. Parallel to `smoothing.py`; re-exported from `run.py` (tests import via `pose_estimation.run`). |
+| `smoothing.py` | One Euro Filter (`OneEuroFilter`, `PoseSmoother`) — confidence-weighted temporal smoothing with velocity-aware outlier rejection and adaptive min_cutoff (heavier smoothing during rest, normal during movement). `OneEuroFilter` is the single implementation, shared by both paths. |
+| `rtmlib_smoothing.py` | rtmlib-path multi-person smoother: `KeypointSmoother`, `REGION_PARAMS`, `_KP_*` (per-region `OneEuroFilter`s from `smoothing.py`). Re-exported from `run.py` (tests import via `pose_estimation.run`). |
+| `video_io.py` | Shared cv2 video-IO helpers for both entry points: `open_capture`, `safe_fps`, `frame_to_surface`, `collect_video_files`, `VIDEO_EXTS`, FPS constants. |
 | `rtmlib_openvino.py` | Self-contained OpenVINO-backend monkey-patch for rtmlib (`_patch_rtmlib_openvino`). No `run.py` globals. |
 | `constraints.py` | `BoneLengthSmoother`, `clamp_joint_angles`, `BONE_SEGMENTS{,_BODY}`, `ANGLE_LIMITS{,_BODY}`. |
 | `mapping.py` | COCO-WholeBody → MediaPipe keypoint schema mapping (`coco_to_mediapipe`). Translates rtmlib output to `frame_to_rows()` interface. |
@@ -19,7 +20,7 @@
 | `postprocess.py` | Savitzky-Golay offline smoothing (`savgol_smooth_csv`). |
 | `metrics.py` | `MetricsCollector`, `ConstraintDiagnostics`, `SmoothingDiagnostics` — per-frame quality metrics. |
 | `benchmark.py` | Parameter sweep harness (subprocess fan-out, `--config` YAML). |
-| `multicam.py` | Multi-camera `Session` discovery + synchronized iteration. `process_session` orchestrates per-camera processing via callback, then 3D-fuses CSVs when calibration present (`fuse_session_outputs`, `SessionFusion`) and writes `world3d.csv`. See `tech/multicam.md`. |
+| `multicam.py` | Multi-camera `Session` discovery + synchronized iteration + CLI session resolution (`resolve_cli_sessions`). `process_session` orchestrates per-camera processing via callback, then 3D-fuses CSVs when calibration present (`fuse_session_outputs`, `SessionFusion`) and writes `world3d.csv`. See `tech/multicam.md`. |
 | `calibration.py` | Camera-calibration JSON IO + validation (cv2-free). See `tech/calibration.md`. |
 | `charuco.py` | ChArUco board build/render, corner detection, `solve_charuco` (intrinsics + pairwise extrinsics + global RMS). See `tech/calibration.md`. |
 | `calibration_cli.py` | `pose-estimation-calibrate` console script (`verify`/`solve`/`board`/`capture`). |

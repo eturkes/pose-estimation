@@ -54,7 +54,7 @@ All tests live in `tests/`. Run with `uv run pytest`. Pytest is configured stric
 | `tests/test_public_api.py` | Stability of the package-level re-exports in `pose_estimation/__init__.py`. |
 | `tests/test_models_checksum.py` | Model download URLs + checksums (guards against silent registry drift). |
 | `tests/test_benchmark_config.py` | YAML sweep config parsing. |
-| `tests/test_helpers.py` | Shared helpers; assertions that bench fixtures match production shapes. |
+| `tests/test_helpers.py` | Shared helpers (`video_io.safe_fps` clamp, processing/postprocess validators); assertions that bench fixtures match production shapes. |
 | `tests/conftest.py` | Shared fixtures. |
 
 ## Pytest options (from `pyproject.toml`)

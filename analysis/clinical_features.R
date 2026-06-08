@@ -360,14 +360,8 @@ posture_symmetry_3d <- function(lsh_x, lsh_y, lsh_z, rsh_x, rsh_y, rsh_z) {
 # ------------------------------------------------------------------
 
 compute_frame_features <- function(df, tracking, is_3d = FALSE) {
-  prefix <- if (tracking == "body") "body" else "arm"
-
-  bcol <- function(side, kp, coord) {
-    paste0(prefix, "_", side, "_", kp, "_", coord)
-  }
-  hcol <- function(side, idx, coord) {
-    paste0(side, "_hand_", idx, "_", coord)
-  }
+  bcol <- function(side, kp, coord) body_col(tracking, side, kp, coord)
+  hcol <- hand_col
 
   # Wrist-deviation target differs by mode.
   wrist_dev_kp <- if (tracking == "body") "index" else "middle_base"
@@ -564,13 +558,8 @@ compute_frame_features <- function(df, tracking, is_3d = FALSE) {
 
 compute_window_features <- function(df, frame_features, tracking,
                                     window_sec = WINDOW_SEC) {
-  prefix <- if (tracking == "body") "body" else "arm"
-  bcol <- function(side, kp, coord) {
-    paste0(prefix, "_", side, "_", kp, "_", coord)
-  }
-  hcol <- function(side, idx, coord) {
-    paste0(side, "_hand_", idx, "_", coord)
-  }
+  bcol <- function(side, kp, coord) body_col(tracking, side, kp, coord)
+  hcol <- hand_col
 
   groups <- frame_features |>
     select(video, person_idx) |>
@@ -875,10 +864,7 @@ segment_movements <- function(df, frame_features, tracking,
                               min_gap_frames = 3L,
                               median_k = 5L,
                               min_phase_frames = 3L) {
-  prefix <- if (tracking == "body") "body" else "arm"
-  bcol <- function(side, kp, coord) {
-    paste0(prefix, "_", side, "_", kp, "_", coord)
-  }
+  bcol <- function(side, kp, coord) body_col(tracking, side, kp, coord)
 
   groups <- frame_features |>
     select(video, person_idx) |>

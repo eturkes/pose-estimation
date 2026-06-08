@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from pose_estimation.run import KeypointSmoother, _OneEuro
+from pose_estimation.run import KeypointSmoother, OneEuroFilter
 
 
 def _make_kps(n=133):
@@ -14,8 +14,8 @@ def _make_kps(n=133):
 def test_no_confidence_unchanged():
     """Without confidence, filter behaves identically to before."""
     kp = _make_kps()
-    f1 = _OneEuro(min_cutoff=0.5, beta=0.5)
-    f2 = _OneEuro(min_cutoff=0.5, beta=0.5)
+    f1 = OneEuroFilter(min_cutoff=0.5, beta=0.5)
+    f2 = OneEuroFilter(min_cutoff=0.5, beta=0.5)
 
     for t in np.linspace(0, 1, 20):
         noisy = kp + np.random.RandomState(int(t * 1000)).randn(*kp.shape) * 5
@@ -27,8 +27,8 @@ def test_no_confidence_unchanged():
 def test_full_confidence_matches_standard():
     """Confidence of 1.0 everywhere should equal standard filtering."""
     kp = _make_kps()
-    f_std = _OneEuro(min_cutoff=0.5, beta=0.5)
-    f_conf = _OneEuro(min_cutoff=0.5, beta=0.5)
+    f_std = OneEuroFilter(min_cutoff=0.5, beta=0.5)
+    f_conf = OneEuroFilter(min_cutoff=0.5, beta=0.5)
     conf = np.ones(kp.shape[0])
 
     for t in np.linspace(0, 1, 20):
@@ -41,7 +41,7 @@ def test_full_confidence_matches_standard():
 def test_zero_confidence_stays_at_previous():
     """Confidence of 0.0 should pin output to the previous estimate."""
     kp = _make_kps()
-    filt = _OneEuro(min_cutoff=0.5, beta=0.5)
+    filt = OneEuroFilter(min_cutoff=0.5, beta=0.5)
     conf = np.zeros(kp.shape[0])
 
     r0 = filt(kp, 0.0, confidence=conf)
@@ -54,8 +54,8 @@ def test_zero_confidence_stays_at_previous():
 def test_low_confidence_smoothed_more():
     """Low-confidence keypoints should deviate less from previous."""
     kp = _make_kps()
-    f_high = _OneEuro(min_cutoff=0.5, beta=0.5)
-    f_low = _OneEuro(min_cutoff=0.5, beta=0.5)
+    f_high = OneEuroFilter(min_cutoff=0.5, beta=0.5)
+    f_low = OneEuroFilter(min_cutoff=0.5, beta=0.5)
 
     conf_high = np.ones(kp.shape[0])
     conf_low = np.full(kp.shape[0], 0.3)
@@ -75,8 +75,8 @@ def test_low_confidence_smoothed_more():
 def test_gamma_controls_sharpness():
     """Higher gamma makes low confidence pull harder toward previous."""
     kp = _make_kps()
-    f_low_g = _OneEuro(min_cutoff=0.5, beta=0.5, gamma=1.0)
-    f_high_g = _OneEuro(min_cutoff=0.5, beta=0.5, gamma=4.0)
+    f_low_g = OneEuroFilter(min_cutoff=0.5, beta=0.5, gamma=1.0)
+    f_high_g = OneEuroFilter(min_cutoff=0.5, beta=0.5, gamma=4.0)
     conf = np.full(kp.shape[0], 0.5)
 
     f_low_g(kp, 0.0, confidence=conf)
@@ -94,7 +94,7 @@ def test_gamma_controls_sharpness():
 def test_confidence_clipped():
     """Out-of-range confidence values are clipped, not crash."""
     kp = _make_kps(10)
-    filt = _OneEuro()
+    filt = OneEuroFilter(min_cutoff=0.5)
     conf = np.array([1.5, -0.5] + [0.8] * 8)
 
     filt(kp, 0.0, confidence=conf)

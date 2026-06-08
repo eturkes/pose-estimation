@@ -33,9 +33,8 @@ from .export import frame_to_rows, open_csv_writer
 from .mapping import coco_to_mediapipe
 from .multicam import (
     SessionError,
-    discover_session,
-    discover_sessions,
     process_session,
+    resolve_cli_sessions,
 )
 from .rtmlib_openvino import _patch_rtmlib_openvino
 from .rtmlib_smoothing import (
@@ -44,8 +43,9 @@ from .rtmlib_smoothing import (
     _KP_RHAND,
     REGION_PARAMS,  # noqa: F401  # re-exported for tests
     KeypointSmoother,
-    _OneEuro,  # noqa: F401  # re-exported for tests
+    OneEuroFilter,  # noqa: F401  # re-exported for tests (shared smoothing.OneEuroFilter)
 )
+from .video_io import collect_video_files, frame_to_surface, open_capture, safe_fps
 
 # ---------------------------------------------------------------------------
 # Model registry — NPU-compatible models (verified via scripts/npu_compat.py)
@@ -126,16 +126,7 @@ BONE_SEGMENTS_WB_BODY = [
     (14, 16),  # right knee → right ankle
 ]
 
-VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv"}
 WINDOW_TITLE = "Pose Estimation"
-
-
-def _frame_to_surface(frame):
-    """Convert a BGR OpenCV frame to a pygame Surface."""
-    import pygame
-
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    return pygame.surfarray.make_surface(rgb.transpose(1, 0, 2))
 
 
 def _parse_rest_cutoff(env_var, default):
@@ -146,59 +137,6 @@ def _parse_rest_cutoff(env_var, default):
     if val.lower() == "none":
         return None
     return float(val)
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-FALLBACK_FPS = 30.0
-MIN_REASONABLE_FPS = 1.0
-MAX_REASONABLE_FPS = 240.0
-
-
-def _open_capture(source, source_str):
-    """Open a VideoCapture with diagnostic error messages.
-
-    *source* may be an int (camera index) or path string.  Returns the
-    open capture or None after printing a context-aware reason.
-    """
-    if isinstance(source, str):
-        path = pathlib.Path(source)
-        if not path.exists():
-            print(f"WARNING: file not found: {source_str}, skipping.")
-            return None
-        if not path.is_file():
-            print(f"WARNING: not a regular file: {source_str}, skipping.")
-            return None
-    cap = cv2.VideoCapture(source)
-    if not cap.isOpened():
-        if isinstance(source, int):
-            print(f"WARNING: cannot open camera index {source}, skipping.")
-        else:
-            print(f"WARNING: cannot open {source_str} (codec issue?), skipping.")
-        return None
-    return cap
-
-
-def _safe_fps(raw_fps):
-    """Clamp/validate an FPS reading; fall back to FALLBACK_FPS."""
-    if not np.isfinite(raw_fps) or raw_fps <= 0:
-        return FALLBACK_FPS
-    if raw_fps < MIN_REASONABLE_FPS or raw_fps > MAX_REASONABLE_FPS:
-        print(f"WARNING: unusual FPS reported ({raw_fps:.2f}); using {FALLBACK_FPS}.")
-        return FALLBACK_FPS
-    return float(raw_fps)
-
-
-def collect_video_files(batch_dir):
-    """Return sorted list of video file paths in *batch_dir*."""
-    batch_path = pathlib.Path(batch_dir)
-    files = sorted(str(p) for p in batch_path.iterdir() if p.suffix.lower() in VIDEO_EXTS)
-    if not files:
-        raise RuntimeError(f"No video files found in {batch_dir}")
-    return files
 
 
 def filter_single_subject(keypoints, scores):
@@ -338,11 +276,11 @@ def process_source(
     label written into the CSV ``video`` column (defaults to filename).
     """
     source = int(source_str) if source_str.isdigit() else source_str
-    cap = _open_capture(source, source_str)
+    cap = open_capture(source, display=source_str)
     if cap is None:
         return []
 
-    fps_video = _safe_fps(cap.get(cv2.CAP_PROP_FPS))
+    fps_video = safe_fps(cap.get(cv2.CAP_PROP_FPS))
     total_frames = max(0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT)))
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -479,7 +417,7 @@ def process_source(
                         )
                         if _caption:
                             pygame.display.set_caption(f"{WINDOW_TITLE} — {_caption}")
-                    screen.blit(_frame_to_surface(img_show), (0, 0))
+                    screen.blit(frame_to_surface(img_show), (0, 0))
                     pygame.display.flip()
 
     except KeyboardInterrupt:
@@ -553,31 +491,7 @@ def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoo
     ``process_source`` with smoother reset, then hands off to
     ``process_session`` for per-camera orchestration.
     """
-    if args.session_dir and args.sessions_dir:
-        raise SessionError("--session-dir and --sessions-dir are mutually exclusive")
-    if args.session_dir:
-        sessions = [discover_session(args.session_dir, calibration_path=args.calibration)]
-    else:
-        if args.calibration is not None:
-            print(
-                "WARNING: --calibration applies the same calibration to every "
-                "discovered session; pass --session-dir for per-session overrides."
-            )
-        sessions = discover_sessions(args.sessions_dir)
-        if not sessions:
-            raise SessionError(f"no sessions discovered under {args.sessions_dir}")
-        if args.calibration is not None:
-            sessions = [
-                discover_session(s.directory, calibration_path=args.calibration) for s in sessions
-            ]
-
-    print(f"Multi-camera dispatch: {len(sessions)} session(s)")
-    for s in sessions:
-        cal = "present" if s.calibration is not None else "absent"
-        print(
-            f"  {s.session_id}: {s.n_cameras} cameras "
-            f"({', '.join(s.camera_names())}); calibration: {cal}"
-        )
+    sessions = resolve_cli_sessions(args.session_dir, args.sessions_dir, args.calibration)
 
     def _camera_processor(*, source, output_csv, output_diag, video_name, **_kw):
         if smoother is not None:
@@ -717,7 +631,7 @@ def main():
 
     # ── Collect sources ─────────────────────────────────────────────
     if args.batch_dir:
-        sources = collect_video_files(args.batch_dir)
+        sources = [str(p) for p in collect_video_files(args.batch_dir)]
         print(f"Batch:   {len(sources)} video(s) in {args.batch_dir}")
     else:
         sources = [args.source]

@@ -10,6 +10,12 @@ Transient working notes — anything from "current investigation" to "half-finis
 
 ---
 
+## 2026-06-08 — Proactive refactor pass
+
+Done; durable record in `decisions.md` (refactor-pass entry). Net −~250 lines, 295/295 + 19 R tests green, ruff/ty clean, repomap regenerated. Survey method that worked: AST def-scan filtered to `samefile refs == 1` (defs with ≥2 in-file refs are normal module-internal use — first filter over-reported). Rejected-with-reason list lives in the decision entry; nothing pending. Next-roadmap seed unchanged: real 3-cam footage validation.
+
+---
+
 ## 2026-06-08 — Maintenance cycle (Session 4)
 
 Full pass; everything green. Durable records: `decisions.md` (cv2 single-wheel override), `lessons.md` (deny-list blocks Bash too), `tech/environment.md` (env-model rewrite).

@@ -97,7 +97,7 @@ The `camera_processor` callback encapsulates backend-specific logic:
 - **MediaPipe path** (`main.py`): closure wraps `process_video()` with CSV writer, diag writer, metrics collector setup/teardown.
 - **rtmlib path** (`run.py`): closure wraps `process_source()` with smoother reset; returns latency list.
 
-Both `_dispatch_sessions()` functions construct the callback from pre-initialized model state (models/anchors/tracker/smoother) and pass it to `process_session()`.
+Both `_dispatch_sessions()` functions resolve `--session-dir`/`--sessions-dir` via the shared `multicam.resolve_cli_sessions()` (mutual-exclusion guard, per-session `--calibration` override, dispatch summary print; raises `SessionError`), construct the callback from pre-initialized model state (models/anchors/tracker/smoother), and pass it to `process_session()`.
 
 ## 3D fusion (post-hoc, CSV read-back)
 
