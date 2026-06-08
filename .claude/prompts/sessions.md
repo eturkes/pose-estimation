@@ -1,6 +1,6 @@
 # Session prompts
 
-Run the `/session` command (`.claude/commands/session.md`) to bootstrap a session. With no argument it continues the **Current roadmap** below, adopting the matching task block. Pass `/session <TASK>` to override with an ad-hoc task. Sessions are designed to run autonomously with minimal user input.
+Run the `/session-prompt` command (`.claude/commands/session-prompt.md`) to bootstrap a session. With no argument it continues the **Current roadmap** below, adopting the matching task block. Pass `/session-prompt <TASK>` to override with an ad-hoc task. Sessions are designed to run autonomously with minimal user input.
 
 ## Completed roadmaps
 

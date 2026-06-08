@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-08 — `/session` → `/session-prompt` command rename
+
+**Context.** The bootstrap slash command was named `/session`, overloading "session" — already used by `.claude/prompts/sessions.md` (the roadmap) and the multicam `Session` abstraction. The name also did not signal that the command emits the session-bootstrap *prompt*.
+**Decision.** `git mv .claude/commands/session.md → session-prompt.md`, so the auto-discovered command (and skill) is now `/session-prompt`. Command body and frontmatter are unchanged. Repointed every live reference: `AGENTS.md`, `.claude/INDEX.md` (Layout tree + `commands/` and `prompts/` table rows), `.claude/prompts/sessions.md`. Left the prior `kickoff → /session` entry below untouched as historical record.
+**Alternatives considered.** (a) Rewrite the older `kickoff → /session` entry to read `/session-prompt`: rejected — the log is append-only; this entry supersedes it for navigation, mirroring that entry's own reasoning. (b) Keep `/session` and add an alias: rejected — one canonical name avoids drift.
+**Consequences.** Fresh sessions invoke `/session-prompt [TASK]`; the skill registers as `session-prompt`. The roadmap file remains `prompts/sessions.md` (plural) — no collision. `/session` mentions in the entry below are historical and resolve to `/session-prompt` going forward. Reverse by `git mv` back and re-pointing the same four references.
+**References.** `.claude/commands/session-prompt.md`, `AGENTS.md`, `.claude/INDEX.md`, `.claude/prompts/sessions.md`.
+
+---
+
 ## 2026-06-08 — kickoff prompt → `/session` slash command
 
 **Context.** The reusable session-bootstrap prompt lived at `.claude/prompts/kickoff.md` and had to be pasted by hand with `<TASK>` manually substituted. Claude Code auto-discovers project slash commands from `.claude/commands/*.md`, so the same prompt can be a first-class command.
