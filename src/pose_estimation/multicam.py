@@ -17,7 +17,7 @@ This module owns three concerns:
    managing output directory layout and progress reporting.  When the
    session has calibration, it then fuses the per-camera CSVs into 3D
    via ``fuse_session_outputs`` (CSV read-back → ``fuse_session_frame``
-   per logical frame).
+   per logical frame) and writes ``world3d.csv``.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ from .calibration import (
     load_calibration,
     load_session_calibration,
 )
-from .export import read_csv_keypoints
+from .export import WORLD3D_FILENAME, read_csv_keypoints, write_world3d_csv
 from .triangulation import fuse_session_frame
 
 SESSION_MANIFEST_FILENAME = "session.json"
@@ -400,8 +400,8 @@ def process_session(
     session-level orchestration: output directory creation, camera
     iteration, and progress reporting.  When the session carries
     calibration, the per-camera CSVs are then fused into 3D via
-    ``fuse_session_outputs`` (non-fatal on failure — the 2D results
-    are already on disk).  ``world3d.csv`` export is not yet wired.
+    ``fuse_session_outputs`` and written to ``world3d.csv`` (non-fatal
+    on failure — the 2D results are already on disk).
 
     Returns a dict mapping camera name → the value returned by
     ``camera_processor`` for that camera.
@@ -448,14 +448,17 @@ class SessionFusion:
     """Triangulated 3D output for one session.
 
     ``frames`` holds one entry per fused logical frame index:
-    ``(frame_index, world, diag)`` with ``world`` of shape ``(N, 3)``
-    in metres (NaN rows where fusion failed) and per-keypoint
-    ``FusionDiagnostics``.  ``keypoint_names`` labels the ``N`` rows
-    (body/arm keypoints first, then ``{left,right}_hand_{0..20}``).
+    ``(frame_index, timestamp_sec, world, diag)`` with ``world`` of
+    shape ``(N, 3)`` in metres (NaN rows where fusion failed) and
+    per-keypoint ``FusionDiagnostics``.  ``timestamp_sec`` comes from
+    the world-frame camera's CSV when available (NaN otherwise).
+    ``keypoint_names`` labels the ``N`` rows (body/arm keypoints
+    first, then ``{left,right}_hand_{0..20}``).  This is the exact
+    row layout consumed by ``export.write_world3d_csv``.
     """
 
     keypoint_names: list[str]
-    frames: list[tuple[int, np.ndarray, FusionDiagnostics]]
+    frames: list[tuple[int, float, np.ndarray, FusionDiagnostics]]
 
 
 def fuse_session_outputs(
@@ -488,7 +491,7 @@ def fuse_session_outputs(
     session_out = _resolve_session_output(session, output_dir)
 
     keypoint_names: list[str] | None = None
-    per_cam_frames: dict[str, dict[int, tuple[np.ndarray, np.ndarray]]] = {}
+    per_cam_frames: dict[str, dict[int, tuple[np.ndarray, np.ndarray, float]]] = {}
     for cam in session.cameras:
         csv_path = session_out / f"{cam.name}.csv"
         if not csv_path.is_file():
@@ -507,11 +510,11 @@ def fuse_session_outputs(
             )
         # Normalised [0, 1] → pixels in the calibrated resolution.
         scale = np.asarray(calibration["cameras"][cam.name]["resolution"], dtype=np.float64)
-        shifted: dict[int, tuple[np.ndarray, np.ndarray]] = {}
-        for raw_idx, (kps, conf) in frames.items():
+        shifted: dict[int, tuple[np.ndarray, np.ndarray, float]] = {}
+        for raw_idx, (kps, conf, ts) in frames.items():
             logical = raw_idx - cam.sync_offset
             if logical >= 0:
-                shifted[logical] = (kps * scale, conf)
+                shifted[logical] = (kps * scale, conf, ts)
         per_cam_frames[cam.name] = shifted
 
     if keypoint_names is None or len(per_cam_frames) < min_views:
@@ -525,45 +528,62 @@ def fuse_session_outputs(
         for idx in frames_map:
             frame_counts[idx] = frame_counts.get(idx, 0) + 1
 
-    fused: list[tuple[int, np.ndarray, FusionDiagnostics]] = []
+    # Timestamp source preference: world-frame camera first (it defines
+    # the session time base), then remaining cameras in session order.
+    ts_priority = sorted(per_cam_frames, key=lambda name: (name != calibration["world_frame"],))
+
+    fused: list[tuple[int, float, np.ndarray, FusionDiagnostics]] = []
     for idx in sorted(idx for idx, count in frame_counts.items() if count >= min_views):
         kp_arrays: dict[str, np.ndarray] = {}
         conf_arrays: dict[str, np.ndarray] = {}
         for name, frames_map in per_cam_frames.items():
             if idx in frames_map:
-                kp_arrays[name], conf_arrays[name] = frames_map[idx]
+                kp_arrays[name], conf_arrays[name], _ = frames_map[idx]
+        timestamp = float("nan")
+        for name in ts_priority:
+            ts = per_cam_frames[name].get(idx, (None, None, float("nan")))[2]
+            if np.isfinite(ts):
+                timestamp = ts
+                break
         world, diag = fuse_session_frame(
             kp_arrays,
             calibration,
             confidences=conf_arrays,
             min_views=min_views,
         )
-        fused.append((idx, world, diag))
+        fused.append((idx, timestamp, world, diag))
     return SessionFusion(keypoint_names=keypoint_names, frames=fused)
 
 
 def _fuse_and_report(session: Session, output_dir: str | pathlib.Path | None) -> None:
-    """Run 3D fusion over freshly written per-camera CSVs; warn on failure.
+    """Fuse freshly written per-camera CSVs into 3D and write world3d.csv.
 
     Failures are non-fatal: the per-camera CSVs are already on disk
     and fusion can be re-run later via ``fuse_session_outputs``.
     """
     try:
         fusion = fuse_session_outputs(session, output_dir)
+        if not fusion.frames:
+            print("  3D fusion: no logical frame is visible from >= 2 cameras; nothing fused")
+            return
+        out_path = write_world3d_csv(
+            _resolve_session_output(session, output_dir) / WORLD3D_FILENAME,
+            session.session_id,
+            fusion.keypoint_names,
+            fusion.frames,
+        )
     except Exception as exc:
         print(f"  WARNING: 3D fusion skipped: {exc}")
         return
-    if not fusion.frames:
-        print("  3D fusion: no logical frame is visible from >= 2 cameras; nothing fused")
-        return
-    errs = np.concatenate([d["reprojection_error_px"] for _, _, d in fusion.frames])
-    views = np.concatenate([d["n_views"] for _, _, d in fusion.frames])
+    errs = np.concatenate([d["reprojection_error_px"] for _, _, _, d in fusion.frames])
+    views = np.concatenate([d["n_views"] for _, _, _, d in fusion.frames])
     finite = np.isfinite(errs)
     mean_err = float(np.mean(errs[finite])) if finite.any() else float("nan")
     print(
         f"  3D fusion: {len(fusion.frames)} frame(s), mean reprojection {mean_err:.2f}px, "
-        f"mean views/keypoint {float(np.mean(views)):.2f} — world3d.csv export not yet wired"
+        f"mean views/keypoint {float(np.mean(views)):.2f}"
     )
+    print(f"    3D:   {out_path}")
 
 
 __all__ = [

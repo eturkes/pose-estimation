@@ -66,6 +66,8 @@ BODY_KEYPOINT_NAMES = [
 
 HAND_KEYPOINT_COUNT = 21
 
+WORLD3D_FILENAME = "world3d.csv"
+
 
 def _body_keypoint_names(tracking):
     """Return (prefix, names) for the body landmark columns."""
@@ -265,10 +267,11 @@ def read_csv_keypoints(csv_path):
     Returns ``(keypoint_names, frames)``:
     - ``keypoint_names``: bare names, one per keypoint (body/arm
       keypoints first, then ``{left,right}_hand_{0..20}``).
-    - ``frames``: ``frame_idx → (kps, conf)`` where ``kps`` is
-      ``(N, 2)`` *normalised* [0, 1] coordinates (NaN where blank) and
-      ``conf`` is ``(N,)`` — the ``_vis`` column for body/arm
-      keypoints, 1.0/0.0 presence for hand keypoints.
+    - ``frames``: ``frame_idx → (kps, conf, timestamp_sec)`` where
+      ``kps`` is ``(N, 2)`` *normalised* [0, 1] coordinates (NaN where
+      blank), ``conf`` is ``(N,)`` — the ``_vis`` column for body/arm
+      keypoints, 1.0/0.0 presence for hand keypoints — and
+      ``timestamp_sec`` is a float (NaN where blank).
 
     Raises ``ValueError`` on a missing/foreign header.
     """
@@ -283,7 +286,7 @@ def read_csv_keypoints(csv_path):
         else:
             tracking = TRACKING_HANDS
         names, specs = _keypoint_columns(tracking)
-        required = {"frame_idx", "person_idx"} | {
+        required = {"frame_idx", "person_idx", "timestamp_sec"} | {
             col for spec in specs for col in spec if col is not None
         }
         missing = sorted(required - header)
@@ -305,8 +308,81 @@ def read_csv_keypoints(csv_path):
                     conf[i] = vis if np.isfinite(vis) else 0.0
                 else:
                     conf[i] = 1.0 if np.isfinite(x) and np.isfinite(y) else 0.0
-            frames[int(row["frame_idx"])] = (kps, conf)
+            frames[int(row["frame_idx"])] = (kps, conf, _cell_to_float(row["timestamp_sec"]))
     return names, frames
+
+
+def make_world3d_header(keypoint_names):
+    """Return the column names for a ``world3d.csv`` file.
+
+    Metadata columns mirror the 2D schema (``video`` holds the
+    session id); each keypoint contributes seven columns::
+
+        {name}_x_m, {name}_y_m, {name}_z_m       # world metres
+        {name}_confidence                        # mean view confidence
+        {name}_reproj_err_px                     # mean reprojection error
+        {name}_n_views                           # contributing views (int)
+        {name}_cheirality_ok                     # 1/0 — in front of all views
+
+    Downstream consumers must gate on ``reproj_err_px`` and
+    ``cheirality_ok``: with exactly ``min_views`` views an outlier
+    view cannot be rejected during fusion.
+    """
+    cols = ["video", "frame_idx", "timestamp_sec", "person_idx"]
+    for name in keypoint_names:
+        cols.extend(
+            [
+                f"{name}_x_m",
+                f"{name}_y_m",
+                f"{name}_z_m",
+                f"{name}_confidence",
+                f"{name}_reproj_err_px",
+                f"{name}_n_views",
+                f"{name}_cheirality_ok",
+            ]
+        )
+    return cols
+
+
+def _fmt_float(value, ndigits):
+    """Round for CSV output; non-finite → blank cell."""
+    return round(float(value), ndigits) if np.isfinite(value) else ""
+
+
+def write_world3d_csv(output_path, video_name, keypoint_names, frames):
+    """Write triangulated 3D keypoints to ``world3d.csv``.
+
+    *frames* is an iterable of ``(frame_idx, timestamp_sec, world,
+    diag)`` — the ``SessionFusion.frames`` layout: ``world`` is
+    ``(N, 3)`` metres (NaN where unfused) and ``diag`` is a
+    ``FusionDiagnostics``.  ``video_name`` labels every row (the
+    session id; ``person_idx`` is always 0 — fusion reads only
+    person 0).  NaN values are written as blank cells, matching the
+    2D schema convention.  Returns the output path.
+    """
+    output_path = pathlib.Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    header = make_world3d_header(keypoint_names)
+    with output_path.open("w", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=header)
+        writer.writeheader()
+        for frame_idx, timestamp_sec, world, diag in frames:
+            row = {
+                "video": video_name,
+                "frame_idx": int(frame_idx),
+                "timestamp_sec": _fmt_float(timestamp_sec, 4),
+                "person_idx": 0,
+            }
+            for i, name in enumerate(keypoint_names):
+                row[f"{name}_x_m"] = _fmt_float(world[i, 0], 6)
+                row[f"{name}_y_m"] = _fmt_float(world[i, 1], 6)
+                row[f"{name}_z_m"] = _fmt_float(world[i, 2], 6)
+                row[f"{name}_confidence"] = _fmt_float(diag["confidence"][i], 4)
+                row[f"{name}_reproj_err_px"] = _fmt_float(diag["reprojection_error_px"][i], 3)
+                row[f"{name}_n_views"] = int(diag["n_views"][i])
+                row[f"{name}_cheirality_ok"] = int(bool(diag["cheirality_ok"][i]))
+            writer.writerow(row)
+    return output_path
 
 
 def open_csv_writer(output_path, tracking=TRACKING_HANDS_ARMS):

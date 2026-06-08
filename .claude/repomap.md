@@ -12,31 +12,39 @@ analysis/clinical_correlation.R:99: sig_stars <- function(p)
 analysis/clinical_correlation.R:109: plot_correlation_matrix <- function(cor_tbl, title_prefix)
 analysis/clinical_correlation.R:133: plot_scatter_top <- function(joined, cor_tbl, title_prefix, n_top = 6)
 
-# analysis/clinical_features.R (1010 lines)
-analysis/clinical_features.R:37: detect_tracking <- function(cols)
-analysis/clinical_features.R:43: body_col <- function(tracking, side, keypoint, coord)
-analysis/clinical_features.R:48: hand_col <- function(side, idx, coord)
-analysis/clinical_features.R:66: compute_bilateral <- function(L, R)
-analysis/clinical_features.R:84: angle_at_vertex <- function(ax, ay, az, bx, by, bz, cx, cy, cz)
-analysis/clinical_features.R:99: dist_3d <- function(ax, ay, az, bx, by, bz)
-analysis/clinical_features.R:109: spectral_arc_length <- function(v, fs, fc = SAL_FREQ_CUTOFF)
-analysis/clinical_features.R:145: normalized_jerk <- function(x, y, z, fs)
-analysis/clinical_features.R:172: movement_efficiency <- function(x, y, z)
-analysis/clinical_features.R:194: trunk_lean_angle <- function(lsh_x, lsh_y, rsh_x, rsh_y, …)
-analysis/clinical_features.R:214: trunk_lean_lateral <- function(lsh_x, lsh_y, rsh_x, rsh_y, …)
-analysis/clinical_features.R:236: trunk_rotation <- function(lsh_x, lsh_y, rsh_x, rsh_y, …)
-analysis/clinical_features.R:253: posture_symmetry <- function(lsh_x, lsh_y, rsh_x, rsh_y)
-analysis/clinical_features.R:262: compute_frame_features <- function(df, tracking)
-analysis/clinical_features.R:265: bcol <- function(side, kp, coord)
-analysis/clinical_features.R:268: hcol <- function(side, idx, coord)
-analysis/clinical_features.R:278: ex <- function(cname)
-analysis/clinical_features.R:440: compute_window_features <- function(df, frame_features, tracking, …)
-analysis/clinical_features.R:443: bcol <- function(side, kp, coord)
-analysis/clinical_features.R:446: hcol <- function(side, idx, coord)
-analysis/clinical_features.R:617: running_median <- function(x, k = 5L)
-analysis/clinical_features.R:645: classify_movement_phases <- function(speed_seg, aperture_seg, …)
-analysis/clinical_features.R:744: segment_movements <- function(df, frame_features, tracking, …)
-analysis/clinical_features.R:751: bcol <- function(side, kp, coord)
+# analysis/clinical_features.R (1146 lines)
+analysis/clinical_features.R:54: detect_tracking <- function(cols)
+analysis/clinical_features.R:60: body_col <- function(tracking, side, keypoint, coord)
+analysis/clinical_features.R:65: hand_col <- function(side, idx, coord)
+analysis/clinical_features.R:74: is_world3d <- function(cols)
+analysis/clinical_features.R:90: adapt_world3d <- function(df)
+analysis/clinical_features.R:125: compute_bilateral <- function(L, R)
+analysis/clinical_features.R:143: angle_at_vertex <- function(ax, ay, az, bx, by, bz, cx, cy, cz)
+analysis/clinical_features.R:158: dist_3d <- function(ax, ay, az, bx, by, bz)
+analysis/clinical_features.R:168: spectral_arc_length <- function(v, fs, fc = SAL_FREQ_CUTOFF)
+analysis/clinical_features.R:204: normalized_jerk <- function(x, y, z, fs)
+analysis/clinical_features.R:231: movement_efficiency <- function(x, y, z)
+analysis/clinical_features.R:253: trunk_lean_angle <- function(lsh_x, lsh_y, rsh_x, rsh_y, …)
+analysis/clinical_features.R:273: trunk_lean_lateral <- function(lsh_x, lsh_y, rsh_x, rsh_y, …)
+analysis/clinical_features.R:295: trunk_rotation <- function(lsh_x, lsh_y, rsh_x, rsh_y, …)
+analysis/clinical_features.R:312: posture_symmetry <- function(lsh_x, lsh_y, rsh_x, rsh_y)
+analysis/clinical_features.R:328: trunk_lean_angle_3d <- function(dx, dy, dz)
+analysis/clinical_features.R:335: trunk_lean_sagittal_3d <- function(dy, dz)
+analysis/clinical_features.R:343: trunk_rotation_3d <- function(lsh_x, lsh_z, rsh_x, rsh_z, …)
+analysis/clinical_features.R:353: posture_symmetry_3d <- function(lsh_x, lsh_y, lsh_z, rsh_x, rsh_y, rsh_z)
+analysis/clinical_features.R:362: compute_frame_features <- function(df, tracking, is_3d = FALSE)
+analysis/clinical_features.R:365: bcol <- function(side, kp, coord)
+analysis/clinical_features.R:368: hcol <- function(side, idx, coord)
+analysis/clinical_features.R:378: ex <- function(cname)
+analysis/clinical_features.R:565: compute_window_features <- function(df, frame_features, tracking, …)
+analysis/clinical_features.R:568: bcol <- function(side, kp, coord)
+analysis/clinical_features.R:571: hcol <- function(side, idx, coord)
+analysis/clinical_features.R:681: safe_mean <- function(x)
+analysis/clinical_features.R:682: safe_sd <- function(x)
+analysis/clinical_features.R:745: running_median <- function(x, k = 5L)
+analysis/clinical_features.R:773: classify_movement_phases <- function(speed_seg, aperture_seg, …)
+analysis/clinical_features.R:872: segment_movements <- function(df, frame_features, tracking, …)
+analysis/clinical_features.R:879: bcol <- function(side, kp, coord)
 
 # analysis/compare.R (189 lines)
 analysis/compare.R:22: flatten_json <- function(j, prefix = "")
@@ -324,21 +332,25 @@ src/pose_estimation/drawing.py:241: def draw_body_landmarks(img, body_landmarks,
 src/pose_estimation/drawing.py:285: def draw_hand_landmarks(img, hand_landmarks)
 src/pose_estimation/drawing.py:311: def draw_arm_hand_bridges(img, body_landmarks, hand_landmarks, matches)
 
-# src/pose_estimation/export.py (324 lines)
+# src/pose_estimation/export.py (400 lines)
 src/pose_estimation/export.py:16: ARM_KEYPOINT_NAMES = list[12]
 src/pose_estimation/export.py:31: BODY_KEYPOINT_NAMES = list[33]
 src/pose_estimation/export.py:67: HAND_KEYPOINT_COUNT = int
-src/pose_estimation/export.py:70: def _body_keypoint_names(tracking)
-src/pose_estimation/export.py:77: def wrist_to_side(tracking)
-src/pose_estimation/export.py:84: def make_csv_header(tracking=TRACKING_HANDS_ARMS)
-src/pose_estimation/export.py:107: def _blank_hand_side(row, side)
-src/pose_estimation/export.py:115: def _fill_hand_side(row, side, hlm, frame_h, frame_w)
-src/pose_estimation/export.py:123: def _assign_hands_by_x(row, hand_landmarks, frame_h, frame_w)
-src/pose_estimation/export.py:133: def frame_to_rows(video_name, frame_idx, timestamp_sec, frame_h, frame_w, body_landmarks, body_visibilities, hand_landmarks, matches, track…
-src/pose_estimation/export.py:230: def _keypoint_columns(tracking)
-src/pose_estimation/export.py:252: def _cell_to_float(value)
-src/pose_estimation/export.py:257: def read_csv_keypoints(csv_path)
-src/pose_estimation/export.py:312: def open_csv_writer(output_path, tracking=TRACKING_HANDS_ARMS)
+src/pose_estimation/export.py:69: WORLD3D_FILENAME = str
+src/pose_estimation/export.py:72: def _body_keypoint_names(tracking)
+src/pose_estimation/export.py:79: def wrist_to_side(tracking)
+src/pose_estimation/export.py:86: def make_csv_header(tracking=TRACKING_HANDS_ARMS)
+src/pose_estimation/export.py:109: def _blank_hand_side(row, side)
+src/pose_estimation/export.py:117: def _fill_hand_side(row, side, hlm, frame_h, frame_w)
+src/pose_estimation/export.py:125: def _assign_hands_by_x(row, hand_landmarks, frame_h, frame_w)
+src/pose_estimation/export.py:135: def frame_to_rows(video_name, frame_idx, timestamp_sec, frame_h, frame_w, body_landmarks, body_visibilities, hand_landmarks, matches, track…
+src/pose_estimation/export.py:232: def _keypoint_columns(tracking)
+src/pose_estimation/export.py:254: def _cell_to_float(value)
+src/pose_estimation/export.py:259: def read_csv_keypoints(csv_path)
+src/pose_estimation/export.py:315: def make_world3d_header(keypoint_names)
+src/pose_estimation/export.py:347: def _fmt_float(value, ndigits)
+src/pose_estimation/export.py:352: def write_world3d_csv(output_path, video_name, keypoint_names, frames)
+src/pose_estimation/export.py:388: def open_csv_writer(output_path, tracking=TRACKING_HANDS_ARMS)
 
 # src/pose_estimation/main.py (828 lines)
 src/pose_estimation/main.py:60: WINDOW_TITLE = str
@@ -413,7 +425,7 @@ src/pose_estimation/models.py:62: def _download_to(url, filepath)
 src/pose_estimation/models.py:81: def download_file(url, filepath, expected_sha256=None)
 src/pose_estimation/models.py:97: def download_and_compile_models(model_dir='model', device='NPU')
 
-# src/pose_estimation/multicam.py (584 lines)
+# src/pose_estimation/multicam.py (604 lines)
 src/pose_estimation/multicam.py:43: SESSION_MANIFEST_FILENAME = str
 src/pose_estimation/multicam.py:46: VIDEO_EXTENSIONS = tuple[5]
 src/pose_estimation/multicam.py:49: CAMERA_GLOB = str
@@ -441,9 +453,9 @@ src/pose_estimation/multicam.py:363: _DEFAULT_OUTPUT_DIR = str
 src/pose_estimation/multicam.py:366: def _resolve_session_output(session: Session, output_dir: str | pathlib.Path | None) -> pathlib.Path
 src/pose_estimation/multicam.py:381: def process_session(session: Session, *, camera_processor: Callable[..., Any], output_dir: str | pathlib.Path | None=None) -> dict[str, Any]
 src/pose_estimation/multicam.py:447: class SessionFusion
-src/pose_estimation/multicam.py:461: def fuse_session_outputs(session: Session, output_dir: str | pathlib.Path | None=None, *, min_views: int=2) -> SessionFusion
-src/pose_estimation/multicam.py:545: def _fuse_and_report(session: Session, output_dir: str | pathlib.Path | None) -> None
-src/pose_estimation/multicam.py:569: __all__ = list[13]
+src/pose_estimation/multicam.py:464: def fuse_session_outputs(session: Session, output_dir: str | pathlib.Path | None=None, *, min_views: int=2) -> SessionFusion
+src/pose_estimation/multicam.py:558: def _fuse_and_report(session: Session, output_dir: str | pathlib.Path | None) -> None
+src/pose_estimation/multicam.py:589: __all__ = list[13]
 
 # src/pose_estimation/postprocess.py (346 lines)
 src/pose_estimation/postprocess.py:18: def _odd_int(value)
@@ -741,46 +753,47 @@ tests/test_models_checksum.py:37: def test_verify_checksum_redownload_removes_fi
 tests/test_models_checksum.py:48: def test_verify_checksum_strict_raises(tmp_path)
 tests/test_models_checksum.py:56: def test_download_file_skips_if_cached_and_valid(tmp_path)
 
-# tests/test_multicam.py (700 lines)
-tests/test_multicam.py:39: _TEST_FRAME_COUNT = int
-tests/test_multicam.py:40: _TEST_FRAME_SIZE = tuple[2]
-tests/test_multicam.py:41: _TEST_FPS = float
-tests/test_multicam.py:44: def _write_synthetic_video(path: pathlib.Path, *, n_frames: int=_TEST_FRAME_COUNT, intensity: int=128) -> bool
-tests/test_multicam.py:73: def _ensure_video_codec_available(tmp_path: pathlib.Path) -> None
-tests/test_multicam.py:79: def _write_calibration(path: pathlib.Path, *, cameras: list[str]) -> None
-tests/test_multicam.py:107: def test_discover_session_glob_fallback(tmp_path: pathlib.Path)
-tests/test_multicam.py:121: def test_discover_session_empty_directory_raises(tmp_path: pathlib.Path)
-tests/test_multicam.py:128: def test_discover_session_not_a_directory_raises(tmp_path: pathlib.Path)
-tests/test_multicam.py:140: def test_discover_session_with_manifest(tmp_path: pathlib.Path)
-tests/test_multicam.py:163: def test_discover_session_manifest_file_missing_raises(tmp_path: pathlib.Path)
-tests/test_multicam.py:176: def test_discover_session_manifest_path_traversal_camera(tmp_path: pathlib.Path)
-tests/test_multicam.py:189: def test_discover_session_manifest_path_traversal_calibration(tmp_path: pathlib.Path)
-tests/test_multicam.py:203: def test_discover_session_manifest_path_traversal_camera_name(tmp_path: pathlib.Path)
-tests/test_multicam.py:219: def test_session_camera_rejects_negative_sync_offset()
-tests/test_multicam.py:224: def test_discover_session_manifest_unknown_format_version(tmp_path: pathlib.Path)
-tests/test_multicam.py:238: def test_discover_session_auto_loads_calibration(tmp_path: pathlib.Path)
-tests/test_multicam.py:251: def test_discover_session_explicit_calibration_overrides_auto(tmp_path: pathlib.Path)
-tests/test_multicam.py:270: def test_discover_session_explicit_calibration_missing_raises(tmp_path: pathlib.Path)
-tests/test_multicam.py:284: def test_discover_sessions_iterates_children(tmp_path: pathlib.Path)
-tests/test_multicam.py:301: def test_discover_sessions_not_a_directory_raises(tmp_path: pathlib.Path)
-tests/test_multicam.py:312: def test_iter_synchronized_frames_yields_aligned_batches(tmp_path: pathlib.Path)
-tests/test_multicam.py:332: def test_iter_sync_offset_skips_leading_frames(tmp_path: pathlib.Path)
-tests/test_multicam.py:354: def test_iter_sync_offset_exceeding_frames_raises(tmp_path: pathlib.Path)
-tests/test_multicam.py:380: def test_process_session_calls_processor_per_camera(tmp_path: pathlib.Path)
-tests/test_multicam.py:416: def test_process_session_creates_output_directory(tmp_path: pathlib.Path)
-tests/test_multicam.py:429: def test_process_session_default_output_dir(tmp_path: pathlib.Path)
-tests/test_multicam.py:446: def test_process_session_requires_camera_processor(tmp_path: pathlib.Path)
-tests/test_multicam.py:460: _ARM_BASE = np.array(...)
-tests/test_multicam.py:478: def _arm_world(frame_idx: int) -> np.ndarray
-tests/test_multicam.py:483: def _arc_calibration(session_id: str, names: tuple[str, ...]=('cam1', 'cam2', 'cam3')) -> SessionCalibration
-tests/test_multicam.py:515: def _write_camera_csv(csv_path: pathlib.Path, camera: CameraCalibration, n_frames: int, *, offset: int=0) -> None
-tests/test_multicam.py:551: def test_read_csv_keypoints_round_trip(tmp_path: pathlib.Path)
-tests/test_multicam.py:595: def test_read_csv_keypoints_rejects_foreign_csv(tmp_path: pathlib.Path)
-tests/test_multicam.py:602: def test_fuse_session_outputs_reconstructs_skeleton(tmp_path: pathlib.Path)
-tests/test_multicam.py:633: def test_fuse_session_outputs_requires_calibration(tmp_path: pathlib.Path)
-tests/test_multicam.py:643: def test_fuse_session_outputs_needs_min_views_csvs(tmp_path: pathlib.Path)
-tests/test_multicam.py:660: def test_process_session_fuses_when_calibrated(tmp_path: pathlib.Path, capsys)
-tests/test_multicam.py:683: def test_process_session_fusion_failure_warns(tmp_path: pathlib.Path, capsys)
+# tests/test_multicam.py (748 lines)
+tests/test_multicam.py:46: _TEST_FRAME_COUNT = int
+tests/test_multicam.py:47: _TEST_FRAME_SIZE = tuple[2]
+tests/test_multicam.py:48: _TEST_FPS = float
+tests/test_multicam.py:51: def _write_synthetic_video(path: pathlib.Path, *, n_frames: int=_TEST_FRAME_COUNT, intensity: int=128) -> bool
+tests/test_multicam.py:80: def _ensure_video_codec_available(tmp_path: pathlib.Path) -> None
+tests/test_multicam.py:86: def _write_calibration(path: pathlib.Path, *, cameras: list[str]) -> None
+tests/test_multicam.py:114: def test_discover_session_glob_fallback(tmp_path: pathlib.Path)
+tests/test_multicam.py:128: def test_discover_session_empty_directory_raises(tmp_path: pathlib.Path)
+tests/test_multicam.py:135: def test_discover_session_not_a_directory_raises(tmp_path: pathlib.Path)
+tests/test_multicam.py:147: def test_discover_session_with_manifest(tmp_path: pathlib.Path)
+tests/test_multicam.py:170: def test_discover_session_manifest_file_missing_raises(tmp_path: pathlib.Path)
+tests/test_multicam.py:183: def test_discover_session_manifest_path_traversal_camera(tmp_path: pathlib.Path)
+tests/test_multicam.py:196: def test_discover_session_manifest_path_traversal_calibration(tmp_path: pathlib.Path)
+tests/test_multicam.py:210: def test_discover_session_manifest_path_traversal_camera_name(tmp_path: pathlib.Path)
+tests/test_multicam.py:226: def test_session_camera_rejects_negative_sync_offset()
+tests/test_multicam.py:231: def test_discover_session_manifest_unknown_format_version(tmp_path: pathlib.Path)
+tests/test_multicam.py:245: def test_discover_session_auto_loads_calibration(tmp_path: pathlib.Path)
+tests/test_multicam.py:258: def test_discover_session_explicit_calibration_overrides_auto(tmp_path: pathlib.Path)
+tests/test_multicam.py:277: def test_discover_session_explicit_calibration_missing_raises(tmp_path: pathlib.Path)
+tests/test_multicam.py:291: def test_discover_sessions_iterates_children(tmp_path: pathlib.Path)
+tests/test_multicam.py:308: def test_discover_sessions_not_a_directory_raises(tmp_path: pathlib.Path)
+tests/test_multicam.py:319: def test_iter_synchronized_frames_yields_aligned_batches(tmp_path: pathlib.Path)
+tests/test_multicam.py:339: def test_iter_sync_offset_skips_leading_frames(tmp_path: pathlib.Path)
+tests/test_multicam.py:361: def test_iter_sync_offset_exceeding_frames_raises(tmp_path: pathlib.Path)
+tests/test_multicam.py:387: def test_process_session_calls_processor_per_camera(tmp_path: pathlib.Path)
+tests/test_multicam.py:423: def test_process_session_creates_output_directory(tmp_path: pathlib.Path)
+tests/test_multicam.py:436: def test_process_session_default_output_dir(tmp_path: pathlib.Path)
+tests/test_multicam.py:453: def test_process_session_requires_camera_processor(tmp_path: pathlib.Path)
+tests/test_multicam.py:467: _ARM_BASE = np.array(...)
+tests/test_multicam.py:485: def _arm_world(frame_idx: int) -> np.ndarray
+tests/test_multicam.py:490: def _arc_calibration(session_id: str, names: tuple[str, ...]=('cam1', 'cam2', 'cam3')) -> SessionCalibration
+tests/test_multicam.py:522: def _write_camera_csv(csv_path: pathlib.Path, camera: CameraCalibration, n_frames: int, *, offset: int=0) -> None
+tests/test_multicam.py:558: def test_read_csv_keypoints_round_trip(tmp_path: pathlib.Path)
+tests/test_multicam.py:603: def test_read_csv_keypoints_rejects_foreign_csv(tmp_path: pathlib.Path)
+tests/test_multicam.py:610: def test_write_world3d_csv_round_trip(tmp_path: pathlib.Path)
+tests/test_multicam.py:642: def test_fuse_session_outputs_reconstructs_skeleton(tmp_path: pathlib.Path)
+tests/test_multicam.py:675: def test_fuse_session_outputs_requires_calibration(tmp_path: pathlib.Path)
+tests/test_multicam.py:685: def test_fuse_session_outputs_needs_min_views_csvs(tmp_path: pathlib.Path)
+tests/test_multicam.py:702: def test_process_session_fuses_when_calibrated(tmp_path: pathlib.Path, capsys)
+tests/test_multicam.py:731: def test_process_session_fusion_failure_warns(tmp_path: pathlib.Path, capsys)
 
 # tests/test_processing.py (235 lines)
 tests/test_processing.py:21: def _make_body(shoulder_l=(100, 200), elbow_l=(100, 300), wrist_l=(100, 400), shoulder_r=(300, 200), elbow_r=(300, 300), wrist_r=(300, 400))
@@ -810,37 +823,42 @@ tests/test_public_api.py:79: def test_mapping_surface_exported()
 tests/test_public_api.py:83: def test_triangulation_surface_exported()
 tests/test_public_api.py:89: def test_all_lists_only_existing_names()
 
-# tests/test_r_pipeline.py (716 lines)
-tests/test_r_pipeline.py:21: _PROJECT_ROOT = attribute
-tests/test_r_pipeline.py:22: _CLINICAL_R = binop
-tests/test_r_pipeline.py:24: _FPS = float
-tests/test_r_pipeline.py:25: _N_FRAMES = int
-tests/test_r_pipeline.py:29: def _r_available()
-tests/test_r_pipeline.py:49: _HAS_R = _r_available(...)
-tests/test_r_pipeline.py:53: def _smooth_trajectory(n_frames, seed=42)
-tests/test_r_pipeline.py:77: def _generate_csv(output_path, tracking, n_kps=133, n_frames=_N_FRAMES)
-tests/test_r_pipeline.py:109: def _write_reach_grasp_csv(output_path, tracking, n_frames=120, fps=30.0)
-tests/test_r_pipeline.py:232: class TestCSVSchemaHandsArms
-tests/test_r_pipeline.py:235: def TestCSVSchemaHandsArms.test_header_matches(self, tmp_path)
-tests/test_r_pipeline.py:244: def TestCSVSchemaHandsArms.test_row_count(self, tmp_path)
-tests/test_r_pipeline.py:251: def TestCSVSchemaHandsArms.test_arm_columns_present(self, tmp_path)
-tests/test_r_pipeline.py:264: def TestCSVSchemaHandsArms.test_hand_columns_present(self, tmp_path)
-tests/test_r_pipeline.py:277: def TestCSVSchemaHandsArms.test_coordinates_normalized(self, tmp_path)
-tests/test_r_pipeline.py:287: class TestCSVSchemaBody
-tests/test_r_pipeline.py:288: def TestCSVSchemaBody.test_header_matches(self, tmp_path)
-tests/test_r_pipeline.py:297: def TestCSVSchemaBody.test_body_columns_for_clinical(self, tmp_path)
-tests/test_r_pipeline.py:311: class TestCSVSchema17kp
-tests/test_r_pipeline.py:312: def TestCSVSchema17kp.test_header_matches_body_mode(self, tmp_path)
-tests/test_r_pipeline.py:321: def TestCSVSchema17kp.test_17kp_hands_arms_mode(self, tmp_path)
-tests/test_r_pipeline.py:337: class TestClinicalFeaturesR
-tests/test_r_pipeline.py:340: def TestClinicalFeaturesR.test_hands_arms_clinical_output(self, tmp_path)
-tests/test_r_pipeline.py:417: def TestClinicalFeaturesR.test_body_mode_clinical_output(self, tmp_path)
-tests/test_r_pipeline.py:452: def TestClinicalFeaturesR.test_hands_arms_trunk_columns_are_na(self, tmp_path)
-tests/test_r_pipeline.py:484: def TestClinicalFeaturesR.test_windows_have_sal_features(self, tmp_path)
-tests/test_r_pipeline.py:546: def TestClinicalFeaturesR.test_body_mode_window_quality_metrics(self, tmp_path)
-tests/test_r_pipeline.py:604: def TestClinicalFeaturesR.test_movement_phases_smoke(self, tmp_path)
-tests/test_r_pipeline.py:657: def TestClinicalFeaturesR.test_reach_grasp_phase_detection(self, tmp_path)
-tests/test_r_pipeline.py:699: def TestClinicalFeaturesR.test_directory_mode(self, tmp_path)
+# tests/test_r_pipeline.py (892 lines)
+tests/test_r_pipeline.py:28: _PROJECT_ROOT = attribute
+tests/test_r_pipeline.py:29: _CLINICAL_R = binop
+tests/test_r_pipeline.py:31: _FPS = float
+tests/test_r_pipeline.py:32: _N_FRAMES = int
+tests/test_r_pipeline.py:36: def _r_available()
+tests/test_r_pipeline.py:56: _HAS_R = _r_available(...)
+tests/test_r_pipeline.py:60: def _smooth_trajectory(n_frames, seed=42)
+tests/test_r_pipeline.py:84: def _generate_csv(output_path, tracking, n_kps=133, n_frames=_N_FRAMES)
+tests/test_r_pipeline.py:116: def _write_reach_grasp_csv(output_path, tracking, n_frames=120, fps=30.0)
+tests/test_r_pipeline.py:239: class TestCSVSchemaHandsArms
+tests/test_r_pipeline.py:242: def TestCSVSchemaHandsArms.test_header_matches(self, tmp_path)
+tests/test_r_pipeline.py:251: def TestCSVSchemaHandsArms.test_row_count(self, tmp_path)
+tests/test_r_pipeline.py:258: def TestCSVSchemaHandsArms.test_arm_columns_present(self, tmp_path)
+tests/test_r_pipeline.py:271: def TestCSVSchemaHandsArms.test_hand_columns_present(self, tmp_path)
+tests/test_r_pipeline.py:284: def TestCSVSchemaHandsArms.test_coordinates_normalized(self, tmp_path)
+tests/test_r_pipeline.py:294: class TestCSVSchemaBody
+tests/test_r_pipeline.py:295: def TestCSVSchemaBody.test_header_matches(self, tmp_path)
+tests/test_r_pipeline.py:304: def TestCSVSchemaBody.test_body_columns_for_clinical(self, tmp_path)
+tests/test_r_pipeline.py:318: class TestCSVSchema17kp
+tests/test_r_pipeline.py:319: def TestCSVSchema17kp.test_header_matches_body_mode(self, tmp_path)
+tests/test_r_pipeline.py:328: def TestCSVSchema17kp.test_17kp_hands_arms_mode(self, tmp_path)
+tests/test_r_pipeline.py:344: class TestClinicalFeaturesR
+tests/test_r_pipeline.py:347: def TestClinicalFeaturesR.test_hands_arms_clinical_output(self, tmp_path)
+tests/test_r_pipeline.py:424: def TestClinicalFeaturesR.test_body_mode_clinical_output(self, tmp_path)
+tests/test_r_pipeline.py:461: def TestClinicalFeaturesR.test_hands_arms_trunk_columns_are_na(self, tmp_path)
+tests/test_r_pipeline.py:494: def TestClinicalFeaturesR.test_windows_have_sal_features(self, tmp_path)
+tests/test_r_pipeline.py:556: def TestClinicalFeaturesR.test_body_mode_window_quality_metrics(self, tmp_path)
+tests/test_r_pipeline.py:614: def TestClinicalFeaturesR.test_movement_phases_smoke(self, tmp_path)
+tests/test_r_pipeline.py:667: def TestClinicalFeaturesR.test_reach_grasp_phase_detection(self, tmp_path)
+tests/test_r_pipeline.py:709: def TestClinicalFeaturesR.test_directory_mode(self, tmp_path)
+tests/test_r_pipeline.py:733: def _write_world3d_fixture(output_path, n_frames=_N_FRAMES, fps=_FPS)
+tests/test_r_pipeline.py:803: class TestWorld3DClinical
+tests/test_r_pipeline.py:806: def TestWorld3DClinical._read_rows(self, path)
+tests/test_r_pipeline.py:810: def TestWorld3DClinical.test_world3d_clinical_output(self, tmp_path)
+tests/test_r_pipeline.py:873: def TestWorld3DClinical.test_world3d_outputs_not_rescanned(self, tmp_path)
 
 # tests/test_repomap.py (44 lines)
 tests/test_repomap.py:15: ROOT = attribute

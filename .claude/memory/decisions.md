@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-08 — world3d.csv schema + R 3D mode is an adapter, not a parallel path (Session 3C)
+
+**Context.** Session 3C: export fused 3D to CSV and make `clinical_features.R` produce metric clinical features from it. The 2D feature path already used `dist_3d`/`angle_at_vertex` (xyz-capable) and window-speed = dist×fs.
+**Decision.** (1) Single `world3d.csv` (no separate diag file): metadata `video,frame_idx,timestamp_sec,person_idx` + per-kp `_x_m,_y_m,_z_m,_confidence,_reproj_err_px,_n_views,_cheirality_ok`; kp names match the 2D schema; units m & px. Writer `export.write_world3d_csv` is duck-typed (unpacked args, no multicam import) to avoid the export↔multicam cycle; not in the package public API (matches `frame_to_rows`). `SessionFusion.frames` became `(frame_idx, timestamp_sec, world, diag)` — the exact writer row layout. (2) R side is an **adapter**: `is_world3d()` detects `_x_m` cols; `adapt_world3d()` gates each kp-frame to NA when `reproj_err_px > REPROJ_GATE_PX` (20, = fusion `max_view_reproj_px`) or `cheirality_ok==0`, drops diag cols, renames `_{xyz}_m→_{xyz}`; the existing feature path then runs unchanged in metric units. Only trunk metrics needed true 3D decomposition (`trunk_lean_angle_3d`, `trunk_lean_sagittal_3d`→new `trunk_lean_sagittal_deg`, `trunk_rotation_3d`, `posture_symmetry_3d`); lateral lean shares the 2D x–y formula. (3) Outputs get `_3d` suffix so downstream globs (`_clinical.csv`/`_clinical_windows.csv`) skip them — metre rows must not mix into normalised aggregations; 3D aggregation is out of scope.
+**Alternatives considered.** Separate `world3d_diag.csv` (rejected — consumers must gate, so diagnostics belong inline with the row they qualify); a parallel R 3D feature path (rejected — duplicates ~1000 lines; the gate+rename adapter reuses everything); emitting projected 2D-style angles in 3D mode (rejected — discards the z signal that justifies fusion); no `_3d` suffix / shared filenames (rejected — silently corrupts unit semantics in every downstream aggregator).
+**Consequences.** Any new per-kp 3D quality signal must be added to `make_world3d_header`, `write_world3d_csv`, and the `adapt_world3d` gate together. Vertical = −y assumes the `world_frame` camera is level. Building 3D-aware downstream aggregation later means widening those globs and deciding unit handling — deliberately deferred. `trunk_lean_sagittal_deg` is NA for all 2D inputs (out-of-plane is unmeasurable from one view).
+**References.** `src/pose_estimation/{export,multicam}.py`, `analysis/clinical_features.R`, `tests/test_{multicam,r_pipeline}.py` (`TestWorld3DClinical`), `.claude/tech/{multicam,analysis,architecture,tests}.md`, `.claude/prompts/sessions.md` (3C).
+
+---
+
 ## 2026-06-08 — 3D fusion is post-hoc CSV read-back; fuse_session_frame signature finalised
 
 **Context.** Session 3A: implement the `fuse_session_frame` policy layer and wire it into `process_session()`. Per-camera keypoints are written to CSV by the `camera_processor` callback and never retained in memory, so the wiring needed a data source.

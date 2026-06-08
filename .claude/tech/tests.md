@@ -36,14 +36,14 @@ All tests live in `tests/`. Run with `uv run pytest`. Pytest is configured stric
 | File | Covers |
 |------|--------|
 | `tests/test_calibration.py` | `calibration.py` JSON IO, schema validation, `solve_charuco` stub. |
-| `tests/test_multicam.py` | `multicam.py` session discovery (manifest + glob), calibration auto-load, sync offsets, path traversal rejection (camera file, calibration path, camera name), `iter_synchronized_frames`, `process_session` callback invocation + output dir creation + 3D-fusion hook (summary print, non-fatal failure), `read_csv_keypoints` round-trip, `fuse_session_outputs` (sync-offset alignment, missing-CSV/calibration errors). Uses MJPG/AVI synthetic videos + synthetic projected CSVs. |
+| `tests/test_multicam.py` | `multicam.py` session discovery (manifest + glob), calibration auto-load, sync offsets, path traversal rejection (camera file, calibration path, camera name), `iter_synchronized_frames`, `process_session` callback invocation + output dir creation + 3D-fusion hook (summary print, world3d.csv on disk + header/columns, non-fatal failure), `read_csv_keypoints` round-trip (kps + conf + timestamps), `write_world3d_csv` round-trip (rounding, blank-NaN, n_views/cheirality ints), `fuse_session_outputs` (sync-offset alignment, per-frame timestamps from world-frame camera, missing-CSV/calibration errors). Uses MJPG/AVI synthetic videos + synthetic projected CSVs. |
 | `tests/test_triangulation.py` | `triangulation.py` projection / undistort / weighted DLT primitives; `fuse_session_frame` policy layer (noisy 3-cam <5mm, 2-cam <1cm, occlusion, insufficient views, outlier-view rejection, min_views, cheirality flag, confidence aggregation, validation errors). |
 
 ## R pipeline integration
 
 | File | Covers |
 |------|--------|
-| `tests/test_r_pipeline.py` | End-to-end R pipeline compatibility: verifies rtmlib-mapped CSVs (via `coco_to_mediapipe` + `frame_to_rows`) are consumable by `clinical_features.R`. Tests CSV schema for hands-arms/body/17-kp modes, runs R clinical pipeline on synthetic data, verifies output columns including movement-phase segmentation (smoke test + crafted reach-grasp trajectory). Skipped when R unavailable. |
+| `tests/test_r_pipeline.py` | End-to-end R pipeline compatibility: verifies rtmlib-mapped CSVs (via `coco_to_mediapipe` + `frame_to_rows`) are consumable by `clinical_features.R`. Tests CSV schema for hands-arms/body/17-kp modes, runs R clinical pipeline on synthetic data, verifies output columns including movement-phase segmentation (smoke test + crafted reach-grasp trajectory). 3D mode (`TestWorld3DClinical`): synthetic world3d.csv with known geometry — exact 90° elbows, 21.80° trunk lean (total + sagittal), 0.3 m/s wrist velocity, metric reach, reproj/cheirality gating to NA, `_3d` output suffixes, no rescan of own outputs. Skipped when R unavailable. |
 
 ## Infrastructure
 

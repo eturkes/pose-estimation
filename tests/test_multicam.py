@@ -15,7 +15,14 @@ from pose_estimation.calibration import (
     CalibrationError,
     save_calibration,
 )
-from pose_estimation.export import frame_to_rows, open_csv_writer, read_csv_keypoints
+from pose_estimation.export import (
+    WORLD3D_FILENAME,
+    frame_to_rows,
+    make_world3d_header,
+    open_csv_writer,
+    read_csv_keypoints,
+    write_world3d_csv,
+)
 from pose_estimation.multicam import (
     CAMERA_GLOB,
     SESSION_MANIFEST_FILENAME,
@@ -582,8 +589,9 @@ def test_read_csv_keypoints_round_trip(tmp_path: pathlib.Path):
     assert names[0] == "arm_left_shoulder"
     assert names[12] == "left_hand_0"
     assert set(frames) == {4, 5}
-    for frame_idx in (4, 5):
-        kps, conf = frames[frame_idx]
+    for frame_idx, expected_ts in ((4, 0.13), (5, 0.17)):
+        kps, conf, ts = frames[frame_idx]
+        assert ts == pytest.approx(expected_ts)
         np.testing.assert_allclose(kps[:12, 0], lm[:, 0] / width, atol=1e-6)
         np.testing.assert_allclose(kps[:12, 1], lm[:, 1] / height, atol=1e-6)
         np.testing.assert_allclose(conf[:12], vis, atol=1e-4)
@@ -597,6 +605,38 @@ def test_read_csv_keypoints_rejects_foreign_csv(tmp_path: pathlib.Path):
     p.write_text("a,b,c\n1,2,3\n")
     with pytest.raises(ValueError, match="not a keypoint CSV"):
         read_csv_keypoints(p)
+
+
+def test_write_world3d_csv_round_trip(tmp_path: pathlib.Path):
+    names = ["arm_left_wrist", "left_hand_0"]
+    world = np.array([[0.1234567, -0.25, 2.0], [np.nan, np.nan, np.nan]])
+    diag = {
+        "n_views": np.array([3, 1]),
+        "confidence": np.array([0.85, 0.0]),
+        "reprojection_error_px": np.array([1.2345, np.nan]),
+        "cheirality_ok": np.array([True, False]),
+    }
+    out = write_world3d_csv(tmp_path / WORLD3D_FILENAME, "sess1", names, [(7, 0.2333, world, diag)])
+
+    import csv as _csv
+
+    with out.open(newline="") as fh:
+        rows = list(_csv.DictReader(fh))
+    assert len(rows) == 1
+    assert set(rows[0]) == set(make_world3d_header(names))
+    row = rows[0]
+    assert (row["video"], row["frame_idx"], row["person_idx"]) == ("sess1", "7", "0")
+    assert float(row["timestamp_sec"]) == pytest.approx(0.2333)
+    # Fused keypoint: rounded values, int flags.
+    assert float(row["arm_left_wrist_x_m"]) == pytest.approx(0.123457, abs=1e-9)
+    assert float(row["arm_left_wrist_y_m"]) == pytest.approx(-0.25)
+    assert float(row["arm_left_wrist_confidence"]) == pytest.approx(0.85)
+    assert float(row["arm_left_wrist_reproj_err_px"]) == pytest.approx(1.234, abs=1e-9)
+    assert (row["arm_left_wrist_n_views"], row["arm_left_wrist_cheirality_ok"]) == ("3", "1")
+    # Unfused keypoint: blank coords/reproj, zero confidence, flags down.
+    assert row["left_hand_0_x_m"] == row["left_hand_0_reproj_err_px"] == ""
+    assert float(row["left_hand_0_confidence"]) == 0.0
+    assert (row["left_hand_0_n_views"], row["left_hand_0_cheirality_ok"]) == ("1", "0")
 
 
 def test_fuse_session_outputs_reconstructs_skeleton(tmp_path: pathlib.Path):
@@ -620,8 +660,10 @@ def test_fuse_session_outputs_reconstructs_skeleton(tmp_path: pathlib.Path):
     fusion = fuse_session_outputs(session, out_base)
 
     assert fusion.keypoint_names[:2] == ["arm_left_shoulder", "arm_right_shoulder"]
-    assert [f for f, _, _ in fusion.frames] == list(range(5))
-    for frame_idx, world, diag in fusion.frames:
+    assert [f for f, _, _, _ in fusion.frames] == list(range(5))
+    for frame_idx, timestamp, world, diag in fusion.frames:
+        # cam1 is the world-frame camera (offset 0): ts = logical/30.
+        assert timestamp == pytest.approx(frame_idx / 30.0, abs=1e-4)
         np.testing.assert_allclose(world[:12], _arm_world(frame_idx), atol=1e-3)
         assert np.all(diag["n_views"][:12] == 3)
         assert np.all(diag["cheirality_ok"][:12])
@@ -678,6 +720,12 @@ def test_process_session_fuses_when_calibrated(tmp_path: pathlib.Path, capsys):
     assert "3D fusion: 3 frame(s)" in captured
     assert "WARNING" not in captured
     assert set(results) == {"cam1", "cam2"}
+    world3d = tmp_path / "out" / "scal" / WORLD3D_FILENAME
+    assert world3d.is_file()
+    header = world3d.read_text().splitlines()[0].split(",")
+    assert header[:4] == ["video", "frame_idx", "timestamp_sec", "person_idx"]
+    assert "arm_left_wrist_x_m" in header
+    assert "arm_left_wrist_cheirality_ok" in header
 
 
 def test_process_session_fusion_failure_warns(tmp_path: pathlib.Path, capsys):

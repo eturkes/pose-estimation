@@ -15,11 +15,11 @@
 | `rtmlib_openvino.py` | Self-contained OpenVINO-backend monkey-patch for rtmlib (`_patch_rtmlib_openvino`). No `run.py` globals. |
 | `constraints.py` | `BoneLengthSmoother`, `clamp_joint_angles`, `BONE_SEGMENTS{,_BODY}`, `ANGLE_LIMITS{,_BODY}`. |
 | `mapping.py` | COCO-WholeBody → MediaPipe keypoint schema mapping (`coco_to_mediapipe`). Translates rtmlib output to `frame_to_rows()` interface. |
-| `export.py` | CSV schema (`frame_to_rows`, `open_csv_writer`, `wrist_to_side`) + read-back for 3D fusion (`read_csv_keypoints`). |
+| `export.py` | CSV schema (`frame_to_rows`, `open_csv_writer`, `wrist_to_side`) + read-back for 3D fusion (`read_csv_keypoints`, incl. timestamps) + world3d.csv writer (`make_world3d_header`, `write_world3d_csv` — duck-typed, no multicam import). |
 | `postprocess.py` | Savitzky-Golay offline smoothing (`savgol_smooth_csv`). |
 | `metrics.py` | `MetricsCollector`, `ConstraintDiagnostics`, `SmoothingDiagnostics` — per-frame quality metrics. |
 | `benchmark.py` | Parameter sweep harness (subprocess fan-out, `--config` YAML). |
-| `multicam.py` | Multi-camera `Session` discovery + synchronized iteration. `process_session` orchestrates per-camera processing via callback, then 3D-fuses CSVs when calibration present (`fuse_session_outputs`, `SessionFusion`). See `tech/multicam.md`. |
+| `multicam.py` | Multi-camera `Session` discovery + synchronized iteration. `process_session` orchestrates per-camera processing via callback, then 3D-fuses CSVs when calibration present (`fuse_session_outputs`, `SessionFusion`) and writes `world3d.csv`. See `tech/multicam.md`. |
 | `calibration.py` | Camera-calibration JSON IO + validation. `solve_charuco` is a stub. See `tech/calibration.md`. |
 | `calibration_cli.py` | `pose-estimation-calibrate` console script (`verify` works; `solve`/`capture` stubs). |
 | `triangulation.py` | 3D triangulation: math primitives (DLT, projection, undistort) + `fuse_session_frame` policy layer (validity masking, confidence-weighted DLT, min-view enforcement, greedy outlier-view rejection, cheirality flag, reprojection diagnostics). |

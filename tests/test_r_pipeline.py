@@ -14,7 +14,14 @@ import subprocess
 import numpy as np
 import pytest
 
-from pose_estimation.export import frame_to_rows, make_csv_header, open_csv_writer
+from pose_estimation.export import (
+    BODY_KEYPOINT_NAMES,
+    HAND_KEYPOINT_COUNT,
+    frame_to_rows,
+    make_csv_header,
+    open_csv_writer,
+    write_world3d_csv,
+)
 from pose_estimation.mapping import coco_to_mediapipe
 from pose_estimation.processing import TRACKING_BODY, TRACKING_HANDS_ARMS
 
@@ -448,6 +455,8 @@ class TestClinicalFeaturesR:
             val = row[col]
             assert val != "", f"Trunk metric {col} is empty in body mode"
             assert val != "NA", f"Trunk metric {col} is NA in body mode"
+        # Sagittal lean is out-of-plane — only measurable from 3D input.
+        assert row["trunk_lean_sagittal_deg"] == "NA"
 
     def test_hands_arms_trunk_columns_are_na(self, tmp_path):
         """Hands-arms mode should produce trunk columns but with NA values."""
@@ -474,6 +483,7 @@ class TestClinicalFeaturesR:
         trunk_cols = [
             "trunk_lean_deg",
             "trunk_lean_lateral_deg",
+            "trunk_lean_sagittal_deg",
             "trunk_rotation_deg",
             "posture_symmetry",
         ]
@@ -713,3 +723,169 @@ class TestClinicalFeaturesR:
 
         assert (tmp_path / "video1_hands-arms_clinical.csv").exists()
         assert (tmp_path / "video2_hands-arms_clinical.csv").exists()
+
+
+# ---------------------------------------------------------------------------
+# 3D (world3d.csv) input
+# ---------------------------------------------------------------------------
+
+
+def _write_world3d_fixture(output_path, n_frames=_N_FRAMES, fps=_FPS):
+    """Write a body-mode world3d.csv with analytically known geometry.
+
+    World frame: +x right, +y down, +z away from the camera (metres).
+
+    - Trunk: constant 0.2 m forward (+z) shoulder offset over a 0.5 m
+      torso → total/sagittal lean = atan2(0.2, 0.5) ≈ 21.80°, lateral
+      lean 0, axial rotation 0.
+    - Right arm: upper arm along +x, forearm along +y → exact 90°
+      elbow; reach = 0.3·√2 m.
+    - Left forearm rotates about the elbow in the y-z plane at
+      1 rad/s, staying perpendicular to the upper arm → constant 90°
+      elbow, constant 0.3·√2 m reach, wrist speed ≈ 0.3 m/s.
+    - Hands: never fused (NaN world, 0 views) → grasp metrics NA.
+    - Quality gates: frame 10 right_elbow reproj 50 px; frame 12
+      left_shoulder cheirality violation.
+    """
+    names = [f"body_{n}" for n in BODY_KEYPOINT_NAMES] + [
+        f"{side}_hand_{i}" for side in ("left", "right") for i in range(HAND_KEYPOINT_COUNT)
+    ]
+    n_body = len(BODY_KEYPOINT_NAMES)
+    n_total = len(names)
+    kp_idx = {name: i for i, name in enumerate(names)}
+
+    fixed = {
+        "body_left_hip": (-0.15, 0.9, 2.0),
+        "body_right_hip": (0.15, 0.9, 2.0),
+        "body_left_shoulder": (-0.175, 0.4, 2.2),
+        "body_right_shoulder": (0.175, 0.4, 2.2),
+        "body_left_elbow": (-0.475, 0.4, 2.2),
+        "body_right_elbow": (0.475, 0.4, 2.2),
+        "body_right_wrist": (0.475, 0.7, 2.2),
+        "body_right_index": (0.575, 0.7, 2.2),
+    }
+
+    frames = []
+    for f in range(n_frames):
+        world = np.full((n_total, 3), np.nan)
+        # Benign defaults for unspecified body keypoints (decollided in x).
+        for i in range(n_body):
+            world[i] = (0.01 * i, 0.2, 2.1)
+        for name, xyz in fixed.items():
+            world[kp_idx[name]] = xyz
+        phi = f / fps  # 1 rad/s
+        world[kp_idx["body_left_wrist"]] = (
+            -0.475,
+            0.4 + 0.3 * math.cos(phi),
+            2.2 + 0.3 * math.sin(phi),
+        )
+
+        diag = {
+            "n_views": np.concatenate([np.full(n_body, 3), np.zeros(n_total - n_body)]),
+            "confidence": np.concatenate([np.full(n_body, 0.9), np.zeros(n_total - n_body)]),
+            "reprojection_error_px": np.concatenate(
+                [np.full(n_body, 1.0), np.full(n_total - n_body, np.nan)]
+            ),
+            "cheirality_ok": np.concatenate(
+                [np.ones(n_body, dtype=bool), np.zeros(n_total - n_body, dtype=bool)]
+            ),
+        }
+        if f == 10:
+            diag["reprojection_error_px"][kp_idx["body_right_elbow"]] = 50.0
+        if f == 12:
+            diag["cheirality_ok"][kp_idx["body_left_shoulder"]] = False
+        frames.append((f, f / fps, world, diag))
+
+    write_world3d_csv(output_path, "sess3d", names, frames)
+
+
+@requires_r
+class TestWorld3DClinical:
+    """Run clinical_features.R on a world3d.csv and verify 3D handling."""
+
+    def _read_rows(self, path):
+        with path.open() as f:
+            return list(csv.DictReader(f))
+
+    def test_world3d_clinical_output(self, tmp_path):
+        csv_path = tmp_path / "world3d.csv"
+        _write_world3d_fixture(csv_path)
+
+        result = subprocess.run(
+            ["Rscript", str(_CLINICAL_R), str(csv_path)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, f"R script failed:\n{result.stderr}"
+        assert "3D input (world3d)" in result.stdout
+
+        # 3D outputs carry the _3d suffix; the 2D names must NOT appear.
+        clinical = tmp_path / "world3d_clinical_3d.csv"
+        windows = tmp_path / "world3d_clinical_3d_windows.csv"
+        assert clinical.exists()
+        assert windows.exists()
+        assert not (tmp_path / "world3d_clinical.csv").exists()
+        assert not (tmp_path / "world3d_clinical_windows.csv").exists()
+
+        rows = self._read_rows(clinical)
+        assert len(rows) == _N_FRAMES
+
+        # Analytic geometry on an ungated frame.
+        r0 = rows[0]
+        assert float(r0["right_elbow_angle_deg"]) == pytest.approx(90.0, abs=0.05)
+        assert float(r0["left_elbow_angle_deg"]) == pytest.approx(90.0, abs=0.05)
+        # Reach is now metric: 0.3·√2 m.
+        expected_reach = 0.3 * math.sqrt(2.0)
+        assert float(r0["left_reach_raw"]) == pytest.approx(expected_reach, abs=1e-3)
+        assert float(r0["right_reach_raw"]) == pytest.approx(expected_reach, abs=1e-3)
+        # True trunk plane decomposition.
+        expected_lean = math.degrees(math.atan2(0.2, 0.5))
+        assert float(r0["trunk_lean_deg"]) == pytest.approx(expected_lean, abs=0.05)
+        assert float(r0["trunk_lean_sagittal_deg"]) == pytest.approx(expected_lean, abs=0.05)
+        assert float(r0["trunk_lean_lateral_deg"]) == pytest.approx(0.0, abs=1e-6)
+        assert float(r0["trunk_rotation_deg"]) == pytest.approx(0.0, abs=1e-6)
+        assert float(r0["posture_symmetry"]) == pytest.approx(0.0, abs=1e-6)
+        # Hands were never fused → grasp metrics NA.
+        assert r0["left_grasp_aperture_thumb_index"] == "NA"
+
+        # Quality gates: reprojection (frame 10) and cheirality (frame 12).
+        assert rows[10]["right_elbow_angle_deg"] == "NA"
+        assert rows[11]["right_elbow_angle_deg"] != "NA"
+        assert rows[12]["left_elbow_angle_deg"] == "NA"
+        assert rows[12]["left_reach_raw"] == "NA"
+        assert rows[12]["trunk_lean_deg"] == "NA"
+
+        # Windowed velocity is metric: left wrist arcs at 0.3 m/s.
+        win_rows = self._read_rows(windows)
+        assert win_rows
+        for w in win_rows:
+            assert float(w["left_wrist_velocity_mean"]) == pytest.approx(0.3, abs=0.01)
+
+        # Movement segmentation runs on metric coords (continuous arc →
+        # at least one movement, REACH-only without hand data).
+        phases = tmp_path / "world3d_movement_phases_3d.csv"
+        assert phases.exists()
+        phase_rows = self._read_rows(phases)
+        assert phase_rows
+        assert {p["phase"] for p in phase_rows} == {"REACH"}
+
+    def test_world3d_outputs_not_rescanned(self, tmp_path):
+        """Directory mode must skip _3d outputs from a previous run."""
+        _write_world3d_fixture(tmp_path / "world3d.csv", n_frames=12)
+
+        for _ in range(2):
+            result = subprocess.run(
+                ["Rscript", str(_CLINICAL_R), str(tmp_path)],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            assert result.returncode == 0, f"R script failed:\n{result.stderr}"
+
+        produced = sorted(p.name for p in tmp_path.glob("*.csv"))
+        assert produced == [
+            "world3d.csv",
+            "world3d_clinical_3d.csv",
+            "world3d_movement_phases_3d.csv",
+        ]

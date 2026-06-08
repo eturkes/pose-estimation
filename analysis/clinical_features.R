@@ -6,13 +6,24 @@
 # (spectral arc length, velocity statistics), writing two CSVs per
 # input.
 #
+# Accepts both 2D landmark CSVs (normalised coords + MediaPipe
+# pseudo-depth) and triangulated world3d.csv files (metres; columns
+# end in _x_m/_y_m/_z_m).  3D inputs are quality-gated (reprojection
+# error, cheirality), yield metric distances/velocities (m, m/s), and
+# get true trunk plane decomposition (world frame: +y down, +z away
+# from the world camera; vertical assumes a level world camera).
+#
 # Usage:
 #   Rscript analysis/clinical_features.R output/video1_hands-arms.csv
+#   Rscript analysis/clinical_features.R output/session1/world3d.csv
 #   Rscript analysis/clinical_features.R output/   # all landmark CSVs
 #
-# Outputs alongside each input CSV:
+# Outputs alongside each input CSV (suffixes gain `_3d` for 3D input —
+# _clinical_3d.csv, _clinical_3d_windows.csv, _movement_phases_3d.csv —
+# keeping metric-unit rows out of the 2D downstream globs):
 #   <stem>_clinical.csv          — per-frame clinical features
 #   <stem>_clinical_windows.csv  — per-window smoothness features
+#   <stem>_movement_phases.csv   — segmented movement phases
 
 library(dplyr)
 library(tidyr)
@@ -29,6 +40,12 @@ WINDOW_SEC <- 1.0
 
 # Frequency cutoff (Hz) for spectral arc length calculation.
 SAL_FREQ_CUTOFF <- 10
+
+# 3D quality gate: keypoints whose mean reprojection error exceeds this
+# (px) are masked to NA. Matches fuse_session_frame's per-view rejection
+# threshold — at exactly min_views an outlier view cannot be dropped
+# during fusion, so this downstream gate is mandatory.
+REPROJ_GATE_PX <- 20
 
 # ------------------------------------------------------------------
 # Column-name helpers (mode-aware)
@@ -47,6 +64,48 @@ body_col <- function(tracking, side, keypoint, coord) {
 
 hand_col <- function(side, idx, coord) {
   paste0(side, "_hand_", idx, "_", coord)
+}
+
+# ------------------------------------------------------------------
+# 3D input adapter (world3d.csv)
+# ------------------------------------------------------------------
+
+#' Detect a triangulated 3D input by its metre-unit coordinate columns.
+is_world3d <- function(cols) {
+  any(str_ends(cols, "_x_m"))
+}
+
+#' Adapt a world3d.csv data frame to the 2D landmark column layout.
+#'
+#' Two steps, per keypoint:
+#' 1. Quality gate — coordinates are masked to NA where the fusion
+#'    diagnostics disqualify the point: cheirality violation, or mean
+#'    reprojection error above \code{REPROJ_GATE_PX}.
+#' 2. Rename — \code{{kp}_x_m/_y_m/_z_m} become \code{{kp}_x/_y/_z}
+#'    so every downstream feature function works unchanged (distances
+#'    arrive in metres, velocities in m/s).
+#'
+#' Diagnostic columns (_confidence, _reproj_err_px, _n_views,
+#' _cheirality_ok) are dropped after gating.
+adapt_world3d <- function(df) {
+  kp_names <- str_remove(names(df)[str_ends(names(df), "_x_m")], "_x_m$")
+  for (kp in kp_names) {
+    reproj <- as.numeric(df[[paste0(kp, "_reproj_err_px")]])
+    cheir  <- as.numeric(df[[paste0(kp, "_cheirality_ok")]])
+    bad <- (!is.na(reproj) & reproj > REPROJ_GATE_PX) |
+           (!is.na(cheir) & cheir == 0)
+    for (coord in c("x", "y", "z")) {
+      col <- paste0(kp, "_", coord, "_m")
+      df[[col]][bad] <- NA_real_
+    }
+  }
+  diag_cols <- str_ends(names(df), "_confidence") |
+               str_ends(names(df), "_reproj_err_px") |
+               str_ends(names(df), "_n_views") |
+               str_ends(names(df), "_cheirality_ok")
+  df <- df[, !diag_cols]
+  names(df) <- str_replace(names(df), "_([xyz])_m$", "_\\1")
+  df
 }
 
 # ------------------------------------------------------------------
@@ -256,10 +315,51 @@ posture_symmetry <- function(lsh_x, lsh_y, rsh_x, rsh_y) {
 }
 
 # ------------------------------------------------------------------
+# 3D trunk helpers (world3d input — true plane decomposition)
+# ------------------------------------------------------------------
+# World frame = the world-frame camera's frame (OpenCV convention):
+# +x right, +y down, +z away from the camera. Vertical is taken as -y,
+# which assumes a level world camera. All helpers are vectorised over
+# frames and take shoulder/hip midline components.
+
+#' Total trunk lean from vertical, 3D (unsigned, degrees).
+#' atan2(horizontal magnitude, vertical component of hip→shoulder).
+#' 0 = upright, 90 = horizontal; >90 = inverted.
+trunk_lean_angle_3d <- function(dx, dy, dz) {
+  atan2(sqrt(dx^2 + dz^2), -dy) * 180 / pi
+}
+
+#' Sagittal trunk lean, 3D (signed, degrees). Positive = leaning away
+#' from the world camera (+z), negative = toward it. Unmeasurable from
+#' a single 2D view — NA in 2D mode.
+trunk_lean_sagittal_3d <- function(dy, dz) {
+  atan2(dz, -dy) * 180 / pi
+}
+
+#' Axial trunk rotation, 3D (signed, degrees, wrapped to (-180, 180]).
+#' Shoulder line vs hip line projected onto the transverse (x–z)
+#' plane — true rotation about the vertical axis, unlike the 2D
+#' image-plane proxy.
+trunk_rotation_3d <- function(lsh_x, lsh_z, rsh_x, rsh_z,
+                              lhip_x, lhip_z, rhip_x, rhip_z) {
+  sh_angle  <- atan2(rsh_z - lsh_z, rsh_x - lsh_x)
+  hip_angle <- atan2(rhip_z - lhip_z, rhip_x - lhip_x)
+  d <- sh_angle - hip_angle
+  atan2(sin(d), cos(d)) * 180 / pi
+}
+
+#' Posture symmetry, 3D — shoulder height difference normalised by
+#' the full 3D shoulder width. Positive = right shoulder higher.
+posture_symmetry_3d <- function(lsh_x, lsh_y, lsh_z, rsh_x, rsh_y, rsh_z) {
+  sh_width <- sqrt((rsh_x - lsh_x)^2 + (rsh_y - lsh_y)^2 + (rsh_z - lsh_z)^2)
+  ifelse(sh_width > 1e-6, (lsh_y - rsh_y) / sh_width, NA_real_)
+}
+
+# ------------------------------------------------------------------
 # Per-frame feature computation
 # ------------------------------------------------------------------
 
-compute_frame_features <- function(df, tracking) {
+compute_frame_features <- function(df, tracking, is_3d = FALSE) {
   prefix <- if (tracking == "body") "body" else "arm"
 
   bcol <- function(side, kp, coord) {
@@ -412,22 +512,47 @@ compute_frame_features <- function(df, tracking) {
     rhip_x <- ex("body_right_hip_x")
     rhip_y <- ex("body_right_hip_y")
 
-    result[["trunk_lean_deg"]] <-
-      trunk_lean_angle(lsh_x, lsh_y, rsh_x, rsh_y,
-                       lhip_x, lhip_y, rhip_x, rhip_y)
+    # Lateral lean uses x,y only — same formula in 2D image coords and
+    # the 3D world frame (both are +y down).
     result[["trunk_lean_lateral_deg"]] <-
       trunk_lean_lateral(lsh_x, lsh_y, rsh_x, rsh_y,
                          lhip_x, lhip_y, rhip_x, rhip_y)
-    result[["trunk_rotation_deg"]] <-
-      trunk_rotation(lsh_x, lsh_y, rsh_x, rsh_y,
-                     lhip_x, lhip_y, rhip_x, rhip_y)
-    result[["posture_symmetry"]] <-
-      posture_symmetry(lsh_x, lsh_y, rsh_x, rsh_y)
+
+    if (is_3d) {
+      lsh_z  <- ex("body_left_shoulder_z")
+      rsh_z  <- ex("body_right_shoulder_z")
+      lhip_z <- ex("body_left_hip_z")
+      rhip_z <- ex("body_right_hip_z")
+
+      dx <- (lsh_x + rsh_x) / 2 - (lhip_x + rhip_x) / 2
+      dy <- (lsh_y + rsh_y) / 2 - (lhip_y + rhip_y) / 2
+      dz <- (lsh_z + rsh_z) / 2 - (lhip_z + rhip_z) / 2
+
+      result[["trunk_lean_deg"]]          <- trunk_lean_angle_3d(dx, dy, dz)
+      result[["trunk_lean_sagittal_deg"]] <- trunk_lean_sagittal_3d(dy, dz)
+      result[["trunk_rotation_deg"]] <-
+        trunk_rotation_3d(lsh_x, lsh_z, rsh_x, rsh_z,
+                          lhip_x, lhip_z, rhip_x, rhip_z)
+      result[["posture_symmetry"]] <-
+        posture_symmetry_3d(lsh_x, lsh_y, lsh_z, rsh_x, rsh_y, rsh_z)
+    } else {
+      result[["trunk_lean_deg"]] <-
+        trunk_lean_angle(lsh_x, lsh_y, rsh_x, rsh_y,
+                         lhip_x, lhip_y, rhip_x, rhip_y)
+      # Out-of-plane: unmeasurable from a single 2D view.
+      result[["trunk_lean_sagittal_deg"]] <- NA_real_
+      result[["trunk_rotation_deg"]] <-
+        trunk_rotation(lsh_x, lsh_y, rsh_x, rsh_y,
+                       lhip_x, lhip_y, rhip_x, rhip_y)
+      result[["posture_symmetry"]] <-
+        posture_symmetry(lsh_x, lsh_y, rsh_x, rsh_y)
+    }
   } else {
-    result[["trunk_lean_deg"]]         <- NA_real_
-    result[["trunk_lean_lateral_deg"]] <- NA_real_
-    result[["trunk_rotation_deg"]]     <- NA_real_
-    result[["posture_symmetry"]]       <- NA_real_
+    result[["trunk_lean_deg"]]          <- NA_real_
+    result[["trunk_lean_lateral_deg"]]  <- NA_real_
+    result[["trunk_lean_sagittal_deg"]] <- NA_real_
+    result[["trunk_rotation_deg"]]      <- NA_real_
+    result[["posture_symmetry"]]        <- NA_real_
   }
 
   result
@@ -470,8 +595,11 @@ compute_window_features <- function(df, frame_features, tracking,
     if (is.na(dt_median) || dt_median <= 0) next
     fs <- 1 / dt_median
 
-    t_start <- ts[1]
-    t_end   <- ts[n]
+    # 3D inputs may have blank timestamps on frames the reference
+    # camera missed — guard the window arithmetic against NA.
+    t_start <- suppressWarnings(min(ts, na.rm = TRUE))
+    t_end   <- suppressWarnings(max(ts, na.rm = TRUE))
+    if (!is.finite(t_start) || !is.finite(t_end)) next
 
     # 50 %-overlapping windows.
     if (t_end - t_start < window_sec) next
@@ -480,7 +608,7 @@ compute_window_features <- function(df, frame_features, tracking,
 
     for (ws in win_starts) {
       we <- ws + window_sec
-      win_mask <- ts >= ws & ts < we
+      win_mask <- !is.na(ts) & ts >= ws & ts < we
       if (sum(win_mask) < 4) next
 
       row <- tibble(
@@ -531,19 +659,10 @@ compute_window_features <- function(df, frame_features, tracking,
 
       # Body-mode-only metrics (CPI + trunk/torso — require hip keypoints).
       if (tracking == "body") {
-        lsh_x <- as.numeric(sub_df[["body_left_shoulder_x"]])[win_mask]
-        lsh_y <- as.numeric(sub_df[["body_left_shoulder_y"]])[win_mask]
-        rsh_x <- as.numeric(sub_df[["body_right_shoulder_x"]])[win_mask]
-        rsh_y <- as.numeric(sub_df[["body_right_shoulder_y"]])[win_mask]
-        lhip_x <- as.numeric(sub_df[["body_left_hip_x"]])[win_mask]
-        lhip_y <- as.numeric(sub_df[["body_left_hip_y"]])[win_mask]
-        rhip_x <- as.numeric(sub_df[["body_right_hip_x"]])[win_mask]
-        rhip_y <- as.numeric(sub_df[["body_right_hip_y"]])[win_mask]
-
-        lean <- trunk_lean_angle(lsh_x, lsh_y, rsh_x, rsh_y,
-                                 lhip_x, lhip_y, rhip_x, rhip_y)
-
         win_ff <- sub_ff[win_mask, ]
+        # Per-frame trunk lean is already mode-appropriate (2D image
+        # plane or 3D world frame) — reuse instead of recomputing.
+        lean <- win_ff$trunk_lean_deg
         reach <- pmax(win_ff$left_reach_raw, win_ff$right_reach_raw,
                       na.rm = TRUE)
 
@@ -554,24 +673,33 @@ compute_window_features <- function(df, frame_features, tracking,
 
         # Trunk/torso windowed summaries from per-frame values.
         tl  <- win_ff$trunk_lean_deg
+        tls <- win_ff$trunk_lean_sagittal_deg
         tll <- win_ff$trunk_lean_lateral_deg
         tr  <- win_ff$trunk_rotation_deg
         ps  <- win_ff$posture_symmetry
 
-        row[["trunk_lean_mean"]]          <- mean(tl, na.rm = TRUE)
-        row[["trunk_lean_sd"]]            <- sd(tl, na.rm = TRUE)
-        row[["trunk_lean_range"]]         <- diff(range(tl, na.rm = TRUE))
-        row[["trunk_lean_lateral_mean"]]  <- mean(tll, na.rm = TRUE)
-        row[["trunk_lean_lateral_sd"]]    <- sd(tll, na.rm = TRUE)
-        row[["trunk_rotation_mean"]]      <- mean(tr, na.rm = TRUE)
-        row[["trunk_rotation_sd"]]        <- sd(tr, na.rm = TRUE)
-        row[["posture_symmetry_mean"]]    <- mean(ps, na.rm = TRUE)
-        row[["posture_symmetry_sd"]]      <- sd(ps, na.rm = TRUE)
+        safe_mean <- function(x) if (all(is.na(x))) NA_real_ else mean(x, na.rm = TRUE)
+        safe_sd   <- function(x) if (all(is.na(x))) NA_real_ else sd(x, na.rm = TRUE)
+
+        row[["trunk_lean_mean"]]          <- safe_mean(tl)
+        row[["trunk_lean_sd"]]            <- safe_sd(tl)
+        row[["trunk_lean_range"]]         <- if (all(is.na(tl))) NA_real_
+                                             else diff(range(tl, na.rm = TRUE))
+        row[["trunk_lean_sagittal_mean"]] <- safe_mean(tls)
+        row[["trunk_lean_sagittal_sd"]]   <- safe_sd(tls)
+        row[["trunk_lean_lateral_mean"]]  <- safe_mean(tll)
+        row[["trunk_lean_lateral_sd"]]    <- safe_sd(tll)
+        row[["trunk_rotation_mean"]]      <- safe_mean(tr)
+        row[["trunk_rotation_sd"]]        <- safe_sd(tr)
+        row[["posture_symmetry_mean"]]    <- safe_mean(ps)
+        row[["posture_symmetry_sd"]]      <- safe_sd(ps)
       } else {
         row[["compensatory_pattern_index"]]  <- NA_real_
         row[["trunk_lean_mean"]]             <- NA_real_
         row[["trunk_lean_sd"]]               <- NA_real_
         row[["trunk_lean_range"]]            <- NA_real_
+        row[["trunk_lean_sagittal_mean"]]    <- NA_real_
+        row[["trunk_lean_sagittal_sd"]]      <- NA_real_
         row[["trunk_lean_lateral_mean"]]     <- NA_real_
         row[["trunk_lean_lateral_sd"]]       <- NA_real_
         row[["trunk_rotation_mean"]]         <- NA_real_
@@ -948,7 +1076,8 @@ if (dir.exists(path)) {
   files <- list.files(path, pattern = "\\.csv$", full.names = TRUE)
   files <- files[!str_detect(
     basename(files),
-    "(metrics|kp_detail|diag|summary|smooth|feature_rank|clinical[_a-z]*|movement_phases)\\.csv$"
+    paste0("(metrics|kp_detail|diag|summary|smooth|feature_rank|",
+           "clinical[_a-z0-9]*|movement_phases[_a-z0-9]*)\\.csv$")
   )]
   if (length(files) == 0) stop("No landmark CSVs found in ", path)
 } else {
@@ -961,6 +1090,11 @@ for (f in files) {
   cat(strrep("=", 60), "\n")
 
   df <- read_csv(f, show_col_types = FALSE)
+  is_3d <- is_world3d(names(df))
+  if (is_3d) {
+    cat("  3D input (world3d) — gating on fusion diagnostics; units: m, m/s\n")
+    df <- adapt_world3d(df)
+  }
   tracking <- detect_tracking(names(df))
   cat(sprintf("  Tracking mode: %s\n", tracking))
 
@@ -971,12 +1105,14 @@ for (f in files) {
 
   cat(sprintf("  %d rows, %d columns\n", nrow(df), ncol(df)))
 
+  stem <- str_remove(f, "\\.csv$")
+  suffix <- if (is_3d) "_3d" else ""
+
   # Per-frame features.
   cat("  Computing per-frame features...\n")
-  clinical <- compute_frame_features(df, tracking)
+  clinical <- compute_frame_features(df, tracking, is_3d = is_3d)
 
-  stem <- str_remove(f, "\\.csv$")
-  out_frame <- paste0(stem, "_clinical.csv")
+  out_frame <- paste0(stem, "_clinical", suffix, ".csv")
   write_csv(clinical, out_frame)
   cat(sprintf("  Wrote %d rows → %s\n", nrow(clinical), basename(out_frame)))
 
@@ -985,7 +1121,7 @@ for (f in files) {
   windows <- compute_window_features(df, clinical, tracking)
 
   if (nrow(windows) > 0) {
-    out_win <- paste0(stem, "_clinical_windows.csv")
+    out_win <- paste0(stem, "_clinical", suffix, "_windows.csv")
     write_csv(windows, out_win)
     cat(sprintf("  Wrote %d windows → %s\n", nrow(windows), basename(out_win)))
   } else {
@@ -997,7 +1133,7 @@ for (f in files) {
   phases <- segment_movements(df, clinical, tracking)
 
   if (nrow(phases) > 0) {
-    out_phases <- paste0(stem, "_movement_phases.csv")
+    out_phases <- paste0(stem, "_movement_phases", suffix, ".csv")
     write_csv(phases, out_phases)
     cat(sprintf("  Wrote %d phases → %s\n", nrow(phases),
                 basename(out_phases)))

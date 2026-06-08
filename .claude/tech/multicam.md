@@ -19,11 +19,14 @@ output/<session_id>/
 ├── cam1_diag.csv       # per-camera diagnostics
 ├── cam2.csv
 ├── cam3.csv
-├── world3d.csv         # FUTURE (3D-export task): fusion runs in-memory; CSV export pending
-└── world3d_diag.csv    # FUTURE
+└── world3d.csv         # fused 3D output (written when calibration present)
 ```
 
-Per-camera CSV columns are unchanged from the single-source schema (`tech/tracking-modes.md`). Fusion (`fuse_session_outputs`) is wired; the world3d CSV schema is the remaining 3D-export task.
+Per-camera CSV columns are unchanged from the single-source schema (`tech/tracking-modes.md`).
+
+### `world3d.csv` schema
+
+Written by `export.write_world3d_csv` (header from `export.make_world3d_header`). Metadata: `video` (= session_id), `frame_idx` (logical), `timestamp_sec`, `person_idx` (always 0). Per keypoint (names match the 2D schema): `{name}_x_m,_y_m,_z_m` (world metres, 6dp), `{name}_confidence` (4dp), `{name}_reproj_err_px` (3dp), `{name}_n_views` (int), `{name}_cheirality_ok` (0/1). Unfused keypoints → blank coords/reproj. World frame = the `world_frame` camera's OpenCV frame (+x right, +y down, +z away from camera); "up" = −y assumes that camera is level. Diagnostics are embedded per-keypoint (single file; no separate diag CSV) because consumers must gate on them — at exactly `min_views` an outlier view cannot be rejected, so `reproj_err_px`/`cheirality_ok` are the only quality signal.
 
 ## `session.json` manifest (optional)
 
@@ -61,7 +64,7 @@ Software sync only (no hardware genlock assumed). Three layers:
 
 | File | Role |
 |------|------|
-| `src/pose_estimation/multicam.py` | `Session` dataclass, `discover_session`, `iter_synchronized_frames`, `process_session` (callback-based orchestrator + post-hoc fusion hook), `fuse_session_outputs` → `SessionFusion`. |
+| `src/pose_estimation/multicam.py` | `Session` dataclass, `discover_session`, `iter_synchronized_frames`, `process_session` (callback-based orchestrator + post-hoc fusion hook), `fuse_session_outputs` → `SessionFusion` → `world3d.csv`. |
 | `src/pose_estimation/calibration.py` | `CameraCalibration` / `SessionCalibration` IO, validation, charuco solver (stub). See `tech/calibration.md`. |
 | `src/pose_estimation/triangulation.py` | DLT helpers + `fuse_session_frame` policy layer (validity masking, weighted DLT, outlier-view rejection, cheirality flag, `FusionDiagnostics`). |
 | `src/pose_estimation/calibration_cli.py` | `pose-estimation-calibrate` console script. |
@@ -102,17 +105,18 @@ Both `_dispatch_sessions()` functions construct the callback from pre-initialize
 
 When `session.calibration` is present, `process_session()` ends by calling `fuse_session_outputs(session, output_dir)` (non-fatal: failures print a WARNING — the 2D CSVs are already on disk and fusion can be re-run standalone). Data flow:
 
-1. `export.read_csv_keypoints(<cam>.csv)` per camera → `frame_idx → ((N,2) normalised kps, (N,) conf)`; `person_idx == 0` rows only (cross-camera person matching is out of scope); body/arm `_vis` is the confidence, hand keypoints get presence 1.0/0.0.
+1. `export.read_csv_keypoints(<cam>.csv)` per camera → `frame_idx → ((N,2) normalised kps, (N,) conf, timestamp_sec)`; `person_idx == 0` rows only (cross-camera person matching is out of scope); body/arm `_vis` is the confidence, hand keypoints get presence 1.0/0.0.
 2. Normalised → pixels via the camera's **calibrated** `resolution` (normalised coords make CSV resolution-independent).
 3. CSV rows hold *raw* per-camera frame indices → logical index = raw − `sync_offset` (negatives dropped).
 4. Every logical frame observed by ≥ `min_views` (default 2) cameras → `triangulation.fuse_session_frame(per_camera_kps_px, calibration, confidences=...)` → `(N,3)` world metres + `FusionDiagnostics` (n_views, confidence, reprojection_error_px, cheirality_ok).
-5. Result: `SessionFusion(keypoint_names, frames=[(frame_idx, world, diag), ...])` — in-memory only; `world3d.csv` export is the remaining 3D-export task.
+5. Result: `SessionFusion(keypoint_names, frames=[(frame_idx, timestamp_sec, world, diag), ...])` — the exact row layout `export.write_world3d_csv` consumes; `_fuse_and_report` writes `world3d.csv` in the session output dir (same non-fatal try block). Timestamp per logical frame: taken from the `world_frame` camera when finite, else first finite among the others (session order) — per-camera timestamps are raw-index-based, so a non-world-frame fallback can carry a constant offset; downstream uses dt-median, which is shift-invariant.
 
 `fuse_session_frame` policy: a view contributes when coords are finite and conf > `min_confidence` (0.0); greedy outlier rejection re-triangulates while any view reprojects worse than `max_view_reproj_px` (20.0) and > `min_views` views remain; cheirality violations are flagged, not dropped; at exactly `min_views` a residual outlier stays visible via the reprojection diagnostic.
 
 ## Cross-references
 
 - Calibration file schema + workflow: `tech/calibration.md`
+- R consumption of `world3d.csv` (gating, 3D features): `tech/analysis.md`
 - Per-camera tracking modes: `tech/tracking-modes.md`
 - CLI surface: `tech/entrypoints.md`
 - Tests: `tech/tests.md` (`test_multicam.py`, `test_calibration.py`)

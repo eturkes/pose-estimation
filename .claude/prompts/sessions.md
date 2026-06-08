@@ -32,7 +32,7 @@ Four phases. Phases 1-2 are the immediate priority (jitter fixes + clinical metr
 ### Phase 3: 3D pipeline implementation
 - 3A: ✓ fuse_session_frame() with synthetic tests
 - 3B: solve_charuco() + calibration CLI (independent)
-- 3C: 3D CSV export + R analysis (blocked by 3A)
+- 3C: ✓ 3D CSV export + R analysis
 
 ### Phase 4: Maintenance (periodic, interleave freely)
 - Dependency update + security audit + tech notes
@@ -225,7 +225,7 @@ Context: calibration.py has IO + validation working. solve_charuco() and calibra
 
 ---
 
-## Session 3C: 3D CSV export schema + R analysis extension
+## Session 3C: 3D CSV export schema + R analysis extension ✓
 
 ```
 Execute: Design 3D output format and extend R analysis for 3D keypoints.
