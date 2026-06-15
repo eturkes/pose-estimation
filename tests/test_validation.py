@@ -16,6 +16,7 @@ reuse existing CSVs (CLI path), and the no-calibration error.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import pathlib
 import shutil
@@ -32,7 +33,22 @@ from pose_estimation.charuco import make_charuco_board, render_charuco_board, so
 from pose_estimation.export import frame_to_rows, open_csv_writer
 from pose_estimation.processing import TRACKING_HANDS_ARMS
 from pose_estimation.triangulation import project_points
-from pose_estimation.validation import ValidationError, main, run_validation
+from pose_estimation.validation import (
+    THRESHOLDS,
+    AgreementSection,
+    Band,
+    CalibrationSection,
+    CameraIntrinsics,
+    CameraTracking,
+    Fusion3DSection,
+    Thresholds,
+    TimingSection,
+    Tracking2DSection,
+    ValidationError,
+    ValidationReport,
+    main,
+    run_validation,
+)
 
 # ---------------------------------------------------------------------------
 # ChArUco calibration-session render (mirrors test_charuco)
@@ -467,3 +483,277 @@ def test_cli_missing_calibration_exit_code(tmp_path: pathlib.Path):
 
     rc = main(["--session-dir", str(session_dir), "--output-dir", str(tmp_path / "out")])
     assert rc == 2
+
+
+# ---------------------------------------------------------------------------
+# Verdict grading (Session 1B) — constructed reports, no harness run
+# ---------------------------------------------------------------------------
+
+
+def _good_report() -> ValidationReport:
+    """A minimal all-PASS report; tests mutate single fields to grade them.
+
+    Only the graded fields matter, so a single camera entry stands in for
+    the rig (``n_views_median`` carries the cross-camera redundancy that
+    the verdict actually grades).
+    """
+    return ValidationReport(
+        session_id="synthetic",
+        schema_version=2,
+        calibration=CalibrationSection(
+            n_cameras=3,
+            world_frame="cam1",
+            reprojection_error_px=0.4,
+            solved=True,
+            cameras=[
+                CameraIntrinsics(
+                    name="cam1",
+                    resolution=(1280, 720),
+                    fx=900.0,
+                    fy=900.0,
+                    cx=640.0,
+                    cy=360.0,
+                    distortion_l2=0.01,
+                )
+            ],
+        ),
+        tracking_2d=Tracking2DSection(
+            confidence_floor=THRESHOLDS.confidence_floor,
+            reused_existing_csvs=False,
+            total_frames=24,
+            mean_detection_rate=1.0,
+            cameras=[
+                CameraTracking(
+                    name="cam1",
+                    n_frames=8,
+                    detection_rate=1.0,
+                    low_confidence_fraction=0.0,
+                    dropped_frames=0,
+                )
+            ],
+        ),
+        fusion_3d=Fusion3DSection(
+            n_frames_fused=8,
+            n_active_keypoints=12,
+            reproj_err_px_median=3.0,
+            reproj_err_px_p95=10.0,
+            reproj_err_px_max=12.0,
+            n_views_median=3.0,
+            n_views_min=3,
+            cheirality_violation_rate=0.0,
+            unfused_keypoint_fraction=0.0,
+        ),
+        timing=TimingSection(
+            device="NPU",
+            backend="onnxruntime",
+            solve_sec=1.0,
+            tracking_2d_sec=1.0,
+            fusion_sec=0.1,
+            clinical_sec=0.0,
+            total_sec=2.1,
+            throughput_fps=60.0,
+            tracking_2d_per_camera={"cam1": 1.0},
+        ),
+        agreement=AgreementSection(
+            has_baseline=False,
+            clinical_csv_produced=False,
+            clinical_outputs=[],
+            mean_bone_length_cv=0.01,
+            bone_length_cv={"left_forearm": 0.01},
+            mean_symmetry_rel_diff=0.01,
+            symmetry_rel_diff={"forearm": 0.01},
+            temporal_jitter_mm=1.0,
+            per_metric_error=None,
+        ),
+        notes=[],
+    )
+
+
+def test_verdict_good_report_passes():
+    v = _good_report().verdict()
+    assert v.grade == "PASS"
+    assert v.passed is True
+    assert v.thresholds_version == THRESHOLDS.version
+    assert all(c.grade == "PASS" for c in v.checks if not c.informational)
+    info = {c.name for c in v.checks if c.informational}
+    assert info == {"timing.throughput_fps", "agreement.mean_symmetry_rel_diff"}
+
+
+@pytest.mark.parametrize(
+    ("mutate", "check_name"),
+    [
+        (
+            lambda r: setattr(r.calibration, "reprojection_error_px", 5.0),
+            "calibration.reprojection_error_px",
+        ),
+        (
+            lambda r: setattr(r.fusion_3d, "reproj_err_px_median", 20.0),
+            "fusion.reproj_err_px_median",
+        ),
+        (lambda r: setattr(r.fusion_3d, "reproj_err_px_p95", 30.0), "fusion.reproj_err_px_p95"),
+        (
+            lambda r: setattr(r.fusion_3d, "unfused_keypoint_fraction", 0.5),
+            "fusion.unfused_keypoint_fraction",
+        ),
+        (
+            lambda r: setattr(r.fusion_3d, "cheirality_violation_rate", 0.5),
+            "fusion.cheirality_violation_rate",
+        ),
+        (lambda r: setattr(r.fusion_3d, "n_views_min", 1), "fusion.n_views_min"),
+        (
+            lambda r: setattr(r.agreement, "mean_bone_length_cv", 0.5),
+            "agreement.mean_bone_length_cv",
+        ),
+        (
+            lambda r: setattr(r.agreement, "temporal_jitter_mm", 50.0),
+            "agreement.temporal_jitter_mm",
+        ),
+        (
+            lambda r: setattr(r.tracking_2d.cameras[0], "low_confidence_fraction", 0.9),
+            "tracking.worst_low_confidence_fraction",
+        ),
+    ],
+)
+def test_verdict_fail_bands(mutate, check_name):
+    r = _good_report()
+    mutate(r)
+    v = r.verdict()
+    assert v.grade == "FAIL"
+    assert v.passed is False
+    assert check_name in {c.name for c in v.checks if c.grade == "FAIL"}
+
+
+@pytest.mark.parametrize(
+    ("mutate", "check_name"),
+    [
+        (
+            lambda r: setattr(r.calibration, "reprojection_error_px", 1.5),
+            "calibration.reprojection_error_px",
+        ),
+        (
+            lambda r: setattr(r.fusion_3d, "reproj_err_px_median", 10.0),
+            "fusion.reproj_err_px_median",
+        ),
+        (lambda r: setattr(r.fusion_3d, "n_views_median", 2.5), "fusion.n_views_median"),
+        (
+            lambda r: setattr(r.agreement, "mean_bone_length_cv", 0.07),
+            "agreement.mean_bone_length_cv",
+        ),
+    ],
+)
+def test_verdict_warn_bands(mutate, check_name):
+    r = _good_report()
+    mutate(r)
+    v = r.verdict()
+    assert v.grade == "WARN"
+    assert v.passed is True  # WARN is not a hard failure
+    assert check_name in {c.name for c in v.checks if c.grade == "WARN"}
+
+
+def test_informational_checks_never_escalate_overall():
+    r = _good_report()
+    r.timing.throughput_fps = 0.1  # well below the fail band
+    r.agreement.mean_symmetry_rel_diff = 0.9  # well below the fail band
+    v = r.verdict()
+    assert v.grade == "PASS"  # informational checks do not raise the overall
+    failing_info = {c.name for c in v.checks if c.informational and c.grade == "FAIL"}
+    assert failing_info == {"timing.throughput_fps", "agreement.mean_symmetry_rel_diff"}
+
+
+def test_non_finite_metric_grades_warn():
+    r = _good_report()
+    r.fusion_3d.reproj_err_px_median = float("nan")
+    v = r.verdict()
+    assert v.grade == "WARN"
+    check = next(c for c in v.checks if c.name == "fusion.reproj_err_px_median")
+    assert check.grade == "WARN"
+
+
+def test_verdict_no_baseline_notes_unvalidated():
+    v = _good_report().verdict()
+    assert any("UNVALIDATED" in note for note in v.notes)
+
+
+def test_verdict_baseline_angle_agreement_grades_and_notes():
+    r = _good_report()
+    r.agreement.has_baseline = True
+    r.agreement.per_metric_error = {"elbow_angle_deg": 12.0, "reach_raw": 0.05}
+    v = r.verdict()
+    names = {c.name for c in v.checks}
+    assert v.grade == "FAIL"  # 12 deg exceeds the 10 deg fail tolerance
+    assert "agreement.elbow_angle_deg" in names
+    assert "agreement.reach_raw" not in names  # non-angle metric is not graded
+    assert any("reach_raw" in note for note in v.notes)
+
+
+def test_verdict_baseline_angle_within_tolerance_passes():
+    r = _good_report()
+    r.agreement.has_baseline = True
+    r.agreement.per_metric_error = {"elbow_angle_deg": 3.0}
+    v = r.verdict()
+    assert v.grade == "PASS"
+    angle = next(c for c in v.checks if c.name == "agreement.elbow_angle_deg")
+    assert angle.grade == "PASS"
+
+
+def test_verdict_accepts_custom_thresholds():
+    strict = dataclasses.replace(
+        THRESHOLDS, version=99, calib_reproj_rms_px=Band(warn=0.1, fail=0.2)
+    )
+    assert isinstance(strict, Thresholds)
+    v = _good_report().verdict(strict)  # 0.4 px now exceeds the 0.2 fail band
+    assert v.thresholds_version == 99
+    assert v.grade == "FAIL"
+
+
+def test_verdict_surfaced_in_json_and_markdown():
+    r = _good_report()
+    payload = r.to_json()
+    assert payload["verdict"]["grade"] == "PASS"
+    assert payload["verdict"]["thresholds_version"] == THRESHOLDS.version
+    assert isinstance(payload["verdict"]["checks"], list)
+    md = r.to_markdown()
+    assert "## Verdict:" in md
+    assert "PASS" in md
+    assert f"thresholds v{THRESHOLDS.version}" in md
+
+
+def test_verdict_json_is_nan_free():
+    r = _good_report()
+    r.fusion_3d.reproj_err_px_median = float("nan")
+    text = json.dumps(r.to_json())
+    assert "NaN" not in text
+    payload = json.loads(text)
+    check = next(
+        c for c in payload["verdict"]["checks"] if c["name"] == "fusion.reproj_err_px_median"
+    )
+    assert check["value"] is None  # non-finite serialised to null
+    assert check["grade"] == "WARN"
+
+
+@pytest.mark.parametrize(
+    ("grade", "strict", "expected_rc"),
+    [
+        ("PASS", False, 0),
+        ("WARN", False, 0),
+        ("FAIL", False, 1),
+        ("PASS", True, 0),
+        ("WARN", True, 1),  # --strict promotes WARN to a failure
+        ("FAIL", True, 1),
+    ],
+)
+def test_cli_exit_code_matches_verdict(
+    monkeypatch, tmp_path: pathlib.Path, grade, strict, expected_rc
+):
+    report = _good_report()
+    if grade == "WARN":
+        report.calibration.reprojection_error_px = 1.5
+    elif grade == "FAIL":
+        report.calibration.reprojection_error_px = 5.0
+
+    monkeypatch.setattr("pose_estimation.validation.run_validation", lambda *a, **k: report)
+
+    argv = ["--session-dir", str(tmp_path), "--out", str(tmp_path / "report.json")]
+    if strict:
+        argv.append("--strict")
+    assert main(argv) == expected_rc

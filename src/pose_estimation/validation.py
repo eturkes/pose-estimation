@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import csv
 import dataclasses
+import enum
 import json
 import math
 import pathlib
@@ -58,21 +59,20 @@ from .multicam import (
     fuse_session_outputs,
 )
 
-REPORT_SCHEMA_VERSION = 1
-"""Bumped when the :class:`ValidationReport` JSON layout changes."""
+REPORT_SCHEMA_VERSION = 2
+"""Bumped when the :class:`ValidationReport` JSON layout changes.
 
-DEFAULT_CONFIDENCE_FLOOR = 0.3
-"""2D keypoints below this confidence count as low-confidence.
-
-A provisional default; the versioned acceptance thresholds (including
-this floor) are centralised in roadmap Session 1B.
+v2 adds the ``verdict`` block (Session 1B).  Threshold *value* changes
+do **not** bump this — they bump :data:`THRESHOLDS_VERSION` instead.
 """
 
 REPROJ_GATE_PX = 20.0
 """Per-keypoint reprojection gate (px), mirrors the fusion-side
 ``triangulation.max_view_reproj_px`` and the R ``REPROJ_GATE_PX``.  At
 exactly ``min_views`` an outlier view cannot be dropped, so a keypoint
-above this gate is treated as untrustworthy by self-consistency.
+above this gate is treated as untrustworthy by self-consistency.  The
+fusion-reproj p95 FAIL band (:data:`THRESHOLDS`) is anchored to it: a
+p95 at the gate means most keypoints sit at the edge of trust.
 """
 
 _PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -112,6 +112,166 @@ _SYMMETRIC_BONES: list[tuple[str, str]] = [
     ("body_left_thigh", "body_right_thigh"),
     ("body_left_shank", "body_right_shank"),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Acceptance thresholds + PASS/WARN/FAIL grading (Session 1B)
+# ---------------------------------------------------------------------------
+
+
+class Grade(enum.IntEnum):
+    """Ordered severity; the overall verdict is the worst (max) check."""
+
+    PASS = 0
+    WARN = 1
+    FAIL = 2
+
+
+@dataclasses.dataclass(frozen=True)
+class Band:
+    """A WARN/FAIL boundary pair with a comparison direction.
+
+    ``direction="max"`` — lower is better (errors, fractions): a value
+    ``<= warn`` PASSes, ``<= fail`` WARNs, else FAILs.
+    ``direction="min"`` — higher is better (fps, view count): a value
+    ``>= warn`` PASSes, ``>= fail`` WARNs, else FAILs.
+
+    A non-finite value grades WARN: a metric the harness could not
+    measure is surfaced for human review, never silently passed.
+    """
+
+    warn: float
+    fail: float
+    direction: str = "max"
+
+    def grade(self, value: float | None) -> Grade:
+        if value is None or not math.isfinite(value):
+            return Grade.WARN
+        if self.direction == "max":
+            if value <= self.warn:
+                return Grade.PASS
+            return Grade.WARN if value <= self.fail else Grade.FAIL
+        if value >= self.warn:
+            return Grade.PASS
+        return Grade.WARN if value >= self.fail else Grade.FAIL
+
+    def describe(self, value: float | None) -> str:
+        op = "<=" if self.direction == "max" else ">="
+        return f"{_fmt(value)} (warn {op}{_fmt(self.warn)}, fail {op}{_fmt(self.fail)})"
+
+
+@dataclasses.dataclass(frozen=True)
+class Thresholds:
+    """Versioned, single-source-of-truth acceptance bands.
+
+    Rationale + citations live in ``.claude/tech/validation.md`` and
+    inline at :data:`THRESHOLDS`.  Bump :data:`THRESHOLDS_VERSION` on any
+    value change; the report's ``schema_version`` tracks JSON *layout*.
+    """
+
+    version: int
+    confidence_floor: float
+    calib_reproj_rms_px: Band
+    fusion_reproj_median_px: Band
+    fusion_reproj_p95_px: Band
+    n_views_floor: int
+    n_views_median: Band
+    max_low_confidence_fraction: Band
+    max_unfused_fraction: Band
+    max_cheirality_rate: Band
+    min_throughput_fps: Band
+    max_bone_length_cv: Band
+    max_temporal_jitter_mm: Band
+    max_symmetry_rel_diff: Band
+    agreement_tolerance_deg: Band
+
+
+THRESHOLDS_VERSION = 1
+"""Bumped on any change to a :data:`THRESHOLDS` value.  Session 2A
+re-calibrates these against the first real capture."""
+
+THRESHOLDS = Thresholds(
+    version=THRESHOLDS_VERSION,
+    # 2D keypoints below this confidence are "low-confidence".  Provisional
+    # rtmlib/RTMPose floor; re-tuned against real footage in Session 2A.
+    confidence_floor=0.3,
+    # Calibration reprojection RMS.  Photogrammetry/markerless standard:
+    # < 1 px is the gold standard, ~2 px (~1 cm) still yields usable
+    # kinematics downstream (Pose2Sim robustness, Pagnon et al. 2021).
+    calib_reproj_rms_px=Band(warn=1.0, fail=2.0),
+    # Per-keypoint fusion reprojection.  Pose2Sim triangulation cutoff
+    # ~10 px; Anipose < 12 px in > 75 % of frames (Karashchuk et al. 2021).
+    fusion_reproj_median_px=Band(warn=8.0, fail=12.0),
+    # p95 anchored to the fusion gate: Anipose treats > 20 px as missing
+    # (== REPROJ_GATE_PX); < 18 px in > 90 % of frames.
+    fusion_reproj_p95_px=Band(warn=15.0, fail=REPROJ_GATE_PX),
+    # DLT triangulation needs >= 2 views; below it is malformed fusion.
+    n_views_floor=2,
+    # Redundancy: with the 3-camera deployment a median < 3 means the
+    # typical keypoint has no spare view to reject an outlier (multicam.md).
+    n_views_median=Band(warn=3.0, fail=2.0, direction="min"),
+    # Provisional engineering defaults (Session 2A calibrates on real data):
+    max_low_confidence_fraction=Band(warn=0.2, fail=0.4),
+    max_unfused_fraction=Band(warn=0.1, fail=0.25),
+    # Cheirality (point in front of camera) should essentially never fail.
+    max_cheirality_rate=Band(warn=0.01, fail=0.05),
+    # Whole-pipeline fused fps incl. one-time solve/R — a coarse perf
+    # regression signal, graded but informational (Session 2B sets the
+    # real per-device budget).
+    min_throughput_fps=Band(warn=15.0, fail=5.0, direction="min"),
+    # Self-consistency surrogates (no baseline exists — decision 2026-06-15).
+    # Rigid-bone length CoV: ~1 cm markerless keypoint noise on a ~0.25 m
+    # forearm ~= 4-5 % (dual-camera OA RMSD ~11 mm, Ann. Biomed. Eng. 2025).
+    max_bone_length_cv=Band(warn=0.05, fail=0.10),
+    # Static-pose temporal noise via 2nd-difference magnitude (mm).
+    max_temporal_jitter_mm=Band(warn=5.0, fail=15.0),
+    # L/R symmetry is valid ONLY for symmetric-by-construction input;
+    # graded informational (real anatomical asymmetry would confound it).
+    max_symmetry_rel_diff=Band(warn=0.05, fail=0.10),
+    # Joint-angle agreement vs a baseline: ~5 deg clinical precision
+    # threshold; OpenCap ~6 deg flagged borderline (OpenCap validation 2024).
+    # Used only when a baseline is supplied (none yet — UNVALIDATED).
+    agreement_tolerance_deg=Band(warn=5.0, fail=10.0),
+)
+"""Current acceptance thresholds.  See ``tech/validation.md`` for the full
+rationale table and the clinical-validity gap register."""
+
+
+DEFAULT_CONFIDENCE_FLOOR = THRESHOLDS.confidence_floor
+"""2D keypoints below this confidence count as low-confidence.  Sourced
+from :data:`THRESHOLDS` so the floor has a single definition."""
+
+
+@dataclasses.dataclass
+class Check:
+    """One graded metric within a :class:`Verdict`."""
+
+    name: str
+    value: float | None
+    grade: str  # Grade.name: PASS / WARN / FAIL
+    detail: str
+    informational: bool = False  # surfaced but excluded from the overall grade
+
+
+@dataclasses.dataclass
+class Verdict:
+    """Overall PASS/WARN/FAIL grade of a report against :class:`Thresholds`.
+
+    ``grade`` is the worst *non-informational* check.  Informational
+    checks (timing throughput, L/R symmetry) are reported but never
+    escalate the overall grade — performance is not clinical validity,
+    and symmetry is valid only on symmetric-by-construction input.
+    """
+
+    grade: str
+    thresholds_version: int
+    checks: list[Check]
+    notes: list[str]
+
+    @property
+    def passed(self) -> bool:
+        """True when the overall grade is not FAIL (the CI gate)."""
+        return self.grade != Grade.FAIL.name
 
 
 class ValidationError(RuntimeError):
@@ -232,8 +392,14 @@ class ValidationReport:
     agreement: AgreementSection
     notes: list[str]
 
+    def verdict(self, thresholds: Thresholds = THRESHOLDS) -> Verdict:
+        """Grade this report's metrics against *thresholds* → PASS/WARN/FAIL."""
+        return _grade_report(self, thresholds)
+
     def to_json(self) -> dict[str, Any]:
-        return _native(dataclasses.asdict(self))
+        payload = _native(dataclasses.asdict(self))
+        payload["verdict"] = _native(dataclasses.asdict(self.verdict()))
+        return payload
 
     def to_markdown(self) -> str:
         return _render_markdown(self)
@@ -837,6 +1003,135 @@ def _aggregate_clinical(session_out: pathlib.Path, clinical_outputs: list[str]) 
 
 
 # ---------------------------------------------------------------------------
+# Grading — report → PASS/WARN/FAIL verdict
+# ---------------------------------------------------------------------------
+
+
+def _grade_report(report: ValidationReport, thresholds: Thresholds) -> Verdict:
+    """Grade every report metric against *thresholds*; worst wins.
+
+    Timing throughput and L/R symmetry are graded but flagged
+    ``informational`` — they are surfaced yet excluded from the overall
+    grade (performance is not clinical validity; symmetry is valid only
+    on symmetric-by-construction input).  The clinical-metric *agreement*
+    leg contributes only when a baseline supplies angle (``_deg``)
+    metrics — none exists yet (UNVALIDATED; see the gap register).
+    """
+    cal = report.calibration
+    fus = report.fusion_3d
+    trk = report.tracking_2d
+    tim = report.timing
+    agr = report.agreement
+    checks: list[Check] = []
+    notes: list[str] = []
+
+    def _check(name: str, value: float | None, band: Band, *, info: bool = False) -> None:
+        checks.append(
+            Check(
+                name=name,
+                value=value,
+                grade=band.grade(value).name,
+                detail=band.describe(value),
+                informational=info,
+            )
+        )
+
+    _check(
+        "calibration.reprojection_error_px",
+        cal.reprojection_error_px,
+        thresholds.calib_reproj_rms_px,
+    )
+    _check(
+        "fusion.reproj_err_px_median", fus.reproj_err_px_median, thresholds.fusion_reproj_median_px
+    )
+    _check("fusion.reproj_err_px_p95", fus.reproj_err_px_p95, thresholds.fusion_reproj_p95_px)
+    _check("fusion.n_views_median", fus.n_views_median, thresholds.n_views_median)
+
+    # Hard floor: a fused keypoint below min views means malformed /
+    # degenerate fusion (DLT needs >= 2).  A discrete guard, not a Band.
+    floor_ok = fus.n_views_min >= thresholds.n_views_floor
+    checks.append(
+        Check(
+            name="fusion.n_views_min",
+            value=fus.n_views_min,
+            grade=(Grade.PASS if floor_ok else Grade.FAIL).name,
+            detail=f"min {fus.n_views_min} (floor >= {thresholds.n_views_floor})",
+        )
+    )
+
+    worst_low_conf = max(
+        (
+            c.low_confidence_fraction
+            for c in trk.cameras
+            if math.isfinite(c.low_confidence_fraction)
+        ),
+        default=float("nan"),
+    )
+    _check(
+        "tracking.worst_low_confidence_fraction",
+        worst_low_conf,
+        thresholds.max_low_confidence_fraction,
+    )
+    _check(
+        "fusion.unfused_keypoint_fraction",
+        fus.unfused_keypoint_fraction,
+        thresholds.max_unfused_fraction,
+    )
+    _check(
+        "fusion.cheirality_violation_rate",
+        fus.cheirality_violation_rate,
+        thresholds.max_cheirality_rate,
+    )
+
+    # Self-consistency surrogates valid on ANY input (rigid bones, smooth
+    # motion) — the substantive clinical evidence absent a baseline.
+    _check("agreement.mean_bone_length_cv", agr.mean_bone_length_cv, thresholds.max_bone_length_cv)
+    _check(
+        "agreement.temporal_jitter_mm", agr.temporal_jitter_mm, thresholds.max_temporal_jitter_mm
+    )
+
+    # Informational: surfaced, never escalates the overall grade.
+    _check("timing.throughput_fps", tim.throughput_fps, thresholds.min_throughput_fps, info=True)
+    _check(
+        "agreement.mean_symmetry_rel_diff",
+        agr.mean_symmetry_rel_diff,
+        thresholds.max_symmetry_rel_diff,
+        info=True,
+    )
+
+    # Baseline agreement: angle metrics only.  Unit-aware grading +
+    # Bland-Altman/ICC arrive in Session 2C once a real baseline exists.
+    if agr.per_metric_error:
+        graded = 0
+        for metric, err in sorted(agr.per_metric_error.items()):
+            if metric.endswith("_deg"):
+                _check(f"agreement.{metric}", err, thresholds.agreement_tolerance_deg)
+                graded += 1
+            else:
+                notes.append(
+                    f"baseline metric {metric!r} ungraded (no unit-aware tolerance yet — Session 2C)"
+                )
+        if not graded:
+            notes.append("baseline supplied but no angle (_deg) metric to grade")
+    elif agr.has_baseline:
+        notes.append("baseline supplied but produced no per-metric error (see report notes)")
+    else:
+        notes.append(
+            "no baseline: clinical-metric agreement UNVALIDATED — verdict rests on "
+            "self-consistency surrogates + reprojection (see gap register)"
+        )
+
+    notes.append("timing throughput + L/R symmetry are informational (excluded from the grade)")
+    overall = max((Grade[c.grade] for c in checks if not c.informational), default=Grade.PASS)
+    return Verdict(
+        grade=overall.name,
+        thresholds_version=thresholds.version,
+        checks=checks,
+        notes=notes,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Serialisation
 # ---------------------------------------------------------------------------
 
@@ -866,8 +1161,11 @@ def _native(obj: Any) -> Any:
     return obj
 
 
-def _fmt(value: float, ndigits: int = 3) -> str:
+def _fmt(value: float | None, ndigits: int = 3) -> str:
     return "n/a" if value is None or not math.isfinite(value) else f"{value:.{ndigits}f}"
+
+
+_GRADE_MARK = {"PASS": "[PASS]", "WARN": "[WARN]", "FAIL": "[FAIL]"}
 
 
 def _render_markdown(report: ValidationReport) -> str:
@@ -876,10 +1174,25 @@ def _render_markdown(report: ValidationReport) -> str:
     fus = report.fusion_3d
     tim = report.timing
     agr = report.agreement
+    v = report.verdict()
     lines = [
         f"# Validation report — `{report.session_id}`",
         "",
-        f"_schema v{report.schema_version}; raw metrics only (verdict: Session 1B)._",
+        f"_report schema v{report.schema_version} · thresholds v{v.thresholds_version}._",
+        "",
+        f"## Verdict: {_GRADE_MARK.get(v.grade, v.grade)} **{v.grade}**",
+        "",
+        "| check | value | grade |",
+        "|-------|-------|-------|",
+    ]
+    lines += [
+        f"| {c.name}{' _(info)_' if c.informational else ''} | {c.detail} | "
+        f"{_GRADE_MARK.get(c.grade, c.grade)} |"
+        for c in v.checks
+    ]
+    if v.notes:
+        lines += ["", *[f"> {n}" for n in v.notes]]
+    lines += [
         "",
         "## Calibration",
         f"- cameras: **{cal.n_cameras}**, world frame: `{cal.world_frame}`",
@@ -976,6 +1289,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--no-clinical", action="store_true", help="skip the R clinical-metrics stage"
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="treat a WARN verdict as a failure too (exit nonzero on WARN or FAIL)",
+    )
     return parser.parse_args(argv)
 
 
@@ -1009,7 +1327,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print()
         print(markdown)
-    return 0
+
+    v = report.verdict()
+    print(f"Verdict: {v.grade} (thresholds v{v.thresholds_version})")
+    failed = v.grade == Grade.FAIL.name or (args.strict and v.grade == Grade.WARN.name)
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

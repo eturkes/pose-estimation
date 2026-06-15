@@ -36,6 +36,23 @@ python -m pose_estimation.benchmark --source v.mp4 --config sweep_default.yaml
 | `rest_speed` | Speed threshold (px/frame) below which keypoints are "at rest" (default 2.0). |
 | `fast_speed` | Speed threshold (px/frame) above which normal min_cutoff applies (default 10.0). |
 
+### Tunables ↔ validation thresholds
+
+These sweep parameters move the exact quantities the validation harness grades
+against `THRESHOLDS` (`tech/validation.md`). Tune here, then confirm the verdict
+does not regress — and conversely, when a `pose-estimation-validate` check WARNs/
+FAILs, the linked tunable is the first dial to turn:
+
+| Tunable(s) | Validation check it moves |
+|------------|---------------------------|
+| `body_min_cutoff` / `body_beta` / `*_rest_cutoff` (smoothing) | `agreement.temporal_jitter_mm` |
+| `bone_tolerance` / `bone_ema_alpha` / `bone_distal_weight` | `agreement.mean_bone_length_cv` |
+| `det_score_thresh` / `confidence_gamma` (vs `confidence_floor`) | `tracking.worst_low_confidence_fraction` |
+| `outlier_cap` / `carry_grace` / `det_carry_frames` | `fusion.unfused_keypoint_fraction`, dropped frames |
+
+Calibration RMS and fusion reprojection bands are upstream of these sweeps (fixed
+by the calibration solve + camera geometry, not pipeline params).
+
 ### Sweep configs
 
 - `sweep_default.yaml` — full grid across 8 params. Run 1–2 at a time to keep combos tractable.
