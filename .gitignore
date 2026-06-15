@@ -35,6 +35,15 @@ videos
 output
 benchmark_output
 
+# Camera calibration (patient-adjacent: identifying lab/rig geometry — never commit)
+calibration/
+calibration.json
+
+# Secrets / credentials (safety net)
+.env
+.env.*
+*.env
+
 # OS
 .DS_Store
 Thumbs.db
@@ -42,8 +51,8 @@ Thumbs.db
 # Posit
 .positai/
 
-# Debug logs
-debug.log
+# Logs (may capture session/patient paths)
+*.log
 
 # MediaPipe downloaded models
 mediapipe/
