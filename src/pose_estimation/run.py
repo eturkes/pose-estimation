@@ -177,7 +177,7 @@ def parse_args():
     p.add_argument(
         "--batch-dir",
         default=None,
-        help="Process all video files in a directory (overrides --source, implies --headless)",
+        help="Process all video files in a directory (overrides --source)",
     )
     p.add_argument(
         "--session-dir",
