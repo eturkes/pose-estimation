@@ -49,7 +49,12 @@ from .calibration import (
     load_calibration,
     save_calibration,
 )
-from .charuco import solve_charuco
+from .charuco import (
+    MIN_INTRINSIC_FRAMES,
+    detect_charuco_corners,
+    make_charuco_board,
+    solve_charuco,
+)
 from .export import WORLD3D_FILENAME, read_csv_keypoints, write_world3d_csv
 from .multicam import (
     Session,
@@ -58,6 +63,7 @@ from .multicam import (
     discover_session,
     fuse_session_outputs,
 )
+from .video_io import frame_count
 
 REPORT_SCHEMA_VERSION = 2
 """Bumped when the :class:`ValidationReport` JSON layout changes.
@@ -240,6 +246,66 @@ rationale table and the clinical-validity gap register."""
 DEFAULT_CONFIDENCE_FLOOR = THRESHOLDS.confidence_floor
 """2D keypoints below this confidence count as low-confidence.  Sourced
 from :data:`THRESHOLDS` so the floor has a single definition."""
+
+
+COVERAGE_GRID = (8, 6)
+"""(cols, rows) image grid for the ChArUco board-coverage QA metric: the
+fraction of these cells the pooled board corners touch measures how much
+of a camera's field of view the calibration sweep visited.  A board
+confined to the centre lights up few cells (weak oblique-camera
+intrinsics, per the 2026-06-08 capture-accuracy lesson)."""
+
+
+@dataclasses.dataclass(frozen=True)
+class QAThresholds:
+    """Versioned acceptance bands for the pre-flight capture QA gate.
+
+    Distinct from :data:`THRESHOLDS`, which grades the *output* report:
+    these grade a *raw capture* before its clinical metrics are trusted.
+    Shared physical quantities (calibration RMS, the confidence floor) are
+    read from :data:`THRESHOLDS` so they keep one definition; only
+    capture-specific bands live here.  Bump :data:`QA_THRESHOLDS_VERSION`
+    on any value change.
+    """
+
+    version: int
+    min_charuco_frames: int
+    min_charuco_detection_rate: Band
+    min_board_coverage: Band
+    max_frame_count_disparity: Band
+    min_subject_detection_rate: Band
+
+
+QA_THRESHOLDS_VERSION = 1
+"""Bumped on any change to a :data:`QA_THRESHOLDS` value.  Session 2A
+re-calibrates these provisional bands against the first real capture."""
+
+QA_THRESHOLDS = QAThresholds(
+    version=QA_THRESHOLDS_VERSION,
+    # Hard floor: the solver needs >= MIN_INTRINSIC_FRAMES usable board
+    # views per camera for intrinsics (and >= MIN_SHARED_FRAMES shared with
+    # the world camera); below this the solve cannot even run.
+    min_charuco_frames=MIN_INTRINSIC_FRAMES,
+    # Board-detection rate is capture-style dependent (a fast, varied sweep
+    # detects in fewer frames yet constrains geometry better than a slow
+    # static one), so these bands are lenient — the absolute frame floor
+    # above is the real sufficiency gate.  Provisional (Session 2A).
+    min_charuco_detection_rate=Band(warn=0.30, fail=0.10, direction="min"),
+    # Fraction of the COVERAGE_GRID cells the board swept.  A full-volume
+    # translation+tilt sweep lights up most cells; a centre-bound board
+    # weakly constrains oblique-camera intrinsics and couples fx error into
+    # stereo translation (lessons 2026-06-08).  Provisional.
+    min_board_coverage=Band(warn=0.60, fail=0.35, direction="min"),
+    # Raw per-camera frame-count parity as a software-sync desync proxy.
+    # Declared sync_offsets trim pre-roll, so a few frames of disparity is
+    # normal; a large mismatch signals a dropped/desynced recording.
+    max_frame_count_disparity=Band(warn=0.05, fail=0.20),
+    # The subject should be tracked in most frames of a usable clip.
+    # Provisional engineering default (Session 2A calibrates on real data).
+    min_subject_detection_rate=Band(warn=0.80, fail=0.50, direction="min"),
+)
+"""Current capture-QA thresholds.  See ``tech/validation.md`` for the
+rationale table; graded by :func:`qa_check` → :func:`_grade_qa`."""
 
 
 @dataclasses.dataclass
@@ -1132,6 +1198,417 @@ def _grade_report(report: ValidationReport, thresholds: Thresholds) -> Verdict:
 
 
 # ---------------------------------------------------------------------------
+# Pre-flight capture QA gate (Session 1C)
+# ---------------------------------------------------------------------------
+
+QA_REPORT_SCHEMA_VERSION = 1
+"""Bumped when the :class:`QAReport` JSON layout changes."""
+
+
+@dataclasses.dataclass
+class CharucoCameraQA:
+    """Per-camera ChArUco calibration-capture quality."""
+
+    name: str
+    n_frames: int  # total frames after the camera's sync_offset
+    n_detected: int  # frames carrying a usable board detection
+    detection_rate: float
+    coverage: float  # fraction of COVERAGE_GRID cells the board swept
+
+
+@dataclasses.dataclass
+class CalibrationQA:
+    """Calibration-capture quality: board sweep + solve RMS."""
+
+    assessed: bool  # raw ChArUco session videos were available for coverage
+    reprojection_error_px: float
+    solved: bool  # RMS from a solve this run (vs a loaded calibration.json)
+    cameras: list[CharucoCameraQA]
+
+
+@dataclasses.dataclass
+class ParityQA:
+    """Frame-count parity across the subject cameras (desync proxy)."""
+
+    frame_counts: dict[str, int]
+    disparity: float  # (max - min) / max; 0.0 == perfect parity
+
+
+@dataclasses.dataclass
+class SubjectQA:
+    """Subject-clip 2D tracking quality."""
+
+    assessed: bool
+    tracking: Tracking2DSection | None
+    worst_detection_rate: float
+    worst_low_confidence_fraction: float
+
+
+@dataclasses.dataclass
+class QAReport:
+    """Pre-flight QA grade of a raw capture (roadmap Session 1C).
+
+    Graded by :func:`qa_check` *before* clinical metrics are trusted, so a
+    capture that fails QA (poor board coverage, desync, low subject
+    detection) is caught here rather than yielding plausible-but-wrong 3D
+    downstream.  ``to_json`` / ``to_markdown`` / ``verdict`` mirror
+    :class:`ValidationReport`; the verdict grades against
+    :data:`QA_THRESHOLDS` (plus the shared bands in :data:`THRESHOLDS`).
+    """
+
+    session_id: str
+    schema_version: int
+    qa_thresholds_version: int
+    calibration: CalibrationQA
+    parity: ParityQA
+    subject: SubjectQA
+    notes: list[str]
+
+    def verdict(
+        self,
+        thresholds: Thresholds = THRESHOLDS,
+        qa_thresholds: QAThresholds = QA_THRESHOLDS,
+    ) -> Verdict:
+        """Grade this capture → PASS/WARN/FAIL against the QA thresholds."""
+        return _grade_qa(self, thresholds, qa_thresholds)
+
+    def to_json(self) -> dict[str, Any]:
+        payload = _native(dataclasses.asdict(self))
+        payload["verdict"] = _native(dataclasses.asdict(self.verdict()))
+        return payload
+
+    def to_markdown(self) -> str:
+        return _render_qa_markdown(self)
+
+
+def qa_check(
+    session_dir: str | pathlib.Path,
+    *,
+    calibration: str | pathlib.Path | None = None,
+    output_dir: str | pathlib.Path | None = None,
+    camera_processor: Any = None,
+    device: str = "NPU",
+    backend: str = "onnxruntime",
+    confidence_floor: float = DEFAULT_CONFIDENCE_FLOOR,
+    board: Any = None,
+) -> QAReport:
+    """Grade a raw 3-camera capture before its clinical metrics are trusted.
+
+    The pre-flight gate (roadmap Session 1C) assesses three failure
+    surfaces without running the full fusion/clinical chain:
+
+    1. **Calibration capture** — per-camera ChArUco detection rate and
+       field-of-view coverage (does the board sweep the working volume?)
+       plus the solved/loaded reprojection RMS.  ``calibration`` should be
+       the raw ChArUco *session directory* for coverage; a
+       ``calibration.json`` file (or ``None`` → the subject session's own)
+       yields RMS only.
+    2. **Synchronization** — raw frame-count parity across the subject
+       cameras, a software-sync desync proxy.
+    3. **Subject clip** — per-camera 2D detection rate (same three-way
+       source as :func:`run_validation`: injected ``camera_processor`` →
+       reuse existing CSVs → default backend; degrades to *unassessed*
+       rather than raising when none is available).
+
+    Returns a :class:`QAReport`; grade it with ``report.verdict()``.
+    """
+    session_dir = pathlib.Path(session_dir)
+    notes: list[str] = []
+    session = discover_session(session_dir)
+    board = make_charuco_board() if board is None else board
+
+    calibration_qa = _qa_calibration(session, calibration, board, notes)
+    parity_qa = _qa_parity(session)
+    subject_qa = _qa_subject(
+        session, output_dir, camera_processor, device, backend, confidence_floor, notes
+    )
+    return QAReport(
+        session_id=session.session_id,
+        schema_version=QA_REPORT_SCHEMA_VERSION,
+        qa_thresholds_version=QA_THRESHOLDS_VERSION,
+        calibration=calibration_qa,
+        parity=parity_qa,
+        subject=subject_qa,
+        notes=notes,
+    )
+
+
+def _qa_calibration(
+    session: Session,
+    calibration: str | pathlib.Path | None,
+    board: Any,
+    notes: list[str],
+) -> CalibrationQA:
+    """Reprojection RMS + per-camera board coverage / detection rate."""
+    # Reprojection RMS (+ solved flag), reusing run_validation's resolver.
+    reproj = float("nan")
+    solved = False
+    if calibration is not None:
+        try:
+            calib, solved = _resolve_external_calibration(calibration)
+            reproj = float(calib["reprojection_error_px"])
+        except (ValidationError, CalibrationError, SessionError) as exc:
+            notes.append(f"calibration RMS unassessed: {exc}")
+    elif session.calibration is not None:
+        reproj = float(session.calibration["reprojection_error_px"])
+    else:
+        notes.append("no calibration available: reprojection RMS unassessed")
+
+    # Per-camera coverage/detection needs the raw ChArUco videos, so it runs
+    # only when ``calibration`` resolves to a session directory.
+    cameras: list[CharucoCameraQA] = []
+    calib_dir = pathlib.Path(calibration) if calibration is not None else None
+    if calib_dir is not None and calib_dir.is_dir():
+        try:
+            calib_session = discover_session(calib_dir)
+        except SessionError as exc:
+            notes.append(f"calibration board coverage unassessed: {exc}")
+        else:
+            for cam in calib_session.cameras:
+                video = calib_session.directory / cam.file
+                cameras.append(_charuco_camera_qa(cam.name, video, cam.sync_offset, board))
+    elif calib_dir is not None:
+        notes.append("calibration is a file: board coverage/detection unassessed (RMS only)")
+    else:
+        notes.append("no ChArUco session supplied: board coverage/detection unassessed")
+
+    return CalibrationQA(
+        assessed=bool(cameras),
+        reprojection_error_px=reproj,
+        solved=solved,
+        cameras=cameras,
+    )
+
+
+def _charuco_camera_qa(
+    name: str, video: pathlib.Path, sync_offset: int, board: Any
+) -> CharucoCameraQA:
+    """Detect the board across *video* → detection rate + FOV coverage."""
+    total = max(0, frame_count(video) - sync_offset)
+    try:
+        detections, size = detect_charuco_corners(video, board, sync_offset=sync_offset)
+    except CalibrationError:
+        detections, size = [], (0, 0)
+    n_detected = len(detections)
+    return CharucoCameraQA(
+        name=name,
+        n_frames=total,
+        n_detected=n_detected,
+        detection_rate=(n_detected / total) if total else float("nan"),
+        coverage=_board_coverage(detections, size),
+    )
+
+
+def _board_coverage(detections: list, frame_size: tuple[int, int]) -> float:
+    """Fraction of the COVERAGE_GRID image cells the detected board touched.
+
+    Pools every detected ChArUco corner across all frames into a
+    cols x rows grid over the frame; returns the fraction of cells holding
+    at least one corner.  A full-volume sweep lights up most cells, a
+    centre-bound board few.  NaN when there is nothing to measure.
+    """
+    cols, rows = COVERAGE_GRID
+    w, h = frame_size
+    if not detections or w <= 0 or h <= 0:
+        return float("nan")
+    occupied: set[tuple[int, int]] = set()
+    for det in detections:
+        cx = np.clip((det.corners[:, 0] / w * cols).astype(int), 0, cols - 1)
+        cy = np.clip((det.corners[:, 1] / h * rows).astype(int), 0, rows - 1)
+        occupied.update(zip(cx.tolist(), cy.tolist(), strict=True))
+    return len(occupied) / (cols * rows)
+
+
+def _qa_parity(session: Session) -> ParityQA:
+    """Raw per-camera frame counts + their normalised disparity."""
+    counts = {cam.name: frame_count(session.directory / cam.file) for cam in session.cameras}
+    present = [c for c in counts.values() if c > 0]
+    disparity = (max(present) - min(present)) / max(present) if len(present) >= 2 else float("nan")
+    return ParityQA(frame_counts=counts, disparity=disparity)
+
+
+def _qa_subject(
+    session: Session,
+    output_dir: str | pathlib.Path | None,
+    camera_processor: Any,
+    device: str,
+    backend: str,
+    confidence_floor: float,
+    notes: list[str],
+) -> SubjectQA:
+    """Per-camera 2D detection on the subject clip (reuses run_validation)."""
+    session_out = _resolve_session_output(session, output_dir)
+    try:
+        _per_camera_time, reused = _run_tracking(
+            session, session_out, output_dir, camera_processor, device, backend, notes
+        )
+        tracking = _measure_tracking(session, session_out, confidence_floor, reused, notes)
+    except (ValidationError, SessionError) as exc:
+        notes.append(f"subject 2D detection unassessed: {exc}")
+        return SubjectQA(
+            assessed=False,
+            tracking=None,
+            worst_detection_rate=float("nan"),
+            worst_low_confidence_fraction=float("nan"),
+        )
+    rates = [c.detection_rate for c in tracking.cameras if math.isfinite(c.detection_rate)]
+    lows = [
+        c.low_confidence_fraction
+        for c in tracking.cameras
+        if math.isfinite(c.low_confidence_fraction)
+    ]
+    return SubjectQA(
+        assessed=True,
+        tracking=tracking,
+        worst_detection_rate=min(rates) if rates else float("nan"),
+        worst_low_confidence_fraction=max(lows) if lows else float("nan"),
+    )
+
+
+def _grade_qa(report: QAReport, thresholds: Thresholds, qa_thresholds: QAThresholds) -> Verdict:
+    """Grade a :class:`QAReport` → PASS/WARN/FAIL; worst check wins."""
+    cal = report.calibration
+    par = report.parity
+    sub = report.subject
+    checks: list[Check] = []
+    notes: list[str] = []
+
+    def _check(name: str, value: float | None, band: Band) -> None:
+        checks.append(
+            Check(
+                name=name,
+                value=value,
+                grade=band.grade(value).name,
+                detail=band.describe(value),
+            )
+        )
+
+    # Calibration RMS shares its band with the output-report verdict.
+    _check(
+        "calibration.reprojection_error_px",
+        cal.reprojection_error_px,
+        thresholds.calib_reproj_rms_px,
+    )
+    if cal.cameras:
+        worst_cov = min(
+            (c.coverage for c in cal.cameras if math.isfinite(c.coverage)), default=float("nan")
+        )
+        worst_rate = min(
+            (c.detection_rate for c in cal.cameras if math.isfinite(c.detection_rate)),
+            default=float("nan"),
+        )
+        min_frames = min((c.n_detected for c in cal.cameras), default=0)
+        _check("calibration.worst_board_coverage", worst_cov, qa_thresholds.min_board_coverage)
+        _check(
+            "calibration.worst_charuco_detection_rate",
+            worst_rate,
+            qa_thresholds.min_charuco_detection_rate,
+        )
+        floor_ok = min_frames >= qa_thresholds.min_charuco_frames
+        checks.append(
+            Check(
+                name="calibration.min_charuco_frames",
+                value=min_frames,
+                grade=(Grade.PASS if floor_ok else Grade.FAIL).name,
+                detail=(
+                    f"min {min_frames} usable board views "
+                    f"(floor >= {qa_thresholds.min_charuco_frames})"
+                ),
+            )
+        )
+    else:
+        notes.append("calibration board coverage unassessed (no raw ChArUco session videos)")
+
+    # Synchronization: frame-count parity (desync proxy).
+    _check("parity.frame_count_disparity", par.disparity, qa_thresholds.max_frame_count_disparity)
+
+    # Subject clip 2D detection.
+    if sub.assessed:
+        _check(
+            "subject.worst_detection_rate",
+            sub.worst_detection_rate,
+            qa_thresholds.min_subject_detection_rate,
+        )
+        _check(
+            "subject.worst_low_confidence_fraction",
+            sub.worst_low_confidence_fraction,
+            thresholds.max_low_confidence_fraction,
+        )
+    else:
+        notes.append("subject 2D detection unassessed (no per-camera CSVs and no backend run)")
+
+    overall = max((Grade[c.grade] for c in checks), default=Grade.PASS)
+    return Verdict(
+        grade=overall.name,
+        thresholds_version=qa_thresholds.version,
+        checks=checks,
+        notes=notes,
+    )
+
+
+def _render_qa_markdown(report: QAReport) -> str:
+    cal = report.calibration
+    par = report.parity
+    sub = report.subject
+    v = report.verdict()
+    lines = [
+        f"# Capture QA — `{report.session_id}`",
+        "",
+        f"_QA schema v{report.schema_version} · QA thresholds v{report.qa_thresholds_version}._",
+        "",
+        f"## Verdict: {_GRADE_MARK.get(v.grade, v.grade)} **{v.grade}**",
+        "",
+        "| Check | Value | Grade | Detail |",
+        "|-------|-------|-------|--------|",
+    ]
+    for c in v.checks:
+        mark = _GRADE_MARK.get(c.grade, c.grade)
+        lines.append(f"| `{c.name}` | {_fmt(_cell(c.value))} | {mark} | {c.detail} |")
+    lines += [
+        "",
+        "## Calibration capture",
+        "",
+        f"- reprojection RMS: {_fmt(cal.reprojection_error_px)} px "
+        f"({'solved' if cal.solved else 'loaded'})",
+    ]
+    if cal.cameras:
+        lines += [
+            "",
+            "| Camera | frames | detected | rate | coverage |",
+            "|--------|--------|----------|------|----------|",
+        ]
+        for c in cal.cameras:
+            lines.append(
+                f"| {c.name} | {c.n_frames} | {c.n_detected} | "
+                f"{_fmt(c.detection_rate)} | {_fmt(c.coverage)} |"
+            )
+    else:
+        lines.append("- board coverage unassessed (no raw ChArUco session supplied)")
+    counts = ", ".join(f"{k}={n}" for k, n in par.frame_counts.items())
+    lines += [
+        "",
+        "## Frame-count parity (desync proxy)",
+        "",
+        f"- disparity {_fmt(par.disparity)} ({counts})",
+        "",
+        "## Subject clip",
+        "",
+    ]
+    if sub.assessed:
+        lines += [
+            f"- worst per-camera detection rate: {_fmt(sub.worst_detection_rate)}",
+            f"- worst low-confidence fraction: {_fmt(sub.worst_low_confidence_fraction)}",
+        ]
+    else:
+        lines.append("- subject 2D detection unassessed")
+    allnotes = [*report.notes, *v.notes]
+    if allnotes:
+        lines += ["", "## Notes", ""]
+        lines += [f"- {n}" for n in allnotes]
+    return "\n".join(lines) + "\n"
+
+
+# ---------------------------------------------------------------------------
 # Serialisation
 # ---------------------------------------------------------------------------
 
@@ -1290,6 +1767,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--no-clinical", action="store_true", help="skip the R clinical-metrics stage"
     )
     parser.add_argument(
+        "--qa-only",
+        action="store_true",
+        help="run only the pre-flight capture QA gate (no fusion/clinical chain)",
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="treat a WARN verdict as a failure too (exit nonzero on WARN or FAIL)",
@@ -1297,41 +1779,58 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = _parse_args(argv)
-    try:
-        report = run_validation(
-            args.session_dir,
-            calibration=args.calibration,
-            baseline=args.baseline,
-            device=args.device,
-            backend=args.backend,
-            output_dir=args.output_dir,
-            run_clinical=not args.no_clinical,
-        )
-    except (ValidationError, SessionError, CalibrationError, ValueError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 2
-
-    out_path = pathlib.Path(args.out)
+def _emit(report: Any, out: str, markdown: str | None, strict: bool) -> int:
+    """Write the report JSON (+ optional Markdown), print the verdict, return
+    the CLI exit code.  Duck-typed over :class:`ValidationReport` and
+    :class:`QAReport` (both expose ``to_json`` / ``to_markdown`` / ``verdict``).
+    """
+    out_path = pathlib.Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(report.to_json(), indent=2))
     print(f"Wrote {out_path}")
 
-    markdown = report.to_markdown()
-    if args.markdown:
-        md_path = pathlib.Path(args.markdown)
+    rendered = report.to_markdown()
+    if markdown:
+        md_path = pathlib.Path(markdown)
         md_path.parent.mkdir(parents=True, exist_ok=True)
-        md_path.write_text(markdown)
+        md_path.write_text(rendered)
         print(f"Wrote {md_path}")
     else:
         print()
-        print(markdown)
+        print(rendered)
 
     v = report.verdict()
     print(f"Verdict: {v.grade} (thresholds v{v.thresholds_version})")
-    failed = v.grade == Grade.FAIL.name or (args.strict and v.grade == Grade.WARN.name)
+    failed = v.grade == Grade.FAIL.name or (strict and v.grade == Grade.WARN.name)
     return 1 if failed else 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    try:
+        if args.qa_only:
+            report: Any = qa_check(
+                args.session_dir,
+                calibration=args.calibration,
+                output_dir=args.output_dir,
+                device=args.device,
+                backend=args.backend,
+            )
+        else:
+            report = run_validation(
+                args.session_dir,
+                calibration=args.calibration,
+                baseline=args.baseline,
+                device=args.device,
+                backend=args.backend,
+                output_dir=args.output_dir,
+                run_clinical=not args.no_clinical,
+            )
+    except (ValidationError, SessionError, CalibrationError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
+    return _emit(report, args.out, args.markdown, args.strict)
 
 
 if __name__ == "__main__":

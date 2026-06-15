@@ -607,72 +607,95 @@ src/pose_estimation/triangulation.py:151: def _rotation_translation(camera: Came
 src/pose_estimation/triangulation.py:158: def fuse_session_frame(per_camera_keypoints: dict[str, np.ndarray], calibration: SessionCalibration, *, confidences: dict[str, np.ndarray] …
 src/pose_estimation/triangulation.py:311: __all__ = list[6]
 
-# src/pose_estimation/validation.py (1339 lines)
-src/pose_estimation/validation.py:62: REPORT_SCHEMA_VERSION = int
-src/pose_estimation/validation.py:69: REPROJ_GATE_PX = float
-src/pose_estimation/validation.py:78: _PROJECT_ROOT = subscript
-src/pose_estimation/validation.py:79: _CLINICAL_R = binop
-src/pose_estimation/validation.py:80: _CLINICAL_TIMEOUT_S = int
-src/pose_estimation/validation.py:88: _BONES = list[15]
-src/pose_estimation/validation.py:107: _SYMMETRIC_BONES = list[6]
-src/pose_estimation/validation.py:122: class Grade(enum.IntEnum)
-src/pose_estimation/validation.py:131: class Band
-src/pose_estimation/validation.py:147: def Band.grade(self, value: float | None) -> Grade
-src/pose_estimation/validation.py:158: def Band.describe(self, value: float | None) -> str
-src/pose_estimation/validation.py:164: class Thresholds
-src/pose_estimation/validation.py:189: THRESHOLDS_VERSION = int
-src/pose_estimation/validation.py:193: THRESHOLDS = Thresholds(...)
-src/pose_estimation/validation.py:240: DEFAULT_CONFIDENCE_FLOOR = attribute
-src/pose_estimation/validation.py:246: class Check
-src/pose_estimation/validation.py:257: class Verdict
-src/pose_estimation/validation.py:272: def Verdict.passed(self) -> bool
-src/pose_estimation/validation.py:277: class ValidationError(RuntimeError)
-src/pose_estimation/validation.py:287: class CameraIntrinsics
-src/pose_estimation/validation.py:300: class CalibrationSection
-src/pose_estimation/validation.py:311: class CameraTracking
-src/pose_estimation/validation.py:322: class Tracking2DSection
-src/pose_estimation/validation.py:331: class Fusion3DSection
-src/pose_estimation/validation.py:346: class TimingSection
-src/pose_estimation/validation.py:359: class AgreementSection
-src/pose_estimation/validation.py:378: class ValidationReport
-src/pose_estimation/validation.py:395: def ValidationReport.verdict(self, thresholds: Thresholds=THRESHOLDS) -> Verdict
-src/pose_estimation/validation.py:399: def ValidationReport.to_json(self) -> dict[str, Any]
-src/pose_estimation/validation.py:404: def ValidationReport.to_markdown(self) -> str
-src/pose_estimation/validation.py:413: def run_validation(session_dir: str | pathlib.Path, *, calibration: str | pathlib.Path | None=None, baseline: str | pathlib.Path | None=Non…
-src/pose_estimation/validation.py:540: def _resolve_external_calibration(calibration: str | pathlib.Path) -> tuple[SessionCalibration, bool]
-src/pose_estimation/validation.py:562: def _build_calibration_section(calib: SessionCalibration, solved: bool) -> CalibrationSection
-src/pose_estimation/validation.py:594: def _run_tracking(session: Session, session_out: pathlib.Path, output_dir: str | pathlib.Path | None, camera_processor: Any, device: str, b…
-src/pose_estimation/validation.py:632: def _run_default_backend(session: Session, output_dir: str | pathlib.Path | None, device: str, backend: str, notes: list[str]) -> float
-src/pose_estimation/validation.py:669: def _measure_tracking(session: Session, session_out: pathlib.Path, confidence_floor: float, reused: bool, notes: list[str]) -> Tracking2DSe…
-src/pose_estimation/validation.py:701: def _camera_tracking(name: str, frames: dict[int, tuple[np.ndarray, np.ndarray, float]], confidence_floor: float) -> CameraTracking
-src/pose_estimation/validation.py:735: def _read_world3d(path: pathlib.Path) -> tuple[list[str], list[dict[str, np.ndarray]]]
-src/pose_estimation/validation.py:778: def _measure_fusion(world3d_path: pathlib.Path) -> Fusion3DSection
-src/pose_estimation/validation.py:828: def _run_clinical(world3d_path: pathlib.Path, notes: list[str]) -> list[str]
-src/pose_estimation/validation.py:860: def _build_agreement(world3d_path: pathlib.Path, session_out: pathlib.Path, baseline: str | pathlib.Path | None, clinical_outputs: list[str…
-src/pose_estimation/validation.py:893: def _bone_lengths(names: list[str], frames: list[dict[str, np.ndarray]]) -> dict[str, np.ndarray]
-src/pose_estimation/validation.py:907: def _bone_length_cv(lengths: dict[str, np.ndarray]) -> dict[str, float]
-src/pose_estimation/validation.py:917: def _symmetry_rel_diff(lengths: dict[str, np.ndarray]) -> dict[str, float]
-src/pose_estimation/validation.py:934: def _temporal_jitter_mm(names: list[str], frames: list[dict[str, np.ndarray]]) -> float
-src/pose_estimation/validation.py:956: def _baseline_agreement(baseline: str | pathlib.Path, session_out: pathlib.Path, clinical_outputs: list[str], notes: list[str]) -> dict[str…
-src/pose_estimation/validation.py:988: def _aggregate_clinical(session_out: pathlib.Path, clinical_outputs: list[str]) -> dict[str, float]
-src/pose_estimation/validation.py:1010: def _grade_report(report: ValidationReport, thresholds: Thresholds) -> Verdict
-src/pose_estimation/validation.py:1139: def _cell(value: Any) -> float
-src/pose_estimation/validation.py:1147: def _native(obj: Any) -> Any
-src/pose_estimation/validation.py:1164: def _fmt(value: float | None, ndigits: int=3) -> str
-src/pose_estimation/validation.py:1168: _GRADE_MARK = dict[3]
-src/pose_estimation/validation.py:1171: def _render_markdown(report: ValidationReport) -> str
-src/pose_estimation/validation.py:1264: def _parse_args(argv: list[str] | None) -> argparse.Namespace
-src/pose_estimation/validation.py:1300: def main(argv: list[str] | None=None) -> int
+# src/pose_estimation/validation.py (1838 lines)
+src/pose_estimation/validation.py:68: REPORT_SCHEMA_VERSION = int
+src/pose_estimation/validation.py:75: REPROJ_GATE_PX = float
+src/pose_estimation/validation.py:84: _PROJECT_ROOT = subscript
+src/pose_estimation/validation.py:85: _CLINICAL_R = binop
+src/pose_estimation/validation.py:86: _CLINICAL_TIMEOUT_S = int
+src/pose_estimation/validation.py:94: _BONES = list[15]
+src/pose_estimation/validation.py:113: _SYMMETRIC_BONES = list[6]
+src/pose_estimation/validation.py:128: class Grade(enum.IntEnum)
+src/pose_estimation/validation.py:137: class Band
+src/pose_estimation/validation.py:153: def Band.grade(self, value: float | None) -> Grade
+src/pose_estimation/validation.py:164: def Band.describe(self, value: float | None) -> str
+src/pose_estimation/validation.py:170: class Thresholds
+src/pose_estimation/validation.py:195: THRESHOLDS_VERSION = int
+src/pose_estimation/validation.py:199: THRESHOLDS = Thresholds(...)
+src/pose_estimation/validation.py:246: DEFAULT_CONFIDENCE_FLOOR = attribute
+src/pose_estimation/validation.py:251: COVERAGE_GRID = tuple[2]
+src/pose_estimation/validation.py:260: class QAThresholds
+src/pose_estimation/validation.py:279: QA_THRESHOLDS_VERSION = int
+src/pose_estimation/validation.py:283: QA_THRESHOLDS = QAThresholds(...)
+src/pose_estimation/validation.py:312: class Check
+src/pose_estimation/validation.py:323: class Verdict
+src/pose_estimation/validation.py:338: def Verdict.passed(self) -> bool
+src/pose_estimation/validation.py:343: class ValidationError(RuntimeError)
+src/pose_estimation/validation.py:353: class CameraIntrinsics
+src/pose_estimation/validation.py:366: class CalibrationSection
+src/pose_estimation/validation.py:377: class CameraTracking
+src/pose_estimation/validation.py:388: class Tracking2DSection
+src/pose_estimation/validation.py:397: class Fusion3DSection
+src/pose_estimation/validation.py:412: class TimingSection
+src/pose_estimation/validation.py:425: class AgreementSection
+src/pose_estimation/validation.py:444: class ValidationReport
+src/pose_estimation/validation.py:461: def ValidationReport.verdict(self, thresholds: Thresholds=THRESHOLDS) -> Verdict
+src/pose_estimation/validation.py:465: def ValidationReport.to_json(self) -> dict[str, Any]
+src/pose_estimation/validation.py:470: def ValidationReport.to_markdown(self) -> str
+src/pose_estimation/validation.py:479: def run_validation(session_dir: str | pathlib.Path, *, calibration: str | pathlib.Path | None=None, baseline: str | pathlib.Path | None=Non…
+src/pose_estimation/validation.py:606: def _resolve_external_calibration(calibration: str | pathlib.Path) -> tuple[SessionCalibration, bool]
+src/pose_estimation/validation.py:628: def _build_calibration_section(calib: SessionCalibration, solved: bool) -> CalibrationSection
+src/pose_estimation/validation.py:660: def _run_tracking(session: Session, session_out: pathlib.Path, output_dir: str | pathlib.Path | None, camera_processor: Any, device: str, b…
+src/pose_estimation/validation.py:698: def _run_default_backend(session: Session, output_dir: str | pathlib.Path | None, device: str, backend: str, notes: list[str]) -> float
+src/pose_estimation/validation.py:735: def _measure_tracking(session: Session, session_out: pathlib.Path, confidence_floor: float, reused: bool, notes: list[str]) -> Tracking2DSe…
+src/pose_estimation/validation.py:767: def _camera_tracking(name: str, frames: dict[int, tuple[np.ndarray, np.ndarray, float]], confidence_floor: float) -> CameraTracking
+src/pose_estimation/validation.py:801: def _read_world3d(path: pathlib.Path) -> tuple[list[str], list[dict[str, np.ndarray]]]
+src/pose_estimation/validation.py:844: def _measure_fusion(world3d_path: pathlib.Path) -> Fusion3DSection
+src/pose_estimation/validation.py:894: def _run_clinical(world3d_path: pathlib.Path, notes: list[str]) -> list[str]
+src/pose_estimation/validation.py:926: def _build_agreement(world3d_path: pathlib.Path, session_out: pathlib.Path, baseline: str | pathlib.Path | None, clinical_outputs: list[str…
+src/pose_estimation/validation.py:959: def _bone_lengths(names: list[str], frames: list[dict[str, np.ndarray]]) -> dict[str, np.ndarray]
+src/pose_estimation/validation.py:973: def _bone_length_cv(lengths: dict[str, np.ndarray]) -> dict[str, float]
+src/pose_estimation/validation.py:983: def _symmetry_rel_diff(lengths: dict[str, np.ndarray]) -> dict[str, float]
+src/pose_estimation/validation.py:1000: def _temporal_jitter_mm(names: list[str], frames: list[dict[str, np.ndarray]]) -> float
+src/pose_estimation/validation.py:1022: def _baseline_agreement(baseline: str | pathlib.Path, session_out: pathlib.Path, clinical_outputs: list[str], notes: list[str]) -> dict[str…
+src/pose_estimation/validation.py:1054: def _aggregate_clinical(session_out: pathlib.Path, clinical_outputs: list[str]) -> dict[str, float]
+src/pose_estimation/validation.py:1076: def _grade_report(report: ValidationReport, thresholds: Thresholds) -> Verdict
+src/pose_estimation/validation.py:1204: QA_REPORT_SCHEMA_VERSION = int
+src/pose_estimation/validation.py:1209: class CharucoCameraQA
+src/pose_estimation/validation.py:1220: class CalibrationQA
+src/pose_estimation/validation.py:1230: class ParityQA
+src/pose_estimation/validation.py:1238: class SubjectQA
+src/pose_estimation/validation.py:1248: class QAReport
+src/pose_estimation/validation.py:1267: def QAReport.verdict(self, thresholds: Thresholds=THRESHOLDS, qa_thresholds: QAThresholds=QA_THRESHOLDS) -> Verdict
+src/pose_estimation/validation.py:1275: def QAReport.to_json(self) -> dict[str, Any]
+src/pose_estimation/validation.py:1280: def QAReport.to_markdown(self) -> str
+src/pose_estimation/validation.py:1284: def qa_check(session_dir: str | pathlib.Path, *, calibration: str | pathlib.Path | None=None, output_dir: str | pathlib.Path | None=None, c…
+src/pose_estimation/validation.py:1336: def _qa_calibration(session: Session, calibration: str | pathlib.Path | None, board: Any, notes: list[str]) -> CalibrationQA
+src/pose_estimation/validation.py:1383: def _charuco_camera_qa(name: str, video: pathlib.Path, sync_offset: int, board: Any) -> CharucoCameraQA
+src/pose_estimation/validation.py:1402: def _board_coverage(detections: list, frame_size: tuple[int, int]) -> float
+src/pose_estimation/validation.py:1422: def _qa_parity(session: Session) -> ParityQA
+src/pose_estimation/validation.py:1430: def _qa_subject(session: Session, output_dir: str | pathlib.Path | None, camera_processor: Any, device: str, backend: str, confidence_floor…
+src/pose_estimation/validation.py:1468: def _grade_qa(report: QAReport, thresholds: Thresholds, qa_thresholds: QAThresholds) -> Verdict
+src/pose_estimation/validation.py:1549: def _render_qa_markdown(report: QAReport) -> str
+src/pose_estimation/validation.py:1616: def _cell(value: Any) -> float
+src/pose_estimation/validation.py:1624: def _native(obj: Any) -> Any
+src/pose_estimation/validation.py:1641: def _fmt(value: float | None, ndigits: int=3) -> str
+src/pose_estimation/validation.py:1645: _GRADE_MARK = dict[3]
+src/pose_estimation/validation.py:1648: def _render_markdown(report: ValidationReport) -> str
+src/pose_estimation/validation.py:1741: def _parse_args(argv: list[str] | None) -> argparse.Namespace
+src/pose_estimation/validation.py:1782: def _emit(report: Any, out: str, markdown: str | None, strict: bool) -> int
+src/pose_estimation/validation.py:1808: def main(argv: list[str] | None=None) -> int
 
-# src/pose_estimation/video_io.py (72 lines)
+# src/pose_estimation/video_io.py (95 lines)
 src/pose_estimation/video_io.py:13: FALLBACK_FPS = float
 src/pose_estimation/video_io.py:14: MIN_REASONABLE_FPS = float
 src/pose_estimation/video_io.py:15: MAX_REASONABLE_FPS = float
 src/pose_estimation/video_io.py:16: VIDEO_EXTS = set[6]
 src/pose_estimation/video_io.py:19: def open_capture(source, display=None)
-src/pose_estimation/video_io.py:45: def safe_fps(raw_fps)
-src/pose_estimation/video_io.py:55: def frame_to_surface(frame)
-src/pose_estimation/video_io.py:63: def collect_video_files(directory)
+src/pose_estimation/video_io.py:45: def frame_count(source)
+src/pose_estimation/video_io.py:68: def safe_fps(raw_fps)
+src/pose_estimation/video_io.py:78: def frame_to_surface(frame)
+src/pose_estimation/video_io.py:86: def collect_video_files(directory)
 
 # tests/conftest.py (104 lines)
 tests/conftest.py:18: def make_random_landmarks()
@@ -794,23 +817,26 @@ tests/test_extrapolation.py:102: def test_hand_tracks_unaffected()
 tests/test_extrapolation.py:126: def test_damping_converges_to_static()
 tests/test_extrapolation.py:152: def test_damping_factor_configurable()
 
-# tests/test_helpers.py (177 lines)
-tests/test_helpers.py:39: def _det(cx, cy, size=0.1)
-tests/test_helpers.py:48: def test_detection_centre_matches_box_midpoint()
-tests/test_helpers.py:54: def test_detection_centres_empty()
-tests/test_helpers.py:58: def test_detection_centres_multiple()
-tests/test_helpers.py:71: def test_make_palm_keypoints_shape_and_dtype()
-tests/test_helpers.py:81: def test_make_palm_keypoints_anchor_indices()
-tests/test_helpers.py:97: def test_make_palm_keypoints_does_not_alias_centre()
-tests/test_helpers.py:113: def test_carry_detection_decays_score_and_marks_carried()
-tests/test_helpers.py:130: def test_odd_int_accepts_odd_positive()
-tests/test_helpers.py:135: def test_odd_int_rejects_even()
-tests/test_helpers.py:140: def test_odd_int_rejects_too_small()
-tests/test_helpers.py:145: def test_odd_int_rejects_non_integer()
-tests/test_helpers.py:155: def test_safe_fps_passes_through_normal()
-tests/test_helpers.py:161: def test_safe_fps_replaces_zero_or_negative()
-tests/test_helpers.py:166: def test_safe_fps_replaces_nonfinite()
-tests/test_helpers.py:171: def test_safe_fps_replaces_outliers(capsys)
+# tests/test_helpers.py (204 lines)
+tests/test_helpers.py:40: def _det(cx, cy, size=0.1)
+tests/test_helpers.py:49: def test_detection_centre_matches_box_midpoint()
+tests/test_helpers.py:55: def test_detection_centres_empty()
+tests/test_helpers.py:59: def test_detection_centres_multiple()
+tests/test_helpers.py:72: def test_make_palm_keypoints_shape_and_dtype()
+tests/test_helpers.py:82: def test_make_palm_keypoints_anchor_indices()
+tests/test_helpers.py:98: def test_make_palm_keypoints_does_not_alias_centre()
+tests/test_helpers.py:114: def test_carry_detection_decays_score_and_marks_carried()
+tests/test_helpers.py:131: def test_odd_int_accepts_odd_positive()
+tests/test_helpers.py:136: def test_odd_int_rejects_even()
+tests/test_helpers.py:141: def test_odd_int_rejects_too_small()
+tests/test_helpers.py:146: def test_odd_int_rejects_non_integer()
+tests/test_helpers.py:156: def test_safe_fps_passes_through_normal()
+tests/test_helpers.py:162: def test_safe_fps_replaces_zero_or_negative()
+tests/test_helpers.py:167: def test_safe_fps_replaces_nonfinite()
+tests/test_helpers.py:172: def test_safe_fps_replaces_outliers(capsys)
+tests/test_helpers.py:185: def _write_blank_video(path, n_frames, size=(64, 48))
+tests/test_helpers.py:196: def test_frame_count_matches_written_frames(tmp_path)
+tests/test_helpers.py:202: def test_frame_count_missing_file_is_zero(tmp_path)
 
 # tests/test_mapping.py (303 lines)
 tests/test_mapping.py:11: def _synthetic_133(n_persons=1, seed=42)
@@ -1115,41 +1141,52 @@ tests/test_triangulation.py:333: def test_fuse_flags_cheirality_violations()
 tests/test_triangulation.py:362: def test_fuse_confidence_is_mean_of_contributing_views()
 tests/test_triangulation.py:374: def test_fuse_validation_errors()
 
-# tests/test_validation.py (760 lines)
-tests/test_validation.py:57: _BOARD = make_charuco_board(...)
-tests/test_validation.py:59: _SQ = float
-tests/test_validation.py:61: _BOARD_IMG = render_charuco_board(...)
-tests/test_validation.py:62: _BG_GRAY = int
-tests/test_validation.py:65: _GT = dict[3]
-tests/test_validation.py:87: def _board_poses(n: int, seed: int=7) -> list[tuple[np.ndarray, np.ndarray]]
-tests/test_validation.py:100: def _render_view(K: np.ndarray, rvec_cam: np.ndarray, tvec_cam: np.ndarray, rvec_board: np.ndarray, tvec_board: np.ndarray, size: tuple[int…
-tests/test_validation.py:142: def _write_video(path: pathlib.Path, frames: list[np.ndarray], size: tuple[int, int]) -> bool
-tests/test_validation.py:160: _SKEL_BASE = np.array(...)
-tests/test_validation.py:176: _N_SUBJECT_FRAMES = int
-tests/test_validation.py:179: def _skel_world(frame_idx: int) -> np.ndarray
-tests/test_validation.py:184: def _write_skeleton_csv(csv_path: pathlib.Path, camera: CameraCalibration) -> None
-tests/test_validation.py:201: def _skeleton_processor(calib: SessionCalibration)
-tests/test_validation.py:218: def _prewrite_csvs(session_out: pathlib.Path, calib: SessionCalibration) -> None
-tests/test_validation.py:225: def _r_available() -> bool
-tests/test_validation.py:245: _HAS_R = _r_available(...)
-tests/test_validation.py:254: def rendered_session(tmp_path_factory: pytest.TempPathFactory)
-tests/test_validation.py:277: def test_run_validation_end_to_end_solve(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:350: def test_run_validation_load_calibration(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:376: def test_run_validation_runs_clinical_pipeline(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:397: def test_self_consistency_runs_without_r(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:420: def test_cli_reuses_existing_csvs_and_writes_reports(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:461: def test_missing_calibration_raises(tmp_path: pathlib.Path)
-tests/test_validation.py:475: def test_cli_missing_calibration_exit_code(tmp_path: pathlib.Path)
-tests/test_validation.py:493: def _good_report() -> ValidationReport
-tests/test_validation.py:572: def test_verdict_good_report_passes()
-tests/test_validation.py:617: def test_verdict_fail_bands(mutate, check_name)
-tests/test_validation.py:644: def test_verdict_warn_bands(mutate, check_name)
-tests/test_validation.py:653: def test_informational_checks_never_escalate_overall()
-tests/test_validation.py:663: def test_non_finite_metric_grades_warn()
-tests/test_validation.py:672: def test_verdict_no_baseline_notes_unvalidated()
-tests/test_validation.py:677: def test_verdict_baseline_angle_agreement_grades_and_notes()
-tests/test_validation.py:689: def test_verdict_baseline_angle_within_tolerance_passes()
-tests/test_validation.py:699: def test_verdict_accepts_custom_thresholds()
-tests/test_validation.py:709: def test_verdict_surfaced_in_json_and_markdown()
-tests/test_validation.py:721: def test_verdict_json_is_nan_free()
-tests/test_validation.py:745: def test_cli_exit_code_matches_verdict(monkeypatch, tmp_path: pathlib.Path, grade, strict, expected_rc)
+# tests/test_validation.py (982 lines)
+tests/test_validation.py:60: _BOARD = make_charuco_board(...)
+tests/test_validation.py:62: _SQ = float
+tests/test_validation.py:64: _BOARD_IMG = render_charuco_board(...)
+tests/test_validation.py:65: _BG_GRAY = int
+tests/test_validation.py:68: _GT = dict[3]
+tests/test_validation.py:90: def _board_poses(n: int, seed: int=7) -> list[tuple[np.ndarray, np.ndarray]]
+tests/test_validation.py:103: def _render_view(K: np.ndarray, rvec_cam: np.ndarray, tvec_cam: np.ndarray, rvec_board: np.ndarray, tvec_board: np.ndarray, size: tuple[int…
+tests/test_validation.py:145: def _write_video(path: pathlib.Path, frames: list[np.ndarray], size: tuple[int, int]) -> bool
+tests/test_validation.py:163: _SKEL_BASE = np.array(...)
+tests/test_validation.py:179: _N_SUBJECT_FRAMES = int
+tests/test_validation.py:182: def _skel_world(frame_idx: int) -> np.ndarray
+tests/test_validation.py:187: def _write_skeleton_csv(csv_path: pathlib.Path, camera: CameraCalibration) -> None
+tests/test_validation.py:204: def _skeleton_processor(calib: SessionCalibration)
+tests/test_validation.py:221: def _prewrite_csvs(session_out: pathlib.Path, calib: SessionCalibration) -> None
+tests/test_validation.py:231: _WRIST_SIDE = wrist_to_side(...)
+tests/test_validation.py:234: def _write_full_skeleton_csv(csv_path: pathlib.Path, camera: CameraCalibration) -> None
+tests/test_validation.py:273: def _full_skeleton_processor(calib: SessionCalibration)
+tests/test_validation.py:286: _BAD_BOARD_POSES = list[6]
+tests/test_validation.py:296: def _render_bad_capture(session_dir: pathlib.Path) -> None
+tests/test_validation.py:314: def _r_available() -> bool
+tests/test_validation.py:334: _HAS_R = _r_available(...)
+tests/test_validation.py:343: def rendered_session(tmp_path_factory: pytest.TempPathFactory)
+tests/test_validation.py:366: def test_run_validation_end_to_end_solve(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:439: def test_run_validation_load_calibration(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:465: def test_run_validation_runs_clinical_pipeline(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:486: def test_self_consistency_runs_without_r(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:509: def test_cli_reuses_existing_csvs_and_writes_reports(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:550: def test_missing_calibration_raises(tmp_path: pathlib.Path)
+tests/test_validation.py:564: def test_cli_missing_calibration_exit_code(tmp_path: pathlib.Path)
+tests/test_validation.py:582: def _good_report() -> ValidationReport
+tests/test_validation.py:661: def test_verdict_good_report_passes()
+tests/test_validation.py:706: def test_verdict_fail_bands(mutate, check_name)
+tests/test_validation.py:733: def test_verdict_warn_bands(mutate, check_name)
+tests/test_validation.py:742: def test_informational_checks_never_escalate_overall()
+tests/test_validation.py:752: def test_non_finite_metric_grades_warn()
+tests/test_validation.py:761: def test_verdict_no_baseline_notes_unvalidated()
+tests/test_validation.py:766: def test_verdict_baseline_angle_agreement_grades_and_notes()
+tests/test_validation.py:778: def test_verdict_baseline_angle_within_tolerance_passes()
+tests/test_validation.py:788: def test_verdict_accepts_custom_thresholds()
+tests/test_validation.py:798: def test_verdict_surfaced_in_json_and_markdown()
+tests/test_validation.py:810: def test_verdict_json_is_nan_free()
+tests/test_validation.py:834: def test_cli_exit_code_matches_verdict(monkeypatch, tmp_path: pathlib.Path, grade, strict, expected_rc)
+tests/test_validation.py:856: def _checks_by_name(report: QAReport) -> dict[str, str]
+tests/test_validation.py:861: def test_qa_good_capture_passes(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:891: def test_qa_bad_capture_is_flagged(tmp_path: pathlib.Path)
+tests/test_validation.py:910: def test_qa_to_json_carries_verdict_and_is_nan_free(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:932: def test_qa_cli_exit_codes(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:974: def _prewrite_full_csvs(session_dir: pathlib.Path, calib: SessionCalibration, output_dir: pathlib.Path) -> None

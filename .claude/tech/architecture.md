@@ -12,7 +12,7 @@
 | `drawing.py` | Catmull-Rom splines, skeleton rendering, overlay blending. |
 | `smoothing.py` | One Euro Filter (`OneEuroFilter`, `PoseSmoother`) — confidence-weighted temporal smoothing with velocity-aware outlier rejection and adaptive min_cutoff (heavier smoothing during rest, normal during movement). `OneEuroFilter` is the single implementation, shared by both paths. |
 | `rtmlib_smoothing.py` | rtmlib-path multi-person smoother: `KeypointSmoother`, `REGION_PARAMS`, `_KP_*` (per-region `OneEuroFilter`s from `smoothing.py`). Re-exported from `run.py` (tests import via `pose_estimation.run`). |
-| `video_io.py` | Shared cv2 video-IO helpers for both entry points: `open_capture`, `safe_fps`, `frame_to_surface`, `collect_video_files`, `VIDEO_EXTS`, FPS constants. |
+| `video_io.py` | Shared cv2 video-IO helpers for both entry points: `open_capture`, `safe_fps`, `frame_count`, `frame_to_surface`, `collect_video_files`, `VIDEO_EXTS`, FPS constants. |
 | `rtmlib_openvino.py` | Self-contained OpenVINO-backend monkey-patch for rtmlib (`_patch_rtmlib_openvino`). No `run.py` globals. |
 | `constraints.py` | `BoneLengthSmoother`, `clamp_joint_angles`, `BONE_SEGMENTS{,_BODY}`, `ANGLE_LIMITS{,_BODY}`. |
 | `mapping.py` | COCO-WholeBody → MediaPipe keypoint schema mapping (`coco_to_mediapipe`). Translates rtmlib output to `frame_to_rows()` interface. |
@@ -25,7 +25,7 @@
 | `charuco.py` | ChArUco board build/render, corner detection, `solve_charuco` (intrinsics + pairwise extrinsics + global RMS). See `tech/calibration.md`. |
 | `calibration_cli.py` | `pose-estimation-calibrate` console script (`verify`/`solve`/`board`/`capture`). |
 | `triangulation.py` | 3D triangulation: math primitives (DLT, projection, undistort) + `fuse_session_frame` policy layer (validity masking, confidence-weighted DLT, min-view enforcement, greedy outlier-view rejection, cheirality flag, reprojection diagnostics). |
-| `validation.py` | End-to-end pipeline validation harness: `run_validation` orchestrates calibration → 2D tracking → fusion → R clinical metrics on one session and emits a `ValidationReport` (JSON + Markdown). Orchestrates + measures only; reuses the pipeline blocks. `pose-estimation-validate` console script. See `tech/validation.md`. |
+| `validation.py` | End-to-end pipeline validation harness: `run_validation` orchestrates calibration → 2D tracking → fusion → R clinical metrics on one session and emits a `ValidationReport` (JSON + Markdown). `qa_check` is the pre-flight capture-QA gate (`QAReport`; `--qa-only`). Orchestrates + measures only; reuses the pipeline blocks. `pose-estimation-validate` console script. See `tech/validation.md`. |
 | `_types.py` | `Detection`, `HandDetectionDiag`, `PipelineState`, `CameraCalibration`, `SessionCalibration`, `SessionFrame`, `MultiCamPipelineState`, `FusionDiagnostics` TypedDicts. |
 
 ## Public API (re-exported from `src/pose_estimation/__init__.py`)

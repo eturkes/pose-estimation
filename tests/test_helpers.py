@@ -28,6 +28,7 @@ from pose_estimation.processing import (
 from pose_estimation.video_io import (
     FALLBACK_FPS,
     MAX_REASONABLE_FPS,
+    frame_count,
     safe_fps,
 )
 
@@ -174,3 +175,29 @@ def test_safe_fps_replaces_outliers(capsys):
     assert result == FALLBACK_FPS
     captured = capsys.readouterr()
     assert "unusual FPS" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# frame_count
+# ---------------------------------------------------------------------------
+
+
+def _write_blank_video(path, n_frames, size=(64, 48)):
+    import cv2
+
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter.fourcc(*"MJPG"), 15.0, size)
+    if not writer.isOpened():
+        pytest.skip("MJPG/AVI codec unavailable on this host")
+    for _ in range(n_frames):
+        writer.write(np.zeros((size[1], size[0], 3), dtype=np.uint8))
+    writer.release()
+
+
+def test_frame_count_matches_written_frames(tmp_path):
+    path = tmp_path / "clip.avi"
+    _write_blank_video(path, 12)
+    assert frame_count(path) == 12
+
+
+def test_frame_count_missing_file_is_zero(tmp_path):
+    assert frame_count(tmp_path / "nope.avi") == 0

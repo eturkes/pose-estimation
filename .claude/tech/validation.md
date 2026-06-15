@@ -102,6 +102,49 @@ top). CLI exit code: **0** PASS/WARN, **1** FAIL, **2** harness error;
 verdict. Provisional values are deliberately strict-but-unproven and are
 re-calibrated against the first real capture in Session 2A.
 
+## Capture QA gate (Session 1C)
+
+`qa_check(session_dir, *, calibration=None, output_dir=None,
+camera_processor=None, device, backend, confidence_floor, board=None) ->
+QAReport` (`validation.py`) is a **pre-flight gate**: it grades a *raw
+capture* before its clinical metrics are trusted, without running the
+fusion/clinical chain. The human procedure behind it is
+`docs/capture_protocol.md`. Run it via `pose-estimation-validate
+--qa-only`.
+
+It assesses three failure surfaces, reusing the harness building blocks
+(`detect_charuco_corners`, `_resolve_external_calibration`, `_run_tracking`
++ `_measure_tracking`):
+
+| `QAReport` section | What it measures |
+|--------------------|------------------|
+| `calibration` (`CalibrationQA`) | Solved/loaded reprojection RMS + per-camera (`CharucoCameraQA`): board-detection count, detection rate, and **FOV coverage** (fraction of a `COVERAGE_GRID` = (8, 6) image grid the pooled board corners touched). Coverage + detection need the raw ChArUco *session directory*; a `calibration.json` file (or `None`) yields RMS only. |
+| `parity` (`ParityQA`) | Raw per-camera frame counts + `disparity` = (max−min)/max — a software-sync **desync proxy** (`multicam.md`: no genlock). |
+| `subject` (`SubjectQA`) | Per-camera 2D detection rate + low-confidence fraction on the subject clip (same three-way tracking source as `run_validation`; degrades to *unassessed* rather than raising when no CSVs/backend are available). |
+
+`QAReport.verdict()` grades against `QA_THRESHOLDS` (capture-specific) plus
+the shared `THRESHOLDS` bands (calib RMS, confidence floor), reusing the
+same `Band`/`Check`/`Grade`/`Verdict` vocabulary as the report verdict;
+overall = worst check. `to_json` / `to_markdown` / CLI exit code mirror
+`ValidationReport`. `QA_REPORT_SCHEMA_VERSION` and `QA_THRESHOLDS_VERSION`
+are independent of the report-side versions.
+
+### QA thresholds (`QA_THRESHOLDS`, version 1 — provisional)
+
+All **provisional**: literature/engineering-grounded but unproven on real
+captures; Session 2A re-calibrates against the first real session (bump
+`QA_THRESHOLDS_VERSION`). Calibration RMS is shared with the report verdict
+(see the table above).
+
+| Check | warn | fail | dir | Rationale |
+|-------|------|------|-----|-----------|
+| `calibration.min_charuco_frames` (hard floor) | — | < `MIN_INTRINSIC_FRAMES` (8) | — | Below the solver's intrinsic-frame minimum the calibration cannot solve. Discrete FAIL guard. |
+| `calibration.worst_charuco_detection_rate` | 0.30 | 0.10 | min | Board detected / total frames, worst camera. Capture-style dependent (a fast varied sweep detects in fewer frames yet constrains geometry better), so lenient — the frame floor is the real sufficiency gate. |
+| `calibration.worst_board_coverage` | 0.60 | 0.35 | min | FOV-grid occupancy, worst camera. A centre-bound board weakly constrains oblique-camera intrinsics and couples fx error into stereo translation (`lessons.md` 2026-06-08). |
+| `parity.frame_count_disparity` | 0.05 | 0.20 | max | (max−min)/max raw frame counts. Declared `sync_offset`s trim pre-roll, so a few frames is normal; a large mismatch signals a dropped/desynced recording. |
+| `subject.worst_detection_rate` | 0.80 | 0.50 | min | The subject should track in most frames of a usable clip. |
+| `subject.worst_low_confidence_fraction` | 0.20 | 0.40 | max | Shared `THRESHOLDS.max_low_confidence_fraction`. |
+
 ## Clinical-validity gap register
 
 Honest status of what the harness can and cannot yet prove. The headline gap is
@@ -115,24 +158,31 @@ stability) only.
 | Clinical-metric agreement vs ground truth | **UNVALIDATED** | No known-geometry object, goniometer, or second reference system exists. Joint angles / reach / aperture are internally consistent but not proven *accurate*. `agreement_tolerance_deg` is dormant until a baseline arrives. | Session 2C (needs a baseline; cheapest viable = known-length rod for scale + goniometer for ≥1 joint). |
 | L/R symmetry surrogate | **Conditional** | Valid only when the input is symmetric by construction (phantom/synthetic). On a real subject, genuine anatomical asymmetry confounds it — hence graded *informational*, never failing the verdict. | A baseline or a known-symmetric phantom (2A/2C). |
 | 2D bone-length constraints under foreshortening | **Known-approximate** | `BoneLengthSmoother` constrains 2D limbs that foreshorten under projection (`lessons.md` 2026-05-24); `--no-constraints` disables it. 3D fusion does not suffer this, but 2D inputs feeding fusion still do. | Inherent to 2D; mitigated by 3D fusion + redundancy. |
-| World-frame "up" assumption (trunk metrics) | **Assumption** | Trunk lean/rotation assume world −y = vertical, true only if the `world_frame` camera is level (`multicam.md`, `analysis.md`). A tilted reference camera biases all trunk angles. | Capture protocol (1C): level + verify the world camera; or add a gravity/level reference. |
+| World-frame "up" assumption (trunk metrics) | **Assumption** | Trunk lean/rotation assume world −y = vertical, true only if the `world_frame` camera is level (`multicam.md`, `analysis.md`). A tilted reference camera biases all trunk angles. | Mitigated by `docs/capture_protocol.md` (level + verify the world camera, manual checklist item — the QA gate cannot see it); a gravity/level reference would close it fully. |
 | Single-person fusion | **Scope limit** | Fusion uses `person_idx == 0` only; multi-subject scenes are out of scope (`multicam.md`). Two people in frame → only one fuses. | Future cross-camera person matching (not roadmapped). |
-| Synchronization | **Software-only** | No hardware genlock; sync is recorder-aligned or integer `sync_offset` frames (`multicam.md`). Sub-frame desync degrades reprojection on fast motion; audio-xcorr sync is FUTURE. | Capture protocol + a desync proxy in the 1C QA gate. |
+| Synchronization | **Software-only** | No hardware genlock; sync is recorder-aligned or integer `sync_offset` frames (`multicam.md`). Sub-frame desync degrades reprojection on fast motion; audio-xcorr sync is FUTURE. | Partially caught: `qa_check` frame-count-parity desync proxy + `docs/capture_protocol.md` sync procedure. Sub-frame desync still unmodelled (audio-xcorr FUTURE). |
 | Throughput budget | **Provisional** | `throughput_fps` denominator includes one-time solve + R, so it is a coarse regression signal, not a real-time SLA. Graded *informational*. | Session 2B (real per-device fps budget). |
 | Thresholds calibrated on synthetic data only | **Provisional** | Bands are literature- or engineering-grounded but unproven on real captures; near-exact synthetic fusion sits far inside every band. | Session 2A (re-calibrate to realistic-but-strict). |
 
 ## Running
 
 ```bash
+# Full validation:
 pose-estimation-validate --session-dir videos/session_a \
     --calibration calib.json --out report.json --markdown report.md
+# Pre-flight capture QA only (no fusion/clinical chain):
+pose-estimation-validate --session-dir videos/subject_a \
+    --calibration videos/calib_a --qa-only --out qa.json --markdown qa.md
 ```
 
 Flags (`main`): `--session-dir` (required), `--calibration` (file | dir | omit to
 reuse `<session>/calibration.json`), `--baseline`, `--device`, `--backend`,
-`--out` (JSON), `--markdown`, `--no-clinical`, `--strict`. Exit code: **0**
-PASS/WARN, **1** FAIL verdict, **2** `ValidationError` (e.g. no calibration);
-`--strict` makes WARN exit **1** too.
+`--output-dir`, `--out` (JSON), `--markdown`, `--no-clinical`, `--qa-only`,
+`--strict`. `--qa-only` runs `qa_check` instead of `run_validation` (pass the
+raw ChArUco *session directory* as `--calibration` for board coverage). Exit
+code: **0** PASS/WARN, **1** FAIL verdict, **2** `ValidationError` (e.g. no
+calibration); `--strict` makes WARN exit **1** too. Both paths share `_emit`
+(JSON + Markdown + verdict + exit code), duck-typed over the two report types.
 
 ## Tests
 
@@ -150,3 +200,11 @@ assert each metric crosses its WARN/FAIL band, that informational checks (timing
 symmetry) never escalate the overall grade, that non-finite metrics grade WARN,
 that baseline `_deg` agreement grades while non-angle metrics are noted, and that
 the CLI exit code matches the verdict (incl. `--strict`). See `tech/tests.md`.
+
+The **QA gate** (Session 1C) is tested in the same file: a good capture (the
+rendered session + a *fully-detected* arms+hands subject via
+`_full_skeleton_processor`) grades not-FAIL and clears every sufficiency check;
+a deliberately bad capture (`_render_bad_capture`: 6 centre-clustered board
+poses + cam3 truncated to half its frames) FAILs on board coverage, the ChArUco
+frame floor, and frame-count parity; `--qa-only` exits 0 / 1 accordingly.
+`frame_count` has its own unit test in `tests/test_helpers.py`.

@@ -30,10 +30,11 @@ import pytest
 from pose_estimation._types import CameraCalibration, SessionCalibration
 from pose_estimation.calibration import save_calibration
 from pose_estimation.charuco import make_charuco_board, render_charuco_board, solve_charuco
-from pose_estimation.export import frame_to_rows, open_csv_writer
+from pose_estimation.export import frame_to_rows, open_csv_writer, wrist_to_side
 from pose_estimation.processing import TRACKING_HANDS_ARMS
 from pose_estimation.triangulation import project_points
 from pose_estimation.validation import (
+    QA_THRESHOLDS,
     THRESHOLDS,
     AgreementSection,
     Band,
@@ -41,12 +42,14 @@ from pose_estimation.validation import (
     CameraIntrinsics,
     CameraTracking,
     Fusion3DSection,
+    QAReport,
     Thresholds,
     TimingSection,
     Tracking2DSection,
     ValidationError,
     ValidationReport,
     main,
+    qa_check,
     run_validation,
 )
 
@@ -220,6 +223,92 @@ def _prewrite_csvs(session_out: pathlib.Path, calib: SessionCalibration) -> None
     session_out.mkdir(parents=True, exist_ok=True)
     for name, camera in calib["cameras"].items():
         _write_skeleton_csv(session_out / f"{name}.csv", camera)
+
+
+# QA needs a *fully detected* subject clip (arms AND hands) so its
+# per-camera 2D detection rate reflects a real hands-arms capture (~1.0),
+# unlike the arms-only fusion fixture above (hands left NaN by design).
+_WRIST_SIDE = wrist_to_side(TRACKING_HANDS_ARMS)
+
+
+def _write_full_skeleton_csv(csv_path: pathlib.Path, camera: CameraCalibration) -> None:
+    """Project the arm skeleton AND finite hand keypoints into *camera*.
+
+    Every keypoint in the hands-arms schema is finite, so the QA gate's
+    detection-rate metric sees a fully-tracked clip.  Hand geometry is
+    synthetic (a ramp off each wrist) — QA never fuses the subject, so
+    only finiteness matters here.
+    """
+    width, height = camera["resolution"]
+    fh, writer = open_csv_writer(csv_path, tracking=TRACKING_HANDS_ARMS)
+    try:
+        for f in range(_N_SUBJECT_FRAMES):
+            px = project_points(_skel_world(f), camera)
+            lm = np.concatenate([px, np.zeros((len(px), 1))], axis=1)
+            vis = np.full(len(px), 0.95)
+            hands, matches = [], []
+            for hand_idx, (wrist_kp, _side) in enumerate(sorted(_WRIST_SIDE.items())):
+                base = px[min(wrist_kp, len(px) - 1)]
+                ramp = np.arange(21, dtype=np.float64)
+                hand = np.stack([base[0] + ramp, base[1] + ramp, np.zeros(21)], axis=1)
+                hands.append(hand)
+                matches.append((0, wrist_kp, hand_idx))
+            for row in frame_to_rows(
+                "v",
+                f,
+                f / 30.0,
+                height,
+                width,
+                [lm],
+                [vis],
+                hands,
+                matches,
+                tracking=TRACKING_HANDS_ARMS,
+            ):
+                writer.writerow(row)
+    finally:
+        fh.close()
+
+
+def _full_skeleton_processor(calib: SessionCalibration):
+    """camera_processor writing a fully-detected (arms+hands) CSV per camera."""
+
+    def _proc(*, source: str, output_csv: pathlib.Path, **_kw: Any) -> None:
+        name = pathlib.Path(output_csv).stem
+        _write_full_skeleton_csv(pathlib.Path(output_csv), calib["cameras"][name])
+
+    return _proc
+
+
+# Six board poses clustered dead-centre — a deliberately bad calibration
+# capture: few views (below the intrinsic floor) confined to a small image
+# region (low FOV coverage).
+_BAD_BOARD_POSES: list[tuple[np.ndarray, np.ndarray]] = [
+    (np.array([0.02, -0.03, 0.01]), np.array([0.00, 0.00, 1.00])),
+    (np.array([-0.03, 0.02, -0.02]), np.array([0.02, -0.01, 1.02])),
+    (np.array([0.01, 0.04, 0.03]), np.array([-0.02, 0.01, 0.98])),
+    (np.array([0.03, -0.02, -0.01]), np.array([0.01, 0.02, 1.03])),
+    (np.array([-0.02, -0.04, 0.02]), np.array([-0.01, -0.02, 0.99])),
+    (np.array([0.04, 0.01, -0.03]), np.array([0.00, 0.00, 1.01])),
+]
+
+
+def _render_bad_capture(session_dir: pathlib.Path) -> None:
+    """Render a sparse, centre-bound ChArUco capture with a desynced camera.
+
+    cam3 is truncated to half its frames → a frame-count parity (desync)
+    violation; all cameras see only 6 centre-clustered board views → below
+    the intrinsic floor and low coverage.
+    """
+    session_dir.mkdir(parents=True, exist_ok=True)
+    for name, gt in _GT.items():
+        frames = [
+            _render_view(gt["K"], gt["rvec"], gt["tvec"], rb, tb, gt["size"])
+            for rb, tb in _BAD_BOARD_POSES
+        ]
+        n = 3 if name == "cam3" else len(frames)
+        if not _write_video(session_dir / f"{name}.avi", frames[:n], gt["size"]):
+            pytest.skip("MJPG/AVI codec unavailable on this host")
 
 
 def _r_available() -> bool:
@@ -757,3 +846,136 @@ def test_cli_exit_code_matches_verdict(
     if strict:
         argv.append("--strict")
     assert main(argv) == expected_rc
+
+
+# ---------------------------------------------------------------------------
+# Pre-flight capture QA gate (Session 1C)
+# ---------------------------------------------------------------------------
+
+
+def _checks_by_name(report: QAReport) -> dict[str, str]:
+    """Map each QA check name → its grade for assertions."""
+    return {c.name: c.grade for c in report.verdict().checks}
+
+
+def test_qa_good_capture_passes(rendered_session, tmp_path: pathlib.Path):
+    """A well-formed capture clears every QA sufficiency gate (no FAIL)."""
+    session_dir, solved = rendered_session
+    work = tmp_path / "good"
+    shutil.copytree(session_dir, work)
+    save_calibration(solved, work / "calibration.json")  # load, not re-solve
+
+    report = qa_check(
+        work,
+        calibration=work,
+        camera_processor=_full_skeleton_processor(solved),
+        output_dir=str(tmp_path / "out"),
+    )
+    grades = _checks_by_name(report)
+
+    # Not a failure overall (board coverage may WARN on the oblique synthetic
+    # cameras — an honest "sweep more" signal — but nothing FAILs).
+    assert report.verdict().grade != "FAIL"
+    # The sufficiency gates a good capture must clear outright:
+    assert grades["calibration.reprojection_error_px"] == "PASS"
+    assert grades["calibration.min_charuco_frames"] == "PASS"
+    assert grades["calibration.worst_charuco_detection_rate"] == "PASS"
+    assert grades["parity.frame_count_disparity"] == "PASS"
+    assert grades["subject.worst_detection_rate"] == "PASS"
+    # All three cameras' board coverage cleared the FAIL floor.
+    cov_fail = QA_THRESHOLDS.min_board_coverage.fail
+    assert all(c.coverage > cov_fail for c in report.calibration.cameras)
+    assert report.parity.disparity == 0.0
+
+
+def test_qa_bad_capture_is_flagged(tmp_path: pathlib.Path):
+    """A sparse, desynced capture FAILs with the specific faults named."""
+    bad = tmp_path / "bad"
+    _render_bad_capture(bad)
+
+    report = qa_check(bad, calibration=bad, output_dir=str(tmp_path / "out"))
+    grades = _checks_by_name(report)
+
+    assert report.verdict().grade == "FAIL"
+    # Sparse centre-bound board → below the intrinsic floor + low coverage.
+    assert grades["calibration.min_charuco_frames"] == "FAIL"
+    assert grades["calibration.worst_board_coverage"] == "FAIL"
+    # cam3 truncated to half its frames → parity (desync) violation.
+    assert grades["parity.frame_count_disparity"] == "FAIL"
+    assert report.parity.disparity >= 0.4
+    # The failed solve is surfaced, not silently passed.
+    assert any("RMS unassessed" in n for n in report.notes)
+
+
+def test_qa_to_json_carries_verdict_and_is_nan_free(rendered_session, tmp_path: pathlib.Path):
+    session_dir, solved = rendered_session
+    work = tmp_path / "good"
+    shutil.copytree(session_dir, work)
+    save_calibration(solved, work / "calibration.json")
+
+    report = qa_check(
+        work,
+        calibration=work,
+        camera_processor=_full_skeleton_processor(solved),
+        output_dir=str(tmp_path / "out"),
+    )
+    payload = report.to_json()
+    assert payload["verdict"]["grade"] in {"PASS", "WARN", "FAIL"}
+    assert payload["schema_version"] == report.schema_version
+    # Non-finite floats must serialise to null (CI-parseable).
+    text = json.dumps(payload)
+    assert "NaN" not in text
+    assert "Infinity" not in text
+    assert "Capture QA" in report.to_markdown()
+
+
+def test_qa_cli_exit_codes(rendered_session, tmp_path: pathlib.Path):
+    """``--qa-only`` exits 0 on a good capture and 1 on a flagged one."""
+    session_dir, solved = rendered_session
+    good = tmp_path / "good"
+    shutil.copytree(session_dir, good)
+    save_calibration(solved, good / "calibration.json")
+    _prewrite_full_csvs(good, solved, tmp_path / "out_good")
+
+    rc_good = main(
+        [
+            "--session-dir",
+            str(good),
+            "--calibration",
+            str(good),
+            "--qa-only",
+            "--output-dir",
+            str(tmp_path / "out_good"),
+            "--out",
+            str(tmp_path / "qa_good.json"),
+        ]
+    )
+    assert rc_good == 0
+    assert (tmp_path / "qa_good.json").is_file()
+
+    bad = tmp_path / "bad"
+    _render_bad_capture(bad)
+    rc_bad = main(
+        [
+            "--session-dir",
+            str(bad),
+            "--calibration",
+            str(bad),
+            "--qa-only",
+            "--output-dir",
+            str(tmp_path / "out_bad"),
+            "--out",
+            str(tmp_path / "qa_bad.json"),
+        ]
+    )
+    assert rc_bad == 1
+
+
+def _prewrite_full_csvs(
+    session_dir: pathlib.Path, calib: SessionCalibration, output_dir: pathlib.Path
+) -> None:
+    """Pre-write fully-detected per-camera CSVs so --qa-only reuses them."""
+    session_out = output_dir / session_dir.name
+    session_out.mkdir(parents=True, exist_ok=True)
+    for name, camera in calib["cameras"].items():
+        _write_full_skeleton_csv(session_out / f"{name}.csv", camera)

@@ -42,6 +42,29 @@ def open_capture(source, display=None):
     return cap
 
 
+def frame_count(source):
+    """Return the number of frames in *source*, or 0 if it cannot be opened.
+
+    Trusts the container's ``CAP_PROP_FRAME_COUNT`` metadata when it is
+    positive (exact for the MJPG AVIs the calibration ``capture`` writes
+    and the mp4/cv2-written clips this pipeline reads); falls back to a
+    decode-free ``grab`` count when the metadata is missing or unreliable.
+    """
+    cap = cv2.VideoCapture(str(source))
+    if not cap.isOpened():
+        return 0
+    try:
+        n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if n > 0:
+            return n
+        n = 0
+        while cap.grab():
+            n += 1
+        return n
+    finally:
+        cap.release()
+
+
 def safe_fps(raw_fps):
     """Clamp/validate an FPS reading from cv2; fall back to FALLBACK_FPS."""
     if not np.isfinite(raw_fps) or raw_fps <= 0:

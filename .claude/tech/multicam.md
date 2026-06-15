@@ -114,6 +114,7 @@ When `session.calibration` is present, `process_session()` ends by calling `fuse
 ## Cross-references
 
 - Calibration file schema + workflow: `tech/calibration.md`
+- Capture/QA protocol + the frame-count-parity desync proxy that grades a raw session: `docs/capture_protocol.md`, `tech/validation.md` (`qa_check`).
 - R consumption of `world3d.csv` (gating, 3D features): `tech/analysis.md`
 - Per-camera tracking modes: `tech/tracking-modes.md`
 - CLI surface: `tech/entrypoints.md`

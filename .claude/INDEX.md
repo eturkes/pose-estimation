@@ -27,7 +27,7 @@ Entry point for agent sessions. Load files on demand using the "when to load" hi
 | `tech/multicam.md`     | Multi-camera sessions, session directory layout, sync, `Session` abstraction. |
 | `tech/calibration.md`  | Camera-calibration file format, IO, ChArUco solve + capture workflow. |
 | `tech/analysis.md`     | Working on `analysis/*.R` scripts or downstream clinical features. |
-| `tech/validation.md`   | End-to-end pipeline validation harness, `ValidationReport` schema, `pose-estimation-validate`. |
+| `tech/validation.md`   | End-to-end pipeline validation harness, `ValidationReport` schema, the pre-flight capture-QA gate (`qa_check` / `--qa-only`), `pose-estimation-validate`. Points to `docs/capture_protocol.md` (the operator capture/QA procedure + anonymization strategy). |
 | `tech/optimization.md` | Tuning pipeline parameters, running parameter sweeps, or micro-benchmarks. |
 | `tech/tests.md`        | Adding/running tests; mapping test files to the modules they cover. |
 | `tech/environment.md`  | Dependency, `uv`, `.venv`, R/`renv`, NPU/OpenVINO setup questions. |
