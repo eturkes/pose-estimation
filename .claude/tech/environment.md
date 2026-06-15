@@ -32,8 +32,9 @@
 ## Devices / inference
 
 - OpenVINO backends: NPU (default), CPU, GPU. Select with `--device {NPU|CPU|GPU}` on `main.py` / `run.py`.
-- rtmlib supports both `onnxruntime` and `openvino` backends (`--backend` on `run.py`).
+- Both entry points run OpenVINO: `main.py` converts the MediaPipe TFLite models to IR and `core.compile_model(device=…)` (`models.py`); `run.py` defaults to `--backend openvino --device NPU` for rtmlib (`onnxruntime` is the alternative `--backend`).
 - `scripts/npu_compat.py` — verify NPU compatibility before adding a model to the registry.
+- Confirm a device is actually visible to OpenVINO: `uv run python -c "import openvino as ov; print(ov.Core().available_devices)"`. `NPU` appears only when the host's Intel NPU userspace stack is installed (kernel `intel_vpu` → `/dev/accel/accel0`, plus the level-zero NPU driver/compiler/firmware). The `openvino` wheel bundles the plugin but relies on that system stack; absent it, only `CPU`/`GPU` are listed and an explicit `--device NPU` fails.
 
 ## Data directories
 
@@ -45,6 +46,19 @@
 ## Container caveat
 
 The venv's absolute paths are in `/run/host/...` form, which exists only inside the container — host-side use of `.venv` would need a host-side `uv sync` first (and would then break container use; the container is canonical since agents are the sole users). `.venv/bin/python` targets system `/usr/bin/python3.13` (`pyvenv.cfg` `home = /usr/bin`), which resolves in both — the interpreter symlink survives moves/relayouts, but the absolute paths in Relocation below do not.
+
+### Host-side runs (separate venv, e.g. for the NPU)
+
+The host sees the project at `/home/eturkes/Projects/pose-estimation` (no `/run/host` prefix), so the container `.venv` is unusable there. Give the host its own environment via `UV_PROJECT_ENVIRONMENT` so neither clobbers the other:
+
+```bash
+cd /home/eturkes/Projects/pose-estimation
+export UV_PROJECT_ENVIRONMENT=.venv-host   # keeps the container .venv intact; .venv-host/ is git-ignored
+uv sync                                     # uv fetches Python 3.13 itself if the host lacks it
+uv run python -m pose_estimation.run --source <video>   # live pygame window; rtmw-l + openvino + NPU are defaults
+```
+
+Omitting `--headless` gives the live overlay window (pygame-ce renders in the host's GNOME Wayland session). Models download to `model/` on first run. Requires `uv` on the host and the system NPU userspace stack (see Devices / inference for the `available_devices` check).
 
 ## Relocation (moved project root)
 
