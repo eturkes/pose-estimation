@@ -317,16 +317,16 @@ src/pose_estimation/charuco.py:294: def _global_reprojection_rms(per_camera_dets
 src/pose_estimation/charuco.py:353: def solve_charuco(session_dir: str | pathlib.Path, *, board: cv2.aruco.CharucoBoard | None=None, world_frame: str | None=None, max_frames: …
 src/pose_estimation/charuco.py:437: __all__ = list[10]
 
-# src/pose_estimation/constraints.py (270 lines)
+# src/pose_estimation/constraints.py (262 lines)
 src/pose_estimation/constraints.py:14: BONE_SEGMENTS = list[6]
 src/pose_estimation/constraints.py:27: BONE_SEGMENTS_BODY = list[10]
 src/pose_estimation/constraints.py:43: class BoneLengthSmoother
 src/pose_estimation/constraints.py:69: def BoneLengthSmoother.__init__(self, alpha=None, tolerance=None, segments=None, distal_weight=None)
 src/pose_estimation/constraints.py:85: def BoneLengthSmoother.update(self, body_id, landmarks)
-src/pose_estimation/constraints.py:166: def BoneLengthSmoother.prune(self, active_ids)
-src/pose_estimation/constraints.py:178: ANGLE_LIMITS = dict[2]
-src/pose_estimation/constraints.py:187: ANGLE_LIMITS_BODY = dict[4]
-src/pose_estimation/constraints.py:195: def clamp_joint_angles(landmarks, limits=None)
+src/pose_estimation/constraints.py:158: def BoneLengthSmoother.prune(self, active_ids)
+src/pose_estimation/constraints.py:170: ANGLE_LIMITS = dict[2]
+src/pose_estimation/constraints.py:179: ANGLE_LIMITS_BODY = dict[4]
+src/pose_estimation/constraints.py:187: def clamp_joint_angles(landmarks, limits=None)
 
 # src/pose_estimation/detection.py (146 lines)
 src/pose_estimation/detection.py:5: PALM_INPUT_SIZE = int
@@ -969,15 +969,15 @@ tests/test_rtmw_confidence.py:75: def test_gamma_controls_sharpness()
 tests/test_rtmw_confidence.py:94: def test_confidence_clipped()
 tests/test_rtmw_confidence.py:105: def test_smoother_passes_confidence()
 
-# tests/test_rtmw_constraints.py (134 lines)
+# tests/test_rtmw_constraints.py (136 lines)
 tests/test_rtmw_constraints.py:13: def _make_wholebody_landmarks()
-tests/test_rtmw_constraints.py:46: def test_rtmw_segment_indices_valid()
-tests/test_rtmw_constraints.py:53: def test_rtmw_arm_segments_subset_of_body()
-tests/test_rtmw_constraints.py:59: def test_rtmw_constant_landmarks_no_correction()
-tests/test_rtmw_constraints.py:72: def test_rtmw_perturbed_wrist_corrected()
-tests/test_rtmw_constraints.py:94: def test_rtmw_body_segments_include_legs()
-tests/test_rtmw_constraints.py:101: def test_rtmw_body_smoother_with_legs()
-tests/test_rtmw_constraints.py:119: def test_no_constraints_flag()
+tests/test_rtmw_constraints.py:48: def test_rtmw_segment_indices_valid()
+tests/test_rtmw_constraints.py:55: def test_rtmw_arm_segments_subset_of_body()
+tests/test_rtmw_constraints.py:61: def test_rtmw_constant_landmarks_no_correction()
+tests/test_rtmw_constraints.py:74: def test_rtmw_perturbed_wrist_corrected()
+tests/test_rtmw_constraints.py:96: def test_rtmw_body_segments_include_legs()
+tests/test_rtmw_constraints.py:103: def test_rtmw_body_smoother_with_legs()
+tests/test_rtmw_constraints.py:121: def test_no_constraints_flag()
 
 # tests/test_rtmw_extrapolation.py (182 lines)
 tests/test_rtmw_extrapolation.py:8: def _make_kps(n=133, seed=3741)

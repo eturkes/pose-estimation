@@ -11,34 +11,36 @@ from pose_estimation.run import (
 
 
 def _make_wholebody_landmarks():
-    """Return a plausible (133, 3) COCO-WholeBody landmark array.
+    """Return a plausible (133, 2) COCO-WholeBody landmark array.
 
-    Places body keypoints at approximate positions and fills hand/face
-    keypoints with small offsets from their anchor joints.
+    The rtmlib backend emits 2D (x, y) keypoints, so fixtures are 2D to
+    exercise the real runtime shape.  Places body keypoints at approximate
+    positions and fills hand/face keypoints with small offsets from their
+    anchor joints.
     """
-    lm = np.zeros((133, 3), dtype=np.float64)
+    lm = np.zeros((133, 2), dtype=np.float64)
 
     # Body keypoints (0-16): rough standing pose
-    lm[5] = [100, 100, 0]  # left shoulder
-    lm[6] = [200, 100, 0]  # right shoulder
-    lm[7] = [80, 200, 0]  # left elbow
-    lm[8] = [220, 200, 0]  # right elbow
-    lm[9] = [60, 300, 0]  # left wrist
-    lm[10] = [240, 300, 0]  # right wrist
-    lm[11] = [120, 250, 0]  # left hip
-    lm[12] = [180, 250, 0]  # right hip
-    lm[13] = [115, 380, 0]  # left knee
-    lm[14] = [185, 380, 0]  # right knee
-    lm[15] = [110, 500, 0]  # left ankle
-    lm[16] = [190, 500, 0]  # right ankle
+    lm[5] = [100, 100]  # left shoulder
+    lm[6] = [200, 100]  # right shoulder
+    lm[7] = [80, 200]  # left elbow
+    lm[8] = [220, 200]  # right elbow
+    lm[9] = [60, 300]  # left wrist
+    lm[10] = [240, 300]  # right wrist
+    lm[11] = [120, 250]  # left hip
+    lm[12] = [180, 250]  # right hip
+    lm[13] = [115, 380]  # left knee
+    lm[14] = [185, 380]  # right knee
+    lm[15] = [110, 500]  # left ankle
+    lm[16] = [190, 500]  # right ankle
 
     # Left hand (91-111): cluster near left wrist
     for i in range(91, 112):
-        lm[i] = lm[9] + [(i - 91) * 2, (i - 91) * 1.5, 0]
+        lm[i] = lm[9] + [(i - 91) * 2, (i - 91) * 1.5]
 
     # Right hand (112-132): cluster near right wrist
     for i in range(112, 133):
-        lm[i] = lm[10] + [(i - 112) * 2, (i - 112) * 1.5, 0]
+        lm[i] = lm[10] + [(i - 112) * 2, (i - 112) * 1.5]
 
     return lm
 

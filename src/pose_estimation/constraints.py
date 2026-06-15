@@ -90,7 +90,8 @@ class BoneLengthSmoother:
         body_id : int
             Stable identifier for the tracked body (e.g. track index).
         landmarks : np.ndarray
-            Shape (N, 3) keypoints in pixel space.  Modified in-place.
+            Shape (N, 2) or (N, 3) keypoints in pixel space (2D for the
+            rtmlib backend, 3D for MediaPipe).  Modified in-place.
 
         Returns
         -------
@@ -136,27 +137,18 @@ class BoneLengthSmoother:
 
             # Recompute direction from current landmarks — prior corrections in
             # this loop may have moved the shared endpoint of an earlier segment.
-            ddx = float(landmarks[d, 0] - landmarks[p, 0])
-            ddy = float(landmarks[d, 1] - landmarks[p, 1])
-            ddz = float(landmarks[d, 2] - landmarks[p, 2])
-            norm = math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz)
+            # Operate on whole coordinate rows so 2D (rtmlib) and 3D (MediaPipe)
+            # keypoints are both handled (3D result is numerically unchanged).
+            delta = landmarks[d] - landmarks[p]
+            norm = math.sqrt(float(delta @ delta))
             if norm < eps:
                 continue
 
-            # overshoot vector = (direction) * (norm - expected); equivalently
-            # scale the (ddx, ddy, ddz) raw vector by (norm - expected)/norm.
+            # overshoot vector = direction * (norm - expected)/norm.
             diff_n = norm - expected
-            scale = diff_n / norm
-            ox = ddx * scale
-            oy = ddy * scale
-            oz = ddz * scale
-
-            landmarks[d, 0] -= distal_weight * ox
-            landmarks[d, 1] -= distal_weight * oy
-            landmarks[d, 2] -= distal_weight * oz
-            landmarks[p, 0] += prox_weight * ox
-            landmarks[p, 1] += prox_weight * oy
-            landmarks[p, 2] += prox_weight * oz
+            overshoot = delta * (diff_n / norm)
+            landmarks[d] -= distal_weight * overshoot
+            landmarks[p] += prox_weight * overshoot
 
             # |distal_change| + |proximal_change| = |overshoot| = |norm - expected|
             total_correction += abs(diff_n)

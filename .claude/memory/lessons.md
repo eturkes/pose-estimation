@@ -15,6 +15,15 @@ Append-only. Each lesson should yield a positive, actionable rule (avoid "do not
 
 ---
 
+## 2026-06-15 — Shared components: fixture shape must match each backend's real output
+
+**Symptom.** A live rtmlib run crashed `IndexError: index 2 is out of bounds for axis 1 with size 2` in `BoneLengthSmoother.update` (`constraints.py`): the correction loop read a z-axis (`landmarks[d, 2]`), but rtmlib emits 2D `(N, 2)` keypoints. The rtmlib-specific tests passed, hiding the bug.
+**Root cause.** `BoneLengthSmoother` is shared by MediaPipe (`main.py`, 3D landmarks) and rtmlib (`run.py`, 2D keypoints), but `update` hardcoded three coordinate columns. The rtmlib test fixture built keypoints as `(133, 3)` with z=0 — an unfaithful shape that never exercised the 2D path the backend actually produces. Default `--no-constraints` is off, so every live rtmlib run hit it once a bone exceeded tolerance.
+**Rule (positive form).** When a component is shared by backends that emit different array shapes, always build each backend's fixtures to match its real runtime shape (rtmlib → 2D, MediaPipe → 3D), and prefer whole-row / vectorised array ops (`landmarks[d] - landmarks[p]`, `delta @ delta`) over hardcoded axis indices so the code is dimension-agnostic. Note: 2D bone-length constraints are approximate under limb foreshortening — `--no-constraints` disables them.
+**Where to check.** `src/pose_estimation/constraints.py` (`BoneLengthSmoother.update`), `tests/test_rtmw_constraints.py` (`_make_wholebody_landmarks` is 2D), `tests/test_constraints.py` (MediaPipe 3D).
+
+---
+
 ## 2026-06-08 — Read() deny rules also block Bash commands naming those paths
 
 **Symptom.** Two maintenance probes were denied: `head`/`cat` on `.venv/bin/*` and an `rg` over `.venv/lib/...`. The "sample via Bash" escape hatch documented in the deny-list decision failed both times.
