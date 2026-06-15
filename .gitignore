@@ -46,3 +46,7 @@ debug.log
 
 # MediaPipe downloaded models
 mediapipe/
+
+# Serena LSP (Headroom): track project.yml only; cache/memories/local stay local
+.serena/*
+!.serena/project.yml

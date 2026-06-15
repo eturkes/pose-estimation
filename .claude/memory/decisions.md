@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-15 — Track `.serena/project.yml` only; adopt Scoped Commits
+
+**Context.** CLAUDE.md gained a Headroom bullet declaring `.serena/project.yml` the tracked LSP config while `cache/`, `project.local.yml`, and `memories/` stay local, plus a bullet mandating [Scoped Commits](https://scopedcommits.com/). Serena auto-writes its own `.serena/.gitignore`, which covers only `/cache` + `/project.local.yml` and omits `memories/`.
+**Decision.** Centralized the ignore in the root `.gitignore` via negation (`.serena/*` + `!.serena/project.yml`): only `project.yml` is tracked; everything else — including Serena's own `.serena/.gitignore` — is ignored. Added matching `permissions.deny` `Read()` rules for the three local paths. Documented the `<scope>: <description>` format in `tech/conventions.md`.
+**Alternatives considered.** Edit `.serena/.gitignore` to add `/memories` and track it: rejected — Serena may regenerate that file and silently drop the override; the root `.gitignore` is agent-maintained, authoritative, and regeneration-proof.
+**Consequences.** Future Serena state (memories, cache) never enters Git or agent reads. A regenerated `.serena/.gitignore` is harmless (already ignored). New commits use `<scope>: <description>` (scope vocab: `Tooling`, `Maintenance`, `Refactor`, `Docs`, or a module name). Reverse by dropping the two `.gitignore` lines and the three deny rules.
+**References.** `.gitignore`, `.claude/settings.json`, `.claude/tech/conventions.md`, `.serena/project.yml`.
+
+---
+
 ## 2026-06-08 — `compaction.sh` slimmed to single transcript-read mode
 
 **Context.** `compaction.sh` carried a statusline branch (stdin-JSON parse + 60%/80% ANSI coloring) beside the manual transcript read. The live statusline is a separate script (`$HOME/.claude/statusline.sh`, per `$HOME/.claude/settings.json`), so that branch was dead code in both the repo copy and the canonical home mirror.

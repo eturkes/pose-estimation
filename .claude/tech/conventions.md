@@ -3,7 +3,7 @@
 ## Git
 
 - Commit timing: commit before every end-of-turn message that closes out a cohesive piece of work. Defer commits when mid-iteration and awaiting user input.
-- Commit messages: optimized for parsing by an LLM. Subject line under 50 characters, imperative mood. Body line wrap under 72 characters.
+- Commit messages: [Scoped Commits](https://scopedcommits.com/) — `<scope>: <description>`, scope first (the subsystem/area touched, e.g. `tracking`, `calibration`, `multicam`, or a cross-cutting label such as `Tooling`, `Maintenance`, `Refactor`, `Docs`). For multi-area commits, comma-list the scopes, generalize to one, or use `treewide`. Optimize for LLM parsing: subject ≤50 chars, imperative description, body wrap ≤72 chars.
 - Before committing, always check whether `README.md`, `.gitignore`, `pyproject.toml`, or other housekeeping files need a matching update.
 - The user handles all commands that affect the remote (push, force-push, branch creation, etc.). Agents stop at the local commit.
 
