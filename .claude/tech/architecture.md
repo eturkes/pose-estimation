@@ -25,6 +25,7 @@
 | `charuco.py` | ChArUco board build/render, corner detection, `solve_charuco` (intrinsics + pairwise extrinsics + global RMS). See `tech/calibration.md`. |
 | `calibration_cli.py` | `pose-estimation-calibrate` console script (`verify`/`solve`/`board`/`capture`). |
 | `triangulation.py` | 3D triangulation: math primitives (DLT, projection, undistort) + `fuse_session_frame` policy layer (validity masking, confidence-weighted DLT, min-view enforcement, greedy outlier-view rejection, cheirality flag, reprojection diagnostics). |
+| `validation.py` | End-to-end pipeline validation harness: `run_validation` orchestrates calibration → 2D tracking → fusion → R clinical metrics on one session and emits a `ValidationReport` (JSON + Markdown). Orchestrates + measures only; reuses the pipeline blocks. `pose-estimation-validate` console script. See `tech/validation.md`. |
 | `_types.py` | `Detection`, `HandDetectionDiag`, `PipelineState`, `CameraCalibration`, `SessionCalibration`, `SessionFrame`, `MultiCamPipelineState`, `FusionDiagnostics` TypedDicts. |
 
 ## Public API (re-exported from `src/pose_estimation/__init__.py`)
@@ -62,4 +63,5 @@ Treat this list as the stable surface. Internal helpers (leading `_`) may move f
 - Multi-camera sessions: `tech/multicam.md`
 - Calibration format + workflow: `tech/calibration.md`
 - Entry points & CLI: `tech/entrypoints.md`
+- Validation harness + report schema: `tech/validation.md`
 - Tests: `tech/tests.md`

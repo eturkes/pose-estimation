@@ -15,6 +15,24 @@ Append-only. Each lesson should yield a positive, actionable rule (avoid "do not
 
 ---
 
+## 2026-06-15 — `scripts/repomap.py` maps only `git ls-files`; stage new files *before* regenerating
+
+**Symptom.** After creating `validation.py` + `test_validation.py`, running `python scripts/repomap.py` produced a byte-identical map (`git diff` clean) that omitted every new symbol — yet `tests/test_repomap.py` stayed green, so nothing flagged the gap.
+**Root cause.** `repomap.build()` enumerates files via `git ls-files "*.py" "*.R"`, which lists only **tracked/staged** paths. A brand-new untracked module is invisible to both the generator *and* the drift guard (the guard regenerates from the same `git ls-files`, so committed-map and fresh-build agree on the omission). The map silently undersells the repo until the file is added to the index.
+**Rule (positive form).** When a change adds new `.py`/`.R` files, first `git add` them, *then* regenerate (`uv run python scripts/repomap.py`), then `git add .claude/repomap.md` — so the map is built with the new files already in the index. Verify with `grep -c run_validation .claude/repomap.md` (or the new symbol) before committing.
+**Where to check.** `scripts/repomap.py` (`_tracked()` → `git ls-files`), `tests/test_repomap.py`, `.claude/INDEX.md` (navigation note).
+
+---
+
+## 2026-06-15 — `np.errstate` cannot silence numpy's `warnings.warn`; reductions over all-NaN columns fail under `filterwarnings=error`
+
+**Symptom.** `tests/test_validation.py` failed with `RuntimeWarning: All-NaN slice encountered` (promoted to error by the strict pytest config) from `np.nanmedian(mag, axis=0)` in `_temporal_jitter_mm`, despite a `with np.errstate(invalid="ignore")` guard around the call.
+**Root cause.** Two compounding facts. (1) `world3d.csv` carries a column per **full-skeleton** keypoint, so any keypoint never fused (legs/face in arm mode) is an all-NaN column; `nanmedian` along the frame axis hits an all-NaN slice and *warns*. (2) `np.errstate` only masks IEEE floating-point flags (invalid/divide/over/underflow) raised by ufuncs — it does **not** intercept warnings numpy emits via `warnings.warn(...)`, which `nanmean`/`nanmedian`/`nanpercentile` use for empty/all-NaN slices.
+**Rule (positive form).** To suppress an all-NaN-slice (or empty-slice) warning from a `nan*` reduction, always wrap it in `with warnings.catch_warnings(): warnings.simplefilter("ignore", RuntimeWarning)` — reserve `np.errstate` for genuine FP-flag noise. First confirm the all-NaN input is *expected* (here: untracked keypoints, already dropped by a downstream `finite` filter) so you are silencing a benign case, not masking a real gap.
+**Where to check.** `src/pose_estimation/validation.py` (`_temporal_jitter_mm`), `pyproject.toml` (`filterwarnings = ["error", …]`).
+
+---
+
 ## 2026-06-15 — Shared components: fixture shape must match each backend's real output
 
 **Symptom.** A live rtmlib run crashed `IndexError: index 2 is out of bounds for axis 1 with size 2` in `BoneLengthSmoother.update` (`constraints.py`): the correction loop read a z-axis (`landmarks[d, 2]`), but rtmlib emits 2D `(N, 2)` keypoints. The rtmlib-specific tests passed, hiding the bug.

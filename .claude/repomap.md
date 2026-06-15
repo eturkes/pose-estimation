@@ -607,6 +607,50 @@ src/pose_estimation/triangulation.py:151: def _rotation_translation(camera: Came
 src/pose_estimation/triangulation.py:158: def fuse_session_frame(per_camera_keypoints: dict[str, np.ndarray], calibration: SessionCalibration, *, confidences: dict[str, np.ndarray] …
 src/pose_estimation/triangulation.py:311: __all__ = list[6]
 
+# src/pose_estimation/validation.py (1017 lines)
+src/pose_estimation/validation.py:61: REPORT_SCHEMA_VERSION = int
+src/pose_estimation/validation.py:64: DEFAULT_CONFIDENCE_FLOOR = float
+src/pose_estimation/validation.py:71: REPROJ_GATE_PX = float
+src/pose_estimation/validation.py:78: _PROJECT_ROOT = subscript
+src/pose_estimation/validation.py:79: _CLINICAL_R = binop
+src/pose_estimation/validation.py:80: _CLINICAL_TIMEOUT_S = int
+src/pose_estimation/validation.py:88: _BONES = list[15]
+src/pose_estimation/validation.py:107: _SYMMETRIC_BONES = list[6]
+src/pose_estimation/validation.py:117: class ValidationError(RuntimeError)
+src/pose_estimation/validation.py:127: class CameraIntrinsics
+src/pose_estimation/validation.py:140: class CalibrationSection
+src/pose_estimation/validation.py:151: class CameraTracking
+src/pose_estimation/validation.py:162: class Tracking2DSection
+src/pose_estimation/validation.py:171: class Fusion3DSection
+src/pose_estimation/validation.py:186: class TimingSection
+src/pose_estimation/validation.py:199: class AgreementSection
+src/pose_estimation/validation.py:218: class ValidationReport
+src/pose_estimation/validation.py:235: def ValidationReport.to_json(self) -> dict[str, Any]
+src/pose_estimation/validation.py:238: def ValidationReport.to_markdown(self) -> str
+src/pose_estimation/validation.py:247: def run_validation(session_dir: str | pathlib.Path, *, calibration: str | pathlib.Path | None=None, baseline: str | pathlib.Path | None=Non…
+src/pose_estimation/validation.py:374: def _resolve_external_calibration(calibration: str | pathlib.Path) -> tuple[SessionCalibration, bool]
+src/pose_estimation/validation.py:396: def _build_calibration_section(calib: SessionCalibration, solved: bool) -> CalibrationSection
+src/pose_estimation/validation.py:428: def _run_tracking(session: Session, session_out: pathlib.Path, output_dir: str | pathlib.Path | None, camera_processor: Any, device: str, b…
+src/pose_estimation/validation.py:466: def _run_default_backend(session: Session, output_dir: str | pathlib.Path | None, device: str, backend: str, notes: list[str]) -> float
+src/pose_estimation/validation.py:503: def _measure_tracking(session: Session, session_out: pathlib.Path, confidence_floor: float, reused: bool, notes: list[str]) -> Tracking2DSe…
+src/pose_estimation/validation.py:535: def _camera_tracking(name: str, frames: dict[int, tuple[np.ndarray, np.ndarray, float]], confidence_floor: float) -> CameraTracking
+src/pose_estimation/validation.py:569: def _read_world3d(path: pathlib.Path) -> tuple[list[str], list[dict[str, np.ndarray]]]
+src/pose_estimation/validation.py:612: def _measure_fusion(world3d_path: pathlib.Path) -> Fusion3DSection
+src/pose_estimation/validation.py:662: def _run_clinical(world3d_path: pathlib.Path, notes: list[str]) -> list[str]
+src/pose_estimation/validation.py:694: def _build_agreement(world3d_path: pathlib.Path, session_out: pathlib.Path, baseline: str | pathlib.Path | None, clinical_outputs: list[str…
+src/pose_estimation/validation.py:727: def _bone_lengths(names: list[str], frames: list[dict[str, np.ndarray]]) -> dict[str, np.ndarray]
+src/pose_estimation/validation.py:741: def _bone_length_cv(lengths: dict[str, np.ndarray]) -> dict[str, float]
+src/pose_estimation/validation.py:751: def _symmetry_rel_diff(lengths: dict[str, np.ndarray]) -> dict[str, float]
+src/pose_estimation/validation.py:768: def _temporal_jitter_mm(names: list[str], frames: list[dict[str, np.ndarray]]) -> float
+src/pose_estimation/validation.py:790: def _baseline_agreement(baseline: str | pathlib.Path, session_out: pathlib.Path, clinical_outputs: list[str], notes: list[str]) -> dict[str…
+src/pose_estimation/validation.py:822: def _aggregate_clinical(session_out: pathlib.Path, clinical_outputs: list[str]) -> dict[str, float]
+src/pose_estimation/validation.py:844: def _cell(value: Any) -> float
+src/pose_estimation/validation.py:852: def _native(obj: Any) -> Any
+src/pose_estimation/validation.py:869: def _fmt(value: float, ndigits: int=3) -> str
+src/pose_estimation/validation.py:873: def _render_markdown(report: ValidationReport) -> str
+src/pose_estimation/validation.py:951: def _parse_args(argv: list[str] | None) -> argparse.Namespace
+src/pose_estimation/validation.py:982: def main(argv: list[str] | None=None) -> int
+
 # src/pose_estimation/video_io.py (72 lines)
 src/pose_estimation/video_io.py:13: FALLBACK_FPS = float
 src/pose_estimation/video_io.py:14: MIN_REASONABLE_FPS = float
@@ -1057,3 +1101,29 @@ tests/test_triangulation.py:318: def test_fuse_min_views_three_drops_two_view_ke
 tests/test_triangulation.py:333: def test_fuse_flags_cheirality_violations()
 tests/test_triangulation.py:362: def test_fuse_confidence_is_mean_of_contributing_views()
 tests/test_triangulation.py:374: def test_fuse_validation_errors()
+
+# tests/test_validation.py (470 lines)
+tests/test_validation.py:41: _BOARD = make_charuco_board(...)
+tests/test_validation.py:43: _SQ = float
+tests/test_validation.py:45: _BOARD_IMG = render_charuco_board(...)
+tests/test_validation.py:46: _BG_GRAY = int
+tests/test_validation.py:49: _GT = dict[3]
+tests/test_validation.py:71: def _board_poses(n: int, seed: int=7) -> list[tuple[np.ndarray, np.ndarray]]
+tests/test_validation.py:84: def _render_view(K: np.ndarray, rvec_cam: np.ndarray, tvec_cam: np.ndarray, rvec_board: np.ndarray, tvec_board: np.ndarray, size: tuple[int…
+tests/test_validation.py:126: def _write_video(path: pathlib.Path, frames: list[np.ndarray], size: tuple[int, int]) -> bool
+tests/test_validation.py:144: _SKEL_BASE = np.array(...)
+tests/test_validation.py:160: _N_SUBJECT_FRAMES = int
+tests/test_validation.py:163: def _skel_world(frame_idx: int) -> np.ndarray
+tests/test_validation.py:168: def _write_skeleton_csv(csv_path: pathlib.Path, camera: CameraCalibration) -> None
+tests/test_validation.py:185: def _skeleton_processor(calib: SessionCalibration)
+tests/test_validation.py:202: def _prewrite_csvs(session_out: pathlib.Path, calib: SessionCalibration) -> None
+tests/test_validation.py:209: def _r_available() -> bool
+tests/test_validation.py:229: _HAS_R = _r_available(...)
+tests/test_validation.py:238: def rendered_session(tmp_path_factory: pytest.TempPathFactory)
+tests/test_validation.py:261: def test_run_validation_end_to_end_solve(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:334: def test_run_validation_load_calibration(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:360: def test_run_validation_runs_clinical_pipeline(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:381: def test_self_consistency_runs_without_r(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:404: def test_cli_reuses_existing_csvs_and_writes_reports(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:445: def test_missing_calibration_raises(tmp_path: pathlib.Path)
+tests/test_validation.py:459: def test_cli_missing_calibration_exit_code(tmp_path: pathlib.Path)

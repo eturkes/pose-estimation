@@ -2,7 +2,7 @@
 
 Entry point for agent sessions. Load files on demand using the "when to load" hints.
 
-**Navigation (token-efficient):** to locate code, `rg '\bSYMBOL\b' .claude/repomap.md` → a `path:line` jump target with the full signature (Python via AST, R via regex). Then `Read(path, offset=line, limit=…)` reads only that slice instead of a whole 800–1200-line module. Regenerate after adding/moving/renaming a symbol: `python scripts/repomap.py` (drift-guarded by `tests/test_repomap.py`; a stale map fails the suite).
+**Navigation (token-efficient):** to locate code, `rg '\bSYMBOL\b' .claude/repomap.md` → a `path:line` jump target with the full signature (Python via AST, R via regex). Then `Read(path, offset=line, limit=…)` reads only that slice instead of a whole 800–1200-line module. Regenerate after adding/moving/renaming a symbol: `python scripts/repomap.py` (drift-guarded by `tests/test_repomap.py`; a stale map fails the suite). The map is built from `git ls-files`, so `git add` any **new** `.py`/`.R` file *before* regenerating — an unstaged file is silently omitted and the drift guard cannot catch it.
 
 ## Layout
 
@@ -27,6 +27,7 @@ Entry point for agent sessions. Load files on demand using the "when to load" hi
 | `tech/multicam.md`     | Multi-camera sessions, session directory layout, sync, `Session` abstraction. |
 | `tech/calibration.md`  | Camera-calibration file format, IO, ChArUco solve + capture workflow. |
 | `tech/analysis.md`     | Working on `analysis/*.R` scripts or downstream clinical features. |
+| `tech/validation.md`   | End-to-end pipeline validation harness, `ValidationReport` schema, `pose-estimation-validate`. |
 | `tech/optimization.md` | Tuning pipeline parameters, running parameter sweeps, or micro-benchmarks. |
 | `tech/tests.md`        | Adding/running tests; mapping test files to the modules they cover. |
 | `tech/environment.md`  | Dependency, `uv`, `.venv`, R/`renv`, NPU/OpenVINO setup questions. |
