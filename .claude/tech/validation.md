@@ -208,3 +208,21 @@ a deliberately bad capture (`_render_bad_capture`: 6 centre-clustered board
 poses + cam3 truncated to half its frames) FAILs on board coverage, the ChArUco
 frame floor, and frame-count parity; `--qa-only` exits 0 / 1 accordingly.
 `frame_count` has its own unit test in `tests/test_helpers.py`.
+
+The shared synthetic builders now live in `tests/synthetic_session.py` (render
++ projected-skeleton CSV with fault-injection hooks) and the `rendered_session`
+fixture in `tests/conftest.py` (session-scoped: one render + solve for the whole
+suite).
+
+**Failure-mode suite (Session 1D)** — `tests/test_validation_failuremodes.py`
+proves the harness *surfaces* a degraded capture rather than emitting a
+plausible-but-wrong report. One injected fault per test, each asserting the
+matching report field crosses its threshold, the verdict degrades, and bad data
+becomes NaN (never fabricated): camera dropout (`n_views`↓), miscalibration
+(`reproj_err_px_median` FAIL), desync (reproj↑ vs control), low confidence
+(`worst_low_confidence_fraction` FAIL + zero-conf NaN gate), occlusion
+(`unfused_keypoint_fraction` FAIL, 1-camera occlusion recovered from the
+remaining views), degenerate geometry (instability surrogates FAIL while reproj
+PASSes — the "2D fine, 3D garbage" case). Injection magnitudes are calibrated
+against fusion's outlier rejection (it can *mask* a single grossly-bad view by
+dropping it) and are deterministic — see the 2026-06-16 decision entry.

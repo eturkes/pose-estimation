@@ -9,6 +9,31 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from pose_estimation.charuco import solve_charuco
+from synthetic_session import render_calibration_session
+
+# ---------------------------------------------------------------------------
+# Synthetic 3-camera session (shared by the validation harness + failure-mode
+# suites).  Built once per test session: the render + ChArUco solve is the
+# single most expensive fixture, so it is session-scoped here rather than
+# rebuilt per module.  Tests that mutate the tree copy it first.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def rendered_session(tmp_path_factory: pytest.TempPathFactory):
+    """A rendered 3-camera ChArUco session + its solved calibration.
+
+    The calibration is solved once here (no ``calibration.json`` written
+    into the directory, so the solve-path test can copy a clean tree).
+    Returns ``(session_dir, solved_calibration)``.
+    """
+    session_dir = tmp_path_factory.mktemp("calib_session")
+    render_calibration_session(session_dir)
+    solved = solve_charuco(session_dir)
+    return session_dir, solved
+
+
 # ---------------------------------------------------------------------------
 # Factories (callables) — flexible parametrisation per-test
 # ---------------------------------------------------------------------------

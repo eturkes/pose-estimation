@@ -15,6 +15,15 @@ Append-only. Each lesson should yield a positive, actionable rule (avoid "do not
 
 ---
 
+## 2026-06-16 — A shared test-helper module needs its dir on *both* pytest `pythonpath` and `ty.environment.root`
+
+**Symptom.** After extracting `tests/synthetic_session.py` for cross-test reuse and adding `tests` to pytest's `pythonpath`, the whole suite passed — but `uv run ty check` then failed with 10 `unresolved-import: synthetic_session` errors.
+**Root cause.** pytest's `pythonpath` and `ty`'s module-resolution roots are independent settings. `pythonpath = ["src", "tests"]` made the sibling module importable *at test runtime*, but `[tool.ty.environment].root` was still `["src"]`, so the static type checker had no path on which `synthetic_session` was a top-level module. Under `--import-mode=importlib` pytest does not add test dirs to `sys.path` automatically, so a sibling test-helper module is invisible to both tools until each is told about the directory.
+**Rule (positive form).** To share a helper module across test files, first make it a top-level module by adding its directory to pytest `pythonpath`, then mirror the same directory into `[tool.ty.environment].root` in the same change, and verify with `uv run pytest` *and* `uv run ty check` before moving on. Keep the two roots in sync whenever either changes.
+**Where to check.** `pyproject.toml` (`[tool.pytest.ini_options].pythonpath`, `[tool.ty.environment].root`), `tests/synthetic_session.py`, `tests/conftest.py`.
+
+---
+
 ## 2026-06-15 — `scripts/repomap.py` maps only `git ls-files`; stage new files *before* regenerating
 
 **Symptom.** After creating `validation.py` + `test_validation.py`, running `python scripts/repomap.py` produced a byte-identical map (`git diff` clean) that omitted every new symbol — yet `tests/test_repomap.py` stayed green, so nothing flagged the gap.

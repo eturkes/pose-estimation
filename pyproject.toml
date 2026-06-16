@@ -94,7 +94,9 @@ override-dependencies = [
 [tool.pytest.ini_options]
 minversion = "9.0"
 testpaths = ["tests"]
-pythonpath = ["src"]
+# "tests" is on the path so cross-test helper modules (synthetic_session.py)
+# import as top-level under --import-mode=importlib.
+pythonpath = ["src", "tests"]
 addopts = [
     "-ra",
     "--strict-config",
@@ -156,8 +158,10 @@ quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
 
+# "tests" is a module root so cross-test helpers (synthetic_session.py) resolve
+# as top-level imports, matching pytest's pythonpath under import-mode=importlib.
 [tool.ty.environment]
-root = ["src"]
+root = ["src", "tests"]
 python-version = "3.10"
 
 [tool.ty.src]

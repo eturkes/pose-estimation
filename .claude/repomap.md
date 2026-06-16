@@ -697,12 +697,39 @@ src/pose_estimation/video_io.py:68: def safe_fps(raw_fps)
 src/pose_estimation/video_io.py:78: def frame_to_surface(frame)
 src/pose_estimation/video_io.py:86: def collect_video_files(directory)
 
-# tests/conftest.py (104 lines)
-tests/conftest.py:18: def make_random_landmarks()
-tests/conftest.py:29: def make_random_kps()
-tests/conftest.py:40: def make_arm_body()
-tests/conftest.py:75: def make_hand_landmarks()
-tests/conftest.py:89: def make_palm_det()
+# tests/conftest.py (129 lines)
+tests/conftest.py:24: def rendered_session(tmp_path_factory: pytest.TempPathFactory)
+tests/conftest.py:43: def make_random_landmarks()
+tests/conftest.py:54: def make_random_kps()
+tests/conftest.py:65: def make_arm_body()
+tests/conftest.py:100: def make_hand_landmarks()
+tests/conftest.py:114: def make_palm_det()
+
+# tests/synthetic_session.py (397 lines)
+tests/synthetic_session.py:42: BOARD = make_charuco_board(...)
+tests/synthetic_session.py:44: SQ = float
+tests/synthetic_session.py:46: BOARD_IMG = render_charuco_board(...)
+tests/synthetic_session.py:47: BG_GRAY = int
+tests/synthetic_session.py:50: GT = dict[3]
+tests/synthetic_session.py:72: def board_poses(n: int, seed: int=7) -> list[tuple[np.ndarray, np.ndarray]]
+tests/synthetic_session.py:85: def render_view(K: np.ndarray, rvec_cam: np.ndarray, tvec_cam: np.ndarray, rvec_board: np.ndarray, tvec_board: np.ndarray, size: tuple[int,…
+tests/synthetic_session.py:127: def write_video(path: pathlib.Path, frames: list[np.ndarray], size: tuple[int, int]) -> bool
+tests/synthetic_session.py:140: def render_calibration_session(session_dir: pathlib.Path, *, n_poses: int=60) -> None
+tests/synthetic_session.py:161: SKEL_BASE = np.array(...)
+tests/synthetic_session.py:177: N_SUBJECT_FRAMES = int
+tests/synthetic_session.py:178: DEFAULT_VELOCITY = np.array(...)
+tests/synthetic_session.py:181: def skel_world(frame_idx: int, velocity: np.ndarray=DEFAULT_VELOCITY) -> np.ndarray
+tests/synthetic_session.py:186: def write_skeleton_csv(csv_path: pathlib.Path, camera: CameraCalibration, *, confidence: float=0.95, occlude: tuple[int, ...]=(), occlude_f…
+tests/synthetic_session.py:248: def skeleton_processor(calib: SessionCalibration, **csv_kwargs: Any)
+tests/synthetic_session.py:272: def prewrite_csvs(session_out: pathlib.Path, calib: SessionCalibration) -> None
+tests/synthetic_session.py:282: WRIST_SIDE = wrist_to_side(...)
+tests/synthetic_session.py:285: def write_full_skeleton_csv(csv_path: pathlib.Path, camera: CameraCalibration) -> None
+tests/synthetic_session.py:324: def full_skeleton_processor(calib: SessionCalibration)
+tests/synthetic_session.py:334: def prewrite_full_csvs(session_dir: pathlib.Path, calib: SessionCalibration, output_dir: pathlib.Path) -> None
+tests/synthetic_session.py:347: BAD_BOARD_POSES = list[6]
+tests/synthetic_session.py:357: def render_bad_capture(session_dir: pathlib.Path) -> None
+tests/synthetic_session.py:375: def r_available() -> bool
+tests/synthetic_session.py:396: HAS_R = r_available(...)
 
 # tests/test_benchmark_config.py (83 lines)
 tests/test_benchmark_config.py:14: def parser()
@@ -1141,52 +1168,47 @@ tests/test_triangulation.py:333: def test_fuse_flags_cheirality_violations()
 tests/test_triangulation.py:362: def test_fuse_confidence_is_mean_of_contributing_views()
 tests/test_triangulation.py:374: def test_fuse_validation_errors()
 
-# tests/test_validation.py (982 lines)
-tests/test_validation.py:60: _BOARD = make_charuco_board(...)
-tests/test_validation.py:62: _SQ = float
-tests/test_validation.py:64: _BOARD_IMG = render_charuco_board(...)
-tests/test_validation.py:65: _BG_GRAY = int
-tests/test_validation.py:68: _GT = dict[3]
-tests/test_validation.py:90: def _board_poses(n: int, seed: int=7) -> list[tuple[np.ndarray, np.ndarray]]
-tests/test_validation.py:103: def _render_view(K: np.ndarray, rvec_cam: np.ndarray, tvec_cam: np.ndarray, rvec_board: np.ndarray, tvec_board: np.ndarray, size: tuple[int…
-tests/test_validation.py:145: def _write_video(path: pathlib.Path, frames: list[np.ndarray], size: tuple[int, int]) -> bool
-tests/test_validation.py:163: _SKEL_BASE = np.array(...)
-tests/test_validation.py:179: _N_SUBJECT_FRAMES = int
-tests/test_validation.py:182: def _skel_world(frame_idx: int) -> np.ndarray
-tests/test_validation.py:187: def _write_skeleton_csv(csv_path: pathlib.Path, camera: CameraCalibration) -> None
-tests/test_validation.py:204: def _skeleton_processor(calib: SessionCalibration)
-tests/test_validation.py:221: def _prewrite_csvs(session_out: pathlib.Path, calib: SessionCalibration) -> None
-tests/test_validation.py:231: _WRIST_SIDE = wrist_to_side(...)
-tests/test_validation.py:234: def _write_full_skeleton_csv(csv_path: pathlib.Path, camera: CameraCalibration) -> None
-tests/test_validation.py:273: def _full_skeleton_processor(calib: SessionCalibration)
-tests/test_validation.py:286: _BAD_BOARD_POSES = list[6]
-tests/test_validation.py:296: def _render_bad_capture(session_dir: pathlib.Path) -> None
-tests/test_validation.py:314: def _r_available() -> bool
-tests/test_validation.py:334: _HAS_R = _r_available(...)
-tests/test_validation.py:343: def rendered_session(tmp_path_factory: pytest.TempPathFactory)
-tests/test_validation.py:366: def test_run_validation_end_to_end_solve(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:439: def test_run_validation_load_calibration(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:465: def test_run_validation_runs_clinical_pipeline(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:486: def test_self_consistency_runs_without_r(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:509: def test_cli_reuses_existing_csvs_and_writes_reports(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:550: def test_missing_calibration_raises(tmp_path: pathlib.Path)
-tests/test_validation.py:564: def test_cli_missing_calibration_exit_code(tmp_path: pathlib.Path)
-tests/test_validation.py:582: def _good_report() -> ValidationReport
-tests/test_validation.py:661: def test_verdict_good_report_passes()
-tests/test_validation.py:706: def test_verdict_fail_bands(mutate, check_name)
-tests/test_validation.py:733: def test_verdict_warn_bands(mutate, check_name)
-tests/test_validation.py:742: def test_informational_checks_never_escalate_overall()
-tests/test_validation.py:752: def test_non_finite_metric_grades_warn()
-tests/test_validation.py:761: def test_verdict_no_baseline_notes_unvalidated()
-tests/test_validation.py:766: def test_verdict_baseline_angle_agreement_grades_and_notes()
-tests/test_validation.py:778: def test_verdict_baseline_angle_within_tolerance_passes()
-tests/test_validation.py:788: def test_verdict_accepts_custom_thresholds()
-tests/test_validation.py:798: def test_verdict_surfaced_in_json_and_markdown()
-tests/test_validation.py:810: def test_verdict_json_is_nan_free()
-tests/test_validation.py:834: def test_cli_exit_code_matches_verdict(monkeypatch, tmp_path: pathlib.Path, grade, strict, expected_rc)
-tests/test_validation.py:856: def _checks_by_name(report: QAReport) -> dict[str, str]
-tests/test_validation.py:861: def test_qa_good_capture_passes(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:891: def test_qa_bad_capture_is_flagged(tmp_path: pathlib.Path)
-tests/test_validation.py:910: def test_qa_to_json_carries_verdict_and_is_nan_free(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:932: def test_qa_cli_exit_codes(rendered_session, tmp_path: pathlib.Path)
-tests/test_validation.py:974: def _prewrite_full_csvs(session_dir: pathlib.Path, calib: SessionCalibration, output_dir: pathlib.Path) -> None
+# tests/test_validation.py (679 lines)
+tests/test_validation.py:73: def test_run_validation_end_to_end_solve(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:146: def test_run_validation_load_calibration(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:172: def test_run_validation_runs_clinical_pipeline(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:193: def test_self_consistency_runs_without_r(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:216: def test_cli_reuses_existing_csvs_and_writes_reports(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:257: def test_missing_calibration_raises(tmp_path: pathlib.Path)
+tests/test_validation.py:271: def test_cli_missing_calibration_exit_code(tmp_path: pathlib.Path)
+tests/test_validation.py:289: def _good_report() -> ValidationReport
+tests/test_validation.py:368: def test_verdict_good_report_passes()
+tests/test_validation.py:413: def test_verdict_fail_bands(mutate, check_name)
+tests/test_validation.py:440: def test_verdict_warn_bands(mutate, check_name)
+tests/test_validation.py:449: def test_informational_checks_never_escalate_overall()
+tests/test_validation.py:459: def test_non_finite_metric_grades_warn()
+tests/test_validation.py:468: def test_verdict_no_baseline_notes_unvalidated()
+tests/test_validation.py:473: def test_verdict_baseline_angle_agreement_grades_and_notes()
+tests/test_validation.py:485: def test_verdict_baseline_angle_within_tolerance_passes()
+tests/test_validation.py:495: def test_verdict_accepts_custom_thresholds()
+tests/test_validation.py:505: def test_verdict_surfaced_in_json_and_markdown()
+tests/test_validation.py:517: def test_verdict_json_is_nan_free()
+tests/test_validation.py:541: def test_cli_exit_code_matches_verdict(monkeypatch, tmp_path: pathlib.Path, grade, strict, expected_rc)
+tests/test_validation.py:563: def _checks_by_name(report: QAReport) -> dict[str, str]
+tests/test_validation.py:568: def test_qa_good_capture_passes(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:598: def test_qa_bad_capture_is_flagged(tmp_path: pathlib.Path)
+tests/test_validation.py:617: def test_qa_to_json_carries_verdict_and_is_nan_free(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation.py:639: def test_qa_cli_exit_codes(rendered_session, tmp_path: pathlib.Path)
+
+# tests/test_validation_failuremodes.py (407 lines)
+tests/test_validation_failuremodes.py:36: _REGION = tuple[4]
+tests/test_validation_failuremodes.py:37: _WIDE = tuple[8]
+tests/test_validation_failuremodes.py:45: def _grades(report) -> dict[str, str]
+tests/test_validation_failuremodes.py:50: def _perturb_yaw(solved: SessionCalibration, camera: str, deg: float) -> SessionCalibration
+tests/test_validation_failuremodes.py:59: def _degenerate_rig(solved: SessionCalibration, baseline_m: float) -> SessionCalibration
+tests/test_validation_failuremodes.py:78: def _save(cal: SessionCalibration, path: pathlib.Path) -> pathlib.Path
+tests/test_validation_failuremodes.py:83: def _validate(rendered_session, tmp_path: pathlib.Path, *, calibration, processor, session_json: dict | None=None, tag: str='work')
+tests/test_validation_failuremodes.py:107: def _manifest(offsets: dict[str, int]) -> dict
+tests/test_validation_failuremodes.py:124: def test_camera_dropout_collapses_redundancy(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation_failuremodes.py:166: def test_miscalibration_inflates_fusion_reprojection(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation_failuremodes.py:203: def test_desync_degrades_reprojection(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation_failuremodes.py:240: def test_pervasive_low_confidence_is_flagged(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation_failuremodes.py:267: def test_subthreshold_confidence_gates_to_nan(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation_failuremodes.py:301: def test_single_camera_occlusion_uses_remaining_views(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation_failuremodes.py:325: def test_two_camera_occlusion_reports_unfused_not_garbage(rendered_session, tmp_path: pathlib.Path)
+tests/test_validation_failuremodes.py:363: def test_degenerate_geometry_flags_instability(rendered_session, tmp_path: pathlib.Path)

@@ -47,7 +47,7 @@ Per-session prompt blocks for finished roadmaps are pruned (recoverable from Git
 - 1A: Validation harness core + report schema + synthetic E2E fixture ✓
 - 1B: Pass/fail thresholds + clinical-validity gap register ✓
 - 1C: Capture/QA protocol + automated QA gate + anonymization strategy ✓
-- 1D: Failure-mode test suite
+- 1D: Failure-mode test suite ✓
 
 ### Phase 2: Real-data validation (gated on footage; agreement also gated on a baseline)
 - 2A: First real-capture dry run + protocol/threshold calibration

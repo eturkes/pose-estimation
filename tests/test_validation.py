@@ -1,14 +1,10 @@
 """End-to-end tests for the ``pose_estimation.validation`` harness.
 
-Synthetic, footage-independent input (roadmap Phase 1):
-
-- **Calibration session** — a ChArUco board rendered into MJPG videos
-  (3x supersample + INTER_AREA, mirroring ``test_charuco``) that
-  ``solve_charuco`` resolves for real.
-- **2D tracking output** — a symmetric 12-keypoint "arm" skeleton
-  projected into each calibrated camera and written as per-camera CSVs
-  (mirroring ``test_multicam``), so fusion → ``world3d.csv`` →
-  self-consistency runs deterministically without live inference.
+Synthetic, footage-independent input (roadmap Phase 1) is built by
+``synthetic_session`` and the ``rendered_session`` fixture (conftest): a
+real ChArUco solve plus a symmetric 12-keypoint "arm" skeleton projected
+into each calibrated camera, so fusion -> ``world3d.csv`` ->
+self-consistency runs deterministically without live inference.
 
 The harness exercises every branch: solve calibration, load calibration,
 reuse existing CSVs (CLI path), and the no-calibration error.
@@ -20,19 +16,11 @@ import dataclasses
 import json
 import pathlib
 import shutil
-import subprocess
-from typing import Any
 
-import cv2
 import numpy as np
 import pytest
 
-from pose_estimation._types import CameraCalibration, SessionCalibration
 from pose_estimation.calibration import save_calibration
-from pose_estimation.charuco import make_charuco_board, render_charuco_board, solve_charuco
-from pose_estimation.export import frame_to_rows, open_csv_writer, wrist_to_side
-from pose_estimation.processing import TRACKING_HANDS_ARMS
-from pose_estimation.triangulation import project_points
 from pose_estimation.validation import (
     QA_THRESHOLDS,
     THRESHOLDS,
@@ -52,311 +40,30 @@ from pose_estimation.validation import (
     qa_check,
     run_validation,
 )
-
-# ---------------------------------------------------------------------------
-# ChArUco calibration-session render (mirrors test_charuco)
-# ---------------------------------------------------------------------------
-
-_BOARD = make_charuco_board()
-_SX, _SY = _BOARD.getChessboardSize()
-_SQ = 0.04
-_BOARD_W_M, _BOARD_H_M = _SX * _SQ, _SY * _SQ
-_BOARD_IMG = render_charuco_board(_BOARD, px_per_square=100, margin_squares=0)
-_BG_GRAY = 180
-
-# Ground-truth rig: cam1 = world; cam2/cam3 yawed toward the volume.
-_GT: dict[str, dict[str, Any]] = {
-    "cam1": {
-        "K": np.array([[900.0, 0, 640], [0, 900.0, 360], [0, 0, 1]]),
-        "size": (1280, 720),
-        "rvec": np.zeros(3),
-        "tvec": np.zeros(3),
-    },
-    "cam2": {
-        "K": np.array([[880.0, 0, 650], [0, 880.0, 350], [0, 0, 1]]),
-        "size": (1280, 720),
-        "rvec": np.array([0.0, np.deg2rad(25.0), 0.0]),
-        "tvec": np.array([-0.8, 0.0, 0.25]),
-    },
-    "cam3": {
-        "K": np.array([[700.0, 0, 480], [0, 700.0, 270], [0, 0, 1]]),
-        "size": (960, 540),
-        "rvec": np.array([0.0, np.deg2rad(-20.0), 0.05]),
-        "tvec": np.array([0.7, 0.0, 0.2]),
-    },
-}
-
-
-def _board_poses(n: int, seed: int = 7) -> list[tuple[np.ndarray, np.ndarray]]:
-    """Centre-parametrised board poses facing the rig with varied tilt."""
-    rng = np.random.default_rng(seed)
-    poses = []
-    for _ in range(n):
-        rvec = np.array([rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), rng.uniform(-0.6, 0.6)])
-        tvec = np.array(
-            [rng.uniform(-0.40, 0.25), rng.uniform(-0.15, 0.15), rng.uniform(0.70, 1.35)]
-        )
-        poses.append((rvec, tvec))
-    return poses
-
-
-def _render_view(
-    K: np.ndarray,
-    rvec_cam: np.ndarray,
-    tvec_cam: np.ndarray,
-    rvec_board: np.ndarray,
-    tvec_board: np.ndarray,
-    size: tuple[int, int],
-) -> np.ndarray:
-    """Render the board seen by a camera; plain background if off-view."""
-    w, h = size
-    blank = np.full((h, w), _BG_GRAY, dtype=np.uint8)
-    corners_m = np.array(
-        [[0, 0, 0], [_BOARD_W_M, 0, 0], [_BOARD_W_M, _BOARD_H_M, 0], [0, _BOARD_H_M, 0]]
-    )
-    centred = corners_m - np.array([_BOARD_W_M / 2, _BOARD_H_M / 2, 0.0])
-    R_b = cv2.Rodrigues(np.asarray(rvec_board, dtype=np.float64))[0]
-    R_c = cv2.Rodrigues(np.asarray(rvec_cam, dtype=np.float64))[0]
-    pts_world = (R_b @ centred.T).T + tvec_board
-    pts_cam = (R_c @ pts_world.T).T + tvec_cam
-    if np.any(pts_cam[:, 2] <= 0.1):
-        return blank
-    proj = (K @ pts_cam.T).T
-    proj = proj[:, :2] / proj[:, 2:3]
-    if proj[:, 0].min() < 10 or proj[:, 0].max() > w - 10:
-        return blank
-    if proj[:, 1].min() < 10 or proj[:, 1].max() > h - 10:
-        return blank
-    bh, bw = _BOARD_IMG.shape[:2]
-    src = np.array([[0, 0], [bw, 0], [bw, bh], [0, bh]], dtype=np.float32)
-    ss = 3  # supersample: anti-alias marker interiors
-    H = cv2.getPerspectiveTransform(src, proj.astype(np.float32) * ss)
-    canvas = cv2.warpPerspective(
-        _BOARD_IMG,
-        H,
-        (w * ss, h * ss),
-        flags=cv2.INTER_LINEAR,
-        borderMode=cv2.BORDER_CONSTANT,
-        borderValue=_BG_GRAY,
-    )
-    return cv2.resize(canvas, (w, h), interpolation=cv2.INTER_AREA)
-
-
-def _write_video(path: pathlib.Path, frames: list[np.ndarray], size: tuple[int, int]) -> bool:
-    fourcc = cv2.VideoWriter.fourcc(*"MJPG")
-    writer = cv2.VideoWriter(str(path), fourcc, 15.0, size)
-    if not writer.isOpened():
-        return False
-    writer.set(cv2.VIDEOWRITER_PROP_QUALITY, 100)
-    for frame in frames:
-        writer.write(cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR))
-    writer.release()
-    return path.is_file() and path.stat().st_size > 0
-
-
-# ---------------------------------------------------------------------------
-# Synthetic subject skeleton (mirrors test_multicam projected CSVs)
-# ---------------------------------------------------------------------------
-
-# 12 "arm" keypoints (hands-arms mode), left/right symmetric, in the rig's
-# co-visible working volume (z ~ 1 m).  Order = export.ARM_KEYPOINT_NAMES.
-_SKEL_BASE = np.array(
-    [
-        [-0.12, -0.10, 1.00],  # left_shoulder
-        [0.12, -0.10, 1.00],  # right_shoulder
-        [-0.16, 0.00, 1.02],  # left_elbow
-        [0.16, 0.00, 1.02],  # right_elbow
-        [-0.14, 0.12, 1.04],  # left_wrist
-        [0.14, 0.12, 1.04],  # right_wrist
-        [-0.13, 0.15, 1.04],  # left_index_base
-        [0.13, 0.15, 1.04],  # right_index_base
-        [-0.12, 0.16, 1.04],  # left_middle_base
-        [0.12, 0.16, 1.04],  # right_middle_base
-        [-0.11, 0.17, 1.04],  # left_pinky_base
-        [0.11, 0.17, 1.04],  # right_pinky_base
-    ]
+from synthetic_session import (
+    HAS_R as _HAS_R,
 )
-_N_SUBJECT_FRAMES = 8
-
-
-def _skel_world(frame_idx: int) -> np.ndarray:
-    """Rigid skeleton translating linearly over time (constant bone lengths)."""
-    return _SKEL_BASE + np.array([0.004, 0.002, 0.003]) * frame_idx
-
-
-def _write_skeleton_csv(csv_path: pathlib.Path, camera: CameraCalibration) -> None:
-    """Project the moving skeleton into *camera* and write its per-camera CSV."""
-    width, height = camera["resolution"]
-    fh, writer = open_csv_writer(csv_path, tracking=TRACKING_HANDS_ARMS)
-    try:
-        for f in range(_N_SUBJECT_FRAMES):
-            px = project_points(_skel_world(f), camera)
-            lm = np.concatenate([px, np.zeros((len(px), 1))], axis=1)
-            vis = np.full(len(px), 0.95)
-            for row in frame_to_rows(
-                "v", f, f / 30.0, height, width, [lm], [vis], [], [], tracking=TRACKING_HANDS_ARMS
-            ):
-                writer.writerow(row)
-    finally:
-        fh.close()
-
-
-def _skeleton_processor(calib: SessionCalibration):
-    """camera_processor that writes a projected-skeleton CSV per camera."""
-
-    def _proc(
-        *,
-        source: str,
-        output_csv: pathlib.Path,
-        output_diag: pathlib.Path,
-        video_name: str,
-        **_kw: Any,
-    ) -> None:
-        name = pathlib.Path(output_csv).stem
-        _write_skeleton_csv(pathlib.Path(output_csv), calib["cameras"][name])
-
-    return _proc
-
-
-def _prewrite_csvs(session_out: pathlib.Path, calib: SessionCalibration) -> None:
-    """Pre-write per-camera CSVs so the harness reuses them (CLI path)."""
-    session_out.mkdir(parents=True, exist_ok=True)
-    for name, camera in calib["cameras"].items():
-        _write_skeleton_csv(session_out / f"{name}.csv", camera)
-
-
-# QA needs a *fully detected* subject clip (arms AND hands) so its
-# per-camera 2D detection rate reflects a real hands-arms capture (~1.0),
-# unlike the arms-only fusion fixture above (hands left NaN by design).
-_WRIST_SIDE = wrist_to_side(TRACKING_HANDS_ARMS)
-
-
-def _write_full_skeleton_csv(csv_path: pathlib.Path, camera: CameraCalibration) -> None:
-    """Project the arm skeleton AND finite hand keypoints into *camera*.
-
-    Every keypoint in the hands-arms schema is finite, so the QA gate's
-    detection-rate metric sees a fully-tracked clip.  Hand geometry is
-    synthetic (a ramp off each wrist) — QA never fuses the subject, so
-    only finiteness matters here.
-    """
-    width, height = camera["resolution"]
-    fh, writer = open_csv_writer(csv_path, tracking=TRACKING_HANDS_ARMS)
-    try:
-        for f in range(_N_SUBJECT_FRAMES):
-            px = project_points(_skel_world(f), camera)
-            lm = np.concatenate([px, np.zeros((len(px), 1))], axis=1)
-            vis = np.full(len(px), 0.95)
-            hands, matches = [], []
-            for hand_idx, (wrist_kp, _side) in enumerate(sorted(_WRIST_SIDE.items())):
-                base = px[min(wrist_kp, len(px) - 1)]
-                ramp = np.arange(21, dtype=np.float64)
-                hand = np.stack([base[0] + ramp, base[1] + ramp, np.zeros(21)], axis=1)
-                hands.append(hand)
-                matches.append((0, wrist_kp, hand_idx))
-            for row in frame_to_rows(
-                "v",
-                f,
-                f / 30.0,
-                height,
-                width,
-                [lm],
-                [vis],
-                hands,
-                matches,
-                tracking=TRACKING_HANDS_ARMS,
-            ):
-                writer.writerow(row)
-    finally:
-        fh.close()
-
-
-def _full_skeleton_processor(calib: SessionCalibration):
-    """camera_processor writing a fully-detected (arms+hands) CSV per camera."""
-
-    def _proc(*, source: str, output_csv: pathlib.Path, **_kw: Any) -> None:
-        name = pathlib.Path(output_csv).stem
-        _write_full_skeleton_csv(pathlib.Path(output_csv), calib["cameras"][name])
-
-    return _proc
-
-
-# Six board poses clustered dead-centre — a deliberately bad calibration
-# capture: few views (below the intrinsic floor) confined to a small image
-# region (low FOV coverage).
-_BAD_BOARD_POSES: list[tuple[np.ndarray, np.ndarray]] = [
-    (np.array([0.02, -0.03, 0.01]), np.array([0.00, 0.00, 1.00])),
-    (np.array([-0.03, 0.02, -0.02]), np.array([0.02, -0.01, 1.02])),
-    (np.array([0.01, 0.04, 0.03]), np.array([-0.02, 0.01, 0.98])),
-    (np.array([0.03, -0.02, -0.01]), np.array([0.01, 0.02, 1.03])),
-    (np.array([-0.02, -0.04, 0.02]), np.array([-0.01, -0.02, 0.99])),
-    (np.array([0.04, 0.01, -0.03]), np.array([0.00, 0.00, 1.01])),
-]
-
-
-def _render_bad_capture(session_dir: pathlib.Path) -> None:
-    """Render a sparse, centre-bound ChArUco capture with a desynced camera.
-
-    cam3 is truncated to half its frames → a frame-count parity (desync)
-    violation; all cameras see only 6 centre-clustered board views → below
-    the intrinsic floor and low coverage.
-    """
-    session_dir.mkdir(parents=True, exist_ok=True)
-    for name, gt in _GT.items():
-        frames = [
-            _render_view(gt["K"], gt["rvec"], gt["tvec"], rb, tb, gt["size"])
-            for rb, tb in _BAD_BOARD_POSES
-        ]
-        n = 3 if name == "cam3" else len(frames)
-        if not _write_video(session_dir / f"{name}.avi", frames[:n], gt["size"]):
-            pytest.skip("MJPG/AVI codec unavailable on this host")
-
-
-def _r_available() -> bool:
-    if not shutil.which("Rscript"):
-        return False
-    try:
-        result = subprocess.run(
-            [
-                "Rscript",
-                "-e",
-                'for (p in c("dplyr","tidyr","readr","stringr","purrr")) '
-                "if (!requireNamespace(p, quietly=TRUE)) quit(status=1)",
-            ],
-            capture_output=True,
-            timeout=30,
-            check=False,
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
-
-
-_HAS_R = _r_available()
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="module")
-def rendered_session(tmp_path_factory: pytest.TempPathFactory):
-    """A rendered 3-camera ChArUco session + its solved calibration.
-
-    The calibration is solved once here (no ``calibration.json`` written
-    into the directory, so the solve-path test can copy a clean tree).
-    """
-    session_dir = tmp_path_factory.mktemp("calib_session")
-    poses = _board_poses(60)
-    for name, gt in _GT.items():
-        frames = [
-            _render_view(gt["K"], gt["rvec"], gt["tvec"], rb, tb, gt["size"]) for rb, tb in poses
-        ]
-        if not _write_video(session_dir / f"{name}.avi", frames, gt["size"]):
-            pytest.skip("MJPG/AVI codec unavailable on this host")
-    solved = solve_charuco(session_dir)
-    return session_dir, solved
-
+from synthetic_session import (
+    N_SUBJECT_FRAMES as _N_SUBJECT_FRAMES,
+)
+from synthetic_session import (
+    full_skeleton_processor as _full_skeleton_processor,
+)
+from synthetic_session import (
+    prewrite_csvs as _prewrite_csvs,
+)
+from synthetic_session import (
+    prewrite_full_csvs as _prewrite_full_csvs,
+)
+from synthetic_session import (
+    render_bad_capture as _render_bad_capture,
+)
+from synthetic_session import (
+    skeleton_processor as _skeleton_processor,
+)
+from synthetic_session import (
+    write_video as _write_video,
+)
 
 # ---------------------------------------------------------------------------
 # End-to-end: solve calibration branch
@@ -969,13 +676,3 @@ def test_qa_cli_exit_codes(rendered_session, tmp_path: pathlib.Path):
         ]
     )
     assert rc_bad == 1
-
-
-def _prewrite_full_csvs(
-    session_dir: pathlib.Path, calib: SessionCalibration, output_dir: pathlib.Path
-) -> None:
-    """Pre-write fully-detected per-camera CSVs so --qa-only reuses them."""
-    session_out = output_dir / session_dir.name
-    session_out.mkdir(parents=True, exist_ok=True)
-    for name, camera in calib["cameras"].items():
-        _write_full_skeleton_csv(session_out / f"{name}.csv", camera)
