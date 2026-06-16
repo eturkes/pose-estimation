@@ -57,6 +57,6 @@ Thumbs.db
 # MediaPipe downloaded models
 mediapipe/
 
-# Serena LSP (Headroom): track project.yml only; cache/memories/local stay local
-.serena/*
-!.serena/project.yml
+# Serena LSP (Headroom): .serena/ self-governs via its own .serena/.gitignore
+# (cache + project.local.yml stay local; project.yml + .gitignore committed).
+# Memory system is disabled globally, so memories/ stays empty.

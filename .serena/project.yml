@@ -75,7 +75,9 @@ additional_workspace_folders: []
 # Note: global ignored_paths from serena_config.yml are also applied additively.
 # Kept in sync with the non-gitignored Read()-deny entries in .claude/settings.json
 # (the committed "do-not-read" set). Gitignored deny entries are already covered by
-# ignore_all_files_in_gitignore above; .git is traversal-excluded by Serena itself.
+# ignore_all_files_in_gitignore above. `.git/` and Serena's own `.serena/` are
+# traversal-excluded by Serena, so their internal do-not-read paths need no mirror
+# even when non-gitignored (e.g. memories/ once .serena/.gitignore took over).
 ignored_paths:
 - "LICENSE"
 - "uv.lock"
