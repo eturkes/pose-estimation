@@ -65,7 +65,7 @@ Strict config: `-ra --strict-config --strict-markers --import-mode=importlib`. W
 ## Working style (agents)
 
 - Subagents: when dispatching work, always run them on the most capable model (Opus) with maximum thinking — the same tier the main session uses. Multi-agent councils/teams are encouraged for hard problems (per CLAUDE.md).
-- Prose (docs, commit bodies, memory): dry, direct, concise, precise; assume a technical reader.
+- Prose splits by audience. LLM-facing text (memory, commit bodies, tech notes, code comments) is dry, direct, concise, precise; assume a technical reader. Human-facing text (`README.md`, `docs/`) additionally follows the CLAUDE.md UI/UX rule: human-like, free of LLM smells, with hyphens over other dashes, flexible enumeration, and varied comparatives. Scope and the 2026-06-16 cleanup are recorded in `memory/decisions.md`.
 - New behaviour: favour red-green-refactor (failing test → make it pass → refactor), balanced against the overtesting caution in CLAUDE.md and `tech/tests.md`.
 
 ## Agent-writable files

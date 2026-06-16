@@ -16,6 +16,16 @@ Append-only log of decisions that future sessions must respect. Always add new e
 
 ---
 
+## 2026-06-16 — Human-facing prose scope + non-hyphen-dash cleanup
+
+**Context.** CLAUDE.md's UI/UX bullet gained a concrete human-facing style rule ("prefer hyphens over other kinds of dashes, enumerate flexibly, vary comparative constructions"), renamed "user-facing" → "human-facing", and added "smells" to the LLM-isms to avoid. This forced the standing question of *which* files count as human-facing, then a compliance pass.
+**Decision.** Human-facing surfaces = `README.md` + `docs/capture_protocol.md` (the latter's opening line calls itself "the human procedure"). Everything under `.claude/` (tech notes, memory, repomap), all code/comments, and the `AGENTS.md` pointer are LLM-facing and exempt — CLAUDE.md explicitly tailors those to agent ease, so their em-dashes stay. Converted all 40 non-hyphen dashes across the two human-facing docs: numeric ranges → hyphens (`3.10-3.13`, `0-1`, `45-90`) and the minus sign → hyphen (`-y`); prose em-dashes → restructured punctuation (comma / semicolon / colon / parens) rather than spaced hyphens; table N/A placeholders → exact values (`0` for the zero-count body cells, `n/a` for mediapipe's variable count); bold list/checklist lead-ins `**Term** — …` → `**Term.** …` (the style section 1 of `capture_protocol.md` already used, so the doc is now internally consistent). The cliche/enumeration/comparative scan was already clean.
+**Alternatives considered.** (a) Treat `docs/capture_protocol.md` as LLM-facing reference and skip it — rejected: it declares itself the human procedure, lives in `docs/` not `.claude/tech/`, and human operators read it. (b) Global `—`→`-` replace — rejected: spaced hyphens mid-sentence read as typos; prose needs restructuring, ranges do not. (c) Leave table `—` placeholders as a typographic convention — rejected: exact values cost nothing, leave zero non-hyphen dashes, and remove the "why were those skipped?" ambiguity.
+**Consequences.** Future edits to those two docs keep hyphens and the `**Term.**` lead-in style; LLM-facing notes stay exempt, so no effort goes to "dash-fixing" them. The durable convention is codified in `tech/conventions.md` (Working style → Prose). Purely stylistic; reverse by ignoring.
+**References.** `README.md`, `docs/capture_protocol.md`, `.claude/tech/conventions.md` (Prose bullet), `/CLAUDE.md` (UI/UX + pink-elephant bullets).
+
+---
+
 ## 2026-06-16 — Failure-mode suite (1D): assert the field that genuinely moves, calibrated against outlier rejection
 
 **Context.** Roadmap Session 1D: a failure-mode suite proving the validation harness *surfaces* degraded input rather than emitting plausible-but-wrong output. The task listed six faults each mapped to an expected report field. Two hard realities surfaced while wiring them: (a) fusion's greedy outlier rejection (`fuse_session_frame` drops a view reprojecting > `REPROJ_GATE_PX`=20 while > `min_views` remain) can *mask* a single grossly-bad view by rejecting it — so the named field does not always move the way the roadmap assumed; (b) `unfused_keypoint_fraction` only counts active-keypoint slots blank *within a fused frame* — a frame seen by < 2 cameras is excluded, not counted unfused — so whole-camera frame loss moves `n_views`, never `unfused`.
