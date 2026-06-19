@@ -1,32 +1,13 @@
----
-description: Bootstrap a pose-estimation session. Pass a task to override the roadmap, or leave blank to continue the roadmap.
-argument-hint: [TASK]
----
+Continue this project (fresh session). `CLAUDE.md`: operating contract.
 
-You are continuing work on the **pose-estimation** project. Bootstrap your context as follows before doing anything else:
+`$ARGUMENTS` — when set, that is the task; ignore the roadmap. When empty, take the next open step in `.agent/roadmap.md`.
 
-1. Always read `/CLAUDE.md` first — it is the project-root meta-instructions document and overrides default behaviour. You may rewrite it whenever content is obsolete, better phrased, or superseded.
-2. Always read `.claude/INDEX.md` next — it is the manifest of project-specific tech notes and memory files, with hints on when to load each.
-3. Load only the `.claude/tech/*.md` files relevant to the task at hand (the INDEX names them). For broad bug-fixing or refactor work, load `architecture.md` + `tests.md` + the module-specific note.
-4. Skim the **top** of `.claude/memory/decisions.md` and `.claude/memory/lessons.md` to inherit prior context. Entries are newest-first.
-5. When you reach a non-trivial decision, append to `.claude/memory/decisions.md`. When you recover from a mistake worth remembering, append to `.claude/memory/lessons.md`. Phrase lessons positively ("always X", "first X then Y") — avoid "do not"/"never" framings.
-6. Whenever code changes invalidate any `.claude/tech/*.md` content, fix the affected note in the same change. Drift is the most common failure mode for this repo.
-7. Treat `AGENTS.md` as a pointer; it should remain a short redirect to `CLAUDE.md` + `.claude/INDEX.md`. Project-specific tech belongs under `.claude/tech/`, never inlined into `AGENTS.md`.
-8. Push back on ambiguous or under-specified requests with concrete clarifying questions before acting. CLAUDE.md authorises this explicitly.
-9. Use TaskCreate for any plan with three or more distinct steps; mark each task `completed` the moment its work is done.
+Load first: `CLAUDE.md` (how you operate), `.agent/roadmap.md` (plan + status), `.agent/memory.md` (lessons + decisions). Then read only what the step implicates — subsystem reference lives in `.claude/tech/*.md` (filenames are the index).
 
-Tooling reminders:
-- Python: `uv` + `.venv/` (container-native). `uv run ruff check --fix`, `uv run ruff format`, `uv run ty check`, `uv run pytest`.
-- R: `renv`; install with `renv::restore()`.
-- Display: `pygame-ce` (Wayland-compatible). OpenCV is `opencv-python-headless`.
-- Devices: NPU default; `--device {NPU|CPU|GPU}` on `main.py` / `run.py`. rtmlib supports `--backend {onnxruntime|openvino}`.
-- Data dirs (`videos/`, `output/`, `model/`) are git-ignored — keep patient data out of commits.
-- Navigate code via the repo map instead of whole-file reads: `rg '\bSYMBOL\b' .claude/repomap.md` → `path:line`, then `Read(path, offset=line)`. Regenerate after editing code: `python scripts/repomap.py` (drift-guarded by `tests/test_repomap.py`).
-
-## Task for this session
-
-$ARGUMENTS
-
-**If the task line above is blank**, no override was given — continue the roadmap: open `.claude/prompts/sessions.md`, read the **Current roadmap** section, and pick up the next unfinished item (any task not marked ✓). Adopt that session's task block verbatim as your task. If every roadmap item is complete, the only standing work is the Phase 4 maintenance cycle — run it, then report that the roadmap is exhausted so the user can seed the next one.
-
-**If a task is given**, treat it as an override for this session: it takes precedence over the roadmap. Any extra lines the user appended after it are steering notes and, per CLAUDE.md, are the final say.
+Then:
+1. Restate the step + its acceptance in one line.
+2. Implement. Reuse existing modules; match surrounding style. Navigate Python via Serena/LSP, R via grep.
+3. If a Phase 2 step needs real footage and `rehab/data/videos` holds none, stop and report the block — never fabricate results.
+4. Verify: `uv run ruff check` / `ruff format --check` / `ty check` / `pytest`; touched R scripts exit 0.
+5. Record durable lessons/decisions in `.agent/memory.md`; update status + next in `.agent/roadmap.md`.
+6. Scoped commit (local only). Watch context with `sh .agent/compaction.sh`; wrap up near 80%.

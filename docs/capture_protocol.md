@@ -77,7 +77,7 @@ Then **move the board through the entire working volume** while pressing:
 - **Translation diversity.** Visit the centre, all four corners, near and
   far planes of the volume. A board confined to the centre weakly
   constrains oblique cameras' intrinsics and couples focal-length error
-  into the stereo translation (`.claude/memory/lessons.md` 2026-06-08). The
+  into the stereo translation (`.agent/memory.md`, 2026-06-08). The
   QA `board_coverage` metric grades how much of each frame the board swept.
 - **Tilt diversity.** Also rotate the board (pitch/yaw/roll, ~±30°) at each
   location, not just translate it. Tilt variety is what separates focal
@@ -192,4 +192,4 @@ capture host; only de-identified derived coordinates are shareable.**
   under the study's ethics approval.
 
 This is the source of truth for Session 2C's anonymized-fixture step; see
-`.claude/memory/decisions.md` for the recorded decision.
+`.agent/memory.md` for the recorded decision.
