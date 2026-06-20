@@ -45,6 +45,7 @@ An unguarded markdown doc (then `AGENTS.md`) silently rotted — listed a moved 
 
 ## Decision log (condensed; newest first — full rationale in git)
 
+- 2026-06-20 — CLAUDE.md split into local (project) + global (sandbox/env/Headroom/Serena, in `~/.claude`). `/session-prompt` no longer loads CLAUDE.md (auto-injected) but retains project concretes (verify gate, `.claude/tech/*` index, Phase-2 footage gate); `/codex-review` is environment-bound (seed verbatim, no project adaptation).
 - 2026-06-19 — Consolidated agent state into `.agent/` (memory.md + roadmap.md + compaction.sh); retired `.claude/{INDEX,prompts,memory}/` and the repomap (Serena LSP supersedes it for Python; R navigated by grep). Tech notes kept under `.claude/tech/`.
 - 2026-06-16 — Human-facing prose scope: only explicitly human-facing text avoids LLM-isms and uses hyphens over en/em-dashes; code/comments stay agent-optimized.
 - 2026-06-16 — Failure-mode suite (1D) asserts the report field that genuinely moves under each fault, calibrated against outlier rejection.
