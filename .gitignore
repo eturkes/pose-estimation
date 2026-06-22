@@ -57,9 +57,7 @@ Thumbs.db
 # MediaPipe downloaded models
 mediapipe/
 
-# Serena LSP (Headroom): .serena/ self-governs via its own .serena/.gitignore
-# (cache + project.local.yml stay local; project.yml + .gitignore committed).
-# Memory system is disabled globally, so memories/ stays empty.
+# Serena (Headroom): .serena/ self-governs via .serena/.gitignore — cache + project.local.yml local, project.yml + .gitignore committed; memory disabled globally, so memories/ stays empty.
 
-# Claude Code: personal machine-local instructions (never commit)
+# Claude Code machine-local instructions
 CLAUDE.local.md
