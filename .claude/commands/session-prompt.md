@@ -2,12 +2,12 @@ Continue this project (fresh session). Non-empty task below ⇒ it is your sole 
 
 Load `.agent/roadmap.md` (milestone ledger + active-milestone detail), then `.agent/memory.md` (lessons + decisions); CLAUDE.md (it imports `AGENTS.md`) is auto-injected. Read only what the step implicates — subsystem notes under `.claude/tech/*.md` (filenames index them). Navigate via LSP where available, else grep.
 
-MODE ← active-milestone status (each mode advances the status, then closes on a scoped commit):
+MODE ← active-milestone status (each mode advances it, then closes on a scoped commit; convention at the end):
 - UNPLANNED (incl. a not-yet-split future milestone) → PLANNING
 - IN-PROGRESS (has an OPEN unit) → WORK-UNIT (lowest OPEN unit)
 - IMPLEMENTED (units all DONE, unreviewed) → MILESTONE-REVIEW
 
-Every mode closes on its commit (convention below); then I compact and run `/codex-review`, and you fix accepted findings in a follow-up commit (same trace key + `Codex-Review:` trailer). MILESTONE-REVIEW is the exception — I run its `/codex-review` without compacting first. Record context-usage in WORK-UNIT only.
+After each mode's commit I compact and run `/codex-review`; you fix accepted findings in a follow-up commit. MILESTONE-REVIEW is the exception — its `/codex-review` runs without compacting. Record context-usage in WORK-UNIT only.
 
 PLANNING — split the outline into milestones if not yet split, then plan only the next milestone.
 - Read the prior milestone's commit range, especially its recorded context-usage (it right-sizes units); for the first planned milestone, the outline-seed commit(s) the roadmap names.
@@ -18,7 +18,7 @@ PLANNING — split the outline into milestones if not yet split, then plan only 
 WORK-UNIT.
 - Read the last completed unit's commit(s) — or the planning commit(s) if this is the milestone's first unit.
 - Do: (1) restate the unit + its acceptance in one line; (2) implement, reusing modules, matching surrounding style; (3) GATE — a gated unit needs its precondition met; confirm functionally (resolve through the pipeline/tooling), deny-listed inputs off-limits; unmet ⇒ stop and report, so every result traces to real inputs; (4) VERIFY the project's quality gates pass (lint, format, type-check, tests as the roadmap defines them); touched scripts exit clean; (5) record durable lessons/decisions in `.agent/memory.md`.
-- Close: record the unit's context-usage (`.agent/compaction.sh`, full `pct used/window`) into the roadmap; set the unit DONE — and the milestone IMPLEMENTED if no OPEN unit remains; commit `<scope> (M<m>.<u>): …`.
+- Close: record the unit's context-usage (`.agent/context.sh`, full `pct used/window`) into the roadmap; set the unit DONE — and the milestone IMPLEMENTED if no OPEN unit remains; commit `<scope> (M<m>.<u>): …`.
 
 MILESTONE-REVIEW — I launch this with 1M context (ideally the only 1M session).
 - Read every commit of the milestone, planning commits included.
