@@ -28,6 +28,7 @@ import time
 import cv2
 import numpy as np
 
+from .calibration import CalibrationError
 from .constraints import BoneLengthSmoother
 from .export import frame_to_rows, open_csv_writer
 from .mapping import coco_to_mediapipe
@@ -192,6 +193,16 @@ def parse_args():
         "--sessions-dir",
         default=None,
         help="Parent directory holding multiple session subdirectories (batch mode).",
+    )
+    p.add_argument(
+        "--list-sessions",
+        action="store_true",
+        help=(
+            "Read-only probe: discover session(s) (stat/glob only, no frame "
+            "decoding), print per-session camera count + calibration presence, "
+            "then exit. Defaults to the videos/ sessions root when neither "
+            "--session-dir nor --sessions-dir is given."
+        ),
     )
     p.add_argument(
         "--calibration",
@@ -519,6 +530,22 @@ def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoo
 
 def main():
     args = parse_args()
+
+    if args.list_sessions:
+        # Read-only discovery probe for the M2 footage gate: resolve_cli_sessions
+        # does stat/glob discovery + a summary print with no frame decoding, so it
+        # never reads video bytes.  Defaulting to the "videos/" sessions-root
+        # convention lets the gate command name no deny-listed path (.agent/roadmap.md).
+        session_dir = args.session_dir
+        sessions_dir = args.sessions_dir
+        if session_dir is None and sessions_dir is None:
+            sessions_dir = "videos"
+        try:
+            resolve_cli_sessions(session_dir, sessions_dir, summary_label="Discovered sessions")
+        except (SessionError, CalibrationError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            sys.exit(1)
+        sys.exit(0)
 
     # ── MediaPipe delegates to main.py (forwards session flags too) ─
     if args.model == "mediapipe":

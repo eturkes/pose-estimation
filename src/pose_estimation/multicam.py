@@ -191,12 +191,16 @@ def resolve_cli_sessions(
     session_dir: str | pathlib.Path | None,
     sessions_dir: str | pathlib.Path | None,
     calibration_path: str | pathlib.Path | None = None,
+    *,
+    summary_label: str = "Multi-camera dispatch",
 ) -> list[Session]:
     """Resolve the --session-dir / --sessions-dir CLI args into sessions.
 
-    Shared by both entry points' session dispatch.  Exactly one of
-    *session_dir* / *sessions_dir* must be given; raises ``SessionError``
-    on conflict or empty discovery.  Prints the dispatch summary.
+    Shared by both entry points' session dispatch and the read-only
+    ``--list-sessions`` discovery probe.  Exactly one of *session_dir* /
+    *sessions_dir* must be given; raises ``SessionError`` on conflict or empty
+    discovery.  Resolution is stat/glob only (no frame decoding); prints a
+    summary headed by *summary_label*.
     """
     if session_dir and sessions_dir:
         raise SessionError("--session-dir and --sessions-dir are mutually exclusive")
@@ -218,7 +222,7 @@ def resolve_cli_sessions(
                 discover_session(s.directory, calibration_path=calibration_path) for s in sessions
             ]
 
-    print(f"Multi-camera dispatch: {len(sessions)} session(s)")
+    print(f"{summary_label}: {len(sessions)} session(s)")
     for s in sessions:
         cal = "present" if s.calibration is not None else "absent"
         print(

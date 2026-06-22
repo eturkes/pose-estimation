@@ -745,3 +745,62 @@ def test_process_session_fusion_failure_warns(tmp_path: pathlib.Path, capsys):
     captured = capsys.readouterr().out
     assert "WARNING: 3D fusion skipped" in captured
     assert results == {"cam1": "done", "cam2": "done"}
+
+
+# ---------------------------------------------------------------------------
+# --list-sessions discovery probe (backs the roadmap M2 footage gate)
+# ---------------------------------------------------------------------------
+
+
+def test_list_sessions_probe_reports_without_decoding(tmp_path, monkeypatch, capsys):
+    """``pose-estimation-run --list-sessions`` resolves sessions via stat/glob only,
+    prints a per-session camera + calibration summary, then exits 0 — no frame
+    decoding, no dispatch.  Empty (undecodable) camera files plus a process_session
+    tripwire lock the no-decode guarantee that keeps the probe off video bytes.
+    """
+    from pose_estimation import run as run_mod
+
+    root = tmp_path / "sessions"
+    sess3 = root / "session_three"
+    sess3.mkdir(parents=True)
+    for name in ("cam1", "cam2", "cam3"):
+        (sess3 / f"{name}.mp4").touch()
+    _write_calibration(sess3 / CALIBRATION_FILENAME, cameras=["cam1", "cam2", "cam3"])
+    sess1 = root / "session_one"
+    sess1.mkdir(parents=True)
+    (sess1 / "cam1.mp4").touch()
+
+    def _no_dispatch(*_args, **_kwargs):
+        raise AssertionError("--list-sessions must not dispatch or read frames")
+
+    monkeypatch.setattr(run_mod, "process_session", _no_dispatch)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["pose-estimation-run", "--list-sessions", "--sessions-dir", str(root)],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        run_mod.main()
+
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "Discovered sessions: 2 session(s)" in out
+    assert "session_three: 3 cameras (cam1, cam2, cam3); calibration: present" in out
+    assert "session_one: 1 cameras (cam1); calibration: absent" in out
+
+
+def test_list_sessions_probe_exits_nonzero_when_absent(tmp_path, monkeypatch):
+    """An empty sessions root yields a clean non-zero exit (the footage-absent gate signal)."""
+    from pose_estimation import run as run_mod
+
+    empty = tmp_path / "empty_root"
+    empty.mkdir()
+    monkeypatch.setattr(
+        "sys.argv",
+        ["pose-estimation-run", "--list-sessions", "--sessions-dir", str(empty)],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        run_mod.main()
+
+    assert exc.value.code == 1

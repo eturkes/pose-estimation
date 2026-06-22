@@ -48,12 +48,13 @@ python -m pose_estimation.run --source video.mp4 --backend openvino --device NPU
 python -m pose_estimation.run --batch-dir videos/ --single-subject
 python -m pose_estimation.run --session-dir videos/session_a/           # multi-cam (stub)
 python -m pose_estimation.run --sessions-dir videos/ --calibration calib.json
+python -m pose_estimation.run --list-sessions                          # read-only discovery probe
 python -m pose_estimation.run --headless                               # no display
 ```
 
 All rtmlib models share the YOLOX-m detector (640×640). Detector + pose URLs are pinned in `MODEL_REGISTRY`. Models download on first run.
 
-`--session-dir`/`--sessions-dir`/`--calibration` route through the same multi-camera dispatcher as `main.py`, using an rtmlib camera processor callback that wraps `process_source()`. Session dispatch occurs after model setup so the pose tracker, smoother, and bone smoother are available. With `--model mediapipe`, `_run_mediapipe` forwards these flags to `pose-estimation` via subprocess.
+`--session-dir`/`--sessions-dir`/`--calibration` route through the same multi-camera dispatcher as `main.py`, using an rtmlib camera processor callback that wraps `process_source()`. Session dispatch occurs after model setup so the pose tracker, smoother, and bone smoother are available. With `--model mediapipe`, `_run_mediapipe` forwards these flags to `pose-estimation` via subprocess. `--list-sessions` short-circuits *before* model setup: it resolves `--session-dir`/`--sessions-dir` (default `videos/`) through `resolve_cli_sessions(..., summary_label="Discovered sessions")` — stat/glob discovery only, no frame decoding, no dispatch — prints `<id>: N cameras (...); calibration: present|absent` per session, then exits (`0` = ≥1 found, `1` = none/error). Read-only probe backing the roadmap M2 footage gate.
 
 ## `benchmark.py` — parameter sweep
 
