@@ -1,6 +1,6 @@
 Continue this project (fresh session). Task below non-empty ⇒ sole task; do exactly it, leave `.agent/roadmap.md` untouched unless it directs otherwise. Empty ⇒ run the MODE selected from the roadmap's active milestone (first one not DONE/REVIEWED).
 
-Load `.agent/roadmap.md` (milestone ledger + active-milestone detail), then `.agent/memory.md` (lessons + decisions); CLAUDE.md is auto-injected. Read only what the step implicates — subsystem reference `.claude/tech/*.md` (filenames index it). Navigate Python via Serena/LSP, R via grep.
+Load `.agent/roadmap.md` (milestone ledger + active-milestone detail), then `.agent/memory.md` (lessons + decisions); CLAUDE.md (it imports `AGENTS.md`) is auto-injected. Read only what the step implicates — subsystem reference `.claude/tech/*.md` (filenames index it). Navigate Python via Serena/LSP, R via grep.
 
 MODE ← active milestone status (each mode advances status, then ends on a scoped commit; convention below):
 - UNPLANNED (incl. a not-yet-split future milestone) → PLANNING

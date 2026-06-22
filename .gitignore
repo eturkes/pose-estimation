@@ -60,3 +60,6 @@ mediapipe/
 # Serena LSP (Headroom): .serena/ self-governs via its own .serena/.gitignore
 # (cache + project.local.yml stay local; project.yml + .gitignore committed).
 # Memory system is disabled globally, so memories/ stays empty.
+
+# Claude Code: personal machine-local instructions (never commit)
+CLAUDE.local.md
