@@ -802,10 +802,11 @@ def test_process_session_fusion_failure_warns(tmp_path: pathlib.Path, capsys):
 
 
 def test_list_sessions_probe_reports_without_decoding(tmp_path, monkeypatch, capsys):
-    """``pose-estimation-run --list-sessions`` resolves sessions via stat/glob only,
-    prints a per-session camera + calibration summary, then exits 0 — no frame
-    decoding, no dispatch.  Empty (undecodable) camera files plus a process_session
-    tripwire lock the no-decode guarantee that keeps the probe off video bytes.
+    """``pose-estimation-run --list-sessions`` discovers sessions (filenames +
+    manifests) and prints a redacted per-session shape summary (ordinal + camera
+    count + calibration presence, no tree ids/names), then exits 0 — no frame
+    decoding, no dispatch.  Empty (undecodable) camera files plus process_session
+    and cv2.VideoCapture tripwires lock the no-decode guarantee.
     """
     from pose_estimation import run as run_mod
 
@@ -840,8 +841,13 @@ def test_list_sessions_probe_reports_without_decoding(tmp_path, monkeypatch, cap
     assert exc.value.code == 0
     out = capsys.readouterr().out
     assert "Discovered sessions: 2 session(s)" in out
-    assert "session_three: 3 cameras (cam1, cam2, cam3); calibration: present" in out
-    assert "session_one: 1 cameras (cam1); calibration: absent" in out
+    # Redacted: ordinal + shape only (sorted discovery → session_one #1, session_three #2).
+    assert "session #1: 1 cameras; calibration: absent" in out
+    assert "session #2: 3 cameras; calibration: present" in out
+    # The probe must not echo the deny-listed tree's real identifiers.
+    assert "session_three" not in out
+    assert "session_one" not in out
+    assert "cam1" not in out
 
 
 def test_list_sessions_probe_exits_nonzero_when_absent(tmp_path, monkeypatch, capsys):
@@ -894,7 +900,8 @@ def test_list_sessions_probe_honors_explicit_calibration(tmp_path, monkeypatch, 
 
     assert exc.value.code == 0
     out = capsys.readouterr().out
-    assert "sess_extcal: 3 cameras (cam1, cam2, cam3); calibration: present" in out
+    assert "session #1: 3 cameras; calibration: present" in out
+    assert "sess_extcal" not in out
 
 
 def test_list_sessions_probe_rejects_bogus_calibration(tmp_path, monkeypatch, capsys):

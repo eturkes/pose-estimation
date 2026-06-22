@@ -537,16 +537,21 @@ def main():
         # discovers sessions from filenames + session.json/calibration.json and
         # prints a summary with no frame decoding, so no video bytes enter context.
         # Defaulting the sessions root to "videos/" in source lets the gate command
-        # name no deny-listed path; the probe still surfaces session-shape metadata
-        # (ids, camera names/count, calibration presence) — never frames or
-        # calibration values (.agent/roadmap.md M2 gate).
+        # name no deny-listed path; redact_identifiers keeps the tree's session ids /
+        # camera names out of context too — the probe surfaces only an ordinal,
+        # camera count, and calibration presence, never frames or calibration values
+        # (.agent/roadmap.md M2 gate).
         session_dir = args.session_dir
         sessions_dir = args.sessions_dir
         if session_dir is None and sessions_dir is None:
             sessions_dir = "videos"
         try:
             resolve_cli_sessions(
-                session_dir, sessions_dir, args.calibration, summary_label="Discovered sessions"
+                session_dir,
+                sessions_dir,
+                args.calibration,
+                summary_label="Discovered sessions",
+                redact_identifiers=True,
             )
         except (SessionError, CalibrationError) as exc:
             print(f"ERROR: {exc}", file=sys.stderr)

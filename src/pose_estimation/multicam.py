@@ -198,6 +198,7 @@ def resolve_cli_sessions(
     calibration_path: str | pathlib.Path | None = None,
     *,
     summary_label: str = "Multi-camera dispatch",
+    redact_identifiers: bool = False,
 ) -> list[Session]:
     """Resolve the --session-dir / --sessions-dir CLI args into sessions.
 
@@ -206,7 +207,9 @@ def resolve_cli_sessions(
     *sessions_dir* must be given; raises ``SessionError`` on conflict or empty
     discovery.  Resolution reads filenames + session.json/calibration.json (no
     frame decoding — no video bytes are read); prints a summary headed by
-    *summary_label*.
+    *summary_label*.  With *redact_identifiers* (the footage-gate probe), each
+    per-session line shows only an ordinal + camera count + calibration presence,
+    keeping the deny-listed tree's session ids / camera names out of context.
     """
     if session_dir and sessions_dir:
         raise SessionError("--session-dir and --sessions-dir are mutually exclusive")
@@ -229,12 +232,18 @@ def resolve_cli_sessions(
             ]
 
     print(f"{summary_label}: {len(sessions)} session(s)")
-    for s in sessions:
+    for i, s in enumerate(sessions, 1):
         cal = "present" if s.calibration is not None else "absent"
-        print(
-            f"  {s.session_id}: {s.n_cameras} cameras "
-            f"({', '.join(s.camera_names())}); calibration: {cal}"
-        )
+        if redact_identifiers:
+            # --list-sessions footage gate: keep the deny-listed tree's identifiers
+            # (session id, camera names) out of agent context — the gate needs only
+            # the shape (camera count + calibration presence), keyed by an ordinal.
+            print(f"  session #{i}: {s.n_cameras} cameras; calibration: {cal}")
+        else:
+            print(
+                f"  {s.session_id}: {s.n_cameras} cameras "
+                f"({', '.join(s.camera_names())}); calibration: {cal}"
+            )
     return sessions
 
 
