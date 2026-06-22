@@ -223,6 +223,55 @@ def test_discover_session_manifest_path_traversal_camera_name(
         discover_session(session_dir)
 
 
+def test_cameras_from_manifest_rejects_traversal_name_with_file(tmp_path: pathlib.Path):
+    """A camera name that is a traversal component is rejected even when ``file`` is set:
+    the name becomes a CSV filename component (``<output>/<id>/<name>.csv``) in dispatch and
+    is echoed by --list-sessions, so the ``file``-present path must validate it too (the
+    pre-existing separator check only ran when ``file`` was absent)."""
+    session_dir = tmp_path / "session_evilname"
+    session_dir.mkdir()
+    (session_dir / "cam1.mp4").touch()
+    manifest = {
+        "format_version": 1,
+        "session_id": "evilname",
+        "cameras": [{"name": "../../evil", "file": "cam1.mp4"}],
+    }
+    (session_dir / SESSION_MANIFEST_FILENAME).write_text(json.dumps(manifest))
+    with pytest.raises(SessionError, match="path separator"):
+        discover_session(session_dir)
+
+
+def test_discover_session_rejects_traversal_session_id(tmp_path: pathlib.Path):
+    """A manifest session_id is the output-dir path component (``<output>/<session_id>/``),
+    so a traversal value must be rejected."""
+    session_dir = tmp_path / "session_evilid"
+    session_dir.mkdir()
+    (session_dir / "cam1.mp4").touch()
+    manifest = {
+        "format_version": 1,
+        "session_id": "../../evil",
+        "cameras": [{"name": "cam1", "file": "cam1.mp4"}],
+    }
+    (session_dir / SESSION_MANIFEST_FILENAME).write_text(json.dumps(manifest))
+    with pytest.raises(SessionError, match="path separator"):
+        discover_session(session_dir)
+
+
+def test_discover_session_rejects_dotdot_session_id(tmp_path: pathlib.Path):
+    """A separator-free ``..`` session_id is still a traversal component and is rejected."""
+    session_dir = tmp_path / "session_dotdot"
+    session_dir.mkdir()
+    (session_dir / "cam1.mp4").touch()
+    manifest = {
+        "format_version": 1,
+        "session_id": "..",
+        "cameras": [{"name": "cam1", "file": "cam1.mp4"}],
+    }
+    (session_dir / SESSION_MANIFEST_FILENAME).write_text(json.dumps(manifest))
+    with pytest.raises(SessionError, match=r"'\.'/'\.\.'"):
+        discover_session(session_dir)
+
+
 def test_session_camera_rejects_negative_sync_offset():
     with pytest.raises(SessionError, match="non-negative"):
         SessionCamera(name="x", file=pathlib.Path("/dev/null"), sync_offset=-1)
@@ -773,7 +822,13 @@ def test_list_sessions_probe_reports_without_decoding(tmp_path, monkeypatch, cap
     def _no_dispatch(*_args, **_kwargs):
         raise AssertionError("--list-sessions must not dispatch or read frames")
 
+    def _no_capture(*_args, **_kwargs):
+        raise AssertionError("--list-sessions must not open a VideoCapture")
+
     monkeypatch.setattr(run_mod, "process_session", _no_dispatch)
+    # Tripwire the decode primitive directly: the no-dispatch guard alone would not
+    # catch a stray capture opened inside discovery.
+    monkeypatch.setattr("pose_estimation.multicam.cv2.VideoCapture", _no_capture)
     monkeypatch.setattr(
         "sys.argv",
         ["pose-estimation-run", "--list-sessions", "--sessions-dir", str(root)],
@@ -789,8 +844,9 @@ def test_list_sessions_probe_reports_without_decoding(tmp_path, monkeypatch, cap
     assert "session_one: 1 cameras (cam1); calibration: absent" in out
 
 
-def test_list_sessions_probe_exits_nonzero_when_absent(tmp_path, monkeypatch):
-    """An empty sessions root yields a clean non-zero exit (the footage-absent gate signal)."""
+def test_list_sessions_probe_exits_nonzero_when_absent(tmp_path, monkeypatch, capsys):
+    """An empty sessions root yields a clean non-zero exit (the footage-absent gate signal),
+    with the cause surfaced on stderr."""
     from pose_estimation import run as run_mod
 
     empty = tmp_path / "empty_root"
@@ -804,3 +860,67 @@ def test_list_sessions_probe_exits_nonzero_when_absent(tmp_path, monkeypatch):
         run_mod.main()
 
     assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "ERROR:" in err
+    assert "no sessions discovered" in err
+
+
+def test_list_sessions_probe_honors_explicit_calibration(tmp_path, monkeypatch, capsys):
+    """--list-sessions threads --calibration, so an external calibration file is reported
+    present (it was silently dropped before the calibration arg was passed through)."""
+    from pose_estimation import run as run_mod
+
+    sess = tmp_path / "sess_extcal"
+    sess.mkdir()
+    for name in ("cam1", "cam2", "cam3"):
+        (sess / f"{name}.mp4").touch()
+    cal = tmp_path / "external_calib.json"
+    _write_calibration(cal, cameras=["cam1", "cam2", "cam3"])
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "pose-estimation-run",
+            "--list-sessions",
+            "--session-dir",
+            str(sess),
+            "--calibration",
+            str(cal),
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        run_mod.main()
+
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "sess_extcal: 3 cameras (cam1, cam2, cam3); calibration: present" in out
+
+
+def test_list_sessions_probe_rejects_bogus_calibration(tmp_path, monkeypatch, capsys):
+    """A missing --calibration path makes the probe exit non-zero rather than mislabel the
+    session: the threaded calibration is actually resolved."""
+    from pose_estimation import run as run_mod
+
+    sess = tmp_path / "sess_badcal"
+    sess.mkdir()
+    (sess / "cam1.mp4").touch()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "pose-estimation-run",
+            "--list-sessions",
+            "--session-dir",
+            str(sess),
+            "--calibration",
+            str(tmp_path / "missing.json"),
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        run_mod.main()
+
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "ERROR:" in err

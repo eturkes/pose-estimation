@@ -138,7 +138,12 @@ def discover_session(
     manifest_path = d / SESSION_MANIFEST_FILENAME
     if manifest_path.is_file():
         manifest = _load_manifest(manifest_path)
-        session_id = manifest.get("session_id") or d.name
+        raw_session_id = manifest.get("session_id")
+        session_id = (
+            _safe_name_component(str(raw_session_id), kind="session_id", source=str(manifest_path))
+            if raw_session_id
+            else d.name
+        )
         cameras = _cameras_from_manifest(manifest, directory=d)
         manifest_calibration_ref = manifest.get("calibration")
     else:
@@ -199,8 +204,9 @@ def resolve_cli_sessions(
     Shared by both entry points' session dispatch and the read-only
     ``--list-sessions`` discovery probe.  Exactly one of *session_dir* /
     *sessions_dir* must be given; raises ``SessionError`` on conflict or empty
-    discovery.  Resolution is stat/glob only (no frame decoding); prints a
-    summary headed by *summary_label*.
+    discovery.  Resolution reads filenames + session.json/calibration.json (no
+    frame decoding — no video bytes are read); prints a summary headed by
+    *summary_label*.
     """
     if session_dir and sessions_dir:
         raise SessionError("--session-dir and --sessions-dir are mutually exclusive")
@@ -263,6 +269,26 @@ def _load_manifest(path: pathlib.Path) -> dict[str, Any]:
     return data
 
 
+def _safe_name_component(value: str, *, kind: str, source: str) -> str:
+    """Validate a manifest label that becomes a filesystem path component.
+
+    ``session_id`` and camera ``name`` are used as directory / file names under
+    the output tree (``<output>/<session_id>/<name>.csv``) and are echoed by the
+    ``--list-sessions`` probe, so a manifest must not smuggle a path separator, a
+    ``.``/``..`` traversal component, or a control character through them.
+    Returns *value* unchanged when safe; raises ``SessionError`` otherwise.
+    """
+    if not value or value.isspace():
+        raise SessionError(f"{source}: {kind} must be a non-empty string")
+    if "/" in value or "\\" in value:
+        raise SessionError(f"{source}: {kind} must not contain a path separator: {value!r}")
+    if value in (".", ".."):
+        raise SessionError(f"{source}: {kind} must not be a '.'/'..' path component: {value!r}")
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
+        raise SessionError(f"{source}: {kind} must not contain control characters: {value!r}")
+    return value
+
+
 def _cameras_from_manifest(
     manifest: dict[str, Any], *, directory: pathlib.Path
 ) -> list[SessionCamera]:
@@ -277,8 +303,9 @@ def _cameras_from_manifest(
             raise SessionError(f"{directory}: cameras[{i}] must be an object")
         entry = cast(dict[str, Any], raw_entry)
         name = entry.get("name")
-        if not isinstance(name, str) or not name:
-            raise SessionError(f"{directory}: cameras[{i}].name must be a non-empty string")
+        if not isinstance(name, str):
+            raise SessionError(f"{directory}: cameras[{i}].name must be a string")
+        name = _safe_name_component(name, kind=f"cameras[{i}].name", source=str(directory))
         file_ref = entry.get("file")
         if file_ref is None:
             file_path = _find_glob_for_name(directory, name)

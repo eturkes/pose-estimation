@@ -198,10 +198,11 @@ def parse_args():
         "--list-sessions",
         action="store_true",
         help=(
-            "Read-only probe: discover session(s) (stat/glob only, no frame "
-            "decoding), print per-session camera count + calibration presence, "
-            "then exit. Defaults to the videos/ sessions root when neither "
-            "--session-dir nor --sessions-dir is given."
+            "Read-only probe: discover session(s) from filenames + "
+            "session.json/calibration.json (no frame decoding), print per-session "
+            "camera count + calibration presence, then exit. Defaults to the "
+            "videos/ sessions root when neither --session-dir nor --sessions-dir "
+            "is given."
         ),
     )
     p.add_argument(
@@ -533,15 +534,20 @@ def main():
 
     if args.list_sessions:
         # Read-only discovery probe for the M2 footage gate: resolve_cli_sessions
-        # does stat/glob discovery + a summary print with no frame decoding, so it
-        # never reads video bytes.  Defaulting to the "videos/" sessions-root
-        # convention lets the gate command name no deny-listed path (.agent/roadmap.md).
+        # discovers sessions from filenames + session.json/calibration.json and
+        # prints a summary with no frame decoding, so no video bytes enter context.
+        # Defaulting the sessions root to "videos/" in source lets the gate command
+        # name no deny-listed path; the probe still surfaces session-shape metadata
+        # (ids, camera names/count, calibration presence) — never frames or
+        # calibration values (.agent/roadmap.md M2 gate).
         session_dir = args.session_dir
         sessions_dir = args.sessions_dir
         if session_dir is None and sessions_dir is None:
             sessions_dir = "videos"
         try:
-            resolve_cli_sessions(session_dir, sessions_dir, summary_label="Discovered sessions")
+            resolve_cli_sessions(
+                session_dir, sessions_dir, args.calibration, summary_label="Discovered sessions"
+            )
         except (SessionError, CalibrationError) as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             sys.exit(1)
