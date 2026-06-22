@@ -4,9 +4,15 @@ Milestone ledger + active-milestone detail. Session MODE/flow lives in `/session
 
 Status: UNPLANNED → IN-PROGRESS → IMPLEMENTED → REVIEWED. Legacy pre-methodology milestones are DONE (never milestone-reviewed). Active = first milestone not DONE/REVIEWED. Milestones map to the current roadmap's Phases; future milestones draw from Backlog. Unit status: OPEN → DONE (BLOCKED = planned but footage/baseline-gated); a milestone is IMPLEMENTED once its units are all DONE.
 
+## Quality gates
+The "project's quality gates" that `/session-prompt` WORK-UNIT step 4 verifies (single source — the maintenance cycle reuses these). All four pass clean on a healthy tree.
+- Python: `uv run ruff check` (lint) · `uv run ruff format --check` (format) · `uv run ty check` (type) · `uv run pytest` (tests — `filterwarnings=error`, so any unsilenced warning fails; see the two 2026-06-15 numpy/all-NaN memory lessons).
+- R: touched `analysis/*.R` run clean under `Rscript` (exit 0); deps via renv (no separate lint/type gate) — after an R upgrade, `renv::snapshot()` (2026-05-24 lesson).
+- "Touched scripts exit clean" = any changed entrypoint runs without error: Python console scripts (`pose-estimation`/`-run`/`-benchmark`/`-postprocess`/`-calibrate`/`-validate`) or R analysis scripts.
+
 ## Milestones
 - **M1** — Phase 1 validation scaffolding — DONE (legacy). Units 1A–1D: `b765d5c` `13149a0` `20c36a0` `36f28a2`. No trace keys, no recorded context-usage — right-size M2 from its outline, not from M1 ctx.
-- **M2** — Phase 2 real-data 3D validation — ACTIVE, UNPLANNED, footage-gated. Plan when a real 3-cam session is confirmed (resolve it via the pipeline, not by reading deny-listed `videos/`); until then a no-arg PLANNING session records the block and stops. Planning context: outline seed `0dd62d9`, methodology restructure `c12ef18`. Detail below.
+- **M2** — Phase 2 real-data 3D validation — ACTIVE, UNPLANNED, footage-gated. Plan when a real 3-cam session is confirmed (resolve it via the `--list-sessions` probe — see the M2 Gate detail — not by reading deny-listed `videos/`); until then a no-arg PLANNING session records the block and stops. Planning context: outline seed `0dd62d9`, methodology restructure `c12ef18`. Detail below.
 - **M3+** — UNPLANNED (not yet split). Sources in Backlog. After M2 is REVIEWED it becomes active → PLANNING splits + plans the next milestone, using M2's commit range (esp. context-usage) to right-size units.
 
 ## Active: M2 — Real-World 3D Clinical Validation (outline, adopted 2026-06-15)
@@ -24,7 +30,7 @@ Status: UNPLANNED → IN-PROGRESS → IMPLEMENTED → REVIEWED. Legacy pre-metho
 - 2B quantitative validation over multiple sessions (reprojection, drops, timing, stability, inter-trial repeatability).
 - 2C clinical-metric agreement vs a baseline if one exists (Bland–Altman, ICC); else record the standing gap + cheapest-baseline plan; derive anonymized real fixtures; add a regression lock.
 - reference: validation, calibration, multicam, analysis, environment
-- **Gate:** a footage-gated unit without a confirmed real 3-cam session stops and reports the block; report only results traced to real captures. Confirm footage functionally (resolve via the pipeline), not by reading deny-listed `videos/`.
+- **Gate:** a footage-gated unit without a confirmed real 3-cam session stops and reports the block; report only results traced to real captures. Confirm footage functionally via the read-only discovery probe `uv run pose-estimation-run --list-sessions` (defaults to the `videos/` sessions root — the default lives in source, so the command names no deny-listed path; `--sessions-dir <root>` / `--session-dir <dir>` override). Stat/glob only, no frame decoding; prints `<id>: N cameras (...); calibration: present|absent` per session, exits 0 (≥1 found) / 1 (none). A `3 cameras` + `calibration: present` line confirms a processable session — read the probe's summary, never the videos.
 
 **Units.** UNPLANNED (see M2 ledger entry). When planned, one line per unit:
 `M2.<u> <scope>: <desc> — <OPEN|DONE|BLOCKED> — ctx <pct used/window> — <commit>`
@@ -39,7 +45,7 @@ reference: environment, architecture, tests
 1. Python deps: `uv lock --upgrade` → `uv sync`; full suite green.
 2. R deps: `renv::update()` → `renv::snapshot()`; R scripts exit 0.
 3. Security: CLI injection vectors; session.json / calibration.json path traversal (`_safe_resolve` coverage); new CVEs in openvino, onnxruntime, opencv, rtmlib (web sweep).
-4. `uv run pytest` / `uv run ruff check` / `uv run ruff format --check` / `uv run ty check`.
+4. Run the Quality gates (top of file): all four Python gates green + touched scripts exit clean.
 5. Tech-notes drift: `.claude/tech/*.md` vs current code (module map, CLI flags, test inventory, API surface).
 6. Record outcome in `.agent/memory.md`; scoped commit.
 
