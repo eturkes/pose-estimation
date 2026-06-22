@@ -2,12 +2,12 @@
 
 Milestone ledger + active-milestone detail. Session MODE/flow lives in `/session-prompt`; finished detail + per-session prompts in git history.
 
-Status: UNPLANNED → IN-PROGRESS → IMPLEMENTED → REVIEWED. Legacy pre-methodology milestones are DONE (never milestone-reviewed). Active = first milestone not DONE/REVIEWED. Milestones map to the current roadmap's Phases; future milestones draw from Backlog.
+Status: UNPLANNED → IN-PROGRESS → IMPLEMENTED → REVIEWED. Legacy pre-methodology milestones are DONE (never milestone-reviewed). Active = first milestone not DONE/REVIEWED. Milestones map to the current roadmap's Phases; future milestones draw from Backlog. Unit status: OPEN → DONE (BLOCKED = planned but footage/baseline-gated); a milestone is IMPLEMENTED once its units are all DONE.
 
 ## Milestones
-- **M1** — Phase 1 validation scaffolding — DONE (legacy; units 1A–1D in git, pre-methodology).
-- **M2** — Phase 2 real-data 3D validation — ACTIVE, UNPLANNED, footage-gated. Plan when a real 3-camera session exists under `videos/`; until then a no-arg PLANNING session records the block and stops. Detail below.
-- **M3+** — deferred. Sources in Backlog. Divide + plan after M2 is REVIEWED, using M2's commit range (esp. context-usage) to right-size units.
+- **M1** — Phase 1 validation scaffolding — DONE (legacy). Units 1A–1D: `b765d5c` `13149a0` `20c36a0` `36f28a2`. No trace keys, no recorded context-usage — right-size M2 from its outline, not from M1 ctx.
+- **M2** — Phase 2 real-data 3D validation — ACTIVE, UNPLANNED, footage-gated. Plan when a real 3-cam session is confirmed (resolve it via the pipeline, not by reading deny-listed `videos/`); until then a no-arg PLANNING session records the block and stops. Planning context: outline seed `0dd62d9`, methodology restructure `c12ef18`. Detail below.
+- **M3+** — UNPLANNED (not yet split). Sources in Backlog. After M2 is REVIEWED it becomes active → PLANNING splits + plans the next milestone, using M2's commit range (esp. context-usage) to right-size units.
 
 ## Active: M2 — Real-World 3D Clinical Validation (outline, adopted 2026-06-15)
 
@@ -24,10 +24,10 @@ Status: UNPLANNED → IN-PROGRESS → IMPLEMENTED → REVIEWED. Legacy pre-metho
 - 2B quantitative validation over multiple sessions (reprojection, drops, timing, stability, inter-trial repeatability).
 - 2C clinical-metric agreement vs a baseline if one exists (Bland–Altman, ICC); else record the standing gap + cheapest-baseline plan; derive anonymized real fixtures; add a regression lock.
 - reference: validation, calibration, multicam, analysis, environment
-- **Gate:** a footage-gated unit with no real 3-cam session under `videos/` stops and reports the block — never fabricate results.
+- **Gate:** a footage-gated unit without a confirmed real 3-cam session stops and reports the block; report only results traced to real captures. Confirm footage functionally (resolve via the pipeline), not by reading deny-listed `videos/`.
 
 **Units.** UNPLANNED (see M2 ledger entry). When planned, one line per unit:
-`M2.<u> <scope>: <desc> — <status> — ctx <pct> — <commit-tag>`
+`M2.<u> <scope>: <desc> — <OPEN|DONE|BLOCKED> — ctx <pct used/window> — <commit>`
 
 ## Backlog (unscheduled — M3+ sources)
 - 3D-aware downstream aggregation (`analysis/` is currently 2D-oriented).
@@ -39,7 +39,7 @@ reference: environment, architecture, tests
 1. Python deps: `uv lock --upgrade` → `uv sync`; full suite green.
 2. R deps: `renv::update()` → `renv::snapshot()`; R scripts exit 0.
 3. Security: CLI injection vectors; session.json / calibration.json path traversal (`_safe_resolve` coverage); new CVEs in openvino, onnxruntime, opencv, rtmlib (web sweep).
-4. `uv run pytest` / `ruff check` / `ruff format` / `ty check`.
+4. `uv run pytest` / `uv run ruff check` / `uv run ruff format --check` / `uv run ty check`.
 5. Tech-notes drift: `.claude/tech/*.md` vs current code (module map, CLI flags, test inventory, API surface).
 6. Record outcome in `.agent/memory.md`; scoped commit.
 
