@@ -28,8 +28,17 @@ analysis/*_cache/
 # Models
 model/
 
-# Patient video data (never commit)
+# Patient video data (never commit): the videos/ session tree, plus any
+# stray clip anywhere in the tree (e.g. dropped in the project root). Globs
+# are case-folded so .MP4 / .mp4 / .Mov etc. all match.
 videos
+*.[mM][pP]4
+*.[mM][oO][vV]
+*.[aA][vV][iI]
+*.[mM][kK][vV]
+*.[mM]4[vV]
+*.[wW][mM][vV]
+*.[wW][eE][bB][mM]
 
 # Pose estimation output (never commit)
 output

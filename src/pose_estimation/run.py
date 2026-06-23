@@ -697,10 +697,13 @@ def main():
                 print(f"[{i + 1}/{len(sources)}] {src}")
                 print("=" * 60)
 
-            # Derive per-source CSV path
+            # Derive per-source CSV path: file sources use the file stem; live
+            # camera sources (a numeric device index) use "camera<idx>" so the
+            # pose CSV is still exported and stays unique across cameras.
             csv_path = None
-            if out_dir is not None and not src.isdigit():
-                csv_path = str(out_dir / (pathlib.Path(src).stem + ".csv"))
+            if out_dir is not None:
+                stem = f"camera{src}" if src.isdigit() else pathlib.Path(src).stem
+                csv_path = str(out_dir / (stem + ".csv"))
 
             if smoother is not None:
                 smoother.reset()

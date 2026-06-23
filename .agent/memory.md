@@ -7,6 +7,9 @@ Append durable items; prune what code, `.claude/tech/*.md`, or git already prese
 
 Schema per entry: brief symptom → **Rule** (positive) → **Where** (files/tests that encode it).
 
+**2026-06-23 — Merge an unrelated-history collaborator fork by *content*, never `git merge` — their history carries patient-data blobs forever.**
+A parallel fork (separate `git init`, 2 commits, author `bernys`) tracked a patient `video.MP4` in its root; a real `git merge --allow-unrelated-histories` would embed that 8 MB blob in our objects permanently (later deletion can't purge history). **Rule:** reconcile such a fork as a content merge onto our `main` with a `Co-authored-by:` trailer for credit — pin the fork commit (minimal per-file diff of the fork's baseline tree vs our commits; here `20c36a0`), attribute each differing file as *ours* (0 diff at the fork base ⇒ keep ours, e.g. our post-fork probe work) vs *theirs* (>0 ⇒ 3-way merge), and pull in only source — never their tracked data/outputs or their own agent tooling. Clean their incorrect practices on the way in (CLI-arg paths over hardcoded ones, drop dead stubs/commented code). **Where:** this merge (`analysis/{data_extraction,arthrose_diag}.R` + `run.py` live-camera CSV export); `.gitignore` case-folded video-extension globs (so a stray root clip can't be committed).
+
 **2026-06-16 — A shared test-helper module needs its dir on *both* pytest `pythonpath` and `ty.environment.root`.**
 A sibling helper (`tests/synthetic_session.py`) importable at test runtime stayed invisible to `ty` (10 `unresolved-import`) — the two tools resolve modules independently. **Rule:** to share a test-helper module, add its dir to pytest `pythonpath` AND mirror it into `[tool.ty.environment].root` in the same change; verify with `uv run pytest` *and* `uv run ty check`; keep the two roots in sync. **Where:** `pyproject.toml`, `tests/synthetic_session.py`, `tests/conftest.py`.
 

@@ -17,6 +17,17 @@ R deps are managed by `renv` (lockfile: `renv.lock`). Install with `renv::restor
 | `keypoint_detail.R` | `*_kp_detail.csv` | Per-keypoint heatmaps + trajectory plots. |
 | `compare.R` | two JSON run summaries | Side-by-side run comparison. |
 
+## Finger mobility / osteoarthritis screen (standalone)
+
+Separate from the `clinical_features.R` ecosystem: each reads one capture's raw landmark CSV directly (`timestamp_sec` + `{left,right}_hand_{0..20}_{x,y,z}`). Finger flexion per frame = sum of the two inter-segment joint angles over a finger's four MediaPipe landmarks (`id..id+3`; MCP start thumb=1, index=5, middle=9, ring=13, pinky=17).
+
+| Script | Inputs | Outputs |
+|--------|--------|---------|
+| `data_extraction.R` | one landmark CSV `[out_dir]` | `<stem>_angle_data.csv` (per-frame flexion, 5 fingers × both hands), `<stem>_mobility_analysis.csv` (frame-to-frame Δ + angular speed). |
+| `arthrose_diag.R` | one landmark CSV `[out_dir]` | stdout: index range-of-motion, mean angular speed, mobility diagnosis (thresholds amplitude ≥ 40°, speed ≥ 60°/s); `<stem>_closed_hand.png` (thumb–index distance over time). Needs `zoo`. |
+
+Live-camera captures now feed these: `pose-estimation-run <idx> --output-dir output/` exports `output/camera<idx>.csv` (file sources still use the file stem).
+
 ## Feature engineering
 
 | Script | Inputs | Outputs |
