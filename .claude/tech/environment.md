@@ -49,7 +49,7 @@ The venv's absolute paths are in `/run/host/...` form, which exists only inside 
 
 ### Host-side runs (separate venv, e.g. for the NPU)
 
-The host sees the project at `/home/eturkes/Projects/pose-estimation` (no `/run/host` prefix), so the container `.venv` is unusable there. Give the host its own environment via `UV_PROJECT_ENVIRONMENT` so neither clobbers the other:
+The host sees the project at `/home/eturkes/Projects/pose-estimation` (no `/run/host` prefix), so the container `.venv` is unusable there; the host uses its own git-ignored `.venv-host/`. Both layers share one working tree, so the venv is selected **per layer** via `UV_PROJECT_ENVIRONMENT`. The committed **`.envrc`** (direnv) sets it automatically — `/run/.containerenv` present (Distrobox) → `.venv`, absent (host) → `.venv-host` — the moment you `cd` in, so a bare host `uv` can no longer silently rebuild `.venv` with host `/home/...` paths (the prior footgun that broke in-container `import pose_estimation`). Host setup once: `brew install direnv`, hook bash+zsh (`eval "$(direnv hook bash)"` / `direnv hook zsh`), then `direnv allow`. In-container direnv is optional — `.venv` is uv's default, so agent (non-interactive) shells need nothing. The explicit form below is the equivalent, and the fallback wherever direnv is inactive (non-interactive shells, or before `direnv allow`):
 
 ```bash
 cd /home/eturkes/Projects/pose-estimation
@@ -58,7 +58,7 @@ uv sync                                     # uv fetches Python 3.13 itself if t
 uv run python -m pose_estimation.run --source <video>   # live pygame window; rtmw-l + openvino + NPU are defaults
 ```
 
-Omitting `--headless` gives the live overlay window (pygame-ce renders in the host's GNOME Wayland session). Models download to `model/` on first run. Requires `uv` on the host and the system NPU userspace stack (see Devices / inference for the `available_devices` check).
+Omitting `--headless` gives the live overlay window (pygame-ce renders in the host's GNOME Wayland session). Models download to `model/` on first run. Requires `uv` on the host (installed via Homebrew) and the system NPU userspace stack (see Devices / inference for the `available_devices` check).
 
 ## Relocation (moved project root)
 

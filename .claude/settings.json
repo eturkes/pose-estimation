@@ -2,6 +2,7 @@
   "permissions": {
     "deny": [
       "Read(./.venv/**)",
+      "Read(./.venv-host/**)",
       "Read(./renv/**)",
       "Read(./model/**)",
       "Read(./mediapipe/**)",
