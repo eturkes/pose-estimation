@@ -1,5 +1,5 @@
 #!/bin/sh
-# Context gauge: prints "N% used/window" (tokens) from the current Claude Code session transcript, to judge headroom. Window 1M, or 200K when CLAUDE_CODE_DISABLE_1M_CONTEXT is set.
+# Context gauge: prints "N% used/window" (tokens) from the current Claude Code session transcript, to judge headroom. Window 1M, or 200K when CLAUDE_CODE_DISABLE_1M_CONTEXT is set. Read the printed window, not just the %: a 200K-capped session without that env var still divides by 1M, so its % reads ~5x low.
 f=$(ls "$HOME"/.claude/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl 2>/dev/null)
 [ -n "$f" ] || f=$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)
 u=$(jq -s 'map(select(.type=="assistant" and .isSidechain!=true and .message.model!="<synthetic>" and (.message.usage|type)=="object"))
