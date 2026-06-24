@@ -2,10 +2,8 @@
 
 ## Git
 
-- Commit timing: commit before every end-of-turn message that closes out a cohesive piece of work. Defer commits when mid-iteration and awaiting user input.
 - Commit messages: [Scoped Commits](https://scopedcommits.com/) — `<scope>: <description>`, scope first (the subsystem/area touched, e.g. `tracking`, `calibration`, `multicam`, or a cross-cutting label such as `Tooling`, `Maintenance`, `Refactor`, `Docs`). For multi-area commits, comma-list the scopes, generalize to one, or use `treewide`. Optimize for LLM parsing: subject ≤50 chars, imperative description, body wrap ≤72 chars.
 - Before committing, always check whether `README.md`, `.gitignore`, `pyproject.toml`, or other housekeeping files need a matching update.
-- The user handles all commands that affect the remote (push, force-push, branch creation, etc.). Agents stop at the local commit.
 
 ## Python style — `ruff`
 
@@ -53,21 +51,4 @@ Strict config: `-ra --strict-config --strict-markers --import-mode=importlib`. W
 - Public API: only what's re-exported from `src/pose_estimation/__init__.py`. Internal helpers may move freely.
 - TypedDicts in `_types.py` document dict-passed pipeline state. Treat them as the contract.
 - Prefer editing existing modules to introducing new ones; the surface is small on purpose.
-- Comments: keep sparse. The CLAUDE.md (project root) directive applies — explain WHY when non-obvious; don't restate WHAT the code does.
-
-## Navigation (token-efficient)
-
-- Locate symbols via the repo map: `rg '\bNAME\b' .claude/repomap.md` returns `path:line` plus the signature (Python from AST, R from regex). Prefer that + `Read(offset, limit)` over reading a whole module.
-- `rg 'relpath/file.py' .claude/repomap.md` lists one file's symbols (its outline).
-- Regenerate after adding, moving, or renaming a symbol: `python scripts/repomap.py`. The committed `.claude/repomap.md` is drift-guarded by `tests/test_repomap.py` — a stale map fails the suite (same pattern as `test_public_api.py`). The map indexes tracked files only (`git ls-files`); `git add` a new module before regenerating.
-- Use `rg`/`sg` for content search; reserve whole-file reads for when you genuinely need full context.
-
-## Working style (agents)
-
-- Subagents: when dispatching work, always run them on the most capable model (Opus) with maximum thinking — the same tier the main session uses. Multi-agent councils/teams are encouraged for hard problems (per CLAUDE.md).
-- Prose splits by audience. LLM-facing text (memory, commit bodies, tech notes, code comments) is dry, direct, concise, precise; assume a technical reader. Human-facing text (`README.md`, `docs/`) additionally follows the CLAUDE.md UI/UX rule: human-like, free of LLM smells, with hyphens over other dashes, flexible enumeration, and varied comparatives. Scope and the 2026-06-16 cleanup are recorded in `memory/decisions.md`.
-- New behaviour: favour red-green-refactor (failing test → make it pass → refactor), balanced against the overtesting caution in CLAUDE.md and `tech/tests.md`.
-
-## Agent-writable files
-
-- `/CLAUDE.md` (project root) — meta-instructions. Agents may rewrite freely when content is obsolete, better phrased, or superseded (per 2026-05-24 decision).
+- Comments: keep sparse — explain WHY when non-obvious; don't restate WHAT the code does.
