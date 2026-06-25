@@ -1,6 +1,6 @@
 # Memory
 
-Sole memory store (CLAUDE.md). Carried-forward lessons + a condensed decision log.
+Sole memory store (AGENTS.md). Carried-forward lessons + a condensed decision log.
 Append durable items; prune what code, `.claude/tech/*.md`, or git already preserve. Full ADR rationale lives in git history.
 
 ## Lessons (append-only; positive-form rules — see AGENTS.md pink-elephant note)
