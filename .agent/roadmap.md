@@ -38,7 +38,6 @@ The "project's quality gates" that `/session-prompt` WORK-UNIT step 4 verifies (
 ## Backlog (unscheduled — M3+ sources)
 - 3D-aware downstream aggregation (`analysis/` is currently 2D-oriented).
 - Multi-person cross-camera identity matching (fusion is single-person).
-- Host-launch caveat: the container-native `.venv` won't resolve if the pipeline is launched from the host (e.g. NPU runs); would need a host-side `uv sync`.
 
 ## Maintenance cycle (recurring, roadmap-agnostic; run via explicit task)
 reference: environment, architecture, tests

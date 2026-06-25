@@ -2,7 +2,7 @@
 
 ## Host / container
 
-- Two layers: an **openSUSE-based host** and a **Debian (trixie) Distrobox container** where agent sessions run. The container has its **own home** (`/var/home/eturkes/debian`); the host filesystem is mounted at `/run/host/`, so the project root is `/run/host/home/eturkes/Projects/pose-estimation`. Agent tooling (uv, `.venv`, R/renv) runs in-container; host-side runs (e.g. the NPU) use a separate `.venv-host` — see the Container caveat and Host-side runs below.
+- Two layers: an **openSUSE-based host** and a **Debian (trixie) Distrobox container** where agent sessions run. The container has its **own home** (`/var/home/eturkes/debian`); the host filesystem is mounted at `/run/host/`, so the project root is `/run/host/home/eturkes/Projects/pose-estimation`. Agent tooling (uv, `.venv`, R/renv) and the full inference pipeline run **in-container** on CPU/GPU/NPU (see Devices / inference); a separate `.venv-host` covers the narrower case of launching from the host OS directly (Host-side runs below).
 - GNOME Wayland — the reason `pygame-ce` is used for display (Qt-bundled OpenCV does not render on Wayland).
 - Python 3.10+ required; the exact interpreter is pinned in `.python-version` and the floor declared in `pyproject.toml`.
 - In-container agent tooling: language servers (LSP) and persistent REPLs via `bgcmd` (`~/.local/bin/bgcmd`) — prefer these for interactive inspection over one-shot scripts.
@@ -34,7 +34,9 @@
 - OpenVINO backends: NPU (default), CPU, GPU. Select with `--device {NPU|CPU|GPU}` on `main.py` / `run.py`.
 - Both entry points run OpenVINO: `main.py` converts the MediaPipe TFLite models to IR and `core.compile_model(device=…)` (`models.py`); `run.py` defaults to `--backend openvino --device NPU` for rtmlib (`onnxruntime` is the alternative `--backend`).
 - `scripts/npu_compat.py` — verify NPU compatibility before adding a model to the registry.
-- Confirm a device is actually visible to OpenVINO: `uv run python -c "import openvino as ov; print(ov.Core().available_devices)"`. `NPU` appears only when the host's Intel NPU userspace stack is installed (kernel `intel_vpu` → `/dev/accel/accel0`, plus the level-zero NPU driver/compiler/firmware). The `openvino` wheel bundles the plugin but relies on that system stack; absent it, only `CPU`/`GPU` are listed and an explicit `--device NPU` fails.
+- **Primary path = in-container.** This dev container exposes all three devices to the project `.venv` — `Core().available_devices == ['CPU', 'GPU', 'NPU']`, and CPU/GPU/NPU each compile+infer correctly (verified) — so NPU/GPU runs no longer need a host-side launch. The Intel iGPU+NPU OpenVINO stack is enabled by a machine-local setup (Lunar Lake drivers + an accel-enabled OpenVINO runtime) whose specifics live in the auto-injected, git-ignored `CLAUDE.local.md`, not here; source that accel env (per `CLAUDE.local.md`) before launching python.
+- That accel runtime is exposed on `PYTHONPATH`, which precedes `.venv` site-packages in `sys.path`, so `import openvino` resolves to the accel build (GPU/NPU plugins) and the pip `openvino` wheel coexists unused. **Keep the pip `openvino` dependency** — a generic checkout (no `PYTHONPATH` runtime) relies on it for CPU/GPU.
+- Confirm devices: `uv run python -c "import openvino as ov; print(ov.Core().available_devices)"` (`uv run` preserves `PYTHONPATH` here → all three). On a generic checkout `NPU` lists only when the host's Intel NPU userspace stack is installed (kernel `intel_vpu` → `/dev/accel/accel0`, plus the level-zero NPU driver/compiler/firmware); absent it the pip wheel shows `CPU`/`GPU` only and `--device NPU` fails.
 
 ## Data directories
 
@@ -47,9 +49,9 @@
 
 The venv's absolute paths are in `/run/host/...` form, which exists only inside the container — host-side use of `.venv` would need a host-side `uv sync` first (and would then break container use; the container is canonical since agents are the sole users). `.venv/bin/python` targets system `/usr/bin/python3.13` (`pyvenv.cfg` `home = /usr/bin`), which resolves in both — the interpreter symlink survives moves/relayouts, but the absolute paths in Relocation below do not.
 
-### Host-side runs (separate venv, e.g. for the NPU)
+### Host-side runs (separate venv — launching from the host OS)
 
-The host sees the project at `/home/eturkes/Projects/pose-estimation` (no `/run/host` prefix), so the container `.venv` is unusable there; the host uses its own git-ignored `.venv-host/`, auto-selected by the committed **`.envrc`** in an allowed interactive shell (per the global host/container rule; mechanism in the `.envrc` header). One-time host setup: `brew install direnv`, hook bash+zsh (`eval "$(direnv hook bash)"` / `direnv hook zsh`), `direnv allow`. Other shells use the explicit form below — and `.envrc` pins the var while loaded, so a one-off custom env prefixes `UV_PROJECT_ENVIRONMENT=... uv ...`:
+No longer required for NPU/GPU — those run in-container (see Devices / inference); use this only to launch from the host OS itself (e.g. a host GNOME session for the live pygame window). The host sees the project at `/home/eturkes/Projects/pose-estimation` (no `/run/host` prefix), so the container `.venv` is unusable there; the host uses its own git-ignored `.venv-host/`, auto-selected by the committed **`.envrc`** in an allowed interactive shell (per the global host/container rule; mechanism in the `.envrc` header). One-time host setup: `brew install direnv`, hook bash+zsh (`eval "$(direnv hook bash)"` / `direnv hook zsh`), `direnv allow`. Other shells use the explicit form below — and `.envrc` pins the var while loaded, so a one-off custom env prefixes `UV_PROJECT_ENVIRONMENT=... uv ...`:
 
 ```bash
 cd /home/eturkes/Projects/pose-estimation
