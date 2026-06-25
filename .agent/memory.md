@@ -3,7 +3,7 @@
 Sole memory store (CLAUDE.md). Carried-forward lessons + a condensed decision log.
 Append durable items; prune what code, `.claude/tech/*.md`, or git already preserve. Full ADR rationale lives in git history.
 
-## Lessons (append-only; positive-form rules — see CLAUDE.md pink-elephant note)
+## Lessons (append-only; positive-form rules — see AGENTS.md pink-elephant note)
 
 Schema per entry: brief symptom → **Rule** (positive) → **Where** (files/tests that encode it).
 
