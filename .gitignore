@@ -71,5 +71,9 @@ mediapipe/
 
 # Serena (Headroom): .serena/ self-governs via .serena/.gitignore — cache + project.local.yml local, project.yml + .gitignore committed; memory disabled globally, so memories/ stays empty.
 
-# Claude Code machine-local instructions
+# tokensave (Headroom): regenerable code-graph DB + WAL, machine-local
+.tokensave/
+
+# Claude Code machine-local: personal instructions + settings overrides (shared settings.json is committed)
 CLAUDE.local.md
+.claude/settings.local.json

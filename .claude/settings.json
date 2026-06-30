@@ -23,7 +23,8 @@
       "Read(./analysis/*_cache/**)",
       "Read(./.serena/cache/**)",
       "Read(./.serena/memories/**)",
-      "Read(./.serena/project.local.yml)"
+      "Read(./.serena/project.local.yml)",
+      "Read(./.tokensave/**)"
     ]
   }
 }
