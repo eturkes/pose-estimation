@@ -77,3 +77,6 @@ mediapipe/
 # Claude Code machine-local: personal instructions + settings overrides (shared settings.json is committed)
 CLAUDE.local.md
 .claude/settings.local.json
+
+# Headroom wrap-state marker: ephemeral per-session (pid/port/env key), self-removed on exit
+.claude/.headroom_wrap_marker.json
