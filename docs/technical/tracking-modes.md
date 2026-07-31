@@ -1,4 +1,4 @@
-# Tracking modes
+# Tracking modes and schemas
 
 Selected with `--tracking {hands|hands-arms|body}`. Mode constants live in `processing.tracking_pose_indices()`.
 

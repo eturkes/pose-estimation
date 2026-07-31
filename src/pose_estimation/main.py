@@ -508,7 +508,7 @@ def main():
         help=(
             "Multi-camera session directory (cam*.{mp4,avi,mov,mkv,webm} + "
             "optional session.json + optional calibration.json). "
-            "Per-view processing + 3D fusion are not yet wired."
+            "Processes each view and fuses to 3D when calibration is present."
         ),
     )
     source_group.add_argument(

@@ -2,7 +2,7 @@
 
 Consumes a calibration *session* (same directory layout as recording
 sessions — ``cam*.mp4`` + optional ``session.json``; see
-``.claude/tech/multicam.md``) in which a printed ChArUco board was moved
+``docs/technical/multicam.md``) in which a printed ChArUco board was moved
 through the working volume, and produces a ``SessionCalibration``:
 
 1. **Detection** — ``detect_charuco_corners`` runs
@@ -22,7 +22,7 @@ through the working volume, and produces a ``SessionCalibration``:
    solved camera), reprojected into every detecting camera.
 
 ``calibration.py`` stays the cv2-free data layer; this module owns the
-cv2.aruco solve path.  See ``.claude/tech/calibration.md``.
+cv2.aruco solve path.  See ``docs/technical/calibration.md``.
 """
 
 from __future__ import annotations

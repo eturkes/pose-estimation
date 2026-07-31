@@ -1,6 +1,6 @@
 """End-to-end tests for the ``pose_estimation.validation`` harness.
 
-Synthetic, footage-independent input (roadmap Phase 1) is built by
+Synthetic, footage-independent input is built by
 ``synthetic_session`` and the ``rendered_session`` fixture (conftest): a
 real ChArUco solve plus a symmetric 12-keypoint "arm" skeleton projected
 into each calibrated camera, so fusion -> ``world3d.csv`` ->
@@ -282,7 +282,7 @@ def test_cli_missing_calibration_exit_code(tmp_path: pathlib.Path):
 
 
 # ---------------------------------------------------------------------------
-# Verdict grading (Session 1B) — constructed reports, no harness run
+# Verdict grading — constructed reports, no harness run
 # ---------------------------------------------------------------------------
 
 
@@ -556,7 +556,7 @@ def test_cli_exit_code_matches_verdict(
 
 
 # ---------------------------------------------------------------------------
-# Pre-flight capture QA gate (Session 1C)
+# Pre-flight capture QA gate
 # ---------------------------------------------------------------------------
 
 

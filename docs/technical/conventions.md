@@ -1,4 +1,4 @@
-# Conventions
+# Engineering conventions
 
 ## Git
 
@@ -44,7 +44,7 @@ uv run pytest
 uv run pytest --cov=pose_estimation        # coverage
 ```
 
-Strict config: `-ra --strict-config --strict-markers --import-mode=importlib`. Warnings are errors via `filterwarnings`. See `tech/tests.md` for the test inventory.
+Strict config: `-ra --strict-config --strict-markers --import-mode=importlib`. Warnings are errors via `filterwarnings`. See `tests.md` for the test inventory.
 
 ## Code style notes
 

@@ -2,7 +2,7 @@
 
 A *session* is a directory containing N per-camera video files plus an
 optional ``session.json`` manifest and optional ``calibration.json``.
-See ``.claude/tech/multicam.md`` for the directory layout and design
+See ``docs/technical/multicam.md`` for the directory layout and design
 rationale.
 
 This module owns three concerns:

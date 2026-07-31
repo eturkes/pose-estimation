@@ -1,35 +1,27 @@
-# Alignment
+# Pose estimation
 
-## Collaboration
+## Data boundary
 
-- Uncertain / needs planning / benefits from my input → stop + ask, as exhaustively as useful. Accuracy > completion. Chat = blockers + essentials; I'm technically proficient.
-- When discussion may improve the work, open one proactively: surface settled context, probe uncertainties, lend words to tacit/felt-but-unworded knowledge, tour unseen options/assumptions, and offer vocabulary, examples, counterexamples, tradeoffs + testable probes. One flexible lens among other topic-relevant lines of inquiry.
-- Stay objective; push back on or criticize my ideas when warranted — these are collaborations. Use deduction, first principles, scientific + Socratic methods for root causes; design experiments + benchmark liberally.
-- Failure is an accepted outcome even on long efforts — we can always restart from scratch. Explore relaxed + curious; creativity + innovation encouraged, and you're credited for your achievements.
+- Patient recordings + adjacent derivatives are sensitive. Treat `videos/`, `output/`, real-data calibration files/directories, and logs as outside agent context: inspect/decode/copy them only with direct per-task user clearance.
+- To test whether real multi-camera footage exists, use the metadata-only probe `UV_PROJECT_ENVIRONMENT=.venv uv run pose-estimation-run --list-sessions`; consume its redacted summary, never the underlying session identifiers or media.
+- Commit only source + synthetic or de-identified fixtures. Keep raw media, derived outputs, rig geometry, credentials, and path-bearing logs excluded through `.gitignore`.
 
-## Execution
+## Stack + environment
 
-- Install/configure project-local; work within the launch dir + children.
-- Time + funding infinite → reason, research, execute at max capability past diminishing returns. My efficiency directives serve performance alone. Every task is multi-step → think before responding.
-- Internal reasoning language = task-optimal.
-- Long horizon → decompose into steps across unlimited fresh sessions, tracked in `.agent/roadmap.md`; split work across sessions to preserve thoroughness.
-- Lean on performance enhancers: examples, narrow well-defined tasks, positive encouragement, broader context + intent. Find more (web search, your knowledge).
-- Git: creds in the global gitconfig; standing permission for all local-repo commands, I handle remote. Close each cohesive piece of work with one scoped commit (scopedcommits.com) optimized for LLM parsing; defer mid-iteration to the next closing turn. Keep `.gitignore` current.
+- Python package = `src/pose_estimation/`; management/build = `uv` + `pyproject.toml` + `uv.lock`; compatibility floor = Python 3.10. R clinical analysis = `analysis/` + `renv.lock`.
+- Container checkout path (`/run/host/...`) uses `.venv`; host-OS checkout uses `.venv-host`. `.envrc` selects by path in hooked interactive shells; non-interactive commands must export the matching `UV_PROJECT_ENVIRONMENT` before `uv` runs.
+- Preserve the single-OpenCV-wheel policy in `[tool.uv].override-dependencies`: rtmlib must resolve through `opencv-python-headless`, never a second `cv2` wheel.
+- Runtime paths: MediaPipe→OpenVINO in `main.py`; rtmlib→OpenVINO/ONNX Runtime in `run.py`; CPU is the portable validation target, NPU the runtime default. NPU/GPU availability depends on the machine driver environment, not import success alone.
 
-## Authoring
+## Navigation + maintenance
 
-- AI agents = the sole developers → optimize every file (code, docs, instructions) for LLM readability + token efficiency: write them dense, symbol-forward, human-sparse — telegraphic phrasing, `→`/`=` notation. Aggressively compress whatever you read, however works best. Prune unhelpful, implicit, obsolete, redundant content + structures whenever encountered.
-- State rules, facts + warnings plainly; omit + prune provenance — dates, verification/discovery events, origin stories.
-- Future-facing text, esp. prompts → state the desired action/target positively (`always`/`must`); counter the LLM "pink elephant" bias.
-- Instruction + skill files = yours to maintain → update any the moment it's improvable. Route durable guidance to the appropriate scope: global `~/.codex/AGENTS.md` = project-independent behavior + Codex environment/tooling + machine-specific capabilities; per-project `AGENTS.md` = generalized principles + config rules for working within projects; `.agent/memory.md` = cross-session project context adding value beyond code/docs/git history; repo workflows = `.agents/skills/`.
-- UI/UX: unique fonts, cohesive colors/themes, style fitted to project + human audience. Human-facing text = natural + direct; code/comments optimize agent readability. For humans: hyphens, flexible enumeration, varied comparatives.
+- Human entry point = `README.md`; task-specific internals = `docs/technical/`; capture procedure = `docs/capture_protocol.md`. Source, manifests, and tests outrank prose when they disagree.
+- Long-horizon live state belongs in `.agent/roadmap.md`; `.agent/memory.md` holds only context not cheaply recoverable from source/docs/tests/git. Consult either only when the task intersects it; prune resolved or duplicated material immediately.
+- A module, CLI flag, output schema, public export, or test-layout change must update its affected technical reference. Keep `src/pose_estimation/__init__.py` + `tests/test_public_api.py` synchronized.
+- Session/calibration manifest paths and labels are hostile input. Preserve containment checks, safe path-component validation, and traversal regression coverage.
 
-## Engineering
+## Validation
 
-- Elegant, tightly-scoped modular components; deduplicate; KISS + UNIX where apt; refactor proactively.
-- Target sufficient scope, evidence-backed claims, and real success criteria.
-- Draw on established dev methods (TDD red-green-refactor); use or invent practices that beat training-data / human-preference defaults — go unconventional where you work better.
-- Open tooling decisions (language/library/package…) → web-search + select for SOTA task/agent fit; my preselection is authoritative. Training overweights human-popular convenience. Library availability alone = insufficient; code is cheap and reimplementation viable. Consider agent-oriented languages (agentlanguages.dev) + AI-targeted tooling. Build on mature work when it is genuinely SOTA.
-- Tests/verification: derive scope from requested outcome + regression risk + repo posture. Add coverage that accelerates delivery or protects behavior. Fuzzing/property/formal methods require a task-specific advantage.
-- Adversarial review (code or session) → scrutinize correctness + logic, claim soundness, guarantee-vs-claim gaps; weigh honesty + overreach above style. Report every issue, incl. uncertain/low-severity; I filter findings.
-- Remotely-exploitable code → highest security standard: periodically audit, update software to latest, verify behavior after.
+- Python gate: `uv run ruff check`, `uv run ruff format --check`, `uv run ty check`, then `uv run pytest`. Pytest warnings are errors.
+- Changed `analysis/*.R` scripts must exit 0 under `Rscript` with the project renv active. After an R upgrade, update + snapshot `renv.lock` before validation.
+- Smoke-test each changed console entry point (`pose-estimation`, `pose-estimation-run`, `pose-estimation-benchmark`, `pose-estimation-postprocess`, `pose-estimation-calibrate`, `pose-estimation-validate`) on a non-sensitive, non-interactive path appropriate to the change.

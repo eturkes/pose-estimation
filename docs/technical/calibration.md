@@ -1,4 +1,4 @@
-# Camera calibration
+# Multi-camera calibration
 
 Multi-camera 3D triangulation needs per-camera intrinsics (`K`, distortion) and extrinsics (rotation + translation in a shared world frame). This document describes the file format, IO contract, and the ChArUco-based solve workflow.
 
@@ -108,7 +108,7 @@ Board args: `--squares COLSxROWS --square-size-m 0.04 --marker-size-m 0.03`. All
 
 ## Cross-references
 
-- Session abstraction: `tech/multicam.md`
-- Capture procedure (board sweep, ≳25 px/square, world-camera co-visibility topology) + the automated QA gate that grades a capture: `docs/capture_protocol.md`, `tech/validation.md` (`qa_check`).
+- Session abstraction: `multicam.md`
+- Capture procedure (board sweep, ≳25 px/square, world-camera co-visibility topology) + the automated QA gate that grades a capture: `../capture_protocol.md`, `validation.md` (`qa_check`).
 - Data sensitivity: calibration files capture lab geometry; treat as patient-adjacent. The `videos/` symlink is already git-ignored.
-- Tests: `tech/tests.md` (`test_calibration.py` IO, `test_charuco.py` solver on synthetic renders, `test_calibration_cli.py` CLI wiring)
+- Tests: `tests.md` (`test_calibration.py` IO, `test_charuco.py` solver on synthetic renders, `test_calibration_cli.py` CLI wiring)

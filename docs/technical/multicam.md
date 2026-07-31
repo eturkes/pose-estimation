@@ -1,4 +1,4 @@
-# Multi-camera sessions
+# Multi-camera sessions and fusion
 
 A *session* is a single recording with N synchronized cameras. The codebase treats N as variable; the deployed setup uses N=3.
 
@@ -22,7 +22,7 @@ output/<session_id>/
 └── world3d.csv         # fused 3D output (written when calibration present)
 ```
 
-Per-camera CSV columns are unchanged from the single-source schema (`tech/tracking-modes.md`).
+Per-camera CSV columns are unchanged from the single-source schema (`tracking-modes.md`).
 
 ### `world3d.csv` schema
 
@@ -65,8 +65,8 @@ Software sync only (no hardware genlock assumed). Three layers:
 | File | Role |
 |------|------|
 | `src/pose_estimation/multicam.py` | `Session` dataclass, `discover_session`, `iter_synchronized_frames`, `process_session` (callback-based orchestrator + post-hoc fusion hook), `fuse_session_outputs` → `SessionFusion` → `world3d.csv`. |
-| `src/pose_estimation/calibration.py` | `CameraCalibration` / `SessionCalibration` IO + validation (cv2-free). See `tech/calibration.md`. |
-| `src/pose_estimation/charuco.py` | ChArUco board construction/rendering, corner detection, `solve_charuco` (intrinsics + pairwise extrinsics + global RMS). See `tech/calibration.md`. |
+| `src/pose_estimation/calibration.py` | `CameraCalibration` / `SessionCalibration` IO + validation (cv2-free). See `calibration.md`. |
+| `src/pose_estimation/charuco.py` | ChArUco board construction/rendering, corner detection, `solve_charuco` (intrinsics + pairwise extrinsics + global RMS). See `calibration.md`. |
 | `src/pose_estimation/triangulation.py` | DLT helpers + `fuse_session_frame` policy layer (validity masking, weighted DLT, outlier-view rejection, cheirality flag, `FusionDiagnostics`). |
 | `src/pose_estimation/calibration_cli.py` | `pose-estimation-calibrate` console script (verify/solve/board/capture). |
 
@@ -82,7 +82,7 @@ Both `pose-estimation` (`main.py`) and `pose-estimation-run` (`run.py`) accept:
 | `--sessions-dir <dir>` | Iterate over all session subdirectories. |
 | `--calibration <file>` | Override calibration path. Otherwise the session's `calibration.json` (if present) is used. |
 
-Console script `pose-estimation-calibrate` (verify/solve/board/capture): see `tech/calibration.md` § CLI surface.
+Console script `pose-estimation-calibrate` (verify/solve/board/capture): see `calibration.md` § CLI surface.
 
 ## Processing flow
 
@@ -113,9 +113,9 @@ When `session.calibration` is present, `process_session()` ends by calling `fuse
 
 ## Cross-references
 
-- Calibration file schema + workflow: `tech/calibration.md`
-- Capture/QA protocol + the frame-count-parity desync proxy that grades a raw session: `docs/capture_protocol.md`, `tech/validation.md` (`qa_check`).
-- R consumption of `world3d.csv` (gating, 3D features): `tech/analysis.md`
-- Per-camera tracking modes: `tech/tracking-modes.md`
-- CLI surface: `tech/entrypoints.md`
-- Tests: `tech/tests.md` (`test_multicam.py`, `test_calibration.py`, `test_charuco.py`, `test_calibration_cli.py`)
+- Calibration file schema + workflow: `calibration.md`
+- Capture/QA protocol + the frame-count-parity desync proxy that grades a raw session: `../capture_protocol.md`, `validation.md` (`qa_check`).
+- R consumption of `world3d.csv` (gating, 3D features): `analysis.md`
+- Per-camera tracking modes: `tracking-modes.md`
+- CLI surface: `entrypoints.md`
+- Tests: `tests.md` (`test_multicam.py`, `test_calibration.py`, `test_charuco.py`, `test_calibration_cli.py`)

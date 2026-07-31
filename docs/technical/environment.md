@@ -1,11 +1,10 @@
-# Environment
+# Development environment
 
 ## Host / container
 
 - Two layers: an **openSUSE-based host** and a **Debian (trixie) Distrobox container** where agent sessions run. The container has its **own home** (`/var/home/eturkes/debian`); the host filesystem is mounted at `/run/host/`, so the project root is `/run/host/home/eturkes/Projects/pose-estimation`. Agent tooling (uv, `.venv`, R/renv) and OpenVINO inference run **in-container**, with CPU/GPU/NPU device access (see Devices / inference); a separate `.venv-host` covers the narrower case of launching from the host OS directly (Host-side runs below).
 - GNOME Wayland — the reason `pygame-ce` is used for display (Qt-bundled OpenCV does not render on Wayland).
 - Python 3.10+ required; the exact interpreter is pinned in `.python-version` and the floor declared in `pyproject.toml`.
-- In-container agent tooling: language servers (LSP) and persistent REPLs via `bgcmd` (`~/.local/bin/bgcmd`) — prefer these for interactive inspection over one-shot scripts.
 
 ## Python toolchain
 
@@ -13,7 +12,7 @@
 - Build backend: `hatchling`; wheels package `src/pose_estimation`.
 - Interpreter pin: `.python-version` (read by `uv`).
 - Virtualenv: `.venv/` (container-native: absolute paths in `/run/host/...` form). `bin/*` shebangs, `activate*` (`VIRTUAL_ENV`), and the editable `*.pth` hardcode the project's **absolute path**, so a project move or container path change needs repair (see Relocation below).
-- Install / sync: `uv sync` in-container (verified 2026-06-08; uv lives at `~/.local/bin/uv`). uv warns that cache (container fs) and `.venv` (`/run/host`) are on different filesystems and falls back to copying — harmless; `export UV_LINK_MODE=copy` silences it.
+- Install / sync: `uv sync` in-container. uv may warn that its cache (container filesystem) and `.venv` (`/run/host`) are on different filesystems, then safely fall back to copying; `export UV_LINK_MODE=copy` silences it.
 - **Single cv2 wheel policy**: `[tool.uv] override-dependencies` in `pyproject.toml` excludes rtmlib's `opencv-python` + `opencv-contrib-python` (always-false markers). All cv2 wheels unpack the same `cv2/` tree, so coinstallation file-stomps nondeterministically; we ship cv2 exactly once via `opencv-python-headless`. rtmlib uses no contrib-only modules; `cv2.aruco` is in main OpenCV ≥ 4.7.
 
 ### Adding a Python dependency
@@ -28,13 +27,14 @@
 - Install all: `renv::restore()` inside an R session at the project root.
 - Add a package: `renv::install("<pkg>")` then `renv::snapshot()`.
 - Use renv exclusively; the global library should not satisfy project deps.
+- A container rebuild drops native graphics libraries while the project renv can survive. Restore them with `sudo apt install -y libfontconfig1-dev libfreetype6-dev libx11-dev libharfbuzz-dev libfribidi-dev libpng-dev libtiff-dev libjpeg-dev libwebp-dev`, then verify `Rscript -e 'library(ragg); library(ggplot2)'`.
 
 ## Devices / inference
 
 - OpenVINO backends: NPU (default), CPU, GPU. Select with `--device {NPU|CPU|GPU}` on `main.py` / `run.py`.
 - Both entry points run OpenVINO: `main.py` converts the MediaPipe TFLite models to IR and `core.compile_model(device=…)` (`models.py`); `run.py` defaults to `--backend openvino --device NPU` for rtmlib (`onnxruntime` is the alternative `--backend`).
-- **Primary path = in-container.** With the machine-local accel env sourced, the project `.venv` sees all three devices — `Core().available_devices == ['CPU', 'GPU', 'NPU']`, and a generic OpenVINO compile+infer selftest passes on each (re-verified 2026-06-25, exit 0) — so NPU/GPU runs no longer need a host-side launch. The Intel iGPU+NPU stack is enabled by a machine-local setup (drivers + an accel-enabled OpenVINO runtime) whose specifics + the `source …/env.sh` step live in the auto-injected, git-ignored `CLAUDE.local.md`, not here. Source that accel env before launching python: it sets the GPU/NPU driver paths (`LD_LIBRARY_PATH` + OpenCL-ICD + Level-Zero) that gate device access.
-- **Device access is gated by that sourced env, not by which `openvino` package imports.** With it sourced, both the accel runtime (on `PYTHONPATH`) and the `.venv` pip wheel enumerate all three (verified). `PYTHONPATH` precedes `.venv` site-packages in `sys.path`, so `import openvino` resolves to the accel build (newer) and the pip wheel is the fallback. **Keep the pip `openvino` dependency** — `CLAUDE.local.md`'s "never pip install openvino" guards the machine-local runtime's `sys.path` precedence, which the committed dep does not disturb (`PYTHONPATH` stays in front); a generic checkout needs the dep.
+- **Primary path = in-container.** The machine launch environment supplies Intel GPU/NPU userspace paths (`LD_LIBRARY_PATH`, OpenCL ICD, Level Zero, and accelerator `PYTHONPATH`). Preserve that inherited environment when launching Python; without it, the project still supports the devices exposed by stock OpenVINO, usually CPU only.
+- **Device access depends on the driver environment, not import success.** An accelerator runtime on `PYTHONPATH` may precede the `.venv` wheel; inspect both `openvino.__file__` and `Core().available_devices` when diagnosing. Keep the pip `openvino` dependency as the generic-checkout fallback.
 - Per-model device coverage is not blanket-guaranteed (NPU op support varies): check a model with `scripts/npu_compat.py` (compiles each rtmlib model on a device — run before adding one to the registry) and rely on `rtmlib_openvino.py`'s runtime NPU→CPU fallback — so `--device NPU` (the `run.py` default) targets the NPU but may transparently land on CPU.
 - Confirm devices (pin the venv — a bare `uv run` honors `UV_PROJECT_ENVIRONMENT`, which is `.venv-host` in some non-interactive shells here): source the accel env, then `UV_PROJECT_ENVIRONMENT=.venv uv run python -c "import openvino as ov; print(ov.Core().available_devices)"` (or call `.venv/bin/python` directly). Keep `PYTHONPATH` intact — `python -E`/`-I` or PYTHONPATH-stripping `uv run` modes drop to the pip wheel. On a generic checkout (no accel env) the list reduces to whatever the system's Intel GPU (OpenCL/IGC) and NPU (`intel_vpu` → `/dev/accel/accel0`, level-zero) userspace exposes to stock OpenVINO — often CPU only until those are installed.
 
@@ -70,4 +70,4 @@ Moving the project breaks the venv's hardcoded absolute paths and leaves stale p
 - Offline / in-container: rewrite old→new path in `.venv` **text** files only — `bin/*` shebangs, `activate*` (`VIRTUAL_ENV`), `site-packages/_editable_impl_*.pth` (this one breaks `import pose_estimation`), `dist-info/direct_url.json`. Always skip `*.pyc`/`*.so`: old vs new paths differ in byte length, so an in-place edit corrupts the binary — and they carry the path only as cosmetic build-dir / `co_filename` strings.
 - Clear regenerable caches embedding the old path: project `__pycache__`, `.ruff_cache`.
 - Survive a move untouched: `.venv/bin/python` (→ system), renv library symlinks (0 dangling), renv `.so` (cosmetic). Verify: `import pose_estimation`, a console script, `pytest`, `Rscript -e 'renv::project()'`.
-- Enumerate matches with `find -exec grep` or Python, not bare `grep -r`: the shell's `grep` is a profile **function** that prunes dot-dirs, so `grep -r .venv` silently reports nothing.
+- Enumerate only text-file matches; regenerate caches and binaries instead of rewriting embedded paths.

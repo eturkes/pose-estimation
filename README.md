@@ -12,9 +12,9 @@ Two inference paths share one pipeline:
 
 Both apply temporal smoothing, biomechanical constraints, and a skeleton overlay.
 
-> **Working on this with an AI coding agent?** Start at [`CLAUDE.md`](CLAUDE.md) and
-> [`AGENTS.md`](AGENTS.md) instead; the agent-oriented technical notes live under
-> `.claude/tech/`. The rest of this README targets human contributors.
+> **Working on this with an AI coding agent?** Start at [`AGENTS.md`](AGENTS.md).
+> Task-specific internals live under [`docs/technical/`](docs/technical/), and active
+> long-horizon state lives in [`.agent/roadmap.md`](.agent/roadmap.md).
 
 ## Requirements
 
@@ -37,7 +37,7 @@ of commits.
 
 ## Entry points
 
-Five console scripts are defined in `pyproject.toml` (`[project.scripts]`); each is also
+Six console scripts are defined in `pyproject.toml` (`[project.scripts]`); each is also
 runnable as `python -m pose_estimation.<module>`.
 
 | Script | Module | Purpose |
@@ -47,6 +47,7 @@ runnable as `python -m pose_estimation.<module>`.
 | `pose-estimation-benchmark` | `pose_estimation.benchmark` | Parameter sweep harness. |
 | `pose-estimation-postprocess` | `pose_estimation.postprocess` | Savitzky-Golay smoothing for existing CSVs. |
 | `pose-estimation-calibrate` | `pose_estimation.calibration_cli` | Multi-camera calibration (ChArUco). |
+| `pose-estimation-validate` | `pose_estimation.validation` | Capture QA + end-to-end validation reports. |
 
 ### MediaPipe pipeline (`main`)
 
@@ -105,8 +106,8 @@ python -m pose_estimation.run  --sessions-dir videos/           --calibration ca
 
 `--session-dir`, `--sessions-dir`, and `--calibration` are mutually exclusive with
 `--source`/`--batch-dir`. Session layout, manifest schema, and the 3D-fusion model are
-documented in [`.claude/tech/multicam.md`](.claude/tech/multicam.md) and
-[`.claude/tech/calibration.md`](.claude/tech/calibration.md).
+documented in [`docs/technical/multicam.md`](docs/technical/multicam.md) and
+[`docs/technical/calibration.md`](docs/technical/calibration.md).
 
 ### Benchmarking & post-processing
 
@@ -119,7 +120,7 @@ python -m pose_estimation.benchmark --source video.mp4 --config sweep_default.ya
 python -m pose_estimation.postprocess output/video1.csv --window 15 --polyorder 3
 ```
 
-Sweep parameters and YAML config format: [`.claude/tech/optimization.md`](.claude/tech/optimization.md).
+Sweep parameters and YAML config format: [`docs/technical/optimization.md`](docs/technical/optimization.md).
 
 ## Tracking modes
 
@@ -168,7 +169,7 @@ Rscript analysis/clinical_features.R output/                # kinematic feature 
 Rscript analysis/longitudinal.R output/ sessions.csv        # recovery tracking
 ```
 
-The full script-by-script reference is [`.claude/tech/analysis.md`](.claude/tech/analysis.md).
+The full script-by-script reference is [`docs/technical/analysis.md`](docs/technical/analysis.md).
 The bundled report `analysis/analysis_summary.Rmd` renders to `analysis_summary.html`.
 
 ## Project layout
@@ -232,8 +233,7 @@ A few conventions worth knowing before you open a PR:
   `calibration`, `multicam`) or a cross-cutting label (`Tooling`, `Docs`, `Refactor`).
 
 Deeper technical reference (architecture, tracking modes, multicam, calibration, analysis,
-optimization, tests, environment) lives under `.claude/tech/`. Those notes are written for
-AI agents but read fine for humans.
+optimization, tests, environment) lives under [`docs/technical/`](docs/technical/).
 
 ## Technical notes
 

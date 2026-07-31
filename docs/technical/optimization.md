@@ -1,4 +1,4 @@
-# Optimization & benchmarking
+# Optimization and benchmarking
 
 Two distinct surfaces: **pipeline parameter sweeps** (find best params for the live pipeline) and **micro-benchmarks** (track hot-path performance regressions).
 
@@ -39,7 +39,7 @@ python -m pose_estimation.benchmark --source v.mp4 --config sweep_default.yaml
 ### Tunables ↔ validation thresholds
 
 These sweep parameters move the exact quantities the validation harness grades
-against `THRESHOLDS` (`tech/validation.md`). Tune here, then confirm the verdict
+against `THRESHOLDS` (`validation.md`). Tune here, then confirm the verdict
 does not regress — and conversely, when a `pose-estimation-validate` check WARNs/
 FAILs, the linked tunable is the first dial to turn:
 

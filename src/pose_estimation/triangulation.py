@@ -7,8 +7,8 @@ confidence weighting, minimum-view enforcement, greedy outlier-view
 rejection, cheirality flagging, and per-keypoint reprojection-error
 diagnostics.
 
-See ``.claude/tech/multicam.md`` for the session data flow and
-``.claude/tech/calibration.md`` for coordinate-frame conventions
+See ``docs/technical/multicam.md`` for the session data flow and
+``docs/technical/calibration.md`` for coordinate-frame conventions
 (OpenCV: +X right, +Y down, +Z forward; metres for tvec / world).
 """
 

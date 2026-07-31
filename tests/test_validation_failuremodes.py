@@ -8,8 +8,8 @@ injects one known degradation into the shared synthetic 3-camera session
 threshold, the verdict degrades to WARN/FAIL, and bad data is routed to
 NaN — never fabricated.
 
-Injection magnitudes are calibrated empirically (see the roadmap 1D
-decision entry) against fusion's greedy outlier rejection, which drops a
+Injection magnitudes are calibrated empirically against fusion's greedy
+outlier rejection, which drops a
 view reprojecting > ``REPROJ_GATE_PX`` while > ``min_views`` remain — so
 a single grossly-miscalibrated view can be *rejected* (masking reproj
 behind an ``n_views`` drop).  The chosen magnitudes sit on the

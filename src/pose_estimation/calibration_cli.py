@@ -18,7 +18,7 @@ Standalone usage:
 
 The board defaults (6x9, 40 mm squares, 30 mm markers, DICT_4X4_250)
 are shared by all subcommands; override consistently or the solve will
-misinterpret the print.  See ``.claude/tech/calibration.md``.
+misinterpret the print.  See ``docs/technical/calibration.md``.
 """
 
 from __future__ import annotations

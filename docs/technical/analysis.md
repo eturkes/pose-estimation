@@ -1,4 +1,4 @@
-# Analysis pipeline (R)
+# R analysis pipeline
 
 Scripts in `analysis/` consume metrics + landmark CSVs from `output/`. Invoke with `Rscript analysis/<script>.R <args>`.
 
@@ -37,12 +37,12 @@ Live-camera captures now feed these: `pose-estimation-run <idx> --output-dir out
 
 ## 3D input mode (world3d.csv)
 
-`clinical_features.R` auto-detects fused 3D inputs (schema: `tech/multicam.md`) via `is_world3d()` — any column ending `_x_m`. Same script, same feature path; differences:
+`clinical_features.R` auto-detects fused 3D inputs (schema: `multicam.md`) via `is_world3d()` — any column ending `_x_m`. Same script, same feature path; differences:
 
 - **Gating first** (`adapt_world3d()`): a keypoint-frame is masked to NA when `reproj_err_px > REPROJ_GATE_PX` (constant, 20 px — matches the fusion-side `max_view_reproj_px`; required because at exactly `min_views` fusion cannot drop an outlier view) **or** `cheirality_ok == 0`. Diagnostic columns are then dropped and `_{x,y,z}_m` renamed to `_{x,y,z}`, after which the existing 3D-capable helpers (`angle_at_vertex`, `dist_3d`, window speed) operate unchanged.
 - **Units are physical**: angles deg (true 3D, not projected), distances m, velocities m/s, path lengths m. 2D inputs remain normalised-coordinate units.
 - **Trunk metrics use true plane decomposition** (z available): `trunk_lean_angle_3d` (total, vs −y vertical), `trunk_lean_sagittal_3d` → new column `trunk_lean_sagittal_deg` (positive = leaning away from camera; NA in 2D mode — out-of-plane is unmeasurable), `trunk_rotation_3d` (shoulder vs hip line in x–z plane), `posture_symmetry_3d` (3D shoulder width). Lateral lean formula is shared (x–y, identical in both modes). Windowed `trunk_lean_sagittal_mean/sd` added in both branches (NA in 2D).
-- **Vertical assumption**: world −y = up holds only if the `world_frame` camera is level (documented in `tech/multicam.md`).
+- **Vertical assumption**: world −y = up holds only if the `world_frame` camera is level (documented in `multicam.md`).
 - **Output suffix partition**: `*_clinical_3d.csv`, `*_clinical_3d_windows.csv`, `*_movement_phases_3d.csv`. Downstream aggregation scripts glob `_clinical.csv`/`_clinical_windows.csv` and therefore skip `_3d` outputs by construction — metre-unit rows must stay out of normalised-unit aggregations. Downstream 3D aggregation is deliberately not built yet.
 - Input discovery excludes its own outputs via regex `clinical[_a-z0-9]*|movement_phases[_a-z0-9]*` (digit class covers `_3d`).
 - Window stats use `safe_mean`/`safe_sd` (all-NA → NA, warning-free); CPI now reuses per-frame `trunk_lean_deg` instead of recomputing 2D lean, so it is mode-appropriate automatically.
@@ -71,7 +71,7 @@ Live-camera captures now feed these: `pose-estimation-run <idx> --output-dir out
 
 ## Edge-case resilience
 
-All scripts handle degenerate inputs gracefully after 2026-05-24 hardening:
+All scripts handle degenerate inputs gracefully:
 
 - **Short videos** (<10 frames): `clinical_features.R` emits per-frame features, skips windowed features. `temporal_clinical.R` skips videos <10 rows with a message.
 - **Zero-variance features**: `compare_clinical.R`, `clinical_dimreduce.R`, `features.R` warn and skip heatmap/PCA/UMAP plots when insufficient variable features remain.
@@ -80,7 +80,7 @@ All scripts handle degenerate inputs gracefully after 2026-05-24 hardening:
 
 ## Bilateral comparison metrics
 
-Added by `compute_bilateral()` in `clinical_features.R:58-78`. Applied to all per-side metric pairs in both per-frame and per-window outputs.
+Added by `compute_bilateral()` in `analysis/clinical_features.R`. Applied to all per-side metric pairs in both per-frame and per-window outputs.
 
 ### Formulas (using abs() internally for sign-agnostic handling)
 
@@ -158,7 +158,7 @@ Added to `compute_frame_features()` in `clinical_features.R`, gated behind `trac
 | `trunk_rotation_mean`, `trunk_rotation_sd` | `trunk_rotation_deg` |
 | `posture_symmetry_mean`, `posture_symmetry_sd` | `posture_symmetry` |
 
-### Helpers (`clinical_features.R:194-262`)
+### Helpers (`analysis/clinical_features.R`)
 
 - `trunk_lean_angle()` — unsigned total lean (existing, also used by CPI).
 - `trunk_lean_lateral()` — signed lateral lean in frontal plane.

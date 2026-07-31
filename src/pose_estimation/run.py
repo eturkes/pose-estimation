@@ -186,7 +186,7 @@ def parse_args():
         help=(
             "Multi-camera session directory (cam*.{mp4,avi,mov,mkv,webm} + "
             "optional session.json + optional calibration.json). "
-            "Per-view processing + 3D fusion are not yet wired."
+            "Processes each view and fuses to 3D when calibration is present."
         ),
     )
     p.add_argument(
@@ -536,8 +536,8 @@ def main():
         # Read-only discovery probe for the M2 footage gate: resolve_cli_sessions
         # discovers sessions from filenames + session.json/calibration.json and
         # prints a summary with no frame decoding, so no video bytes enter context.
-        # Defaulting the sessions root to "videos/" in source lets the gate command
-        # name no deny-listed path; redact_identifiers keeps the tree's session ids /
+        # Defaulting the sessions root to "videos/" in source keeps sensitive paths
+        # out of the command; redact_identifiers keeps the tree's session ids /
         # camera names out of context too — the probe surfaces only an ordinal,
         # camera count, and calibration presence, never frames or calibration values
         # (.agent/roadmap.md M2 gate).

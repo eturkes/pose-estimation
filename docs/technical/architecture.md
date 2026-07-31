@@ -1,4 +1,4 @@
-# Architecture
+# System architecture
 
 ## Module map (`src/pose_estimation/`)
 
@@ -20,12 +20,12 @@
 | `postprocess.py` | Savitzky-Golay offline smoothing (`savgol_smooth_csv`). |
 | `metrics.py` | `MetricsCollector`, `ConstraintDiagnostics`, `SmoothingDiagnostics` — per-frame quality metrics. |
 | `benchmark.py` | Parameter sweep harness (subprocess fan-out, `--config` YAML). |
-| `multicam.py` | Multi-camera `Session` discovery + synchronized iteration + CLI session resolution (`resolve_cli_sessions`). `process_session` orchestrates per-camera processing via callback, then 3D-fuses CSVs when calibration present (`fuse_session_outputs`, `SessionFusion`) and writes `world3d.csv`. See `tech/multicam.md`. |
-| `calibration.py` | Camera-calibration JSON IO + validation (cv2-free). See `tech/calibration.md`. |
-| `charuco.py` | ChArUco board build/render, corner detection, `solve_charuco` (intrinsics + pairwise extrinsics + global RMS). See `tech/calibration.md`. |
+| `multicam.py` | Multi-camera `Session` discovery + synchronized iteration + CLI session resolution (`resolve_cli_sessions`). `process_session` orchestrates per-camera processing via callback, then 3D-fuses CSVs when calibration present (`fuse_session_outputs`, `SessionFusion`) and writes `world3d.csv`. See `multicam.md`. |
+| `calibration.py` | Camera-calibration JSON IO + validation (cv2-free). See `calibration.md`. |
+| `charuco.py` | ChArUco board build/render, corner detection, `solve_charuco` (intrinsics + pairwise extrinsics + global RMS). See `calibration.md`. |
 | `calibration_cli.py` | `pose-estimation-calibrate` console script (`verify`/`solve`/`board`/`capture`). |
 | `triangulation.py` | 3D triangulation: math primitives (DLT, projection, undistort) + `fuse_session_frame` policy layer (validity masking, confidence-weighted DLT, min-view enforcement, greedy outlier-view rejection, cheirality flag, reprojection diagnostics). |
-| `validation.py` | End-to-end pipeline validation harness: `run_validation` orchestrates calibration → 2D tracking → fusion → R clinical metrics on one session and emits a `ValidationReport` (JSON + Markdown). `qa_check` is the pre-flight capture-QA gate (`QAReport`; `--qa-only`). Orchestrates + measures only; reuses the pipeline blocks. `pose-estimation-validate` console script. See `tech/validation.md`. |
+| `validation.py` | End-to-end pipeline validation harness: `run_validation` orchestrates calibration → 2D tracking → fusion → R clinical metrics on one session and emits a `ValidationReport` (JSON + Markdown). `qa_check` is the pre-flight capture-QA gate (`QAReport`; `--qa-only`). Orchestrates + measures only; reuses the pipeline blocks. `pose-estimation-validate` console script. See `validation.md`. |
 | `_types.py` | `Detection`, `HandDetectionDiag`, `PipelineState`, `CameraCalibration`, `SessionCalibration`, `SessionFrame`, `MultiCamPipelineState`, `FusionDiagnostics` TypedDicts. |
 
 ## Public API (re-exported from `src/pose_estimation/__init__.py`)
@@ -59,9 +59,9 @@ Treat this list as the stable surface. Internal helpers (leading `_`) may move f
 
 ## Cross-references
 
-- Modes: `tech/tracking-modes.md`
-- Multi-camera sessions: `tech/multicam.md`
-- Calibration format + workflow: `tech/calibration.md`
-- Entry points & CLI: `tech/entrypoints.md`
-- Validation harness + report schema: `tech/validation.md`
-- Tests: `tech/tests.md`
+- Modes: `tracking-modes.md`
+- Multi-camera sessions: `multicam.md`
+- Calibration format + workflow: `calibration.md`
+- Entry points & CLI: `entrypoints.md`
+- Validation harness + report schema: `validation.md`
+- Tests: `tests.md`

@@ -3,7 +3,7 @@
 One command runs the full chain on a single session — calibration
 (solve or load) → 2D tracking → ``world3d.csv`` fusion → clinical
 metrics — and emits a structured :class:`ValidationReport` (JSON for
-CI, Markdown for humans).  See ``.claude/tech/validation.md``.
+CI, Markdown for humans).  See ``docs/technical/validation.md``.
 
 Design: this module *orchestrates* and *measures*; it reimplements no
 pipeline maths.  It reuses :func:`charuco.solve_charuco` (calibration),
@@ -14,14 +14,14 @@ are run individually (rather than via :func:`multicam.process_session`,
 which bundles tracking and fusion) so each gets its own wall-clock.
 
 The clinical-metric *agreement* leg is baseline-optional, by design:
-no external ground truth exists yet (confirmed 2026-06-15).  With a
+no external ground truth exists yet.  With a
 baseline → per-metric error vs the reference.  Without → internal
 self-consistency surrogates (bone-length coefficient-of-variation,
 left/right symmetry, temporal jitter) computed straight from the fused
 ``world3d.csv``.
 
-Raw numbers only live here; the PASS/WARN/FAIL verdict and its
-thresholds arrive in roadmap Session 1B.
+Reports include versioned PASS/WARN/FAIL grading; the thresholds remain
+provisional until calibrated against cleared real captures.
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ from .video_io import frame_count
 REPORT_SCHEMA_VERSION = 2
 """Bumped when the :class:`ValidationReport` JSON layout changes.
 
-v2 adds the ``verdict`` block (Session 1B).  Threshold *value* changes
+v2 adds the ``verdict`` block.  Threshold *value* changes
 do **not** bump this — they bump :data:`THRESHOLDS_VERSION` instead.
 """
 
@@ -121,7 +121,7 @@ _SYMMETRIC_BONES: list[tuple[str, str]] = [
 
 
 # ---------------------------------------------------------------------------
-# Acceptance thresholds + PASS/WARN/FAIL grading (Session 1B)
+# Acceptance thresholds + PASS/WARN/FAIL grading
 # ---------------------------------------------------------------------------
 
 
@@ -170,7 +170,7 @@ class Band:
 class Thresholds:
     """Versioned, single-source-of-truth acceptance bands.
 
-    Rationale + citations live in ``.claude/tech/validation.md`` and
+    Rationale + citations live in ``docs/technical/validation.md`` and
     inline at :data:`THRESHOLDS`.  Bump :data:`THRESHOLDS_VERSION` on any
     value change; the report's ``schema_version`` tracks JSON *layout*.
     """
@@ -193,13 +193,13 @@ class Thresholds:
 
 
 THRESHOLDS_VERSION = 1
-"""Bumped on any change to a :data:`THRESHOLDS` value.  Session 2A
-re-calibrates these against the first real capture."""
+"""Bumped on any change to a :data:`THRESHOLDS` value. Recalibrate these
+bands against cleared real captures."""
 
 THRESHOLDS = Thresholds(
     version=THRESHOLDS_VERSION,
-    # 2D keypoints below this confidence are "low-confidence".  Provisional
-    # rtmlib/RTMPose floor; re-tuned against real footage in Session 2A.
+    # 2D keypoints below this confidence are "low-confidence". Provisional
+    # rtmlib/RTMPose floor; re-tune against cleared real footage.
     confidence_floor=0.3,
     # Calibration reprojection RMS.  Photogrammetry/markerless standard:
     # < 1 px is the gold standard, ~2 px (~1 cm) still yields usable
@@ -216,16 +216,16 @@ THRESHOLDS = Thresholds(
     # Redundancy: with the 3-camera deployment a median < 3 means the
     # typical keypoint has no spare view to reject an outlier (multicam.md).
     n_views_median=Band(warn=3.0, fail=2.0, direction="min"),
-    # Provisional engineering defaults (Session 2A calibrates on real data):
+    # Provisional engineering defaults; calibrate on cleared real data:
     max_low_confidence_fraction=Band(warn=0.2, fail=0.4),
     max_unfused_fraction=Band(warn=0.1, fail=0.25),
     # Cheirality (point in front of camera) should essentially never fail.
     max_cheirality_rate=Band(warn=0.01, fail=0.05),
     # Whole-pipeline fused fps incl. one-time solve/R — a coarse perf
-    # regression signal, graded but informational (Session 2B sets the
-    # real per-device budget).
+    # regression signal, graded but informational until a multi-device
+    # performance study sets the real budget.
     min_throughput_fps=Band(warn=15.0, fail=5.0, direction="min"),
-    # Self-consistency surrogates (no baseline exists — decision 2026-06-15).
+    # Self-consistency surrogates; no external baseline exists.
     # Rigid-bone length CoV: ~1 cm markerless keypoint noise on a ~0.25 m
     # forearm ~= 4-5 % (dual-camera OA RMSD ~11 mm, Ann. Biomed. Eng. 2025).
     max_bone_length_cv=Band(warn=0.05, fail=0.10),
@@ -239,7 +239,7 @@ THRESHOLDS = Thresholds(
     # Used only when a baseline is supplied (none yet — UNVALIDATED).
     agreement_tolerance_deg=Band(warn=5.0, fail=10.0),
 )
-"""Current acceptance thresholds.  See ``tech/validation.md`` for the full
+"""Current acceptance thresholds. See ``docs/technical/validation.md`` for the full
 rationale table and the clinical-validity gap register."""
 
 
@@ -253,7 +253,7 @@ COVERAGE_GRID = (8, 6)
 fraction of these cells the pooled board corners touch measures how much
 of a camera's field of view the calibration sweep visited.  A board
 confined to the centre lights up few cells (weak oblique-camera
-intrinsics, per the 2026-06-08 capture-accuracy lesson)."""
+intrinsics)."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -277,8 +277,8 @@ class QAThresholds:
 
 
 QA_THRESHOLDS_VERSION = 1
-"""Bumped on any change to a :data:`QA_THRESHOLDS` value.  Session 2A
-re-calibrates these provisional bands against the first real capture."""
+"""Bumped on any change to a :data:`QA_THRESHOLDS` value. Recalibrate these
+provisional bands against cleared real captures."""
 
 QA_THRESHOLDS = QAThresholds(
     version=QA_THRESHOLDS_VERSION,
@@ -289,22 +289,22 @@ QA_THRESHOLDS = QAThresholds(
     # Board-detection rate is capture-style dependent (a fast, varied sweep
     # detects in fewer frames yet constrains geometry better than a slow
     # static one), so these bands are lenient — the absolute frame floor
-    # above is the real sufficiency gate.  Provisional (Session 2A).
+    # above is the real sufficiency gate. Provisional.
     min_charuco_detection_rate=Band(warn=0.30, fail=0.10, direction="min"),
     # Fraction of the COVERAGE_GRID cells the board swept.  A full-volume
     # translation+tilt sweep lights up most cells; a centre-bound board
     # weakly constrains oblique-camera intrinsics and couples fx error into
-    # stereo translation (lessons 2026-06-08).  Provisional.
+    # stereo translation. Provisional.
     min_board_coverage=Band(warn=0.60, fail=0.35, direction="min"),
     # Raw per-camera frame-count parity as a software-sync desync proxy.
     # Declared sync_offsets trim pre-roll, so a few frames of disparity is
     # normal; a large mismatch signals a dropped/desynced recording.
     max_frame_count_disparity=Band(warn=0.05, fail=0.20),
     # The subject should be tracked in most frames of a usable clip.
-    # Provisional engineering default (Session 2A calibrates on real data).
+    # Provisional engineering default; calibrate on cleared real data.
     min_subject_detection_rate=Band(warn=0.80, fail=0.50, direction="min"),
 )
-"""Current capture-QA thresholds.  See ``tech/validation.md`` for the
+"""Current capture-QA thresholds. See ``docs/technical/validation.md`` for the
 rationale table; graded by :func:`qa_check` → :func:`_grade_qa`."""
 
 
@@ -445,8 +445,8 @@ class ValidationReport:
     """Full validation result for one session.
 
     ``to_json`` is CI-parseable (non-finite floats become ``null``);
-    ``to_markdown`` is a human summary.  No verdict yet — raw numbers
-    only (the PASS/WARN/FAIL grading lands in Session 1B).
+    ``to_markdown`` is a human summary; ``verdict`` applies the versioned
+    PASS/WARN/FAIL thresholds.
     """
 
     session_id: str
@@ -704,8 +704,8 @@ def _run_default_backend(
 ) -> float:
     """Run the real rtmlib backend via ``pose-estimation-run`` (footage path).
 
-    Footage-gated: exercised only in Phase 2.  Reuses the existing entry
-    point as a subprocess rather than re-importing its heavy model setup.
+    Requires cleared footage. Reuses the existing entry point as a subprocess
+    rather than re-importing its heavy model setup.
     """
     cmd = [
         sys.executable,
@@ -1030,8 +1030,8 @@ def _baseline_agreement(
     Baseline JSON: ``{metric_column_name: reference_value}``.  The
     harness aggregates each named column's mean from the produced
     ``*_clinical_3d.csv`` and reports ``|aggregate - reference|``.  A
-    minimal contract for Phase 1; Session 2C extends it (Bland-Altman,
-    ICC, %error) once a real baseline exists.
+    minimal contract to extend with Bland-Altman, ICC, and percent error
+    once a real baseline exists.
     """
     bpath = pathlib.Path(baseline)
     if not bpath.is_file():
@@ -1165,8 +1165,8 @@ def _grade_report(report: ValidationReport, thresholds: Thresholds) -> Verdict:
         info=True,
     )
 
-    # Baseline agreement: angle metrics only.  Unit-aware grading +
-    # Bland-Altman/ICC arrive in Session 2C once a real baseline exists.
+    # Baseline agreement: angle metrics only. Add unit-aware grading,
+    # Bland-Altman, and ICC once a real baseline exists.
     if agr.per_metric_error:
         graded = 0
         for metric, err in sorted(agr.per_metric_error.items()):
@@ -1174,9 +1174,7 @@ def _grade_report(report: ValidationReport, thresholds: Thresholds) -> Verdict:
                 _check(f"agreement.{metric}", err, thresholds.agreement_tolerance_deg)
                 graded += 1
             else:
-                notes.append(
-                    f"baseline metric {metric!r} ungraded (no unit-aware tolerance yet — Session 2C)"
-                )
+                notes.append(f"baseline metric {metric!r} ungraded (no unit-aware tolerance)")
         if not graded:
             notes.append("baseline supplied but no angle (_deg) metric to grade")
     elif agr.has_baseline:
@@ -1198,7 +1196,7 @@ def _grade_report(report: ValidationReport, thresholds: Thresholds) -> Verdict:
 
 
 # ---------------------------------------------------------------------------
-# Pre-flight capture QA gate (Session 1C)
+# Pre-flight capture QA gate
 # ---------------------------------------------------------------------------
 
 QA_REPORT_SCHEMA_VERSION = 1
@@ -1246,7 +1244,7 @@ class SubjectQA:
 
 @dataclasses.dataclass
 class QAReport:
-    """Pre-flight QA grade of a raw capture (roadmap Session 1C).
+    """Pre-flight QA grade of a raw capture.
 
     Graded by :func:`qa_check` *before* clinical metrics are trusted, so a
     capture that fails QA (poor board coverage, desync, low subject
@@ -1294,7 +1292,7 @@ def qa_check(
 ) -> QAReport:
     """Grade a raw 3-camera capture before its clinical metrics are trusted.
 
-    The pre-flight gate (roadmap Session 1C) assesses three failure
+    The pre-flight gate assesses three failure
     surfaces without running the full fusion/clinical chain:
 
     1. **Calibration capture** — per-camera ChArUco detection rate and

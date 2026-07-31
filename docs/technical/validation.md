@@ -1,20 +1,20 @@
-# Validation harness
+# Clinical validation harness
 
 End-to-end validation of the 3D clinical pipeline on one session, emitting a
 structured report. `src/pose_estimation/validation.py`; console script
-`pose-estimation-validate`. Roadmap Session 1A (`prompts/sessions.md`).
+`pose-estimation-validate`; live real-data validation state in `.agent/roadmap.md`.
 
 ## What it does
 
 `run_validation(session_dir, *, calibration=None, baseline=None, device="NPU",
 backend="onnxruntime", output_dir=None, camera_processor=None,
-run_clinical=True, confidence_floor=…)` (`validation.py:413`) runs the full
-chain on a single session and returns a `ValidationReport` (`validation.py:378`):
+run_clinical=True, confidence_floor=…)` runs the full chain on a single session
+and returns a `ValidationReport`:
 
 1. **Calibration** — external `calibration` arg wins; a calibration *file* is
    loaded, a *directory* with `calibration.json` is loaded, a directory without
    one is solved via `charuco.solve_charuco` and saved. No calibration anywhere
-   → `ValidationError` (`validation.py:277`).
+   → `ValidationError`.
 2. **2D tracking** — three-way branch (`_run_tracking`): an injected
    `camera_processor` (tests), else reuse if ≥2 per-camera CSVs already exist,
    else a real backend run via `python -m pose_estimation.run --headless` per
@@ -43,14 +43,14 @@ threshold-value changes bump `THRESHOLDS_VERSION` instead. Sections:
 | `fusion_3d` | reproj-err median/p95/max, n_views median/min, cheirality-violation rate, unfused fraction. |
 | `timing` | per-stage wall-clock, throughput (fused fps), device + backend. |
 | `agreement` | baseline-optional (see below) + `clinical_csv_produced`. |
-| `verdict` | overall PASS/WARN/FAIL + per-check grades vs `THRESHOLDS` (Session 1B; see below). Computed on demand by `ValidationReport.verdict()` and merged into `to_json()` / `to_markdown()`. |
+| `verdict` | overall PASS/WARN/FAIL + per-check grades vs `THRESHOLDS` (see below). Computed on demand by `ValidationReport.verdict()` and merged into `to_json()` / `to_markdown()`. |
 
 ### Agreement leg (baseline-optional, by design)
 
-No external ground truth exists yet (decision 2026-06-15). With a `baseline`
+No external ground truth exists yet. With a `baseline`
 JSON (`{metric_column: reference_value}`) → per-metric absolute error of clinical
 aggregates. Without → internal self-consistency surrogates straight from
-`world3d.csv` (`_build_agreement`, `validation.py:860`):
+`world3d.csv` (`_build_agreement`):
 
 - **bone-length CoV** — std/mean of each rigid bone's 3D length over frames.
 - **L/R symmetry** — relative |L−R| per symmetric bone pair.
@@ -67,7 +67,7 @@ as all-NaN columns and are dropped from the surrogates by design.
 ≥1 frame). A keypoint never tracked in 2D (e.g. legs in arm mode) is a tracking
 gap, visible in `tracking_2d.detection_rate`, not a fusion failure.
 
-## Acceptance thresholds + verdict (Session 1B)
+## Acceptance thresholds + verdict
 
 `THRESHOLDS` (`validation.py`) is the single-source-of-truth `Thresholds`
 dataclass; `THRESHOLDS_VERSION` bumps on any value change (independent of the
@@ -89,27 +89,27 @@ top). CLI exit code: **0** PASS/WARN, **1** FAIL, **2** harness error;
 | `fusion.reproj_err_px_p95` | 15.0 | 20.0 | max | Anipose treats >20 px as missing (== `REPROJ_GATE_PX`, the fusion gate); <18 px in >90 % of frames. |
 | `fusion.n_views_min` (hard floor) | — | <2 | — | DLT triangulation needs ≥2 views; below = malformed/degenerate fusion. Discrete FAIL guard. |
 | `fusion.n_views_median` | 3.0 | 2.0 | min | 3-camera deployment: median <3 means the typical keypoint has no spare view to reject an outlier (`multicam.md`). |
-| `tracking.worst_low_confidence_fraction` | 0.2 | 0.4 | max | Worst camera's fraction of detected keypoints below `confidence_floor` (0.3). **Provisional** — 2A calibrates on real footage. |
+| `tracking.worst_low_confidence_fraction` | 0.2 | 0.4 | max | Worst camera's fraction of detected keypoints below `confidence_floor` (0.3). **Provisional** pending cleared real footage. |
 | `fusion.unfused_keypoint_fraction` | 0.1 | 0.25 | max | Active-keypoint frame slots that failed to fuse. **Provisional**. |
 | `fusion.cheirality_violation_rate` | 0.01 | 0.05 | max | Points should reconstruct in front of all contributing cameras; violations ≈ 0 in a healthy solve. |
 | `agreement.mean_bone_length_cv` | 0.05 | 0.10 | max | Rigid-bone length CoV across frames = cross-camera reconstruction precision; ~1 cm markerless keypoint noise on a ~0.25 m forearm ≈ 4–5 % (dual-camera OA RMSD ~11 mm, *Ann. Biomed. Eng.* 2025). |
 | `agreement.temporal_jitter_mm` | 5.0 | 15.0 | max | Static-pose temporal noise via 2nd-difference (acceleration) magnitude. |
-| `timing.throughput_fps` *(info)* | 15.0 | 5.0 | min | Whole-pipeline fused fps incl. one-time solve/R — a coarse perf-regression signal. **Provisional**; 2B sets the real per-device budget. Excluded from the overall grade. |
+| `timing.throughput_fps` *(info)* | 15.0 | 5.0 | min | Whole-pipeline fused fps incl. one-time solve/R — a coarse perf-regression signal. **Provisional** pending a real per-device study. Excluded from the overall grade. |
 | `agreement.mean_symmetry_rel_diff` *(info)* | 0.05 | 0.10 | max | L/R bone-length relative difference. Valid **only** for symmetric-by-construction input; excluded from the overall grade (real anatomical asymmetry would confound it). |
 | `agreement.<metric>_deg` (baseline only) | 5.0 | 10.0 | max | ~5° clinical precision threshold for joint-angle agreement; OpenCap ~6° flagged borderline (OpenCap validation, *J. Biomech.* 2024). Graded only when a baseline supplies `_deg` metrics — none exists yet. |
 
 *(info)* = informational: graded and surfaced, but does **not** raise the overall
 verdict. Provisional values are deliberately strict-but-unproven and are
-re-calibrated against the first real capture in Session 2A.
+re-calibrated against the first cleared real capture.
 
-## Capture QA gate (Session 1C)
+## Capture QA gate
 
 `qa_check(session_dir, *, calibration=None, output_dir=None,
 camera_processor=None, device, backend, confidence_floor, board=None) ->
 QAReport` (`validation.py`) is a **pre-flight gate**: it grades a *raw
 capture* before its clinical metrics are trusted, without running the
 fusion/clinical chain. The human procedure behind it is
-`docs/capture_protocol.md`. Run it via `pose-estimation-validate
+`../capture_protocol.md`. Run it via `pose-estimation-validate
 --qa-only`.
 
 It assesses three failure surfaces, reusing the harness building blocks
@@ -132,7 +132,7 @@ are independent of the report-side versions.
 ### QA thresholds (`QA_THRESHOLDS`, version 1 — provisional)
 
 All **provisional**: literature/engineering-grounded but unproven on real
-captures; Session 2A re-calibrates against the first real session (bump
+captures; the first cleared real session recalibrates them (bump
 `QA_THRESHOLDS_VERSION`). Calibration RMS is shared with the report verdict
 (see the table above).
 
@@ -140,7 +140,7 @@ captures; Session 2A re-calibrates against the first real session (bump
 |-------|------|------|-----|-----------|
 | `calibration.min_charuco_frames` (hard floor) | — | < `MIN_INTRINSIC_FRAMES` (8) | — | Below the solver's intrinsic-frame minimum the calibration cannot solve. Discrete FAIL guard. |
 | `calibration.worst_charuco_detection_rate` | 0.30 | 0.10 | min | Board detected / total frames, worst camera. Capture-style dependent (a fast varied sweep detects in fewer frames yet constrains geometry better), so lenient — the frame floor is the real sufficiency gate. |
-| `calibration.worst_board_coverage` | 0.60 | 0.35 | min | FOV-grid occupancy, worst camera. A centre-bound board weakly constrains oblique-camera intrinsics and couples fx error into stereo translation (`lessons.md` 2026-06-08). |
+| `calibration.worst_board_coverage` | 0.60 | 0.35 | min | FOV-grid occupancy, worst camera. A centre-bound board weakly constrains oblique-camera intrinsics and couples focal-length error into stereo translation. |
 | `parity.frame_count_disparity` | 0.05 | 0.20 | max | (max−min)/max raw frame counts. Declared `sync_offset`s trim pre-roll, so a few frames is normal; a large mismatch signals a dropped/desynced recording. |
 | `subject.worst_detection_rate` | 0.80 | 0.50 | min | The subject should track in most frames of a usable clip. |
 | `subject.worst_low_confidence_fraction` | 0.20 | 0.40 | max | Shared `THRESHOLDS.max_low_confidence_fraction`. |
@@ -148,21 +148,21 @@ captures; Session 2A re-calibrates against the first real session (bump
 ## Clinical-validity gap register
 
 Honest status of what the harness can and cannot yet prove. The headline gap is
-agreement-vs-ground-truth: there is **no external baseline** (decision
-2026-06-15), so clinical-metric *correctness* is unproven; the verdict currently
+agreement-vs-ground-truth: there is **no external baseline**, so clinical-metric
+*correctness* is unproven; the verdict currently
 rests on internal evidence (reprojection, cross-camera consistency, temporal
 stability) only.
 
 | Gap | Status | Detail / impact | Resolved by |
 |-----|--------|-----------------|-------------|
-| Clinical-metric agreement vs ground truth | **UNVALIDATED** | No known-geometry object, goniometer, or second reference system exists. Joint angles / reach / aperture are internally consistent but not proven *accurate*. `agreement_tolerance_deg` is dormant until a baseline arrives. | Session 2C (needs a baseline; cheapest viable = known-length rod for scale + goniometer for ≥1 joint). |
-| L/R symmetry surrogate | **Conditional** | Valid only when the input is symmetric by construction (phantom/synthetic). On a real subject, genuine anatomical asymmetry confounds it — hence graded *informational*, never failing the verdict. | A baseline or a known-symmetric phantom (2A/2C). |
-| 2D bone-length constraints under foreshortening | **Known-approximate** | `BoneLengthSmoother` constrains 2D limbs that foreshorten under projection (`lessons.md` 2026-05-24); `--no-constraints` disables it. 3D fusion does not suffer this, but 2D inputs feeding fusion still do. | Inherent to 2D; mitigated by 3D fusion + redundancy. |
-| World-frame "up" assumption (trunk metrics) | **Assumption** | Trunk lean/rotation assume world −y = vertical, true only if the `world_frame` camera is level (`multicam.md`, `analysis.md`). A tilted reference camera biases all trunk angles. | Mitigated by `docs/capture_protocol.md` (level + verify the world camera, manual checklist item — the QA gate cannot see it); a gravity/level reference would close it fully. |
+| Clinical-metric agreement vs ground truth | **UNVALIDATED** | No known-geometry object, goniometer, or second reference system exists. Joint angles / reach / aperture are internally consistent but not proven *accurate*. `agreement_tolerance_deg` is dormant until a baseline arrives. | Baseline study; cheapest viable = known-length rod for scale + goniometer for ≥1 joint. |
+| L/R symmetry surrogate | **Conditional** | Valid only when the input is symmetric by construction (phantom/synthetic). On a real subject, genuine anatomical asymmetry confounds it — hence graded *informational*, never failing the verdict. | A baseline or a known-symmetric phantom. |
+| 2D bone-length constraints under foreshortening | **Known-approximate** | `BoneLengthSmoother` constrains 2D limbs that foreshorten under projection; `--no-constraints` disables it. 3D fusion does not suffer this, but 2D inputs feeding fusion still do. | Inherent to 2D; mitigated by 3D fusion + redundancy. |
+| World-frame "up" assumption (trunk metrics) | **Assumption** | Trunk lean/rotation assume world −y = vertical, true only if the `world_frame` camera is level (`multicam.md`, `analysis.md`). A tilted reference camera biases all trunk angles. | Mitigated by `../capture_protocol.md` (level + verify the world camera, manual checklist item — the QA gate cannot see it); a gravity/level reference would close it fully. |
 | Single-person fusion | **Scope limit** | Fusion uses `person_idx == 0` only; multi-subject scenes are out of scope (`multicam.md`). Two people in frame → only one fuses. | Future cross-camera person matching (not roadmapped). |
-| Synchronization | **Software-only** | No hardware genlock; sync is recorder-aligned or integer `sync_offset` frames (`multicam.md`). Sub-frame desync degrades reprojection on fast motion; audio-xcorr sync is FUTURE. | Partially caught: `qa_check` frame-count-parity desync proxy + `docs/capture_protocol.md` sync procedure. Sub-frame desync still unmodelled (audio-xcorr FUTURE). |
-| Throughput budget | **Provisional** | `throughput_fps` denominator includes one-time solve + R, so it is a coarse regression signal, not a real-time SLA. Graded *informational*. | Session 2B (real per-device fps budget). |
-| Thresholds calibrated on synthetic data only | **Provisional** | Bands are literature- or engineering-grounded but unproven on real captures; near-exact synthetic fusion sits far inside every band. | Session 2A (re-calibrate to realistic-but-strict). |
+| Synchronization | **Software-only** | No hardware genlock; sync is recorder-aligned or integer `sync_offset` frames (`multicam.md`). Sub-frame desync degrades reprojection on fast motion; audio-xcorr sync is FUTURE. | Partially caught: `qa_check` frame-count-parity desync proxy + `../capture_protocol.md` sync procedure. Sub-frame desync still unmodelled (audio-xcorr FUTURE). |
+| Throughput budget | **Provisional** | `throughput_fps` denominator includes one-time solve + R, so it is a coarse regression signal, not a real-time SLA. Graded *informational*. | Multi-session per-device performance study. |
+| Thresholds calibrated on synthetic data only | **Provisional** | Bands are literature- or engineering-grounded but unproven on real captures; near-exact synthetic fusion sits far inside every band. | First cleared capture, then multi-session recalibration. |
 
 ## Running
 
@@ -199,9 +199,9 @@ Verdict grading is unit-tested on **constructed** reports (no harness run):
 assert each metric crosses its WARN/FAIL band, that informational checks (timing,
 symmetry) never escalate the overall grade, that non-finite metrics grade WARN,
 that baseline `_deg` agreement grades while non-angle metrics are noted, and that
-the CLI exit code matches the verdict (incl. `--strict`). See `tech/tests.md`.
+the CLI exit code matches the verdict (incl. `--strict`). See `tests.md`.
 
-The **QA gate** (Session 1C) is tested in the same file: a good capture (the
+The **QA gate** is tested in the same file: a good capture (the
 rendered session + a *fully-detected* arms+hands subject via
 `_full_skeleton_processor`) grades not-FAIL and clears every sufficiency check;
 a deliberately bad capture (`_render_bad_capture`: 6 centre-clustered board
@@ -214,7 +214,7 @@ The shared synthetic builders now live in `tests/synthetic_session.py` (render
 fixture in `tests/conftest.py` (session-scoped: one render + solve for the whole
 suite).
 
-**Failure-mode suite (Session 1D)** — `tests/test_validation_failuremodes.py`
+**Failure-mode suite** — `tests/test_validation_failuremodes.py`
 proves the harness *surfaces* a degraded capture rather than emitting a
 plausible-but-wrong report. One injected fault per test, each asserting the
 matching report field crosses its threshold, the verdict degrades, and bad data
@@ -225,4 +225,4 @@ becomes NaN (never fabricated): camera dropout (`n_views`↓), miscalibration
 remaining views), degenerate geometry (instability surrogates FAIL while reproj
 PASSes — the "2D fine, 3D garbage" case). Injection magnitudes are calibrated
 against fusion's outlier rejection (it can *mask* a single grossly-bad view by
-dropping it) and are deterministic — see the 2026-06-16 decision entry.
+dropping it) and are deterministic.

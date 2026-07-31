@@ -3,7 +3,7 @@
 How to record a calibration session and a subject session that the 3D
 clinical pipeline can validate, and how to grade a capture **before** its
 clinical metrics are trusted. The automated gate is
-`pose-estimation-validate --qa-only` (see `.claude/tech/validation.md` →
+`pose-estimation-validate --qa-only` (see `docs/technical/validation.md` →
 *qa_check*); this document is the human procedure behind it.
 
 Two recordings make one study session:
@@ -11,7 +11,7 @@ Two recordings make one study session:
 1. a **calibration session**, the ChArUco board swept through the volume;
 2. a **subject session**, the patient performing the task script.
 
-Both are ordinary multi-camera sessions (`.claude/tech/multicam.md`): a
+Both are ordinary multi-camera sessions (`docs/technical/multicam.md`): a
 directory of `cam*.{mp4,avi,…}` clips, optionally a `session.json` manifest.
 
 ---
@@ -30,7 +30,7 @@ origin); the deployed default is `cam1`.
   is ill-conditioned), too large loses shared coverage and worsens
   cross-view matching.
 - **World-frame camera is level.** Trunk lean/rotation assume world "up" =
-  -y of the world camera (`.claude/tech/analysis.md`). Mount the world
+  -y of the world camera (`docs/technical/analysis.md`). Mount the world
   camera level (spirit level / tripod bubble); a tilted reference biases
   every trunk angle. This is a standing clinical-validity gap until a
   gravity reference is added; keep it level.
@@ -49,7 +49,7 @@ origin); the deployed default is `cam1`.
   mains-frequency lights. Even illumination across the volume keeps 2D
   detection confidence above the floor on every camera.
 - **Shutter / sync.** No hardware genlock is assumed; sync is software-only
-  (`.claude/tech/multicam.md`). Use a **global-shutter** camera if available
+  (`docs/technical/multicam.md`). Use a **global-shutter** camera if available
   (rolling shutter smears fast motion and desyncs rows). Align clips by one
   of: (a) a shared visual cue at the start (a clap/marker all cameras see)
   trimmed via per-camera `sync_offset` in `session.json`; or (b) starting
@@ -77,7 +77,7 @@ Then **move the board through the entire working volume** while pressing:
 - **Translation diversity.** Visit the centre, all four corners, near and
   far planes of the volume. A board confined to the centre weakly
   constrains oblique cameras' intrinsics and couples focal-length error
-  into the stereo translation (`.agent/memory.md`, 2026-06-08). The
+  into the stereo translation. The
   QA `board_coverage` metric grades how much of each frame the board swept.
 - **Tilt diversity.** Also rotate the board (pitch/yaw/roll, ~±30°) at each
   location, not just translate it. Tilt variety is what separates focal
@@ -86,7 +86,7 @@ Then **move the board through the entire working volume** while pressing:
   (boards at 2+ m on a 1080p camera fall below this and stop detecting).
 - **Topology (hard requirement).** Extrinsics are solved as **direct pairs
   against the world camera only**; chained A↔B↔C is unsupported
-  (`.claude/tech/calibration.md`). So the **world camera must co-see the
+  (`docs/technical/calibration.md`). So the **world camera must co-see the
   board simultaneously with each other camera** for enough frames
   (≥ `MIN_SHARED_FRAMES`). Sweep the board through the overlap region of
   world∩cam2 and world∩cam3 deliberately.
@@ -104,7 +104,7 @@ Then **move the board through the entire working volume** while pressing:
 Record the patient performing a **structured, repeatable** task so trials
 are comparable across sessions (longitudinal tracking) and within a session
 (repeatability is the strongest evidence absent a ground-truth baseline;
-`.claude/tech/validation.md` gap register).
+`docs/technical/validation.md` gap register).
 
 Per trial:
 
@@ -113,7 +113,7 @@ Per trial:
 2. **Task.** The clinical movement, e.g. seated forward reach-grasp-
    transport-release, or a bilateral arm-raise. Keep the script fixed across
    sessions; the R segmentation classifies reach/grasp/transport/release
-   phases (`.claude/tech/analysis.md`).
+   phases (`docs/technical/analysis.md`).
 3. **Return to rest** (~2 s, still).
 4. **Repeat** the identical trial ≥ 3× per subject; repeated identical
    trials feed the inter-trial repeatability (ICC / CoV) evidence.
@@ -135,7 +135,7 @@ pose-estimation-validate --session-dir <subject_dir> \
 
 Exit code **0** = PASS/WARN (usable), **1** = FAIL (recapture), **2** =
 harness error. The gate grades (thresholds + rationale in
-`.claude/tech/validation.md`):
+`docs/technical/validation.md`):
 
 - [ ] **Calibration RMS** within band (< 1 px ideal, < 2 px usable).
 - [ ] **Board coverage.** Each camera's sweep lit up enough of the frame
@@ -173,7 +173,7 @@ capture host; only de-identified derived coordinates are shareable.**
 - Pipeline output for real subjects (`output/`).
 - Calibration is patient-adjacent (it encodes identifying lab/rig geometry):
   `calibration/` and `calibration.json` are git-ignored at **any depth** by
-  default (decision 2026-06-15).
+  default.
 
 **Shareable fixtures = de-identified derived artifacts only:**
 
@@ -191,5 +191,4 @@ capture host; only de-identified derived coordinates are shareable.**
 - Derive fixtures **only from recordings the subject consented** to share,
   under the study's ethics approval.
 
-This is the source of truth for Session 2C's anonymized-fixture step; see
-`.agent/memory.md` for the recorded decision.
+This is the source of truth for any real-data fixture review.

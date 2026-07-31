@@ -1,6 +1,6 @@
 """Shared synthetic 3-camera session builders for the validation suite.
 
-Footage-independent fixtures (roadmap Phase 1) live here so both the
+Footage-independent fixtures live here so both the
 end-to-end harness tests (``test_validation.py``) and the failure-mode
 suite (``test_validation_failuremodes.py``) grow from one source:
 

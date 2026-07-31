@@ -6,7 +6,7 @@ ChArUco solve workflow lives in ``charuco.py``.
 
 The on-disk format is JSON with nested lists for matrices/vectors.
 ``load_calibration`` materialises ``np.ndarray`` instances so downstream
-code does not branch on type.  See ``.claude/tech/calibration.md`` for
+code does not branch on type.  See ``docs/technical/calibration.md`` for
 the schema.
 """
 

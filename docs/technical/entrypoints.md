@@ -1,4 +1,4 @@
-# Entry points
+# Command-line entry points
 
 Six console scripts (see `pyproject.toml:[project.scripts]`):
 
@@ -28,7 +28,7 @@ python -m pose_estimation.main --tracking hands|hands-arms|body
 
 Key flags: `--source`, `--batch-dir`, `--session-dir`, `--sessions-dir`, `--calibration`, `--output-dir`, `--device`, `--model-dir`, `--tracking`, `--single-subject`, `--headless`, `--metrics-detail`, `--postprocess`, `--savgol-window`, `--savgol-polyorder`, `--no-flip`.
 
-Multi-camera flags (`--session-dir`, `--sessions-dir`, `--calibration`) are mutually exclusive with `--source`/`--batch-dir`. They resolve a `Session` (per `tech/multicam.md`) and call `process_session(...)` with a MediaPipe camera processor callback that wraps `process_video()`. Per-camera CSVs are written to `<output-dir>/<session_id>/camN.csv`.
+Multi-camera flags (`--session-dir`, `--sessions-dir`, `--calibration`) are mutually exclusive with `--source`/`--batch-dir`. They resolve a `Session` (per `multicam.md`) and call `process_session(...)` with a MediaPipe camera processor callback that wraps `process_video()`. Per-camera CSVs are written to `<output-dir>/<session_id>/camN.csv`.
 
 ## `run.py` — unified entry point (rtmlib + MediaPipe)
 
@@ -46,7 +46,7 @@ python -m pose_estimation.run                                          # webcam 
 python -m pose_estimation.run --model dwpose-m
 python -m pose_estimation.run --source video.mp4 --backend openvino --device NPU
 python -m pose_estimation.run --batch-dir videos/ --single-subject
-python -m pose_estimation.run --session-dir videos/session_a/           # multi-cam (stub)
+python -m pose_estimation.run --session-dir videos/session_a/           # multi-camera
 python -m pose_estimation.run --sessions-dir videos/ --calibration calib.json
 python -m pose_estimation.run --list-sessions                          # read-only discovery probe
 python -m pose_estimation.run --headless                               # no display
@@ -64,7 +64,7 @@ python -m pose_estimation.benchmark --source video.mp4 --config sweep_default.ya
 python -m pose_estimation.benchmark --source video.mp4 --config sweep_quick.yaml
 ```
 
-Spawns headless subprocesses with `POSE_BENCH_*` env-var overrides. See `tech/optimization.md` for the parameter list.
+Spawns headless subprocesses with `POSE_BENCH_*` env-var overrides. See `optimization.md` for the parameter list.
 
 ## `calibration_cli.py` — multi-camera calibration
 
@@ -75,7 +75,7 @@ pose-estimation-calibrate board   --output board.png
 pose-estimation-calibrate capture --session-dir videos/calib_session/ --devices 0,1,2
 ```
 
-`verify` prints a summary; `solve` runs the ChArUco solver (`charuco.py`); `board` renders the printable pattern; `capture` records synchronized per-camera AVIs via a pygame grid (SPACE = save one frame per camera). Full flags + workflow: `tech/calibration.md`.
+`verify` prints a summary; `solve` runs the ChArUco solver (`charuco.py`); `board` renders the printable pattern; `capture` records synchronized per-camera AVIs via a pygame grid (SPACE = save one frame per camera). Full flags + workflow: `calibration.md`.
 
 ## `validation.py` — end-to-end validation report
 
@@ -85,7 +85,7 @@ pose-estimation-validate --session-dir videos/session_a --calibration calib.json
 pose-estimation-validate --session-dir videos/session_a --baseline ref.json
 ```
 
-Runs the full 3D clinical chain (calibration → 2D tracking → `world3d.csv` fusion → R clinical metrics) on one session and emits a structured `ValidationReport` (JSON for CI, Markdown for humans). Flags: `--session-dir` (required), `--calibration` (file | dir | omit to reuse `<session>/calibration.json`), `--baseline`, `--device`, `--backend`, `--out`, `--markdown`. Exit `2` on `ValidationError` (e.g. no calibration). Raw numbers only — the PASS/WARN/FAIL verdict lands in roadmap Session 1B. Full schema + surrogates: `tech/validation.md`.
+Runs the full 3D clinical chain (calibration → 2D tracking → `world3d.csv` fusion → R clinical metrics) on one session and emits JSON + Markdown with a PASS/WARN/FAIL verdict. `--qa-only` runs pre-flight capture QA without fusion/clinical analysis; `--strict` makes WARN fail. Exit codes: 0 = accepted verdict, 1 = FAIL (or WARN under `--strict`), 2 = harness/input error. Full flags, schemas, thresholds, and surrogates: `validation.md`.
 
 ## `postprocess.py` — offline Savitzky-Golay
 
@@ -103,4 +103,4 @@ uv run python scripts/benchmarks/run.py smoothing      # single group
 uv run python scripts/benchmarks/run.py --quick        # fewer iterations
 ```
 
-Groups: `smoothing`, `constraints`, `matching`, `detection`, `processing`, `drawing`, `metrics`. See `tech/optimization.md`.
+Groups: `smoothing`, `constraints`, `matching`, `detection`, `processing`, `drawing`, `metrics`. See `optimization.md`.
