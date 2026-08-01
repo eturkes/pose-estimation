@@ -45,8 +45,9 @@ def _lazy_imports():
 
 
 # Columns that hold landmark coordinates (to be smoothed).
-# Visibility columns are left untouched.
+# Visibility/confidence columns are observation evidence and remain untouched.
 _COORD_SUFFIXES = ("_x", "_y", "_z")
+_OBSERVATION_SUFFIXES = ("_vis", "_conf")
 
 
 def _format_float_col(arr, fmt, np):
@@ -121,6 +122,21 @@ def _smoothable_columns(columns):
     return [c for c in columns if c.endswith(_COORD_SUFFIXES)]
 
 
+def _observation_column(coord_column, columns):
+    """Return the explicit observation column paired with *coord_column*.
+
+    Current body/arm schemas use ``_vis`` and current hand schemas use
+    ``_conf``. Returning ``None`` when neither exists deliberately preserves
+    the coordinate-only behavior of legacy CSVs.
+    """
+    prefix = coord_column[:-2]
+    for suffix in _OBSERVATION_SUFFIXES:
+        candidate = f"{prefix}{suffix}"
+        if candidate in columns:
+            return candidate
+    return None
+
+
 def _largest_valid_window(n_rows, window, polyorder):
     """Return the largest odd window ≤ *window* that fits in *n_rows*.
 
@@ -174,7 +190,7 @@ def _smooth_column_with_nan(series, window, polyorder, np, savgol_filter):
         boundaries[1:n] = nan_mask[1:] != nan_mask[:-1]
         boundaries[n] = True
         run_starts = np.flatnonzero(boundaries[:-1])
-        run_ends = np.flatnonzero(boundaries[1:])  # exclusive
+        run_ends = np.flatnonzero(boundaries[1:]) + 1  # exclusive
         for start, end in zip(run_starts, run_ends, strict=False):
             if not nan_mask[start]:
                 continue
@@ -199,7 +215,7 @@ def _smooth_column_with_nan(series, window, polyorder, np, savgol_filter):
     boundaries[1:n] = valid[1:] != valid[:-1]
     boundaries[n] = True
     seg_starts = np.flatnonzero(boundaries[:-1])
-    seg_ends = np.flatnonzero(boundaries[1:])
+    seg_ends = np.flatnonzero(boundaries[1:]) + 1
 
     for start, end in zip(seg_starts, seg_ends, strict=False):
         if not valid[start]:
@@ -215,6 +231,11 @@ def _smooth_column_with_nan(series, window, polyorder, np, savgol_filter):
 
 def savgol_smooth_csv(input_path, output_path, window=11, polyorder=3):
     """Apply Savitzky-Golay smoothing to landmark columns in a CSV.
+
+    Non-finite coordinates, and coordinates paired with zero/non-finite
+    ``_vis`` or ``_conf`` evidence, are treated as missing before filtering.
+    The evidence columns themselves are copied unchanged. Finite coordinates
+    in legacy CSVs without evidence columns retain their historical behavior.
 
     Parameters
     ----------
@@ -259,6 +280,24 @@ def savgol_smooth_csv(input_path, output_path, window=11, polyorder=3):
     # the ~18 ms-per-call setitem cost on the 1800x99 case — pandas'
     # indexer rebuilds the column blocks even for full-slice writes.
     coord_arr = df[coord_cols].to_numpy(dtype=float, copy=True)
+    coord_arr[~np.isfinite(coord_arr)] = np.nan
+
+    # A carried/predicted coordinate may remain finite while its observation
+    # evidence is zero. Exclude that raw coordinate before interpolation and
+    # filtering so it cannot pull adjacent, genuinely observed samples. Cache
+    # parsed evidence because each landmark normally contributes x/y/z columns.
+    all_columns = set(df.columns)
+    observation_cache = {}
+    for j, coord_col in enumerate(coord_cols):
+        observation_col = _observation_column(coord_col, all_columns)
+        if observation_col is None:
+            continue
+        evidence = observation_cache.get(observation_col)
+        if evidence is None:
+            evidence = pd.to_numeric(df[observation_col], errors="coerce").to_numpy(dtype=float)
+            observation_cache[observation_col] = evidence
+        unobserved = ~np.isfinite(evidence) | (evidence <= 0.0)
+        coord_arr[unobserved, j] = np.nan
 
     group_keys = [k for k in ("video", "person_idx") if k in df.columns]
     if group_keys:
@@ -291,7 +330,12 @@ def savgol_smooth_csv(input_path, output_path, window=11, polyorder=3):
 
         for j in dirty_idx:
             c = coord_cols[j]
-            smoothed_col = _smooth_column_with_nan(grp[c], window, polyorder, np, savgol_filter)
+            # ``block`` includes source NaNs and confidence-gated samples;
+            # using grp[c] here would restore a finite carried coordinate.
+            masked_series = grp[c].__class__(block[:, j], index=grp.index, name=c)
+            smoothed_col = _smooth_column_with_nan(
+                masked_series, window, polyorder, np, savgol_filter
+            )
             coord_arr[positional, j] = smoothed_col.to_numpy()
 
     # ``_fast_write_csv`` reads non-coord columns from ``df`` and pulls

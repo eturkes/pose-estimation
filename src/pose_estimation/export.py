@@ -65,6 +65,7 @@ BODY_KEYPOINT_NAMES = [
 ]
 
 HAND_KEYPOINT_COUNT = 21
+HANDEDNESS_MIN_SCORE = 0.6
 
 WORLD3D_FILENAME = "world3d.csv"
 
@@ -101,7 +102,14 @@ def make_csv_header(tracking=TRACKING_HANDS_ARMS):
 
     for side in ("left", "right"):
         for i in range(HAND_KEYPOINT_COUNT):
-            cols.extend([f"{side}_hand_{i}_x", f"{side}_hand_{i}_y", f"{side}_hand_{i}_z"])
+            cols.extend(
+                [
+                    f"{side}_hand_{i}_x",
+                    f"{side}_hand_{i}_y",
+                    f"{side}_hand_{i}_z",
+                    f"{side}_hand_{i}_conf",
+                ]
+            )
 
     return cols
 
@@ -112,23 +120,113 @@ def _blank_hand_side(row, side):
         row[f"{side}_hand_{i}_x"] = ""
         row[f"{side}_hand_{i}_y"] = ""
         row[f"{side}_hand_{i}_z"] = ""
+        row[f"{side}_hand_{i}_conf"] = 0.0
 
 
-def _fill_hand_side(row, side, hlm, frame_h, frame_w):
-    """Fill one hand side with normalised landmark values."""
+def _hand_confidence_vector(confidence):
+    """Normalise a scalar/vector hand confidence to the 21-point schema."""
+    if confidence is None:
+        return np.ones(HAND_KEYPOINT_COUNT, dtype=np.float64)
+    values = np.asarray(confidence, dtype=np.float64)
+    if values.ndim == 0:
+        return np.full(HAND_KEYPOINT_COUNT, float(values), dtype=np.float64)
+    if values.shape != (HAND_KEYPOINT_COUNT,):
+        raise ValueError(
+            f"hand confidence shape {values.shape} does not match {(HAND_KEYPOINT_COUNT,)}"
+        )
+    return values
+
+
+def _fill_hand_side(row, side, hlm, frame_h, frame_w, confidence=None):
+    """Fill one hand side with normalised coordinates and confidence."""
+    confidence_values = _hand_confidence_vector(confidence)
     for i in range(HAND_KEYPOINT_COUNT):
-        row[f"{side}_hand_{i}_x"] = round(hlm[i, 0] / frame_w, 6)
-        row[f"{side}_hand_{i}_y"] = round(hlm[i, 1] / frame_h, 6)
-        row[f"{side}_hand_{i}_z"] = round(hlm[i, 2] / frame_w, 6)
+        point_valid = np.isfinite(hlm[i, :3]).all()
+        if point_valid:
+            row[f"{side}_hand_{i}_x"] = round(hlm[i, 0] / frame_w, 6)
+            row[f"{side}_hand_{i}_y"] = round(hlm[i, 1] / frame_h, 6)
+            row[f"{side}_hand_{i}_z"] = round(hlm[i, 2] / frame_w, 6)
+        else:
+            row[f"{side}_hand_{i}_x"] = ""
+            row[f"{side}_hand_{i}_y"] = ""
+            row[f"{side}_hand_{i}_z"] = ""
+        value = confidence_values[i]
+        row[f"{side}_hand_{i}_conf"] = (
+            round(float(np.clip(value, 0.0, 1.0)), 4) if point_valid and np.isfinite(value) else 0.0
+        )
 
 
-def _assign_hands_by_x(row, hand_landmarks, frame_h, frame_w):
+def _aligned_hand_confidences(hand_landmarks, hand_confidences):
+    """Return optional confidence entries parallel to the first two hands."""
+    n_hands = min(2, len(hand_landmarks))
+    if hand_confidences is None:
+        return [None] * n_hands
+    confidences = list(hand_confidences)
+    if len(confidences) < n_hands:
+        raise ValueError("hand_confidences is shorter than hand_landmarks")
+    return confidences[:n_hands]
+
+
+def _assign_hands_by_x(row, hand_landmarks, frame_h, frame_w, hand_confidences=None):
     """Assign up to 2 hand landmark sets to left/right slots by wrist x."""
-    sorted_hands = sorted(hand_landmarks[:2], key=lambda lm: lm[0, 0]) if hand_landmarks else []
+    hands = list(hand_landmarks[:2]) if hand_landmarks else []
+    confidences = _aligned_hand_confidences(hands, hand_confidences)
+    sorted_hands = sorted(zip(hands, confidences, strict=True), key=lambda pair: pair[0][0, 0])
     sides = ["left", "right"]
-    for i, hlm in enumerate(sorted_hands):
-        _fill_hand_side(row, sides[i], hlm, frame_h, frame_w)
+    for i, (hlm, confidence) in enumerate(sorted_hands):
+        _fill_hand_side(row, sides[i], hlm, frame_h, frame_w, confidence)
     for side in sides[len(sorted_hands) :]:
+        _blank_hand_side(row, side)
+
+
+def _assign_hands(
+    row,
+    hand_landmarks,
+    frame_h,
+    frame_w,
+    handedness=None,
+    hand_confidences=None,
+):
+    """Assign hands by model handedness when unambiguous, else by wrist x."""
+    hands = list(hand_landmarks[:2]) if hand_landmarks else []
+    confidences = _aligned_hand_confidences(hands, hand_confidences)
+    labels = handedness[: len(hands)] if handedness else []
+    valid = (
+        len(labels) == len(hands)
+        and all(
+            label is not None
+            and label[0] in {"left", "right"}
+            and np.isfinite(label[1])
+            and label[1] >= HANDEDNESS_MIN_SCORE
+            for label in labels
+        )
+        and len({label[0] for label in labels}) == len(labels)
+    )
+    if not valid:
+        uncertain_single = (
+            len(hands) == 1
+            and len(labels) == 1
+            and labels[0] is not None
+            and labels[0][0] in {"left", "right"}
+            and np.isfinite(labels[0][1])
+            and labels[0][1] < HANDEDNESS_MIN_SCORE
+        )
+        if uncertain_single:
+            # A supplied 0.5-ish classification contains no anatomical-side
+            # information; assigning the sole hand to "left" by list position
+            # fabricates a label. Missing metadata retains legacy x fallback.
+            _blank_hand_side(row, "left")
+            _blank_hand_side(row, "right")
+            return
+        _assign_hands_by_x(row, hands, frame_h, frame_w, confidences)
+        return
+
+    assigned = set()
+    for landmarks, confidence, label in zip(hands, confidences, labels, strict=True):
+        side = label[0]
+        _fill_hand_side(row, side, landmarks, frame_h, frame_w, confidence)
+        assigned.add(side)
+    for side in {"left", "right"} - assigned:
         _blank_hand_side(row, side)
 
 
@@ -144,6 +242,8 @@ def frame_to_rows(
     matches,
     tracking=TRACKING_HANDS_ARMS,
     hand_only=False,
+    hand_handedness=None,
+    hand_confidences=None,
 ):
     """Convert one frame's landmark data into CSV rows (one per person).
 
@@ -157,7 +257,8 @@ def frame_to_rows(
 
     When *hand_only* is True and no body was detected, a single row is
     emitted with blank body columns and hand landmarks assigned left/right
-    by wrist x-coordinate.
+    by model handedness with wrist x-coordinate as the missing/ambiguous-label
+    fallback.
     """
     rows = []
 
@@ -171,7 +272,14 @@ def frame_to_rows(
             "timestamp_sec": round(timestamp_sec, 4),
             "person_idx": 0,
         }
-        _assign_hands_by_x(row, hand_landmarks, frame_h, frame_w)
+        _assign_hands(
+            row,
+            hand_landmarks,
+            frame_h,
+            frame_w,
+            hand_handedness,
+            hand_confidences,
+        )
         rows.append(row)
         return rows
 
@@ -202,7 +310,17 @@ def frame_to_rows(
             for wrist_kp, side in sorted(wrist_side.items()):
                 hand_idx = matched_hands.get(wrist_kp)
                 if hand_idx is not None:
-                    _fill_hand_side(row, side, hand_landmarks[hand_idx], frame_h, frame_w)
+                    confidence = (
+                        hand_confidences[hand_idx] if hand_confidences is not None else None
+                    )
+                    _fill_hand_side(
+                        row,
+                        side,
+                        hand_landmarks[hand_idx],
+                        frame_h,
+                        frame_w,
+                        confidence,
+                    )
                 else:
                     _blank_hand_side(row, side)
 
@@ -223,19 +341,26 @@ def frame_to_rows(
             row[f"{prefix}_{name}_z"] = ""
             row[f"{prefix}_{name}_vis"] = ""
 
-        _assign_hands_by_x(row, hand_landmarks, frame_h, frame_w)
+        _assign_hands(
+            row,
+            hand_landmarks,
+            frame_h,
+            frame_w,
+            hand_handedness,
+            hand_confidences,
+        )
         rows.append(row)
 
     return rows
 
 
-def _keypoint_columns(tracking):
+def _keypoint_columns(tracking, hand_confidence=False):
     """Return (names, specs) for one row's keypoint columns.
 
     ``names[i]`` is the bare keypoint name (e.g. ``"arm_left_wrist"``,
     ``"left_hand_4"``); ``specs[i]`` is ``(x_col, y_col, vis_col)``
-    with ``vis_col=None`` for hand keypoints (which carry no
-    visibility column).
+    with ``vis_col=None`` only for legacy hand keypoints that predate
+    explicit confidence columns.
     """
     names = []
     specs = []
@@ -247,7 +372,8 @@ def _keypoint_columns(tracking):
     for side in ("left", "right"):
         for i in range(HAND_KEYPOINT_COUNT):
             names.append(f"{side}_hand_{i}")
-            specs.append((f"{side}_hand_{i}_x", f"{side}_hand_{i}_y", None))
+            vis_col = f"{side}_hand_{i}_conf" if hand_confidence else None
+            specs.append((f"{side}_hand_{i}_x", f"{side}_hand_{i}_y", vis_col))
     return names, specs
 
 
@@ -270,7 +396,8 @@ def read_csv_keypoints(csv_path):
     - ``frames``: ``frame_idx → (kps, conf, timestamp_sec)`` where
       ``kps`` is ``(N, 2)`` *normalised* [0, 1] coordinates (NaN where
       blank), ``conf`` is ``(N,)`` — the ``_vis`` column for body/arm
-      keypoints, 1.0/0.0 presence for hand keypoints — and
+      keypoints and ``_conf`` for hands. Legacy hand CSVs without
+      ``_conf`` retain 1.0/0.0 coordinate-presence semantics — and
       ``timestamp_sec`` is a float (NaN where blank).
 
     Raises ``ValueError`` on a missing/foreign header.
@@ -285,7 +412,7 @@ def read_csv_keypoints(csv_path):
             tracking = TRACKING_HANDS_ARMS
         else:
             tracking = TRACKING_HANDS
-        names, specs = _keypoint_columns(tracking)
+        names, specs = _keypoint_columns(tracking, hand_confidence="left_hand_0_conf" in header)
         required = {"frame_idx", "person_idx", "timestamp_sec"} | {
             col for spec in specs for col in spec if col is not None
         }
@@ -316,17 +443,18 @@ def make_world3d_header(keypoint_names):
     """Return the column names for a ``world3d.csv`` file.
 
     Metadata columns mirror the 2D schema (``video`` holds the
-    session id); each keypoint contributes seven columns::
+    session id); each keypoint contributes nine columns::
 
         {name}_x_m, {name}_y_m, {name}_z_m       # world metres
         {name}_confidence                        # mean view confidence
         {name}_reproj_err_px                     # mean reprojection error
+        {name}_candidate_n_views                  # valid views before consensus
         {name}_n_views                           # contributing views (int)
         {name}_cheirality_ok                     # 1/0 — in front of all views
+        {name}_triangulation_angle_deg           # max acute consensus-ray angle
 
-    Downstream consumers must gate on ``reproj_err_px`` and
-    ``cheirality_ok``: with exactly ``min_views`` views an outlier
-    view cannot be rejected during fusion.
+    Downstream consumers must gate on ``reproj_err_px``,
+    ``cheirality_ok``, and ``triangulation_angle_deg``.
     """
     cols = ["video", "frame_idx", "timestamp_sec", "person_idx"]
     for name in keypoint_names:
@@ -337,8 +465,10 @@ def make_world3d_header(keypoint_names):
                 f"{name}_z_m",
                 f"{name}_confidence",
                 f"{name}_reproj_err_px",
+                f"{name}_candidate_n_views",
                 f"{name}_n_views",
                 f"{name}_cheirality_ok",
+                f"{name}_triangulation_angle_deg",
             ]
         )
     return cols
@@ -367,6 +497,8 @@ def write_world3d_csv(output_path, video_name, keypoint_names, frames):
         writer = csv.DictWriter(fh, fieldnames=header)
         writer.writeheader()
         for frame_idx, timestamp_sec, world, diag in frames:
+            angles = diag.get("triangulation_angle_deg")
+            candidate_views = diag.get("candidate_n_views", diag["n_views"])
             row = {
                 "video": video_name,
                 "frame_idx": int(frame_idx),
@@ -379,8 +511,15 @@ def write_world3d_csv(output_path, video_name, keypoint_names, frames):
                 row[f"{name}_z_m"] = _fmt_float(world[i, 2], 6)
                 row[f"{name}_confidence"] = _fmt_float(diag["confidence"][i], 4)
                 row[f"{name}_reproj_err_px"] = _fmt_float(diag["reprojection_error_px"][i], 3)
+                row[f"{name}_candidate_n_views"] = int(candidate_views[i])
                 row[f"{name}_n_views"] = int(diag["n_views"][i])
-                row[f"{name}_cheirality_ok"] = int(bool(diag["cheirality_ok"][i]))
+                cheirality = diag["cheirality_ok"][i]
+                row[f"{name}_cheirality_ok"] = (
+                    int(bool(cheirality)) if np.isfinite(cheirality) else ""
+                )
+                row[f"{name}_triangulation_angle_deg"] = (
+                    _fmt_float(angles[i], 3) if angles is not None else ""
+                )
             writer.writerow(row)
     return output_path
 

@@ -65,11 +65,13 @@ from .multicam import (
 )
 from .video_io import frame_count
 
-REPORT_SCHEMA_VERSION = 2
+REPORT_SCHEMA_VERSION = 3
 """Bumped when the :class:`ValidationReport` JSON layout changes.
 
-v2 adds the ``verdict`` block.  Threshold *value* changes
-do **not** bump this — they bump :data:`THRESHOLDS_VERSION` instead.
+v3 adds observed/expected 2D frame counts, expected-frame 3D coverage,
+trusted-keypoint coverage, triangulation-angle diagnostics, and
+candidate-to-consensus view rejection.  Threshold *value* changes do **not**
+bump this — they bump :data:`THRESHOLDS_VERSION` instead.
 """
 
 REPROJ_GATE_PX = 20.0
@@ -79,6 +81,15 @@ exactly ``min_views`` an outlier view cannot be dropped, so a keypoint
 above this gate is treated as untrustworthy by self-consistency.  The
 fusion-reproj p95 FAIL band (:data:`THRESHOLDS`) is anchored to it: a
 p95 at the gate means most keypoints sit at the edge of trust.
+"""
+
+TRIANGULATION_ANGLE_GATE_DEG = 1.0
+"""Minimum acceptable acute viewing-ray angle for a trusted 3D sample.
+
+This mirrors the fusion policy's current ``min_triangulation_angle_deg``
+default.  Older ``world3d.csv`` files do not carry the angle column; their
+samples remain assessable with the other trust gates and the missing angle is
+reported explicitly.
 """
 
 _PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -182,7 +193,12 @@ class Thresholds:
     fusion_reproj_p95_px: Band
     n_views_floor: int
     n_views_median: Band
+    min_tracking_detection_rate: Band
     max_low_confidence_fraction: Band
+    min_fused_frame_fraction: Band
+    min_trusted_keypoint_fraction: Band
+    min_triangulation_angle_p05_deg: Band
+    max_view_rejection_fraction: Band
     max_unfused_fraction: Band
     max_cheirality_rate: Band
     min_throughput_fps: Band
@@ -192,7 +208,7 @@ class Thresholds:
     agreement_tolerance_deg: Band
 
 
-THRESHOLDS_VERSION = 1
+THRESHOLDS_VERSION = 2
 """Bumped on any change to a :data:`THRESHOLDS` value. Recalibrate these
 bands against cleared real captures."""
 
@@ -217,7 +233,16 @@ THRESHOLDS = Thresholds(
     # typical keypoint has no spare view to reject an outlier (multicam.md).
     n_views_median=Band(warn=3.0, fail=2.0, direction="min"),
     # Provisional engineering defaults; calibrate on cleared real data:
+    min_tracking_detection_rate=Band(warn=0.80, fail=0.50, direction="min"),
     max_low_confidence_fraction=Band(warn=0.2, fail=0.4),
+    min_fused_frame_fraction=Band(warn=0.95, fail=0.80, direction="min"),
+    min_trusted_keypoint_fraction=Band(warn=0.90, fail=0.75, direction="min"),
+    # The fusion hard-gates below 1 degree.  A fifth percentile under
+    # 2 degrees warns that the accepted geometry still sits near that floor.
+    min_triangulation_angle_p05_deg=Band(warn=2.0, fail=1.0, direction="min"),
+    # Fraction of pre-consensus candidate views rejected as geometric
+    # outliers. Persistent 3->2 rejection is 1/3 and therefore a hard fault.
+    max_view_rejection_fraction=Band(warn=0.05, fail=0.20),
     max_unfused_fraction=Band(warn=0.1, fail=0.25),
     # Cheirality (point in front of camera) should essentially never fail.
     max_cheirality_rate=Band(warn=0.01, fail=0.05),
@@ -378,33 +403,55 @@ class CameraTracking:
     """Per-camera 2D detection summary, read back from its CSV."""
 
     name: str
-    n_frames: int
-    detection_rate: float  # mean fraction of keypoints detected per frame
+    observed_frames: int  # post-sync source frames represented in the CSV
+    expected_frames: int  # source frame count after applying sync_offset
+    detection_rate: float  # detected keypoints / expected frame-keypoint slots
     low_confidence_fraction: float  # of detected keypoints, fraction below floor
-    dropped_frames: int  # frames with zero detected keypoints
+    dropped_frames: int  # expected frames with zero detected keypoints
+
+    @property
+    def n_frames(self) -> int:
+        """Backward-compatible alias for the old observed-frame field."""
+        return self.observed_frames
 
 
 @dataclasses.dataclass
 class Tracking2DSection:
     confidence_floor: float
     reused_existing_csvs: bool
-    total_frames: int
+    total_observed_frames: int
+    total_expected_frames: int
     mean_detection_rate: float
     cameras: list[CameraTracking]
+
+    @property
+    def total_frames(self) -> int:
+        """Backward-compatible alias for the old observed-frame total."""
+        return self.total_observed_frames
 
 
 @dataclasses.dataclass
 class Fusion3DSection:
-    """Diagnostics parsed from ``world3d.csv`` (raw, ungated)."""
+    """Raw and trust-gated diagnostics parsed from ``world3d.csv``."""
 
     n_frames_fused: int
-    n_active_keypoints: int  # keypoints fused in >= 1 frame
+    expected_frames: int
+    fused_frame_fraction: float
+    n_active_keypoints: int  # keypoints fused or attempted from >= 2 views
+    trusted_keypoint_fraction: float  # trusted / expected active-keypoint slots
     reproj_err_px_median: float
     reproj_err_px_p95: float
     reproj_err_px_max: float
     n_views_median: float
     n_views_min: int
     cheirality_violation_rate: float  # of fused keypoints
+    triangulation_angle_available: bool
+    triangulation_angle_gate_deg: float
+    triangulation_angle_deg_p05: float
+    triangulation_angle_deg_median: float
+    candidate_views_available: bool
+    candidate_n_views_median: float
+    view_rejection_fraction: float
     unfused_keypoint_fraction: float  # of active-keypoint frame slots
 
 
@@ -558,7 +605,8 @@ def run_validation(
         fusion.frames,
     )
     fusion_sec = time.perf_counter() - t0
-    fusion_section = _measure_fusion(world3d_path)
+    expected_fusion_frames = _expected_fusion_frames(tracking_section, min_views=2)
+    fusion_section = _measure_fusion(world3d_path, expected_fusion_frames)
 
     # --- 4. Clinical metrics + agreement -----------------------------------
     t0 = time.perf_counter()
@@ -739,26 +787,46 @@ def _measure_tracking(
     reused: bool,
     notes: list[str],
 ) -> Tracking2DSection:
-    cameras: list[CameraTracking] = []
+    measured: dict[str, tuple[list[str], dict[int, tuple[np.ndarray, np.ndarray, float]]]] = {}
+    keypoint_count = 0
     for cam in session.cameras:
         csv_path = session_out / f"{cam.name}.csv"
         if not csv_path.is_file():
             notes.append(f"camera {cam.name!r}: no 2D CSV at {csv_path}")
             continue
-        _names, frames = read_csv_keypoints(csv_path)
-        cameras.append(_camera_tracking(cam.name, frames, confidence_floor))
+        names, frames = read_csv_keypoints(csv_path)
+        measured[cam.name] = (names, frames)
+        keypoint_count = max(keypoint_count, len(names))
 
-    if not cameras:
+    if not measured:
         raise ValidationError(
             f"session {session.session_id!r}: no per-camera CSVs under {session_out}"
         )
-    total_frames = sum(c.n_frames for c in cameras)
+
+    cameras: list[CameraTracking] = []
+    for cam in session.cameras:
+        expected = max(0, frame_count(session.directory / cam.file) - cam.sync_offset)
+        names, frames = measured.get(cam.name, ([], {}))
+        cameras.append(
+            _camera_tracking(
+                cam.name,
+                frames,
+                confidence_floor,
+                expected_frames=expected,
+                sync_offset=cam.sync_offset,
+                n_keypoints=len(names) or keypoint_count,
+            )
+        )
+
+    total_observed = sum(c.observed_frames for c in cameras)
+    total_expected = sum(c.expected_frames for c in cameras)
     rates = [c.detection_rate for c in cameras if math.isfinite(c.detection_rate)]
     mean_rate = float(np.mean(rates)) if rates else float("nan")
     return Tracking2DSection(
         confidence_floor=confidence_floor,
         reused_existing_csvs=reused,
-        total_frames=total_frames,
+        total_observed_frames=total_observed,
+        total_expected_frames=total_expected,
         mean_detection_rate=mean_rate,
         cameras=cameras,
     )
@@ -768,29 +836,103 @@ def _camera_tracking(
     name: str,
     frames: dict[int, tuple[np.ndarray, np.ndarray, float]],
     confidence_floor: float,
+    *,
+    expected_frames: int,
+    sync_offset: int = 0,
+    n_keypoints: int | None = None,
 ) -> CameraTracking:
-    per_frame_rate: list[float] = []
-    dropped = 0
+    """Measure one camera against its source-derived frame denominator.
+
+    CSV frame indices are raw source indices.  Pre-roll rows below
+    ``sync_offset`` are intentionally excluded, and absent post-offset rows
+    contribute zero detected keypoints and one dropped frame.
+    """
+    if expected_frames < 0:
+        raise ValueError(f"expected_frames must be non-negative (got {expected_frames})")
+    assessed = _post_sync_frames(frames, expected_frames=expected_frames, sync_offset=sync_offset)
+    if n_keypoints is None:
+        n_keypoints = max((kps.shape[0] for kps, _conf, _ts in assessed.values()), default=0)
+
     detected_total = 0
     low_conf_total = 0
-    for kps, conf, _ts in frames.values():
-        finite = np.isfinite(kps).all(axis=1)
-        n_det = int(finite.sum())
-        n_kp = kps.shape[0]
-        per_frame_rate.append(n_det / n_kp if n_kp else 0.0)
-        if n_det == 0:
-            dropped += 1
+    frames_with_detection = 0
+    for kps, conf, _ts in assessed.values():
+        # Temporal carry/extrapolation rows deliberately use confidence 0;
+        # finite coordinates alone therefore do not prove a detector hit.
+        detected = np.isfinite(kps).all(axis=1) & np.isfinite(conf) & (conf > 0.0)
+        n_det = int(detected.sum())
+        if n_det:
+            frames_with_detection += 1
         detected_total += n_det
-        low_conf_total += int((conf[finite] < confidence_floor).sum())
+        low_conf_total += int((conf[detected] < confidence_floor).sum())
+    slots = expected_frames * n_keypoints
     return CameraTracking(
         name=name,
-        n_frames=len(frames),
-        detection_rate=float(np.mean(per_frame_rate)) if per_frame_rate else float("nan"),
+        observed_frames=len(assessed),
+        expected_frames=expected_frames,
+        detection_rate=(detected_total / slots) if slots else float("nan"),
         low_confidence_fraction=(low_conf_total / detected_total)
         if detected_total
         else float("nan"),
-        dropped_frames=dropped,
+        dropped_frames=max(0, expected_frames - frames_with_detection),
     )
+
+
+def _post_sync_frames(
+    frames: dict[int, tuple[np.ndarray, np.ndarray, float]],
+    *,
+    expected_frames: int,
+    sync_offset: int,
+) -> dict[int, tuple[np.ndarray, np.ndarray, float]]:
+    """Select the post-sync interval for zero- or one-based CSV indices.
+
+    Current MediaPipe and rtmlib CSVs are zero-based; legacy rtmlib files may be
+    one-based. Both candidate intervals are tested, and the one containing more
+    observed rows wins. Ties use boundary evidence (index 0 proves zero-based,
+    otherwise one-based).
+    Missing rows remain absent and are charged to the expected denominator.
+    """
+    candidates: dict[int, dict[int, tuple[np.ndarray, np.ndarray, float]]] = {}
+    for base in (0, 1):
+        start = sync_offset + base
+        stop = start + expected_frames
+        candidates[base] = {idx: value for idx, value in frames.items() if start <= idx < stop}
+    preferred_base = 0 if 0 in frames else 1
+    base = max((0, 1), key=lambda item: (len(candidates[item]), item == preferred_base))
+    return candidates[base]
+
+
+def _expected_fusion_frames(tracking: Tracking2DSection, *, min_views: int) -> int:
+    """Expected logical frames visible to at least ``min_views`` cameras."""
+    counts = sorted((c.expected_frames for c in tracking.cameras), reverse=True)
+    return counts[min_views - 1] if len(counts) >= min_views else 0
+
+
+def _expected_world_frames(
+    frames: list[dict[str, np.ndarray]], expected_frames: int
+) -> list[dict[str, np.ndarray]]:
+    """Return unique rows inside the inferred zero/one-based expected interval.
+
+    Current world3d files use zero-based logical frame indices, while legacy
+    files may be one-based.  Rows outside either plausible source-derived
+    interval are never allowed to replace missing expected frames or inflate
+    coverage.
+    """
+    unique = {int(frame["frame_idx"]): frame for frame in frames}
+    if expected_frames <= 0:
+        return [unique[index] for index in sorted(unique)]
+
+    candidates = {
+        base: {
+            index: frame
+            for index, frame in unique.items()
+            if base <= index < base + expected_frames
+        }
+        for base in (0, 1)
+    }
+    preferred_base = 0 if 0 in unique else 1
+    base = max((0, 1), key=lambda item: (len(candidates[item]), item == preferred_base))
+    return [candidates[base][index] for index in sorted(candidates[base])]
 
 
 # ---------------------------------------------------------------------------
@@ -805,17 +947,31 @@ def _read_world3d(
 
     Returns ``(keypoint_names, frames)`` where each frame dict holds
     ``xyz`` (N, 3), ``reproj`` (N,), ``n_views`` (N, int),
-    ``cheirality`` (N, bool), ``conf`` (N,).  Blank cells → NaN / 0.
+    ``candidate_n_views`` / ``n_views`` (N,), ``cheirality`` (N, bool),
+    ``conf`` (N,), ``angle`` (N,), a
+    per-keypoint ``trusted`` mask, and the scalar ``frame_idx``.  A sample is
+    trusted only when its XYZ and reprojection error are finite, cheirality is
+    true, reprojection is within :data:`REPROJ_GATE_PX`, and — when the file
+    carries angle columns — its viewing-ray angle is at least
+    :data:`TRIANGULATION_ANGLE_GATE_DEG`.  Blank cells → NaN / 0.
+
+    Angle and candidate-view columns were added after the original world3d
+    schema; files without them remain readable and those diagnostics are
+    reported unavailable rather than assumed healthy.
     """
     with path.open("r", newline="") as fh:
         reader = csv.DictReader(fh)
         header = list(reader.fieldnames or [])
         names = [c[: -len("_x_m")] for c in header if c.endswith("_x_m")]
+        angle_columns_present = any(f"{name}_triangulation_angle_deg" in header for name in names)
+        candidate_columns_present = any(f"{name}_candidate_n_views" in header for name in names)
         frames: list[dict[str, np.ndarray]] = []
         for row in reader:
             n = len(names)
             xyz = np.full((n, 3), np.nan)
             reproj = np.full(n, np.nan)
+            angle = np.full(n, np.nan)
+            candidate_n_views = np.full(n, np.nan)
             n_views = np.zeros(n, dtype=int)
             cheirality = np.zeros(n, dtype=bool)
             conf = np.zeros(n)
@@ -829,51 +985,118 @@ def _read_world3d(
                 conf[i] = _cell(row[f"{name}_confidence"])
                 n_views[i] = int(row[f"{name}_n_views"] or 0)
                 cheirality[i] = (row[f"{name}_cheirality_ok"] or "0") == "1"
+                angle_col = f"{name}_triangulation_angle_deg"
+                if angle_col in row:
+                    angle[i] = _cell(row[angle_col])
+                candidate_col = f"{name}_candidate_n_views"
+                if candidate_col in row:
+                    candidate_n_views[i] = _cell(row[candidate_col])
+            trusted = (
+                np.isfinite(xyz).all(axis=1)
+                & np.isfinite(reproj)
+                & (reproj <= REPROJ_GATE_PX)
+                & cheirality
+            )
             frames.append(
                 {
+                    "frame_idx": np.asarray(int(row.get("frame_idx") or len(frames))),
                     "xyz": xyz,
+                    "trusted": trusted,
                     "reproj": reproj,
+                    "candidate_n_views": candidate_n_views,
                     "n_views": n_views,
                     "cheirality": cheirality,
                     "conf": conf,
+                    "angle": angle,
                 }
             )
+    # Once the angle column exists it is part of the trust contract: a blank
+    # value is missing evidence for that point, not permission to bypass the
+    # geometry gate. Only truly legacy schemas without the column opt out.
+    angle_available = angle_columns_present
+    candidate_views_available = candidate_columns_present and any(
+        np.isfinite(fr["candidate_n_views"]).any() for fr in frames
+    )
+    for fr in frames:
+        if angle_available:
+            fr["trusted"] &= np.isfinite(fr["angle"]) & (
+                fr["angle"] >= TRIANGULATION_ANGLE_GATE_DEG
+            )
+        trusted_xyz = fr["xyz"].copy()
+        trusted_xyz[~fr["trusted"]] = np.nan
+        fr["trusted_xyz"] = trusted_xyz
+        fr["angle_available"] = np.asarray(angle_available)
+        fr["candidate_views_available"] = np.asarray(candidate_views_available)
+    frames.sort(key=lambda fr: int(fr["frame_idx"]))
     return names, frames
 
 
-def _measure_fusion(world3d_path: pathlib.Path) -> Fusion3DSection:
+def _measure_fusion(world3d_path: pathlib.Path, expected_frames: int) -> Fusion3DSection:
     names, frames = _read_world3d(world3d_path)
+    frames = _expected_world_frames(frames, expected_frames)
     n = len(names)
-    fused_mask = np.zeros(n, dtype=bool)  # keypoints fused in >= 1 frame
+    active_mask = np.zeros(n, dtype=bool)  # keypoints attempted or fused in >= 1 frame
     reproj_vals: list[float] = []
     views_fused: list[int] = []
+    angle_vals: list[float] = []
+    candidate_vals: list[float] = []
+    rejected_candidate_views = 0.0
+    candidate_view_total = 0.0
     cheirality_fail = 0
     cheirality_total = 0
     for fr in frames:
         finite = np.isfinite(fr["xyz"]).all(axis=1)
-        fused_mask |= finite
+        candidate_finite = np.isfinite(fr["candidate_n_views"])
+        attempted = np.where(candidate_finite, fr["candidate_n_views"], fr["n_views"])
+        active_mask |= finite | (attempted >= 2)
         reproj_vals.extend(fr["reproj"][np.isfinite(fr["reproj"])].tolist())
+        angle_vals.extend(fr["angle"][np.isfinite(fr["angle"])].tolist())
+        eligible_candidates = candidate_finite & (fr["candidate_n_views"] >= 2)
+        if eligible_candidates.any():
+            candidates = fr["candidate_n_views"][eligible_candidates]
+            consensus = fr["n_views"][eligible_candidates]
+            candidate_vals.extend(candidates.tolist())
+            candidate_view_total += float(candidates.sum())
+            rejected_candidate_views += float(np.maximum(candidates - consensus, 0.0).sum())
         views_fused.extend(fr["n_views"][finite].tolist())
         cheirality_total += int(finite.sum())
         cheirality_fail += int((finite & ~fr["cheirality"]).sum())
 
-    active = int(fused_mask.sum())
-    # Unfused fraction over *active* keypoints only (a keypoint never
-    # tracked in 2D — e.g. hands in arm mode — is a tracking gap, not a
-    # fusion failure, and is excluded here; see tracking_2d.detection_rate).
+    active = int(active_mask.sum())
+    # Unfused fraction over *active* keypoints only.  "Active" includes a
+    # keypoint that reached the two-view policy but was rejected by geometry;
+    # otherwise an always-rejected keypoint would disappear from the denominator.
+    # A never-observed keypoint (n_views=0 throughout) remains a 2D tracking gap.
     slots = active * len(frames)
     unfused = 0
     if active:
-        idx = np.flatnonzero(fused_mask)
+        idx = np.flatnonzero(active_mask)
         for fr in frames:
             finite = np.isfinite(fr["xyz"][idx]).all(axis=1)
             unfused += int((~finite).sum())
 
+    # ``frames`` is unique and restricted to the inferred expected source
+    # interval; out-of-range rows therefore cannot substitute for gaps.
+    observed_frame_count = len(frames)
+    trusted_count = sum(int(fr["trusted"][active_mask].sum()) for fr in frames) if active else 0
+    expected_slots = active * expected_frames
+
     reproj_arr = np.asarray(reproj_vals, dtype=np.float64)
     views_arr = np.asarray(views_fused, dtype=np.float64)
+    angle_arr = np.asarray(angle_vals, dtype=np.float64)
+    angle_available = bool(frames and bool(frames[0]["angle_available"]))
+    candidate_arr = np.asarray(candidate_vals, dtype=np.float64)
+    candidate_views_available = bool(frames and bool(frames[0]["candidate_views_available"]))
     return Fusion3DSection(
-        n_frames_fused=len(frames),
+        n_frames_fused=observed_frame_count,
+        expected_frames=expected_frames,
+        fused_frame_fraction=(observed_frame_count / expected_frames)
+        if expected_frames
+        else float("nan"),
         n_active_keypoints=active,
+        trusted_keypoint_fraction=(trusted_count / expected_slots)
+        if expected_slots
+        else float("nan"),
         reproj_err_px_median=float(np.median(reproj_arr)) if reproj_arr.size else float("nan"),
         reproj_err_px_p95=float(np.percentile(reproj_arr, 95)) if reproj_arr.size else float("nan"),
         reproj_err_px_max=float(np.max(reproj_arr)) if reproj_arr.size else float("nan"),
@@ -881,6 +1104,21 @@ def _measure_fusion(world3d_path: pathlib.Path) -> Fusion3DSection:
         n_views_min=int(np.min(views_arr)) if views_arr.size else 0,
         cheirality_violation_rate=(cheirality_fail / cheirality_total)
         if cheirality_total
+        else float("nan"),
+        triangulation_angle_available=angle_available,
+        triangulation_angle_gate_deg=TRIANGULATION_ANGLE_GATE_DEG,
+        triangulation_angle_deg_p05=float(np.percentile(angle_arr, 5))
+        if angle_arr.size
+        else float("nan"),
+        triangulation_angle_deg_median=float(np.median(angle_arr))
+        if angle_arr.size
+        else float("nan"),
+        candidate_views_available=candidate_views_available,
+        candidate_n_views_median=float(np.median(candidate_arr))
+        if candidate_arr.size
+        else float("nan"),
+        view_rejection_fraction=(rejected_candidate_views / candidate_view_total)
+        if candidate_view_total
         else float("nan"),
         unfused_keypoint_fraction=(unfused / slots) if slots else float("nan"),
     )
@@ -957,14 +1195,23 @@ def _build_agreement(
 
 
 def _bone_lengths(names: list[str], frames: list[dict[str, np.ndarray]]) -> dict[str, np.ndarray]:
-    """Per-bone array of 3D lengths across frames (NaN where an endpoint is)."""
+    """Per-bone trusted 3D lengths (NaN where either endpoint is untrusted)."""
     index = {name: i for i, name in enumerate(names)}
     lengths: dict[str, np.ndarray] = {}
     for label, a, b in _BONES:
         if a not in index or b not in index:
             continue
         ia, ib = index[a], index[b]
-        vals = np.array([float(np.linalg.norm(fr["xyz"][ia] - fr["xyz"][ib])) for fr in frames])
+        vals = np.array(
+            [
+                float(
+                    np.linalg.norm(
+                        fr.get("trusted_xyz", fr["xyz"])[ia] - fr.get("trusted_xyz", fr["xyz"])[ib]
+                    )
+                )
+                for fr in frames
+            ]
+        )
         if np.isfinite(vals).any():
             lengths[label] = vals
     return lengths
@@ -976,7 +1223,12 @@ def _bone_length_cv(lengths: dict[str, np.ndarray]) -> dict[str, float]:
     for label, vals in lengths.items():
         finite = vals[np.isfinite(vals)]
         mean = float(np.mean(finite)) if finite.size else float("nan")
-        cv[label] = float(np.std(finite) / mean) if finite.size and mean > 1e-9 else float("nan")
+        # A single observation has zero sample variance by construction but
+        # provides no evidence of temporal rigidity.  Surface it as unmeasured
+        # (NaN -> WARN), never a false PASS.
+        cv[label] = (
+            float(np.std(finite) / mean) if finite.size >= 2 and mean > 1e-9 else float("nan")
+        )
     return cv
 
 
@@ -1004,10 +1256,19 @@ def _temporal_jitter_mm(names: list[str], frames: list[dict[str, np.ndarray]]) -
     which isolates frame-to-frame noise from steady movement.  Returns
     NaN with fewer than three frames.
     """
+    del names  # keypoint labels do not affect the temporal statistic
     if len(frames) < 3:
         return float("nan")
-    stack = np.stack([fr["xyz"] for fr in frames])  # (T, N, 3)
-    accel = np.diff(stack, n=2, axis=0)  # (T-2, N, 3)
+    stack = np.stack([fr.get("trusted_xyz", fr["xyz"]) for fr in frames])  # (T, N, 3)
+    frame_idx = np.asarray(
+        [int(fr.get("frame_idx", np.asarray(i))) for i, fr in enumerate(frames)],
+        dtype=np.int64,
+    )
+    contiguous = (np.diff(frame_idx[:-1]) == 1) & (np.diff(frame_idx[1:]) == 1)
+    if not contiguous.any():
+        return float("nan")
+    accel = stack[2:] - 2.0 * stack[1:-1] + stack[:-2]  # (T-2, N, 3)
+    accel[~contiguous] = np.nan
     mag = np.linalg.norm(accel, axis=2)  # (T-2, N)
     # Untracked keypoints (present in the full skeleton header but never
     # fused) form all-NaN columns; their per-keypoint median is NaN by
@@ -1112,6 +1373,37 @@ def _grade_report(report: ValidationReport, thresholds: Thresholds) -> Verdict:
     )
     _check("fusion.reproj_err_px_p95", fus.reproj_err_px_p95, thresholds.fusion_reproj_p95_px)
     _check("fusion.n_views_median", fus.n_views_median, thresholds.n_views_median)
+    _check(
+        "fusion.fused_frame_fraction",
+        fus.fused_frame_fraction,
+        thresholds.min_fused_frame_fraction,
+    )
+    _check(
+        "fusion.trusted_keypoint_fraction",
+        fus.trusted_keypoint_fraction,
+        thresholds.min_trusted_keypoint_fraction,
+    )
+    if fus.triangulation_angle_available:
+        _check(
+            "fusion.triangulation_angle_deg_p05",
+            fus.triangulation_angle_deg_p05,
+            thresholds.min_triangulation_angle_p05_deg,
+        )
+    else:
+        notes.append(
+            "world3d has no triangulation-angle columns (legacy schema): angle quality is ungraded"
+        )
+    if fus.candidate_views_available:
+        _check(
+            "fusion.view_rejection_fraction",
+            fus.view_rejection_fraction,
+            thresholds.max_view_rejection_fraction,
+        )
+    else:
+        notes.append(
+            "world3d has no candidate-view diagnostics (legacy schema): "
+            "consensus view rejection is ungraded"
+        )
 
     # Hard floor: a fused keypoint below min views means malformed /
     # degenerate fusion (DLT needs >= 2).  A discrete guard, not a Band.
@@ -1137,6 +1429,15 @@ def _grade_report(report: ValidationReport, thresholds: Thresholds) -> Verdict:
         "tracking.worst_low_confidence_fraction",
         worst_low_conf,
         thresholds.max_low_confidence_fraction,
+    )
+    worst_detection = min(
+        (c.detection_rate for c in trk.cameras if math.isfinite(c.detection_rate)),
+        default=float("nan"),
+    )
+    _check(
+        "tracking.worst_detection_rate",
+        worst_detection,
+        thresholds.min_tracking_detection_rate,
     )
     _check(
         "fusion.unfused_keypoint_fraction",
@@ -1420,8 +1721,11 @@ def _board_coverage(detections: list, frame_size: tuple[int, int]) -> float:
 def _qa_parity(session: Session) -> ParityQA:
     """Raw per-camera frame counts + their normalised disparity."""
     counts = {cam.name: frame_count(session.directory / cam.file) for cam in session.cameras}
-    present = [c for c in counts.values() if c > 0]
-    disparity = (max(present) - min(present)) / max(present) if len(present) >= 2 else float("nan")
+    values = list(counts.values())
+    maximum = max(values, default=0)
+    disparity = (
+        (maximum - min(values)) / maximum if len(values) >= 2 and maximum > 0 else float("nan")
+    )
     return ParityQA(frame_counts=counts, disparity=disparity)
 
 
@@ -1687,25 +1991,35 @@ def _render_markdown(report: ValidationReport) -> str:
         "## 2D tracking",
         f"- confidence floor: {_fmt(trk.confidence_floor, 2)}; "
         f"reused existing CSVs: {trk.reused_existing_csvs}",
-        f"- total frames: {trk.total_frames}; mean detection rate: "
+        f"- frames observed/expected: {trk.total_observed_frames}/"
+        f"{trk.total_expected_frames}; mean detection rate: "
         f"**{_fmt(trk.mean_detection_rate)}**",
         "",
-        "| camera | frames | detection rate | low-conf frac | dropped |",
-        "|--------|--------|----------------|---------------|---------|",
+        "| camera | observed | expected | detection rate | low-conf frac | dropped |",
+        "|--------|----------|----------|----------------|---------------|---------|",
     ]
     lines += [
-        f"| {c.name} | {c.n_frames} | {_fmt(c.detection_rate)} | "
+        f"| {c.name} | {c.observed_frames} | {c.expected_frames} | "
+        f"{_fmt(c.detection_rate)} | "
         f"{_fmt(c.low_confidence_fraction)} | {c.dropped_frames} |"
         for c in trk.cameras
     ]
     lines += [
         "",
         "## 3D fusion",
-        f"- frames fused: **{fus.n_frames_fused}**; active keypoints: {fus.n_active_keypoints}",
+        f"- frames fused/expected: **{fus.n_frames_fused}/{fus.expected_frames}** "
+        f"({_fmt(fus.fused_frame_fraction)}); active keypoints: {fus.n_active_keypoints}",
+        f"- trusted keypoint fraction (expected active slots): "
+        f"**{_fmt(fus.trusted_keypoint_fraction)}**",
         f"- reproj err px — median {_fmt(fus.reproj_err_px_median)}, "
         f"p95 {_fmt(fus.reproj_err_px_p95)}, max {_fmt(fus.reproj_err_px_max)}",
         f"- views/keypoint — median {_fmt(fus.n_views_median, 1)}, min {fus.n_views_min}",
         f"- cheirality violation rate: {_fmt(fus.cheirality_violation_rate)}",
+        f"- triangulation angle deg — "
+        f"{'p05 ' + _fmt(fus.triangulation_angle_deg_p05) + ', median ' + _fmt(fus.triangulation_angle_deg_median) if fus.triangulation_angle_available else 'unavailable (legacy world3d)'}; "
+        f"trust gate >= {_fmt(fus.triangulation_angle_gate_deg)}",
+        f"- candidate views — "
+        f"{'median ' + _fmt(fus.candidate_n_views_median, 1) + ', rejected fraction ' + _fmt(fus.view_rejection_fraction) if fus.candidate_views_available else 'unavailable (legacy world3d)'}",
         f"- unfused-keypoint fraction (active): {_fmt(fus.unfused_keypoint_fraction)}",
         "",
         "## Timing",

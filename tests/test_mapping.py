@@ -4,7 +4,11 @@ import numpy as np
 import pytest
 
 from pose_estimation.export import frame_to_rows, make_csv_header
-from pose_estimation.mapping import coco_to_mediapipe
+from pose_estimation.mapping import (
+    coco_hand_confidences,
+    coco_hand_handedness,
+    coco_to_mediapipe,
+)
 from pose_estimation.processing import TRACKING_BODY, TRACKING_HANDS, TRACKING_HANDS_ARMS
 
 
@@ -95,13 +99,13 @@ class TestMap133Body:
         # mouth_left: MP 9 ← COCO face sub-idx 48 = COCO 23+48=71
         np.testing.assert_array_equal(body_lm[0][9, :2], kps[0, 71])
 
-    def test_hand_derived_wrist_keypoints(self):
+    def test_hand_derived_fingertip_keypoints(self):
         kps, scores = _synthetic_133()
         body_lm, _, _, _ = coco_to_mediapipe(kps, scores, 133, TRACKING_BODY)
-        # left_pinky (MP 17) ← left hand pinky MCP = COCO 91+17=108
-        np.testing.assert_array_equal(body_lm[0][17, :2], kps[0, 108])
-        # right_index (MP 20) ← right hand index MCP = COCO 112+5=117
-        np.testing.assert_array_equal(body_lm[0][20, :2], kps[0, 117])
+        # MediaPipe body finger entries are tips, not MCP/base joints.
+        np.testing.assert_array_equal(body_lm[0][17, :2], kps[0, 111])  # left pinky tip
+        np.testing.assert_array_equal(body_lm[0][20, :2], kps[0, 120])  # right index tip
+        np.testing.assert_array_equal(body_lm[0][21, :2], kps[0, 95])  # left thumb tip
 
     def test_matches_link_to_body_wrists(self):
         kps, scores = _synthetic_133()
@@ -275,6 +279,124 @@ class TestRoundTrip:
             tracking=TRACKING_HANDS_ARMS,
         )
         assert len(rows) == 3
+
+    def test_hands_only_handedness_survives_crossed_wrist_x_order(self):
+        anatomical_left = np.zeros((21, 3), dtype=np.float64)
+        anatomical_right = np.zeros((21, 3), dtype=np.float64)
+        anatomical_left[:, 0] = 900.0
+        anatomical_right[:, 0] = 100.0
+
+        rows = frame_to_rows(
+            video_name="crossed.mp4",
+            frame_idx=0,
+            timestamp_sec=0.0,
+            frame_h=720,
+            frame_w=1000,
+            body_landmarks=[],
+            body_visibilities=[],
+            hand_landmarks=[anatomical_left, anatomical_right],
+            matches=[],
+            tracking=TRACKING_HANDS,
+            hand_handedness=[("left", 0.95), ("right", 0.9)],
+        )
+
+        assert rows[0]["left_hand_0_x"] == pytest.approx(0.9)
+        assert rows[0]["right_hand_0_x"] == pytest.approx(0.1)
+
+    def test_uncertain_single_hand_is_not_given_a_fabricated_side(self):
+        hand = np.ones((21, 3), dtype=np.float64)
+        row = frame_to_rows(
+            "uncertain.mp4",
+            0,
+            0.0,
+            100,
+            100,
+            [],
+            [],
+            [hand],
+            [],
+            tracking=TRACKING_HANDS,
+            hand_handedness=[("left", 0.5)],
+        )[0]
+
+        assert row["left_hand_0_x"] == ""
+        assert row["right_hand_0_x"] == ""
+
+    def test_missing_single_hand_label_uses_legacy_x_fallback(self):
+        hand = np.ones((21, 3), dtype=np.float64)
+        row = frame_to_rows(
+            "missing-label.mp4",
+            0,
+            0.0,
+            100,
+            100,
+            [],
+            [],
+            [hand],
+            [],
+            tracking=TRACKING_HANDS,
+            hand_handedness=[None],
+        )[0]
+
+        assert row["left_hand_0_x"] == pytest.approx(0.01)
+        assert row["right_hand_0_x"] == ""
+
+    def test_coco_handedness_is_aligned_with_present_hands(self):
+        keypoints, scores = _synthetic_133(n_persons=1)
+        scores[0, 91:112] = 0.0
+
+        handedness = coco_hand_handedness(scores, 133)
+        confidences = coco_hand_confidences(keypoints, scores, 133)
+
+        assert len(handedness) == 1
+        assert handedness[0] == ("right", 1.0)
+        assert len(confidences) == 1
+        np.testing.assert_allclose(confidences[0], scores[0, 112:133])
+
+    def test_hand_confidence_follows_handedness_not_wrist_order(self):
+        anatomical_left = np.zeros((21, 3), dtype=np.float64)
+        anatomical_right = np.zeros((21, 3), dtype=np.float64)
+        anatomical_left[:, 0] = 900.0
+        anatomical_right[:, 0] = 100.0
+
+        row = frame_to_rows(
+            "confidence.mp4",
+            0,
+            0.0,
+            720,
+            1000,
+            [],
+            [],
+            [anatomical_left, anatomical_right],
+            [],
+            tracking=TRACKING_HANDS,
+            hand_handedness=[("left", 1.0), ("right", 1.0)],
+            hand_confidences=[0.25, 0.8],
+        )[0]
+
+        assert row["left_hand_0_conf"] == pytest.approx(0.25)
+        assert row["right_hand_0_conf"] == pytest.approx(0.8)
+
+    def test_nonfinite_hand_point_is_blank_and_zero_confidence(self):
+        hand = np.ones((21, 3), dtype=np.float64)
+        hand[4, 0] = np.nan
+
+        row = frame_to_rows(
+            "invalid.mp4",
+            0,
+            0.0,
+            100,
+            100,
+            [],
+            [],
+            [hand],
+            [],
+            tracking=TRACKING_HANDS,
+            hand_confidences=[1.0],
+        )[0]
+
+        assert row["left_hand_4_x"] == ""
+        assert row["left_hand_4_conf"] == 0.0
 
     def test_normalized_coordinates_in_range(self):
         """CSV coordinate values are normalized to [0, 1]."""

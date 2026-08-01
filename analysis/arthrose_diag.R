@@ -29,15 +29,48 @@ stem <- tools::file_path_sans_ext(basename(in_csv))
 
 df <- read.csv(in_csv)
 
+# Current exports include observation confidence for every hand keypoint.
+# Zero/blank/nonfinite confidence means the coordinate was missing or merely
+# carried by temporal smoothing, so it must not contribute clinical evidence.
+# Legacy CSVs without confidence columns retain coordinate-presence behavior.
+mask_unobserved_hand_points <- function(data) {
+  for (side in c("left", "right")) {
+    for (k in 0:20) {
+      prefix <- paste0(side, "_hand_", k)
+      confidence_col <- paste0(prefix, "_conf")
+      if (!(confidence_col %in% names(data))) next
+
+      confidence <- suppressWarnings(as.numeric(data[[confidence_col]]))
+      unobserved <- !is.finite(confidence) | confidence <= 0
+      for (coord in c("x", "y", "z")) {
+        coord_col <- paste0(prefix, "_", coord)
+        if (coord_col %in% names(data)) {
+          values <- suppressWarnings(as.numeric(data[[coord_col]]))
+          values[unobserved] <- NA_real_
+          data[[coord_col]] <- values
+        }
+      }
+    }
+  }
+  data
+}
+
+df <- mask_unobserved_hand_points(df)
+
 # Minimum mobility for a "good mobility" verdict.
 amplitude_min <- 40 # degrees of index range of motion
 speed_min <- 60     # mean degrees/second
 
 # Angle (degrees) at p2 between segments p2->p1 and p2->p3.
 angle <- function(p1, p2, p3) {
+  points <- c(p1, p2, p3)
+  if (length(points) != 6 || any(!is.finite(points))) return(NA_real_)
   vect1 <- p2 - p1
   vect2 <- p2 - p3
-  cos_theta <- sum(vect1 * vect2) / (sqrt(sum(vect1^2)) * sqrt(sum(vect2^2)))
+  denom <- sqrt(sum(vect1^2)) * sqrt(sum(vect2^2))
+  if (!is.finite(denom) || denom <= 1e-12) return(NA_real_)
+  cos_theta <- sum(vect1 * vect2) / denom
+  if (!is.finite(cos_theta)) return(NA_real_)
   cos_theta <- max(min(cos_theta, 1), -1)
   acos(cos_theta) * 180 / pi
 }
@@ -58,18 +91,27 @@ df_angles <- df %>%
   mutate(angle_smooth = rollmean(angle_index, 5, fill = NA, align = "center")) %>%
   mutate(
     delta_angle = angle_smooth - lag(angle_smooth),
-    variation_speed_angle = delta_angle / delta_time
+    variation_speed_angle = if_else(
+      is.finite(delta_time) & delta_time > 0,
+      delta_angle / delta_time,
+      NA_real_
+    )
   )
 
-clean <- df_angles %>% drop_na(variation_speed_angle)
-movement_amplitude <- max(clean$angle_index, na.rm = TRUE) -
-  min(clean$angle_index, na.rm = TRUE)
-mean_speed <- mean(abs(clean$variation_speed_angle), na.rm = TRUE)
-
-diagnostic <- if (movement_amplitude < amplitude_min || mean_speed < speed_min) {
-  "problem with finger mobility"
+clean <- df_angles %>%
+  filter(is.finite(angle_index), is.finite(variation_speed_angle))
+if (nrow(clean) < 2) {
+  movement_amplitude <- NA_real_
+  mean_speed <- NA_real_
+  diagnostic <- "insufficient valid observations"
 } else {
-  "good mobility"
+  movement_amplitude <- max(clean$angle_index) - min(clean$angle_index)
+  mean_speed <- mean(abs(clean$variation_speed_angle))
+  diagnostic <- if (movement_amplitude < amplitude_min || mean_speed < speed_min) {
+    "problem with finger mobility"
+  } else {
+    "good mobility"
+  }
 }
 
 cat(sprintf("Index range of motion : %.2f degrees\n", movement_amplitude))

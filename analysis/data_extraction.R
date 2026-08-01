@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # Per-finger joint-angle extraction and mobility (angular-speed) analysis
 # from a single capture's hand-keypoint CSV (the pose pipeline's per-frame
-# export: timestamp_sec + {left,right}_hand_{0..20}_{x,y,z}).
+# export: timestamp_sec + {left,right}_hand_{0..20}_{x,y,z,conf}).
 #
 # For each finger (thumb, index, middle, ring, pinky) on both hands, the
 # per-frame flexion is the sum of the two inter-segment joint angles over
@@ -30,15 +30,49 @@ stem <- tools::file_path_sans_ext(basename(in_csv))
 
 df <- read.csv(in_csv)
 
+# A finite coordinate is not necessarily a current observation: temporal
+# smoothers may carry the last coordinate across a detector dropout.  Current
+# exports distinguish those samples with per-keypoint confidence.  Preserve
+# legacy CSV compatibility by applying the gate only when a confidence column
+# exists.
+mask_unobserved_hand_points <- function(data) {
+  for (side in c("left", "right")) {
+    for (k in 0:20) {
+      prefix <- paste0(side, "_hand_", k)
+      confidence_col <- paste0(prefix, "_conf")
+      if (!(confidence_col %in% names(data))) next
+
+      confidence <- suppressWarnings(as.numeric(data[[confidence_col]]))
+      unobserved <- !is.finite(confidence) | confidence <= 0
+      for (coord in c("x", "y", "z")) {
+        coord_col <- paste0(prefix, "_", coord)
+        if (coord_col %in% names(data)) {
+          values <- suppressWarnings(as.numeric(data[[coord_col]]))
+          values[unobserved] <- NA_real_
+          data[[coord_col]] <- values
+        }
+      }
+    }
+  }
+  data
+}
+
+df <- mask_unobserved_hand_points(df)
+
 # MediaPipe hand-landmark index of each finger's first (MCP) joint; the
 # finger spans landmarks id..id+3.
 fingers <- c(thumb = 1, index = 5, middle = 9, ring = 13, pinky = 17)
 
 # Angle (degrees) at p2 between segments p2->p1 and p2->p3.
 angle <- function(p1, p2, p3) {
+  points <- c(p1, p2, p3)
+  if (length(points) != 6 || any(!is.finite(points))) return(NA_real_)
   vect1 <- p2 - p1
   vect2 <- p2 - p3
-  cos_theta <- sum(vect1 * vect2) / (sqrt(sum(vect1^2)) * sqrt(sum(vect2^2)))
+  denom <- sqrt(sum(vect1^2)) * sqrt(sum(vect2^2))
+  if (!is.finite(denom) || denom <= 1e-12) return(NA_real_)
+  cos_theta <- sum(vect1 * vect2) / denom
+  if (!is.finite(cos_theta)) return(NA_real_)
   cos_theta <- max(min(cos_theta, 1), -1)
   acos(cos_theta) * 180 / pi
 }
@@ -67,11 +101,15 @@ angle_data$time <- df$timestamp_sec
 
 # Frame-to-frame flexion change and angular speed (degrees/second).
 mobility <- data.frame(delta_t = df$timestamp_sec - lag(df$timestamp_sec))
+valid_delta_t <- is.finite(mobility$delta_t) & mobility$delta_t > 0
 for (n in names(angle_data)) {
   if (n != "time") {
     mobility[[paste0("delta_", n)]] <- angle_data[[n]] - lag(angle_data[[n]])
-    mobility[[paste0("speed_variation_", n)]] <-
-      round(mobility[[paste0("delta_", n)]] / mobility$delta_t, 3)
+    speed <- rep(NA_real_, nrow(mobility))
+    speed[valid_delta_t] <-
+      mobility[[paste0("delta_", n)]][valid_delta_t] /
+      mobility$delta_t[valid_delta_t]
+    mobility[[paste0("speed_variation_", n)]] <- round(speed, 3)
   }
 }
 

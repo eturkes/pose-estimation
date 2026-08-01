@@ -1,8 +1,10 @@
 """Tests for detection-level carry-forward, NMS, and decode_detections."""
 
+import tracemalloc
+
 import numpy as np
 
-from pose_estimation.detection import decode_detections, generate_anchors, nms
+from pose_estimation.detection import decode_detections, generate_anchors, nms, weighted_nms
 from pose_estimation.processing import _smooth_detections
 
 
@@ -150,6 +152,22 @@ def test_partial_carry_with_new_dets():
     assert abs(carried[0]["score"] - 0.9 * 0.7) < 1e-6
 
 
+def test_detection_threshold_is_applied_before_assignment():
+    """A rejected pair must not hide an alternative full valid matching."""
+    prev = [_make_det(0.0, 0.0, size=0.001), _make_det(0.05, 0.0, size=0.001)]
+    new = [
+        _make_det(0.01, 0.0, size=0.001),
+        _make_det(0.01499, 0.03708, size=0.001),
+    ]
+
+    result = _smooth_detections(new, prev, match_threshold=0.05, alpha=0.5)
+
+    assert len(result) == 2
+    assert not any(det.get("_carried", False) for det in result)
+    np.testing.assert_allclose(result[0]["box"], 0.5 * new[0]["box"] + 0.5 * prev[1]["box"])
+    np.testing.assert_allclose(result[1]["box"], 0.5 * new[1]["box"] + 0.5 * prev[0]["box"])
+
+
 # ---- NMS tests --------------------------------------------------------------
 
 
@@ -184,6 +202,52 @@ def test_nms_full_overlap():
 
     assert len(keep) == 1
     assert keep[0] == 1  # higher score
+
+
+def test_weighted_nms_merges_box_and_keypoint_geometry():
+    """Overlapping anchor predictions contribute score-weighted geometry."""
+    boxes = np.array(
+        [
+            [0.10, 0.10, 0.50, 0.50],
+            [0.20, 0.10, 0.60, 0.50],
+            [0.80, 0.80, 0.90, 0.90],
+        ],
+        dtype=np.float32,
+    )
+    scores = np.array([0.9, 0.3, 0.8], dtype=np.float32)
+    keypoints = np.array([[[0.2, 0.3]], [[0.6, 0.3]], [[0.85, 0.85]]], dtype=np.float32)
+
+    merged_boxes, merged_scores, merged_keypoints = weighted_nms(
+        boxes, scores, keypoints, iou_threshold=0.3
+    )
+
+    assert merged_boxes.shape == (2, 4)
+    np.testing.assert_allclose(merged_boxes[0], (0.9 * boxes[0] + 0.3 * boxes[1]) / 1.2, atol=1e-6)
+    np.testing.assert_allclose(
+        merged_keypoints[0], (0.9 * keypoints[0] + 0.3 * keypoints[1]) / 1.2, atol=1e-6
+    )
+    np.testing.assert_allclose(merged_boxes[1], boxes[2])
+    np.testing.assert_allclose(merged_scores, [0.9, 0.8])
+
+
+def test_weighted_nms_memory_is_linear_at_pose_anchor_count():
+    """The full 2,254-anchor pose output must not allocate pairwise matrices."""
+    n_anchors = 2254
+    boxes = np.tile(np.array([[0.1, 0.1, 0.9, 0.9]], dtype=np.float32), (n_anchors, 1))
+    scores = np.linspace(0.5, 1.0, n_anchors, dtype=np.float32)
+    keypoints = np.zeros((n_anchors, 4, 2), dtype=np.float32)
+
+    tracemalloc.start()
+    try:
+        merged_boxes, merged_scores, merged_keypoints = weighted_nms(boxes, scores, keypoints)
+        _current, peak_bytes = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert merged_boxes.shape == (1, 4)
+    assert merged_scores.shape == (1,)
+    assert merged_keypoints.shape == (1, 4, 2)
+    assert peak_bytes < 8 * 1024 * 1024
 
 
 # ---- decode_detections tests -----------------------------------------------

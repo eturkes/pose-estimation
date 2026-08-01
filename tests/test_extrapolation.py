@@ -80,23 +80,47 @@ def test_moving_landmarks_extrapolate():
 
 
 def test_extrapolation_capped():
-    """Extremely large velocity is capped at match_threshold."""
-    smoother = PoseSmoother(match_threshold=100)
-    vis = np.ones(12)
+    """Image-plane velocity is capped without rescaling non-pixel depth."""
+    smoother = PoseSmoother(match_threshold=100, carry_damping=1.0)
+    last = make_body()
+    velocity = np.zeros_like(last)
+    velocity[:, 0] = 10_000.0
+    velocity[:, 2] = 20_000.0
 
-    # Create two frames with a huge jump to produce large velocity
-    lm1 = make_body(x_offset=0)
-    lm2 = make_body(x_offset=5000)  # enormous jump
+    predicted = smoother._extrapolate(last, velocity, 0.0, 0.033, 1)
+    step = predicted - last
 
-    smoother.smooth_bodies([lm1.copy()], [vis], 0.0)
-    smoothed, _, _ = smoother.smooth_bodies([lm2.copy()], [vis], 0.033)
-    last_real = smoothed[0].copy()
+    max_xy_norm = np.max(np.linalg.norm(step[:, :2], axis=1))
+    assert max_xy_norm <= 100 + 1e-3
+    np.testing.assert_allclose(step[:, 2], 20_000.0 * 0.033)
 
-    # Carry-forward
-    smoothed, _, _ = smoother.smooth_bodies([], [], 0.066)
-    step = smoothed[0] - last_real
-    max_norm = np.max(np.linalg.norm(step, axis=1))
-    assert max_norm <= 100 + 1e-3, f"per-keypoint step {max_norm:.1f} exceeds match_threshold 100"
+
+def test_low_confidence_spike_does_not_drive_body_carry():
+    smoother = PoseSmoother()
+    body = make_body()
+    high_confidence = np.ones(12)
+    rejected = np.zeros(12)
+
+    initial, _, _ = smoother.smooth_bodies([body.copy()], [high_confidence], 0.0)
+    filtered, _, _ = smoother.smooth_bodies([body + np.array([100.0, 0.0, 0.0])], [rejected], 0.033)
+    carried, _, n_detected = smoother.smooth_bodies([], [], 0.066)
+
+    np.testing.assert_allclose(filtered[0], initial[0])
+    np.testing.assert_allclose(carried[0], initial[0])
+    assert n_detected == 0
+
+
+def test_carried_body_has_zero_visibility():
+    """A prediction must not masquerade as fresh evidence for 3D fusion."""
+    smoother = PoseSmoother()
+    body = make_body()
+    smoother.smooth_bodies([body], [np.ones(12)], 0.0)
+
+    carried, visibility, n_detected = smoother.smooth_bodies([], [], 0.033)
+
+    assert len(carried) == 1
+    assert n_detected == 0
+    np.testing.assert_array_equal(visibility[0], np.zeros(12))
 
 
 def test_hand_tracks_unaffected():

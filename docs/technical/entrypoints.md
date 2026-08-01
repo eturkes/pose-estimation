@@ -30,6 +30,10 @@ Key flags: `--source`, `--batch-dir`, `--session-dir`, `--sessions-dir`, `--cali
 
 Multi-camera flags (`--session-dir`, `--sessions-dir`, `--calibration`) are mutually exclusive with `--source`/`--batch-dir`. They resolve a `Session` (per `multicam.md`) and call `process_session(...)` with a MediaPipe camera processor callback that wraps `process_video()`. Per-camera CSVs are written to `<output-dir>/<session_id>/camN.csv`.
 
+Both backends export zero-based decoded-source `frame_idx` values and source
+presentation timestamps. A malformed decoded frame therefore leaves an index
+gap instead of shifting every later row relative to the other cameras.
+
 ## `run.py` — unified entry point (rtmlib + MediaPipe)
 
 `MODEL_REGISTRY` (in `run.py`):
@@ -93,7 +97,7 @@ Runs the full 3D clinical chain (calibration → 2D tracking → `world3d.csv` f
 python -m pose_estimation.postprocess output/video1.csv --window 15 --polyorder 3
 ```
 
-Writes `<stem>_smooth.csv` next to the input. Also exposed as the `--postprocess` flag on `main.py`.
+Writes `<stem>_smooth.csv` next to the input. Also exposed as the `--postprocess` flag on `main.py`. Before interpolation/filtering, current-schema coordinates are treated as missing wherever their matching `_vis` or `_conf` value is blank, nonfinite, or zero; this prevents held predictions from pulling adjacent observations. Evidence columns are copied unchanged, and legacy coordinates without a matching evidence column retain the original smoothing behavior.
 
 ## `scripts/benchmarks/run.py` — micro-benchmarks (separate from sweep)
 

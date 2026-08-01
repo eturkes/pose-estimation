@@ -32,6 +32,16 @@ def test_basic_matching():
         assert tr["misses"] == 0
 
 
+def test_output_track_keys_follow_identity_when_detection_order_swaps():
+    sm = KeypointSmoother(match_thresh=200, min_track_age=1)
+    _feed_frame(sm, [(100, 100), (300, 300)], t=0.0)
+    first_keys = sm.output_track_keys()
+
+    _feed_frame(sm, [(301, 301), (101, 101)], t=0.033)
+
+    assert sm.output_track_keys() == [first_keys[1], first_keys[0]]
+
+
 def test_optimal_over_greedy():
     """Hungarian avoids the suboptimal greedy assignment.
 
@@ -112,3 +122,35 @@ def test_empty_detections():
     assert out_kps is not None
     assert len(sm.tracks) == 1
     assert sm.tracks[0]["misses"] == 1
+
+
+def test_threshold_is_applied_before_hungarian_solve():
+    """An invalid edge must not block a full valid assignment."""
+    sm = KeypointSmoother(match_thresh=5.0, min_track_age=1)
+    sm.tracks = [
+        {"centroid": np.array([0.0, 0.0])},
+        {"centroid": np.array([5.0, 0.0])},
+    ]
+    detections = np.array([[1.0, 0.0], [1.499, 3.708]])
+
+    matched, used = sm._match(detections)
+
+    assert matched == {0: 1, 1: 0}
+    assert used == {0, 1}
+
+
+def test_matching_uses_velocity_prediction_when_time_is_available():
+    sm = KeypointSmoother(match_thresh=5.0, min_track_age=1)
+    sm.tracks = [
+        {
+            "centroid": np.array([0.0, 0.0]),
+            "last_velocity": np.tile([6.0, 0.0], (5, 1)),
+            "last_t": 0.0,
+            "misses": 0,
+        }
+    ]
+
+    matched, used = sm._match(np.array([[6.0, 0.0]]), t=1.0)
+
+    assert matched == {0: 0}
+    assert used == {0}

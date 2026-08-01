@@ -194,6 +194,58 @@ def test_triangulate_views_empty_input_raises():
         triangulate_views([], [])
 
 
+def test_triangulate_views_uses_sqrt_weights():
+    """A confidence is a least-squares weight, so DLT rows use its square root."""
+    calib = _three_camera_session()
+    truth = np.array([[0.17, -0.08, 3.2]])
+    names = sorted(calib["cameras"])
+    points = [project_points(truth, calib["cameras"][name]) for name in names]
+    points[2] = points[2] + np.array([[14.0, -9.0]])
+    weights = [np.array([1.0]), np.array([0.25]), np.array([0.04])]
+    projections = [projection_matrix(calib["cameras"][name]) for name in names]
+
+    recovered = triangulate_views(projections, points, weights)
+
+    rows = []
+    for P, point, weight in zip(projections, points, weights, strict=True):
+        x, y = point[0]
+        scale = np.sqrt(weight[0])
+        rows.extend([scale * (x * P[2] - P[0]), scale * (y * P[2] - P[1])])
+    _u, _s, vh = np.linalg.svd(np.vstack(rows), full_matrices=False)
+    expected = vh[-1, :3] / vh[-1, 3]
+    np.testing.assert_allclose(recovered[0], expected, atol=1e-12)
+
+
+@pytest.mark.parametrize(
+    ("projections", "points", "weights", "match"),
+    [
+        ([np.eye(4)], [np.zeros((1, 2))], None, "expected \\(3, 4\\)"),
+        ([np.full((3, 4), np.nan)], [np.zeros((1, 2))], None, "must be finite"),
+        (
+            [np.eye(3, 4), np.eye(3, 4)],
+            [np.zeros((2, 2)), np.zeros((2, 2))],
+            [np.ones(2), np.ones(1)],
+            "weights\\[1\\].*expected \\(2,\\)",
+        ),
+        (
+            [np.eye(3, 4), np.eye(3, 4)],
+            [np.zeros((1, 2)), np.zeros((1, 2))],
+            [np.ones(1), np.array([np.inf])],
+            "weights\\[1\\] must be finite",
+        ),
+        (
+            [np.eye(3, 4), np.eye(3, 4)],
+            [np.zeros((1, 2)), np.zeros((1, 2))],
+            [np.ones(1), np.array([-0.1])],
+            "must be non-negative",
+        ),
+    ],
+)
+def test_triangulate_views_validates_inputs(projections, points, weights, match):
+    with pytest.raises(ValueError, match=match):
+        triangulate_views(projections, points, weights)
+
+
 # ---------------------------------------------------------------------------
 # fuse_session_frame — policy layer on synthetic multi-view data
 # ---------------------------------------------------------------------------
@@ -243,6 +295,7 @@ def test_fuse_recovers_noisy_skeleton_within_5mm():
 
     assert world.shape == _SKELETON.shape
     assert np.abs(world - _SKELETON).max() < 5e-3
+    assert np.all(diag["candidate_n_views"] == 3)
     assert np.all(diag["n_views"] == 3)
     assert np.all(diag["cheirality_ok"])
     assert np.all(np.isfinite(diag["reprojection_error_px"]))
@@ -264,6 +317,7 @@ def test_fuse_works_with_one_camera_missing():
     world, diag = fuse_session_frame(kps, calib)
 
     assert np.abs(world - _SKELETON).max() < 1e-2
+    assert np.all(diag["candidate_n_views"] == 2)
     assert np.all(diag["n_views"] == 2)
     assert np.all(diag["cheirality_ok"])
 
@@ -292,6 +346,7 @@ def test_fuse_insufficient_views_yield_nan():
     world, diag = fuse_session_frame(kps, calib)
 
     assert np.all(np.isnan(world[1]))
+    assert diag["candidate_n_views"][1] == 1
     assert diag["n_views"][1] == 1
     assert diag["confidence"][1] == 0.0
     assert np.isnan(diag["reprojection_error_px"][1])
@@ -310,9 +365,100 @@ def test_fuse_outlier_view_is_rejected():
     world, diag = fuse_session_frame(kps, calib)
 
     assert np.abs(world - _SKELETON).max() < 1e-3
+    assert diag["candidate_n_views"][0] == 3
     assert diag["n_views"][0] == 2
     assert np.all(np.delete(diag["n_views"], 0) == 3)
     assert diag["reprojection_error_px"][0] < 1.0
+
+
+def test_fuse_consensus_rejects_bad_view_that_greedy_residual_misidentifies():
+    """Minimal-set consensus survives a case where all-view greedy drops a good camera."""
+    calib = _three_camera_session()
+    truth = np.array([[0.15, -0.1, 3.0]])
+    kps = {name: project_points(truth, cam) for name, cam in calib["cameras"].items()}
+    # Under an all-view DLT this makes cam1's residual (68.8 px) larger than
+    # corrupt cam2's (46.4 px), so largest-residual deletion chooses wrongly.
+    kps["cam2"][0] += np.array([-218.44418049, -57.36262572])
+
+    world, diag = fuse_session_frame(kps, calib)
+
+    np.testing.assert_allclose(world, truth, atol=1e-6)
+    assert diag["candidate_n_views"][0] == 3
+    assert diag["n_views"][0] == 2
+    assert diag["reprojection_error_px"][0] < 1e-6
+    assert diag["triangulation_angle_deg"][0] > 1.0
+
+
+def test_fuse_inconsistent_two_view_consensus_is_invalidated():
+    """Exactly two mutually inconsistent rays no longer emit plausible-looking 3D."""
+    calib = _three_camera_session()
+    truth = np.array([[0.15, -0.1, 3.0]])
+    kps = {name: project_points(truth, calib["cameras"][name]) for name in ("cam1", "cam2")}
+    kps["cam2"][0] += np.array([-218.44418049, -57.36262572])
+
+    world, diag = fuse_session_frame(kps, calib)
+
+    assert np.isnan(world).all()
+    assert diag["n_views"][0] == 2
+    assert np.isnan(diag["reprojection_error_px"][0])
+
+
+def test_fuse_tiny_baseline_fails_default_triangulation_angle_gate():
+    """Exact reprojection cannot make near-parallel rays depth-stable."""
+    cams = [
+        _make_cam("cam1", [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]),
+        _make_cam("cam2", [0.0, 0.0, 0.0], [-0.01, 0.0, 0.0]),
+    ]
+    calib = SessionCalibration(
+        format_version=1,
+        session_id="tiny-baseline",
+        world_frame="cam1",
+        cameras={cam["name"]: cam for cam in cams},
+        reprojection_error_px=0.0,
+        solver="test",
+        solved_at="2026-05-18T12:00:00Z",
+    )
+    truth = np.array([[0.0, 0.0, 3.0]])
+    kps = {name: project_points(truth, cam) for name, cam in calib["cameras"].items()}
+
+    rejected, rejected_diag = fuse_session_frame(kps, calib)
+    allowed, allowed_diag = fuse_session_frame(kps, calib, min_triangulation_angle_deg=0.0)
+
+    assert np.isnan(rejected).all()
+    assert 0.0 < rejected_diag["triangulation_angle_deg"][0] < 1.0
+    np.testing.assert_allclose(allowed, truth, atol=1e-6)
+    assert allowed_diag["triangulation_angle_deg"][0] == pytest.approx(
+        rejected_diag["triangulation_angle_deg"][0]
+    )
+
+
+def test_fuse_geometric_refinement_never_worsens_reprojection():
+    calib = _three_camera_session(distortion=_MILD_DISTORTION)
+    truth = np.array([[0.17, -0.08, 3.2]])
+    noise = {
+        "cam1": np.array([[1.3, -0.7]]),
+        "cam2": np.array([[-0.9, 0.8]]),
+        "cam3": np.array([[0.4, -1.1]]),
+    }
+    kps = {name: project_points(truth, cam) + noise[name] for name, cam in calib["cameras"].items()}
+    names = sorted(kps)
+    dlt = triangulate_views(
+        [projection_matrix(calib["cameras"][name]) for name in names],
+        [undistort_points(kps[name], calib["cameras"][name]) for name in names],
+    )
+    dlt_mean_error = float(
+        np.mean(
+            [
+                np.linalg.norm(project_points(dlt, calib["cameras"][name])[0] - kps[name][0])
+                for name in names
+            ]
+        )
+    )
+
+    _world, diag = fuse_session_frame(kps, calib)
+
+    assert diag["n_views"][0] == 3
+    assert diag["reprojection_error_px"][0] < dlt_mean_error
 
 
 def test_fuse_min_views_three_drops_two_view_keypoints():
@@ -371,6 +517,22 @@ def test_fuse_confidence_is_mean_of_contributing_views():
     np.testing.assert_allclose(diag["confidence"], (0.9 + 0.6 + 0.3) / 3, atol=1e-9)
 
 
+def test_fuse_clips_finite_confidence_to_unit_interval():
+    calib = _three_camera_session()
+    kps = _project_skeleton(calib)
+    conf = {
+        "cam1": np.full(len(_SKELETON), 2.0),
+        "cam2": np.full(len(_SKELETON), -1.0),
+        "cam3": np.full(len(_SKELETON), 1.5),
+    }
+
+    world, diag = fuse_session_frame(kps, calib, confidences=conf)
+
+    np.testing.assert_allclose(world, _SKELETON, atol=1e-6)
+    assert np.all(diag["n_views"] == 2)
+    np.testing.assert_allclose(diag["confidence"], 1.0)
+
+
 def test_fuse_validation_errors():
     calib = _three_camera_session()
     kps = _project_skeleton(calib)
@@ -387,3 +549,17 @@ def test_fuse_validation_errors():
         fuse_session_frame(kps, calib, confidences={"cam1": np.ones(3)})
     with pytest.raises(ValueError, match="min_views must be >= 2"):
         fuse_session_frame(kps, calib, min_views=1)
+    with pytest.raises(ValueError, match="min_views must be an integer"):
+        fuse_session_frame(kps, calib, min_views=True)
+    with pytest.raises(ValueError, match="min_confidence must be finite"):
+        fuse_session_frame(kps, calib, min_confidence=float("nan"))
+    with pytest.raises(ValueError, match="max_view_reproj_px must be finite"):
+        fuse_session_frame(kps, calib, max_view_reproj_px=float("inf"))
+    with pytest.raises(ValueError, match="min_triangulation_angle_deg must be finite"):
+        fuse_session_frame(kps, calib, min_triangulation_angle_deg=91.0)
+    bad_confidence = {"cam1": np.ones(len(_SKELETON))}
+    bad_confidence["cam1"][0] = np.nan
+    with pytest.raises(ValueError, match="must contain only finite values"):
+        fuse_session_frame(kps, calib, confidences=bad_confidence)
+    with pytest.raises(ValueError, match="confidence cameras have no keypoints"):
+        fuse_session_frame(kps, calib, confidences={"cam9": np.ones(len(_SKELETON))})

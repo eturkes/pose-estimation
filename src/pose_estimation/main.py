@@ -55,7 +55,13 @@ from .processing import (
     tracking_pose_indices,
 )
 from .smoothing import PoseSmoother
-from .video_io import collect_video_files, frame_to_surface, open_capture, safe_fps
+from .video_io import (
+    SourceTimestampClock,
+    collect_video_files,
+    frame_to_surface,
+    open_capture,
+    safe_fps,
+)
 
 WINDOW_TITLE = "Pose Estimation"
 DIAG_FIELDS = [
@@ -80,6 +86,28 @@ def _oldest_tracks(items, ages, min_age, cap):
         reverse=True,
     )
     return [item for item, _ in aged[:cap]]
+
+
+def _observed_hands_for_export(hand_landmarks, matches, observed_ids):
+    """Drop carried hands and remap match indices for observation-only export.
+
+    The smoother keeps carried geometry for display, re-cropping, and
+    association, but predictions are deliberately excluded from the recorded
+    measurement stream even though the current schema can represent confidence
+    zero explicitly.
+    """
+    old_to_new = {}
+    observed = []
+    for old_index, landmarks in enumerate(hand_landmarks):
+        if id(landmarks) in observed_ids:
+            old_to_new[old_index] = len(observed)
+            observed.append(landmarks)
+    observed_matches = [
+        (arm_index, wrist_keypoint, old_to_new[hand_index])
+        for arm_index, wrist_keypoint, hand_index in matches
+        if hand_index in old_to_new
+    ]
+    return observed, observed_matches
 
 
 def process_video(
@@ -110,6 +138,11 @@ def process_video(
         return False
 
     fps_source = safe_fps(cap.get(cv2.CAP_PROP_FPS))
+    source_clock = SourceTimestampClock(
+        cap,
+        fps_source,
+        live=isinstance(source, int),
+    )
     total_frames = max(0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT)))
 
     # Optionally set resolution for cameras
@@ -131,6 +164,7 @@ def process_video(
     track_state = None
     prev_hand_lm = None
     frame_idx = 0
+    source_frame_idx = 0
 
     # Track age threshold: suppress detections that haven't persisted
     # for at least this many consecutive frames.
@@ -161,8 +195,11 @@ def process_video(
             ret, frame = cap.read()
             if not ret:
                 break
+            decoded_frame_idx = source_frame_idx
+            source_frame_idx += 1
+            timestamp_sec = source_clock.timestamp(decoded_frame_idx)
             if frame is None or frame.size == 0:
-                print(f"  WARNING: skipping malformed frame {frame_idx}")
+                print(f"  WARNING: skipping malformed source frame {decoded_frame_idx}")
                 continue
 
             if flip:
@@ -171,7 +208,7 @@ def process_video(
             # Cap resolution for performance
             max_dim = max(frame.shape[:2])
             if max_dim <= 0:
-                print(f"  WARNING: skipping zero-size frame {frame_idx}")
+                print(f"  WARNING: skipping zero-size source frame {decoded_frame_idx}")
                 continue
             scale = 1280 / max_dim
             if scale < 1:
@@ -188,7 +225,7 @@ def process_video(
             # Inference — in multi-subject mode, disable synthetic and
             # re-crop hand detections to avoid cascading false positives
             # from spurious body tracks.
-            start = time.time()
+            start = time.perf_counter()
             body_lm, body_vis, hand_lm, hand_flags, track_state, frame_diag = process_frame(
                 frame,
                 models,
@@ -200,11 +237,12 @@ def process_video(
                 ),
                 synthesise_hands=single_subject and use_body,
                 tracking=tracking,
+                input_mirrored=flip,
             )
-            elapsed = time.time() - start
+            elapsed = time.perf_counter() - start
 
             # Temporal smoothing
-            t = time.time()
+            t = timestamp_sec
 
             if use_body:
                 body_lm, body_vis, n_bodies_detected = smoother.smooth_bodies(
@@ -216,6 +254,29 @@ def process_video(
             hand_lm, n_hands_active = smoother.smooth_hands(
                 hand_lm, t, hand_flags=hand_flags, max_tracks=2 if single_subject else None
             )
+            # ``PoseSmoother`` emits detector-matched hands first and carried
+            # tracks afterwards. Preserve identity across the display/age
+            # filtering below so export can exclude predictions even if the
+            # age sort changes their order.
+            observed_hand_ids = {id(lm) for lm in hand_lm[:n_hands_active]}
+            raw_handedness = getattr(frame_diag, "raw_hand_handedness", [])
+            raw_hand_confidences = getattr(frame_diag, "raw_hand_confidences", hand_flags)
+            observation_indices_fn = getattr(smoother, "hand_observation_indices", None)
+            observation_indices = (
+                observation_indices_fn()
+                if callable(observation_indices_fn)
+                else list(range(n_hands_active))
+            )
+            observed_handedness = {
+                id(lm): raw_handedness[raw_index]
+                for lm, raw_index in zip(hand_lm[:n_hands_active], observation_indices, strict=True)
+                if raw_index < len(raw_handedness)
+            }
+            observed_hand_confidences = {
+                id(lm): raw_hand_confidences[raw_index]
+                for lm, raw_index in zip(hand_lm[:n_hands_active], observation_indices, strict=True)
+                if raw_index < len(raw_hand_confidences)
+            }
 
             # Compute smoothing diagnostics
             smooth_diag = SmoothingDiagnostics()
@@ -242,12 +303,18 @@ def process_video(
             if use_body:
                 total_bone_corr = 0.0
                 total_angle_clamps = 0
-                for i, lm in enumerate(body_lm):
-                    _, bone_corr = bone_smoother.update(i, lm)
-                    _, n_clamped = clamp_joint_angles(lm, limits=angle_lims)
+                body_track_keys = smoother.body_track_keys()
+                if len(body_track_keys) != len(body_lm):
+                    raise RuntimeError("body track keys are not aligned with smoothed bodies")
+                for track_key, lm, visibility in zip(
+                    body_track_keys, body_lm, body_vis, strict=True
+                ):
+                    validity = np.asarray(visibility) > 0.0
+                    _, bone_corr = bone_smoother.update(track_key, lm, validity=validity)
+                    _, n_clamped = clamp_joint_angles(lm, limits=angle_lims, validity=validity)
                     total_bone_corr += bone_corr
                     total_angle_clamps += n_clamped
-                bone_smoother.prune(range(len(body_lm)))
+                bone_smoother.prune(body_track_keys)
                 constraint_diag.bone_correction_px = total_bone_corr
                 constraint_diag.angle_corrections_n = total_angle_clamps
 
@@ -293,9 +360,12 @@ def process_video(
                     last_body_vis = body_vis[0].copy()
                     frames_since_body = 0
                 elif last_body_lm is not None and frames_since_body < carry_limit:
-                    # No real body detection — use last known body
+                    # No real body detection — keep the last geometry for
+                    # display/association, but mark it unobserved so export and
+                    # multi-camera fusion cannot treat a prediction as fresh
+                    # image evidence.
                     body_lm = [last_body_lm]
-                    body_vis = [last_body_vis]
+                    body_vis = [np.zeros_like(last_body_vis)]
                     matches = match_hands_to_arms(
                         body_lm, hand_lm, wrist_kps=wrist_kps, shoulder_kps=shoulder_kps
                     )
@@ -310,20 +380,28 @@ def process_video(
             prev_hand_lm = [lm.copy() for lm in hand_lm] if hand_lm else None
 
             # Export landmarks
-            timestamp_sec = frame_idx / fps_source
             if csv_writer is not None:
+                export_hand_lm, export_matches = _observed_hands_for_export(
+                    hand_lm, matches, observed_hand_ids
+                )
+                export_handedness = [observed_handedness.get(id(lm)) for lm in export_hand_lm]
+                export_hand_confidences = [
+                    observed_hand_confidences.get(id(lm), 0.0) for lm in export_hand_lm
+                ]
                 rows = frame_to_rows(
                     video_name or str(source),
-                    frame_idx,
+                    decoded_frame_idx,
                     timestamp_sec,
                     frame_h,
                     frame_w,
                     body_lm,
                     body_vis,
-                    hand_lm,
-                    matches,
+                    export_hand_lm,
+                    export_matches,
                     tracking=tracking,
                     hand_only=single_subject,
+                    hand_handedness=export_handedness,
+                    hand_confidences=export_hand_confidences,
                 )
                 for row in rows:
                     csv_writer.writerow(row)
@@ -363,7 +441,7 @@ def process_video(
                     hand_R_flag = accepted_flags[1]
 
                 metrics_collector.record(
-                    frame_idx=frame_idx,
+                    frame_idx=decoded_frame_idx,
                     timestamp_sec=timestamp_sec,
                     person_idx=0,
                     body_lm_smooth=body_lm[0] if body_lm else None,
@@ -419,8 +497,8 @@ def process_video(
                     body_carry = False
                 diag_writer.writerow(
                     {
-                        "frame": frame_idx,
-                        "timestamp": round(frame_idx / fps_source, 4),
+                        "frame": decoded_frame_idx,
+                        "timestamp": round(timestamp_sec, 4),
                         "bodies_detected": n_bodies_detected,
                         "bodies_rendered": len(body_lm),
                         "hands_accepted": sum(1 for d in hand_diag if d.get("accepted")),

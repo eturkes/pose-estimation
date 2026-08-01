@@ -12,8 +12,8 @@ import os
 
 import cv2
 import numpy as np
-from scipy.optimize import linear_sum_assignment
 
+from .assignment import gated_assignment
 from .detection import (
     HAND_INPUT_SIZE,
     PALM_INPUT_SIZE,
@@ -65,10 +65,12 @@ SYNTHETIC_HAND_BOX_HALF_FACTOR = 0.4  # half of 0.8 * forearm_len
 DETECTION_OVERLAP_THRESHOLD = 0.1  # normalised distance to suppress fallback
 RECROP_DET_SCORE = 0.9  # synthetic confidence assigned to re-crop entries
 
-# Crop extraction
-POSE_CROP_SCALE_FACTOR = 2.6
+# Crop extraction.  These mirror the MediaPipe graph transforms: pose uses a
+# circle diameter followed by 1.25 expansion; palm rects expand by 2.6 and
+# shift half a raw bounding-box height toward the fingers before expansion.
+POSE_CROP_SCALE_FACTOR = 1.25
 HAND_CROP_SCALE_FACTOR = 2.6
-HAND_CROP_SHIFT_FACTOR = 0.05  # forward shift along the palm orientation
+HAND_CROP_SHIFT_FACTOR = -0.5
 MIN_BONE_LENGTH_PX = 1.0  # below this we skip the chain entirely
 
 # Palm-detection 7-keypoint layout (used by get_hand_crop)
@@ -89,13 +91,90 @@ def tracking_pose_indices(tracking):
 # ---------------------------------------------------------------------------
 
 
-def _preprocess(frame, size, compiled_model):
-    """Resize, convert to RGB float32, and batch for the given compiled model."""
-    img = cv2.resize(frame, (size, size))
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+def _as_model_tensor(img, compiled_model, value_range=(0.0, 1.0)):
+    """Convert a square BGR image to the model's RGB layout and value range."""
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
+    low, high = value_range
+    img *= (high - low) / 255.0
+    img += low
     if list(compiled_model.input(0).shape)[-1] == 3:
         return np.expand_dims(img, 0)
     return np.expand_dims(img.transpose(2, 0, 1), 0)
+
+
+def _preprocess(frame, size, compiled_model, value_range=(0.0, 1.0)):
+    """Resize a square landmark crop and convert it to a model tensor."""
+    img = cv2.resize(frame, (size, size))
+    return _as_model_tensor(img, compiled_model, value_range)
+
+
+def _preprocess_detector(frame, size, compiled_model, value_range):
+    """Letterbox a detector frame and return ``(tensor, padding)``.
+
+    ``padding`` is ``(left, top, right, bottom)`` in normalized tensor
+    coordinates.  Detector outputs are expressed in this letterboxed frame and
+    must have the padding removed before crop extraction.
+    """
+    frame_h, frame_w = frame.shape[:2]
+    if frame_h <= 0 or frame_w <= 0:
+        raise ValueError("detector input frame must have positive dimensions")
+
+    # MediaPipe pads the full-frame ROI continuously before sampling the model
+    # tensor.  Keep the scale and translation fractional: rounding the content
+    # to an integer size makes odd aspect ratios asymmetrically padded and then
+    # gives DetectionLetterboxRemovalCalculator the wrong inverse transform.
+    if frame_w >= frame_h:
+        scale = size / frame_w
+        horizontal_padding = 0.0
+        vertical_padding = (size - frame_h * scale) * 0.5
+    else:
+        scale = size / frame_h
+        horizontal_padding = (size - frame_w * scale) * 0.5
+        vertical_padding = 0.0
+    matrix = np.asarray(
+        [[scale, 0.0, horizontal_padding], [0.0, scale, vertical_padding]],
+        dtype=np.float32,
+    )
+    letterboxed = cv2.warpAffine(
+        frame,
+        matrix,
+        (size, size),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+    padding = np.asarray(
+        [
+            horizontal_padding / size,
+            vertical_padding / size,
+            horizontal_padding / size,
+            vertical_padding / size,
+        ],
+        dtype=np.float32,
+    )
+    return _as_model_tensor(letterboxed, compiled_model, value_range), padding
+
+
+def _remove_letterbox(detections, padding):
+    """Map normalized detection boxes/keypoints out of letterbox coordinates."""
+    left, top, right, bottom = (float(x) for x in padding)
+    content_w = 1.0 - left - right
+    content_h = 1.0 - top - bottom
+    if content_w <= 0.0 or content_h <= 0.0:
+        return []
+    mapped = []
+    for detection in detections:
+        out = dict(detection)
+        box = np.asarray(detection["box"]).copy()
+        box[[0, 2]] = (box[[0, 2]] - left) / content_w
+        box[[1, 3]] = (box[[1, 3]] - top) / content_h
+        keypoints = np.asarray(detection["keypoints"]).copy()
+        keypoints[:, 0] = (keypoints[:, 0] - left) / content_w
+        keypoints[:, 1] = (keypoints[:, 1] - top) / content_h
+        out["box"] = box
+        out["keypoints"] = keypoints
+        mapped.append(out)
+    return mapped
 
 
 # ---------------------------------------------------------------------------
@@ -103,9 +182,18 @@ def _preprocess(frame, size, compiled_model):
 # ---------------------------------------------------------------------------
 
 
-def run_detection(frame, compiled_model, input_size, anchors, num_keypoints):
+def run_detection(
+    frame,
+    compiled_model,
+    input_size,
+    anchors,
+    num_keypoints,
+    score_threshold=0.5,
+):
     """Run an SSD detection model (pose or palm) on a frame."""
-    tensor = _preprocess(frame, input_size, compiled_model)
+    # BlazePose detection is trained on [-1, 1]; palm detection uses [0, 1].
+    value_range = (-1.0, 1.0) if num_keypoints == 4 else (0.0, 1.0)
+    tensor, padding = _preprocess_detector(frame, input_size, compiled_model, value_range)
     results = compiled_model([tensor])
 
     values_per_anchor = 4 + num_keypoints * 2
@@ -116,7 +204,15 @@ def run_detection(frame, compiled_model, input_size, anchors, num_keypoints):
     else:
         raw_boxes, raw_scores = out1, out0
 
-    return decode_detections(raw_boxes, raw_scores, anchors, input_size, num_keypoints)
+    detections = decode_detections(
+        raw_boxes,
+        raw_scores,
+        anchors,
+        input_size,
+        num_keypoints,
+        score_threshold=score_threshold,
+    )
+    return _remove_letterbox(detections, padding)
 
 
 # ---------------------------------------------------------------------------
@@ -243,9 +339,8 @@ def _smooth_detections(new_dets, prev_dets, match_threshold=DET_MATCH_THRESHOLD_
     dx = new_centers[:, 0:1] - prev_centers[None, :, 0]
     dy = new_centers[:, 1:2] - prev_centers[None, :, 1]
     cost = np.hypot(dx, dy)
-    row_ind, col_ind = linear_sum_assignment(cost)
-
-    matched = {r: c for r, c in zip(row_ind, col_ind, strict=False) if cost[r, c] < match_threshold}
+    row_ind, col_ind = gated_assignment(cost, threshold=match_threshold)
+    matched = {int(r): int(c) for r, c in zip(row_ind, col_ind, strict=False)}
 
     smoothed = []
     for i, new_det in enumerate(new_dets):
@@ -540,17 +635,25 @@ def get_pose_crop(
     kp_hip = detection["keypoints"][0] * np.array([img_w, img_h])
     kp_full = detection["keypoints"][1] * np.array([img_w, img_h])
 
-    cx = (kp_hip[0] + kp_full[0]) / 2
-    cy = (kp_hip[1] + kp_full[1]) / 2
+    cx = kp_hip[0]
+    cy = kp_hip[1]
     dx = kp_full[0] - kp_hip[0]
     dy = kp_full[1] - kp_hip[1]
     rotation = np.degrees(np.arctan2(dx, -dy))
-    body_size = np.sqrt(dx**2 + dy**2) * scale_factor
+    body_size = 2.0 * np.sqrt(dx**2 + dy**2) * scale_factor
 
     M = _affine_matrix(cx, cy, rotation, body_size, target_size)
     if M is None:
         return None, None
-    return cv2.warpAffine(img, M, (target_size, target_size)), M
+    return (
+        cv2.warpAffine(
+            img,
+            M,
+            (target_size, target_size),
+            borderMode=cv2.BORDER_REPLICATE,
+        ),
+        M,
+    )
 
 
 def get_hand_crop(img, detection, scale_factor=HAND_CROP_SCALE_FACTOR, target_size=HAND_INPUT_SIZE):
@@ -562,17 +665,30 @@ def get_hand_crop(img, detection, scale_factor=HAND_CROP_SCALE_FACTOR, target_si
     box = detection["box"] * np.array([img_w, img_h, img_w, img_h])
     cx = (box[0] + box[2]) / 2
     cy = (box[1] + box[3]) / 2
-    box_size = max(box[2] - box[0], box[3] - box[1]) * scale_factor
+    raw_width = box[2] - box[0]
+    raw_height = box[3] - box[1]
+    box_size = max(raw_width, raw_height) * scale_factor
 
     rotation = np.degrees(np.arctan2(kp_middle[0] - kp_wrist[0], -(kp_middle[1] - kp_wrist[1])))
-    shift = box_size * HAND_CROP_SHIFT_FACTOR
+    # RectTransformationCalculator applies shift_y in the rotated raw rect,
+    # before square-long and scale.  With shift_y=-0.5 this moves from the palm
+    # box centre toward the fingers by half the raw box height.
+    shift = -raw_height * HAND_CROP_SHIFT_FACTOR
     cx += shift * np.sin(np.radians(rotation))
     cy -= shift * np.cos(np.radians(rotation))
 
     M = _affine_matrix(cx, cy, rotation, box_size, target_size)
     if M is None:
         return None, None
-    return cv2.warpAffine(img, M, (target_size, target_size)), M
+    return (
+        cv2.warpAffine(
+            img,
+            M,
+            (target_size, target_size),
+            borderMode=cv2.BORDER_REPLICATE,
+        ),
+        M,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -580,7 +696,7 @@ def get_hand_crop(img, detection, scale_factor=HAND_CROP_SCALE_FACTOR, target_si
 # ---------------------------------------------------------------------------
 
 
-def transform_landmarks_to_image(landmarks, M):
+def transform_landmarks_to_image(landmarks, M, *, z_normalization=1.0):
     """Transform landmarks from crop coordinates back to original image coordinates.
 
     M is a 2x3 affine ``[[a, b, c], [d, e, f]]``; its inverse is computed
@@ -615,7 +731,58 @@ def transform_landmarks_to_image(landmarks, M):
     # plus matmul Python overhead.
     result[:, 0] = a_inv * x + b_inv * y + c_inv
     result[:, 1] = d_inv * x + e_inv * y + f_inv
+    if result.shape[1] >= 3:
+        # Model z uses the same crop-coordinate scale as x (hand models first
+        # divide it by an additional 0.4).  Project it through the affine scale
+        # while deliberately leaving translation and rotation out of depth.
+        result[:, 2] *= math.hypot(a_inv, d_inv) / z_normalization
     return result
+
+
+def _sigmoid(values):
+    """Numerically stable sigmoid for model logits."""
+    values = np.asarray(values, dtype=np.float64)
+    return 1.0 / (1.0 + np.exp(-np.clip(values, -100.0, 100.0)))
+
+
+def _refine_pose_landmarks_from_heatmap(landmarks, heatmap, input_size=POSE_LM_INPUT_SIZE):
+    """Refine pose x/y using MediaPipe's local 7x7 heatmap centroid."""
+    heatmap = np.asarray(heatmap).squeeze()
+    if heatmap.ndim != 3:
+        return landmarks
+    if heatmap.shape[-1] != landmarks.shape[0] and heatmap.shape[0] == landmarks.shape[0]:
+        heatmap = np.moveaxis(heatmap, 0, -1)
+    if heatmap.shape[-1] != landmarks.shape[0]:
+        return landmarks
+
+    height, width, _channels = heatmap.shape
+    refined = landmarks.copy()
+    for index in range(refined.shape[0]):
+        if not np.isfinite(refined[index, :2]).all():
+            continue
+        center_col = int(refined[index, 0] / input_size * width)
+        center_row = int(refined[index, 1] / input_size * height)
+        if not (0 <= center_col < width and 0 <= center_row < height):
+            continue
+        begin_col = max(0, center_col - 3)
+        end_col = min(width, center_col + 4)
+        begin_row = max(0, center_row - 3)
+        end_row = min(height, center_row + 4)
+        kernel = heatmap[begin_row:end_row, begin_col:end_col, index]
+        if not np.isfinite(kernel).all():
+            continue
+        confidence = _sigmoid(kernel)
+        total = float(confidence.sum())
+        if not math.isfinite(total) or total <= 0.0 or float(confidence.max()) < 0.5:
+            continue
+        cols = np.arange(begin_col, end_col, dtype=np.float64)
+        rows = np.arange(begin_row, end_row, dtype=np.float64)
+        refined_x = float((confidence.sum(axis=0) @ cols) / total * input_size / width)
+        refined_y = float((confidence.sum(axis=1) @ rows) / total * input_size / height)
+        if math.isfinite(refined_x) and math.isfinite(refined_y):
+            refined[index, 0] = refined_x
+            refined[index, 1] = refined_y
+    return refined
 
 
 # ---------------------------------------------------------------------------
@@ -644,52 +811,71 @@ def detect_pose_landmarks(frame, detection, pose_lm_compiled, keypoint_indices=N
 
     landmarks = None
     pose_flag = None
+    heatmap = None
 
     for output in pose_lm_compiled.outputs:
-        data = results[output].squeeze()
+        raw_data = np.asarray(results[output])
+        data = raw_data.squeeze()
         if data.size == 195:
             landmarks = data.reshape(39, 5)
         elif data.size == 1 and pose_flag is None:
-            pose_flag = 1.0 / (1.0 + np.exp(-float(data)))
+            pose_flag = float(np.clip(data, 0.0, 1.0))
+        elif data.size == 64 * 64 * 39:
+            heatmap = data
 
     if landmarks is None or pose_flag is None:
         return None, None, 0.0
 
-    lm = landmarks[keypoint_indices][:, :3].copy()
+    if heatmap is not None:
+        landmarks = _refine_pose_landmarks_from_heatmap(landmarks, heatmap)
+    selected = landmarks[keypoint_indices]
+    lm = selected[:, :3].copy()
     lm = transform_landmarks_to_image(lm, M)
-    vis = 1.0 / (1.0 + np.exp(-landmarks[keypoint_indices][:, 3]))
+    visibility = _sigmoid(selected[:, 3])
+    presence = _sigmoid(selected[:, 4])
+    vis = np.minimum(visibility, presence)
 
     return lm, vis, float(pose_flag)
 
 
-def detect_hand_landmarks(frame, detection, hand_compiled):
-    """Run hand landmark model. Returns 21 keypoints and confidence."""
+def detect_hand_landmarks(frame, detection, hand_compiled, *, input_mirrored=False):
+    """Return image landmarks, presence, and mirror-corrected handedness.
+
+    The pinned model's outputs are, in order, image landmarks, hand presence,
+    left-hand probability, and world landmarks.  MediaPipe trains/interprets
+    handedness for mirrored (selfie) input, so unmirrored files require the
+    predicted label to be swapped.  The handedness result is ``(side, score)``
+    or ``None`` if that model output is unavailable.
+    """
     cropped, M = get_hand_crop(frame, detection)
     if cropped is None:
-        return None, 0.0
+        return None, 0.0, None
 
     tensor = _preprocess(cropped, HAND_INPUT_SIZE, hand_compiled)
     results = hand_compiled([tensor])
 
     hand_flag = None
-    landmark_candidates = []
-    for output in hand_compiled.outputs:
+    left_probability = None
+    landmarks = None
+    for output_index, output in enumerate(hand_compiled.outputs):
         data = results[output].squeeze()
-        if data.size == 63:
-            landmark_candidates.append(data.reshape(21, 3))
-        elif data.size == 1 and hand_flag is None:
-            hand_flag = 1.0 / (1.0 + np.exp(-float(data)))
+        if output_index == 0 and data.size == 63:
+            landmarks = data.reshape(21, 3)
+        elif output_index == 1 and data.size == 1:
+            hand_flag = float(np.clip(data, 0.0, 1.0))
+        elif output_index == 2 and data.size == 1:
+            left_probability = float(np.clip(data, 0.0, 1.0))
 
-    if not landmark_candidates or hand_flag is None:
-        return None, 0.0
+    if landmarks is None or hand_flag is None:
+        return None, 0.0, None
 
-    if len(landmark_candidates) == 1:
-        landmarks = landmark_candidates[0]
-    else:
-        landmarks = max(landmark_candidates, key=lambda lm: np.abs(lm[:, :2]).max())
-
-    landmarks = transform_landmarks_to_image(landmarks, M)
-    return landmarks, float(hand_flag)
+    landmarks = transform_landmarks_to_image(landmarks, M, z_normalization=0.4)
+    handedness = None
+    if left_probability is not None:
+        model_side = "left" if left_probability >= 0.5 else "right"
+        side = model_side if input_mirrored else ("right" if model_side == "left" else "left")
+        handedness = (side, max(left_probability, 1.0 - left_probability))
+    return landmarks, float(hand_flag), handedness
 
 
 # ---------------------------------------------------------------------------
@@ -702,10 +888,9 @@ def match_hands_to_arms(
 ):
     """Match detected hands to arm wrists using optimal assignment.
 
-    Uses the Hungarian algorithm (``linear_sum_assignment``) for
-    globally optimal wrist-to-hand pairing, avoiding the greedy-order
-    bias where early wrists could steal the only good match for a
-    later wrist.
+    Uses validity-gated Hungarian assignment for globally optimal
+    wrist-to-hand pairing, avoiding both greedy-order bias and assignments
+    where an invalid pair blocks a valid alternative.
 
     A match is only accepted when the hand is closer to the wrist than
     to the shoulder midpoint, ensuring the hand is at the distal end of
@@ -756,24 +941,18 @@ def match_hands_to_arms(
     dy = wrist_arr[:, 1:2] - hand_wrists[None, :, 1]
     cost = np.hypot(dx, dy)
 
-    row_ind, col_ind = linear_sum_assignment(cost)
+    shoulder_dx = shoulder_mid[:, 0:1] - hand_wrists[None, :, 0]
+    shoulder_dy = shoulder_mid[:, 1:2] - hand_wrists[None, :, 1]
+    shoulder_cost = np.hypot(shoulder_dx, shoulder_dy)
+    distal = cost < np.repeat(shoulder_cost, n_wrists, axis=0)
+    row_ind, col_ind = gated_assignment(cost, threshold=threshold, valid_mask=distal)
 
     matches = []
     for r, c in zip(row_ind, col_ind, strict=False):
-        c_rc = float(cost[r, c])
-        if c_rc >= threshold:
-            continue
         r_int = int(r)
         arm_idx = r_int // n_wrists
         wrist_kp = wrist_kps[r_int % n_wrists]
-        # Distality check via scalar math.hypot — far cheaper than
-        # np.linalg.norm at 2-element vector sizes.
-        sx = float(shoulder_mid[arm_idx, 0])
-        sy = float(shoulder_mid[arm_idx, 1])
-        hx = float(hand_wrists[c, 0])
-        hy = float(hand_wrists[c, 1])
-        if c_rc < math.hypot(hx - sx, hy - sy):
-            matches.append((arm_idx, wrist_kp, c))
+        matches.append((arm_idx, wrist_kp, int(c)))
 
     return matches
 
@@ -847,6 +1026,7 @@ def process_frame(
     lm_score_threshold=None,
     synthesise_hands=True,
     tracking=TRACKING_HANDS_ARMS,
+    input_mirrored=False,
 ):
     """Full pipeline: detect body poses and hand landmarks.
 
@@ -896,7 +1076,14 @@ def process_frame(
         pose_det_model = models["pose_detection"]
         pose_lm_model = models["pose_landmark"]
 
-        pose_detections = run_detection(frame, pose_det_model, POSE_INPUT_SIZE, pose_anchors, 4)
+        pose_detections = run_detection(
+            frame,
+            pose_det_model,
+            POSE_INPUT_SIZE,
+            pose_anchors,
+            4,
+            score_threshold=det_score_threshold,
+        )
         prev_pose = prev_state.get("pose_dets", []) if prev_state else []
         pose_detections = _smooth_detections(
             pose_detections, prev_pose, match_threshold=DET_MATCH_THRESHOLD_POSE
@@ -919,7 +1106,14 @@ def process_frame(
         diag.body_det_score = best_body_score
 
     # --- Hand pose estimation ----------------------------------------------
-    palm_detections = run_detection(frame, palm_det_model, PALM_INPUT_SIZE, palm_anchors, 7)
+    palm_detections = run_detection(
+        frame,
+        palm_det_model,
+        PALM_INPUT_SIZE,
+        palm_anchors,
+        7,
+        score_threshold=det_score_threshold,
+    )
     prev_palm = prev_state.get("palm_dets", []) if prev_state else []
     palm_detections = _smooth_detections(
         palm_detections, prev_palm, match_threshold=DET_MATCH_THRESHOLD_PALM
@@ -956,6 +1150,7 @@ def process_frame(
 
     hand_landmarks = []
     hand_flags = []
+    hand_handedness = []
     kept_palm_dets = []
     # Per-detection diagnostic records
     hand_diag = []
@@ -968,19 +1163,31 @@ def process_frame(
             kind = "synthetic"
         else:
             kind = "real"
-        lm, confidence = detect_hand_landmarks(frame, det, hand_lm_model)
-        accepted = lm is not None and confidence > lm_score_threshold
+        lm, confidence, handedness = detect_hand_landmarks(
+            frame, det, hand_lm_model, input_mirrored=input_mirrored
+        )
+        accepted = (
+            lm is not None
+            and np.isfinite(lm).all()
+            and np.isfinite(confidence)
+            and confidence > lm_score_threshold
+        )
         hand_diag.append(
             {
                 "kind": kind,
                 "det_score": float(det["score"]),
                 "hand_flag": round(float(confidence), 4),
+                "handedness": handedness[0] if handedness is not None else None,
+                "handedness_score": round(float(handedness[1]), 4)
+                if handedness is not None
+                else 0.0,
                 "accepted": accepted,
             }
         )
         if accepted:
             hand_landmarks.append(lm)
             hand_flags.append(float(confidence))
+            hand_handedness.append(handedness)
             if kind == "real":
                 kept_palm_dets.append(det)
 
@@ -990,6 +1197,8 @@ def process_frame(
     diag.raw_body_landmarks = body_landmarks
     diag.raw_body_visibilities = body_visibilities
     diag.raw_hand_landmarks = hand_landmarks
+    diag.raw_hand_handedness = hand_handedness
+    diag.raw_hand_confidences = hand_flags
 
     state = {"pose_dets": kept_pose_dets, "palm_dets": kept_palm_dets, "hand_diag": hand_diag}
     return body_landmarks, body_visibilities, hand_landmarks, hand_flags, state, diag

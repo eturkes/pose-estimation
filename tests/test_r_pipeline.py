@@ -1,7 +1,7 @@
-"""R pipeline compatibility: verify rtmlib-mapped CSVs are consumable by clinical_features.R.
+"""R pipeline compatibility for synthetic exported landmark CSVs.
 
 Generates synthetic landmark CSVs using the Python mapping + export path
-(no model inference needed), then runs the R clinical pipeline on them.
+(no model inference needed), then runs the R analysis scripts on them.
 Tests are skipped when R or required R packages are unavailable.
 """
 
@@ -27,6 +27,9 @@ from pose_estimation.processing import TRACKING_BODY, TRACKING_HANDS_ARMS
 
 _PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 _CLINICAL_R = _PROJECT_ROOT / "analysis" / "clinical_features.R"
+_DATA_EXTRACTION_R = _PROJECT_ROOT / "analysis" / "data_extraction.R"
+_ARTHROSE_R = _PROJECT_ROOT / "analysis" / "arthrose_diag.R"
+_FEATURES_R = _PROJECT_ROOT / "analysis" / "features.R"
 
 _FPS = 30.0
 _N_FRAMES = 90  # 3 seconds — enough for multiple SAL windows
@@ -53,8 +56,56 @@ def _r_available():
         return False
 
 
+def _arthrose_r_available():
+    """Check the additional plotting and rolling-window dependencies."""
+    if not _r_available():
+        return False
+    try:
+        result = subprocess.run(
+            [
+                "Rscript",
+                "-e",
+                'for (p in c("zoo","ggplot2")) '
+                "if (!requireNamespace(p, quietly=TRUE)) quit(status=1)",
+            ],
+            capture_output=True,
+            timeout=30,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+
+def _features_r_available():
+    """Check the plotting and dimensionality-reduction dependencies."""
+    if not _r_available():
+        return False
+    try:
+        result = subprocess.run(
+            [
+                "Rscript",
+                "-e",
+                'for (p in c("ggplot2","scales","tibble","uwot")) '
+                "if (!requireNamespace(p, quietly=TRUE)) quit(status=1)",
+            ],
+            capture_output=True,
+            timeout=30,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+
 _HAS_R = _r_available()
+_HAS_ARTHROSE_R = _arthrose_r_available()
+_HAS_FEATURES_R = _features_r_available()
 requires_r = pytest.mark.skipif(not _HAS_R, reason="R or required R packages unavailable")
+requires_arthrose_r = pytest.mark.skipif(
+    not _HAS_ARTHROSE_R, reason="R or arthrose plotting packages unavailable"
+)
+requires_features_r = pytest.mark.skipif(
+    not _HAS_FEATURES_R, reason="R or feature-analysis packages unavailable"
+)
 
 
 def _smooth_trajectory(n_frames, seed=42):
@@ -111,6 +162,26 @@ def _generate_csv(output_path, tracking, n_kps=133, n_frames=_N_FRAMES):
                 writer.writerow(row)
     finally:
         fh.close()
+
+
+def _zero_hand_confidence(csv_path, sides=("left", "right")):
+    """Set current-schema hand observations to explicitly missing."""
+    with csv_path.open() as fh:
+        reader = csv.DictReader(fh)
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    confidence_cols = [
+        name
+        for name in fieldnames
+        if name.endswith("_conf") and any(name.startswith(f"{side}_hand_") for side in sides)
+    ]
+    for row in rows:
+        for name in confidence_cols:
+            row[name] = "0"
+    with csv_path.open("w", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def _write_reach_grasp_csv(output_path, tracking, n_frames=120, fps=30.0):
@@ -212,12 +283,15 @@ def _write_reach_grasp_csv(output_path, tracking, n_frames=120, fps=30.0):
             row["left_hand_20_x"] = f"{lwr_x + spread * 1.2:.6f}"
             row["left_hand_20_y"] = f"{lwr_y + spread * 1.2:.6f}"
             row["left_hand_20_z"] = "0.0"
+            for idx in (0, 4, 8, 20):
+                row[f"left_hand_{idx}_conf"] = "1.0"
 
             # Right hand: static open.
             for idx, dx in [(0, 0.0), (4, -0.02), (8, 0.02), (20, 0.03)]:
                 row[f"right_hand_{idx}_x"] = f"{0.75 + dx:.6f}"
                 row[f"right_hand_{idx}_y"] = "0.42"
                 row[f"right_hand_{idx}_z"] = "0.0"
+                row[f"right_hand_{idx}_conf"] = "1.0"
 
             # Body-mode hip keypoints.
             if tracking == TRACKING_BODY:
@@ -226,7 +300,7 @@ def _write_reach_grasp_csv(output_path, tracking, n_frames=120, fps=30.0):
                     row[f"{prefix}_{side}_hip_x"] = f"{hx:.6f}"
                     row[f"{prefix}_{side}_hip_y"] = "0.60"
                     row[f"{prefix}_{side}_hip_z"] = "0.0"
-                    row[f"{prefix}_{side}_hip_visibility"] = "1.0"
+                    row[f"{prefix}_{side}_hip_vis"] = "1.0"
 
             writer.writerow(row)
 
@@ -340,6 +414,90 @@ class TestCSVSchema17kp:
 # ---------------------------------------------------------------------------
 
 
+@requires_features_r
+def test_features_gate_observation_evidence_and_preserve_legacy_hands(tmp_path):
+    current = tmp_path / "current_gate.csv"
+    legacy = tmp_path / "legacy_hands.csv"
+    _generate_csv(current, TRACKING_HANDS_ARMS, n_frames=20)
+
+    with current.open() as fh:
+        reader = csv.DictReader(fh)
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    for row_index, evidence in zip((2, 7, 12), ("0", "", "Inf"), strict=True):
+        rows[row_index]["left_hand_4_x"] = str((row_index + 1) * 1_000_000)
+        rows[row_index]["left_hand_4_conf"] = evidence
+        rows[row_index]["arm_left_elbow_x"] = str(-(row_index + 1) * 1_000_000)
+        rows[row_index]["arm_left_elbow_vis"] = evidence
+    with current.open("w", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    legacy_header = [name for name in fieldnames if not name.endswith("_conf")]
+    with legacy.open("w", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=legacy_header, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+    result = subprocess.run(
+        ["Rscript", str(_FEATURES_R), str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+
+    assert result.returncode == 0, f"R script failed:\n{result.stderr}"
+
+    def variances(path):
+        with path.open() as fh:
+            return {row["column"]: float(row["variance"]) for row in csv.DictReader(fh)}
+
+    current_variance = variances(tmp_path / "current_gate_feature_rank.csv")
+    legacy_variance = variances(tmp_path / "legacy_hands_feature_rank.csv")
+    assert current_variance["left_hand_4_x"] < 1.0
+    assert current_variance["arm_left_elbow_x"] < 1.0
+    assert legacy_variance["left_hand_4_x"] > 1_000_000.0
+
+
+@requires_r
+def test_data_extraction_masks_zero_confidence(tmp_path):
+    csv_path = tmp_path / "missing_hands.csv"
+    _generate_csv(csv_path, TRACKING_HANDS_ARMS, n_frames=8)
+    _zero_hand_confidence(csv_path)
+
+    result = subprocess.run(
+        ["Rscript", str(_DATA_EXTRACTION_R), str(csv_path), str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode == 0, f"R script failed:\n{result.stderr}"
+    with (tmp_path / "missing_hands_angle_data.csv").open() as fh:
+        rows = list(csv.DictReader(fh))
+    finger_cols = [name for name in rows[0] if name != "time"]
+    assert all(row[name] == "NA" for row in rows for name in finger_cols)
+
+
+@requires_arthrose_r
+def test_arthrose_reports_insufficient_zero_confidence_observations(tmp_path):
+    csv_path = tmp_path / "missing_left_hand.csv"
+    _generate_csv(csv_path, TRACKING_HANDS_ARMS, n_frames=8)
+    _zero_hand_confidence(csv_path, sides=("left",))
+
+    result = subprocess.run(
+        ["Rscript", str(_ARTHROSE_R), str(csv_path), str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode == 0, f"R script failed:\n{result.stderr}"
+    assert "Diagnosis             : insufficient valid observations" in result.stdout
+    assert (tmp_path / "missing_left_hand_closed_hand.png").exists()
+
+
 @requires_r
 class TestClinicalFeaturesR:
     """Run clinical_features.R on synthetic CSVs and verify output."""
@@ -420,6 +578,35 @@ class TestClinicalFeaturesR:
             val = row[feat]
             assert val != "", f"Bilateral feature {feat} is empty on frame 0"
             assert val != "NA", f"Bilateral feature {feat} is NA on frame 0"
+
+    def test_zero_confidence_2d_points_are_not_clinical_evidence(self, tmp_path):
+        csv_path = tmp_path / "confidence_gate.csv"
+        _generate_csv(csv_path, TRACKING_HANDS_ARMS, n_frames=12)
+        with csv_path.open() as fh:
+            reader = csv.DictReader(fh)
+            fieldnames = list(reader.fieldnames or [])
+            rows = list(reader)
+        rows[0]["arm_left_elbow_vis"] = "0"
+        rows[0]["left_hand_4_conf"] = "0"
+        with csv_path.open("w", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
+        result = subprocess.run(
+            ["Rscript", str(_CLINICAL_R), str(csv_path)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        assert result.returncode == 0, f"R script failed:\n{result.stderr}"
+        with (tmp_path / "confidence_gate_clinical.csv").open() as fh:
+            clinical = list(csv.DictReader(fh))
+        assert clinical[0]["left_elbow_angle_deg"] == "NA"
+        assert clinical[0]["left_grasp_aperture_thumb_index"] == "NA"
+        assert clinical[1]["left_elbow_angle_deg"] != "NA"
+        assert clinical[1]["left_grasp_aperture_thumb_index"] != "NA"
 
     def test_body_mode_clinical_output(self, tmp_path):
         csv_path = tmp_path / "synth_body.csv"
@@ -786,14 +973,23 @@ def _write_world3d_fixture(output_path, n_frames=_N_FRAMES, fps=_FPS):
             "reprojection_error_px": np.concatenate(
                 [np.full(n_body, 1.0), np.full(n_total - n_body, np.nan)]
             ),
-            "cheirality_ok": np.concatenate(
-                [np.ones(n_body, dtype=bool), np.zeros(n_total - n_body, dtype=bool)]
+            "cheirality_ok": np.concatenate([np.ones(n_body), np.zeros(n_total - n_body)]),
+            "triangulation_angle_deg": np.concatenate(
+                [np.full(n_body, 10.0), np.full(n_total - n_body, np.nan)]
             ),
         }
         if f == 10:
             diag["reprojection_error_px"][kp_idx["body_right_elbow"]] = 50.0
         if f == 12:
             diag["cheirality_ok"][kp_idx["body_left_shoulder"]] = False
+        if f == 14:
+            diag["triangulation_angle_deg"][kp_idx["body_right_wrist"]] = 0.5
+        if f == 16:
+            diag["reprojection_error_px"][kp_idx["body_right_elbow"]] = np.nan
+        if f == 18:
+            diag["cheirality_ok"][kp_idx["body_left_shoulder"]] = np.nan
+        if f == 20:
+            diag["triangulation_angle_deg"][kp_idx["body_right_wrist"]] = np.nan
         frames.append((f, f / fps, world, diag))
 
     write_world3d_csv(output_path, "sess3d", names, frames)
@@ -849,12 +1045,17 @@ class TestWorld3DClinical:
         # Hands were never fused → grasp metrics NA.
         assert r0["left_grasp_aperture_thumb_index"] == "NA"
 
-        # Quality gates: reprojection (frame 10) and cheirality (frame 12).
+        # Quality gates: reprojection (frame 10), cheirality (frame 12), and
+        # degenerate viewing-ray geometry (frame 14).
         assert rows[10]["right_elbow_angle_deg"] == "NA"
         assert rows[11]["right_elbow_angle_deg"] != "NA"
         assert rows[12]["left_elbow_angle_deg"] == "NA"
         assert rows[12]["left_reach_raw"] == "NA"
         assert rows[12]["trunk_lean_deg"] == "NA"
+        assert rows[14]["right_elbow_angle_deg"] == "NA"
+        assert rows[16]["right_elbow_angle_deg"] == "NA"
+        assert rows[18]["left_elbow_angle_deg"] == "NA"
+        assert rows[20]["right_elbow_angle_deg"] == "NA"
 
         # Windowed velocity is metric: left wrist arcs at 0.3 m/s.
         win_rows = self._read_rows(windows)
@@ -869,6 +1070,63 @@ class TestWorld3DClinical:
         phase_rows = self._read_rows(phases)
         assert phase_rows
         assert {p["phase"] for p in phase_rows} == {"REACH"}
+
+    def test_legacy_world3d_without_angle_columns_remains_supported(self, tmp_path):
+        source = tmp_path / "world3d.csv"
+        legacy = tmp_path / "legacy_world3d.csv"
+        _write_world3d_fixture(source, n_frames=12)
+        with source.open() as src:
+            reader = csv.DictReader(src)
+            legacy_header = [
+                column
+                for column in (reader.fieldnames or [])
+                if not column.endswith("_triangulation_angle_deg")
+            ]
+            rows = list(reader)
+        with legacy.open("w", newline="") as dst:
+            writer = csv.DictWriter(dst, fieldnames=legacy_header, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(rows)
+
+        result = subprocess.run(
+            ["Rscript", str(_CLINICAL_R), str(legacy)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        assert result.returncode == 0, f"R script failed:\n{result.stderr}"
+        clinical = tmp_path / "legacy_world3d_clinical_3d.csv"
+        row = self._read_rows(clinical)[0]
+        assert float(row["right_elbow_angle_deg"]) == pytest.approx(90.0, abs=0.05)
+
+    def test_world3d_infinite_diagnostics_fail_closed(self, tmp_path):
+        csv_path = tmp_path / "nonfinite_world3d.csv"
+        _write_world3d_fixture(csv_path, n_frames=12)
+        with csv_path.open() as src:
+            reader = csv.DictReader(src)
+            fieldnames = list(reader.fieldnames or [])
+            rows = list(reader)
+        rows[0]["body_right_elbow_reproj_err_px"] = "-Inf"
+        rows[1]["body_left_shoulder_cheirality_ok"] = "Inf"
+        rows[2]["body_right_wrist_triangulation_angle_deg"] = "Inf"
+        with csv_path.open("w", newline="") as dst:
+            writer = csv.DictWriter(dst, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
+        result = subprocess.run(
+            ["Rscript", str(_CLINICAL_R), str(csv_path)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        assert result.returncode == 0, f"R script failed:\n{result.stderr}"
+        clinical = self._read_rows(tmp_path / "nonfinite_world3d_clinical_3d.csv")
+        assert clinical[0]["right_elbow_angle_deg"] == "NA"
+        assert clinical[1]["left_reach_raw"] == "NA"
+        assert clinical[2]["right_elbow_angle_deg"] == "NA"
 
     def test_world3d_outputs_not_rescanned(self, tmp_path):
         """Directory mode must skip _3d outputs from a previous run."""

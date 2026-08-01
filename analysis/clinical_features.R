@@ -9,7 +9,8 @@
 # Accepts both 2D landmark CSVs (normalised coords + MediaPipe
 # pseudo-depth) and triangulated world3d.csv files (metres; columns
 # end in _x_m/_y_m/_z_m).  3D inputs are quality-gated (reprojection
-# error, cheirality), yield metric distances/velocities (m, m/s), and
+# error, cheirality, triangulation angle), yield metric
+# distances/velocities (m, m/s), and
 # get true trunk plane decomposition (world frame: +y down, +z away
 # from the world camera; vertical assumes a level world camera).
 #
@@ -47,6 +48,16 @@ SAL_FREQ_CUTOFF <- 10
 # during fusion, so this downstream gate is mandatory.
 REPROJ_GATE_PX <- 20
 
+# Mirrors fuse_session_frame's default viewing-ray geometry gate.  The column
+# is optional for compatibility with world3d.csv files written before the
+# triangulation-angle diagnostic was added.
+TRIANGULATION_ANGLE_GATE_DEG <- 1
+
+# Explicit confidence zero means prediction/missing evidence, not an observed
+# landmark. Positive scores remain available for analysis; separate validation
+# reports flag pervasively low-but-positive confidence for review.
+OBSERVATION_CONFIDENCE_GATE <- 0
+
 # ------------------------------------------------------------------
 # Column-name helpers (mode-aware)
 # ------------------------------------------------------------------
@@ -66,6 +77,31 @@ hand_col <- function(side, idx, coord) {
   paste0(side, "_hand_", idx, "_", coord)
 }
 
+#' Mask 2D coordinates that are not backed by a current observation.
+#'
+#' Body/arm visibility has always been explicit. Hand confidence is present in
+#' the current schema; legacy hand CSVs without `_conf` columns retain their
+#' coordinate-presence behavior. Missing/nonfinite confidence in a present
+#' schema fails closed.
+adapt_2d_confidence <- function(df) {
+  confidence_cols <- names(df)[
+    str_detect(names(df), "^(arm|body)_.+_vis$") |
+      str_detect(names(df), "^(left|right)_hand_[0-9]+_conf$")
+  ]
+  for (confidence_col in confidence_cols) {
+    prefix <- str_remove(confidence_col, "_(vis|conf)$")
+    confidence <- as.numeric(df[[confidence_col]])
+    bad <- !is.finite(confidence) | confidence <= OBSERVATION_CONFIDENCE_GATE
+    for (coord in c("x", "y", "z")) {
+      coord_col <- paste0(prefix, "_", coord)
+      if (coord_col %in% names(df)) {
+        df[[coord_col]][bad] <- NA_real_
+      }
+    }
+  }
+  df
+}
+
 # ------------------------------------------------------------------
 # 3D input adapter (world3d.csv)
 # ------------------------------------------------------------------
@@ -79,21 +115,40 @@ is_world3d <- function(cols) {
 #'
 #' Two steps, per keypoint:
 #' 1. Quality gate — coordinates are masked to NA where the fusion
-#'    diagnostics disqualify the point: cheirality violation, or mean
-#'    reprojection error above \code{REPROJ_GATE_PX}.
+#'    diagnostics disqualify the point: cheirality violation, mean
+#'    reprojection error above \code{REPROJ_GATE_PX}, or an available
+#'    triangulation angle below \code{TRIANGULATION_ANGLE_GATE_DEG}.
 #' 2. Rename — \code{{kp}_x_m/_y_m/_z_m} become \code{{kp}_x/_y/_z}
 #'    so every downstream feature function works unchanged (distances
 #'    arrive in metres, velocities in m/s).
 #'
-#' Diagnostic columns (_confidence, _reproj_err_px, _n_views,
-#' _cheirality_ok) are dropped after gating.
+#' Diagnostic columns (_confidence, _reproj_err_px, _candidate_n_views, _n_views,
+#' _cheirality_ok, _triangulation_angle_deg) are dropped after gating.
 adapt_world3d <- function(df) {
   kp_names <- str_remove(names(df)[str_ends(names(df), "_x_m")], "_x_m$")
   for (kp in kp_names) {
     reproj <- as.numeric(df[[paste0(kp, "_reproj_err_px")]])
     cheir  <- as.numeric(df[[paste0(kp, "_cheirality_ok")]])
-    bad <- (!is.na(reproj) & reproj > REPROJ_GATE_PX) |
-           (!is.na(cheir) & cheir == 0)
+    coordinate_cols <- paste0(kp, "_", c("x", "y", "z"), "_m")
+    finite_coordinates <- Reduce(
+      `&`,
+      lapply(coordinate_cols, function(col) is.finite(as.numeric(df[[col]])))
+    )
+    angle_col <- paste0(kp, "_triangulation_angle_deg")
+    has_angle <- angle_col %in% names(df)
+    angle <- if (has_angle) {
+      as.numeric(df[[angle_col]])
+    } else {
+      rep(NA_real_, nrow(df))
+    }
+    # Diagnostics in a present schema are required evidence, so blank/nonfinite
+    # values fail closed just like validation.py's trusted-point mask.  Angle
+    # gating remains optional only for legacy files lacking the column entirely.
+    bad <- !finite_coordinates | !is.finite(reproj) | !is.finite(cheir) |
+           reproj > REPROJ_GATE_PX | cheir != 1
+    if (has_angle) {
+      bad <- bad | !is.finite(angle) | angle < TRIANGULATION_ANGLE_GATE_DEG
+    }
     for (coord in c("x", "y", "z")) {
       col <- paste0(kp, "_", coord, "_m")
       df[[col]][bad] <- NA_real_
@@ -101,8 +156,10 @@ adapt_world3d <- function(df) {
   }
   diag_cols <- str_ends(names(df), "_confidence") |
                str_ends(names(df), "_reproj_err_px") |
+               str_ends(names(df), "_candidate_n_views") |
                str_ends(names(df), "_n_views") |
-               str_ends(names(df), "_cheirality_ok")
+               str_ends(names(df), "_cheirality_ok") |
+               str_ends(names(df), "_triangulation_angle_deg")
   df <- df[, !diag_cols]
   names(df) <- str_replace(names(df), "_([xyz])_m$", "_\\1")
   df
@@ -1080,6 +1137,8 @@ for (f in files) {
   if (is_3d) {
     cat("  3D input (world3d) — gating on fusion diagnostics; units: m, m/s\n")
     df <- adapt_world3d(df)
+  } else {
+    df <- adapt_2d_confidence(df)
   }
   tracking <- detect_tracking(names(df))
   cat(sprintf("  Tracking mode: %s\n", tracking))

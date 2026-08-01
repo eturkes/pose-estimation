@@ -39,6 +39,8 @@ class FrameDiagnostics:
     # Raw landmarks *before* smoothing (pixel coords)
     raw_body_landmarks: list = field(default_factory=list)
     raw_hand_landmarks: list = field(default_factory=list)
+    raw_hand_handedness: list = field(default_factory=list)
+    raw_hand_confidences: list = field(default_factory=list)
     raw_body_visibilities: list = field(default_factory=list)
 
 

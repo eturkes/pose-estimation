@@ -134,3 +134,22 @@ def test_smoother_passes_confidence():
     assert move_low < move_high, (
         f"Low-score person should move less: move_low={move_low:.2f}, move_high={move_high:.2f}"
     )
+
+
+def test_first_valid_keypoint_is_not_clamped_against_zero_confidence_placeholder():
+    """A partially observed person's placeholder cannot bias later evidence."""
+    smoother = KeypointSmoother(min_track_age=1, outlier_cap=20.0)
+    keypoints = np.zeros((1, 17, 2), dtype=np.float64)
+    keypoints[0, 0] = (1000.0, 1000.0)
+    keypoints[0, 1] = (10.0, 10.0)
+    scores = np.zeros((1, 17), dtype=np.float64)
+    scores[0, 1] = 1.0
+    smoother(keypoints, scores, 0.0)
+
+    keypoints[0, 0] = (0.0, 0.0)
+    keypoints[0, 1] = (11.0, 10.0)
+    scores[0, 0] = 1.0
+    smoothed, emitted_scores = smoother(keypoints, scores, 1 / 30)
+
+    np.testing.assert_allclose(smoothed[0, 0], keypoints[0, 0], atol=1e-12)
+    assert emitted_scores[0, 0] > 0.0

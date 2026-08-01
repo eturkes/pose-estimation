@@ -16,20 +16,20 @@ python -m pose_estimation.benchmark --source v.mp4 --config sweep_default.yaml
 
 | Param | Notes |
 |-------|-------|
-| `det_score_thresh` | Detection score threshold. |
+| `det_score_thresh` | Detection score threshold, forwarded into SSD decoding before weighted NMS. |
 | `hand_flag_thresh` | Hand-presence flag threshold. |
 | `body_min_cutoff` | One Euro min cutoff (body). |
 | `body_beta` | One Euro beta (body). |
 | `hand_min_cutoff` | One Euro min cutoff (hands). |
 | `hand_beta` | One Euro beta (hands). |
-| `confidence_gamma` | Confidence-weighting exponent. |
+| `confidence_gamma` | Confidence-weighting exponent for both One Euro derivative innovation and position updates. |
 | `det_smooth_alpha` | Detection EMA smoothing. |
-| `bone_ema_alpha` | Bone-length EMA smoothing. |
-| `bone_tolerance` | Bone-length deviation tolerance. |
+| `bone_ema_alpha` | Robust clipped bone-length EMA smoothing. |
+| `bone_tolerance` | Bone-length deviation tolerance and EMA clipping band. |
 | `bone_distal_weight` | Fraction of bone-length correction applied to distal keypoint (default 0.8). |
 | `carry_grace` | Frames to keep using a carried detection. |
 | `carry_damping` | Velocity decay for carry-forward extrapolation (default 0.8). |
-| `outlier_cap` | Max unexpected displacement (px) before clamping (default 30). 0 disables. |
+| `outlier_cap` | Max unexpected image-plane x/y displacement (px) before clamping (default 30). 0 disables. |
 | `det_carry_frames` | Detection-level carry-forward grace period (default 3). |
 | `body_rest_cutoff` | Adaptive: min_cutoff floor during rest for body (default 0.05). "none" disables. |
 | `hand_rest_cutoff` | Adaptive: min_cutoff floor during rest for hands (default 0.15). "none" disables. |
@@ -52,6 +52,12 @@ FAILs, the linked tunable is the first dial to turn:
 
 Calibration RMS and fusion reprojection bands are upstream of these sweeps (fixed
 by the calibration solve + camera geometry, not pipeline params).
+
+These values are provisional search seeds, not accuracy claims or clinically
+validated settings. The revised preprocessing, tracking, constraints, and
+fusion policies were exercised with unit/synthetic fixtures only; no sensitive
+recordings or real clinical footage were evaluated or used for tuning. A sweep
+result is meaningful only on a separately authorized, representative dataset.
 
 ### Sweep configs
 

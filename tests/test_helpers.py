@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 
+import cv2
 import numpy as np
 import pytest
 
@@ -28,6 +29,7 @@ from pose_estimation.processing import (
 from pose_estimation.video_io import (
     FALLBACK_FPS,
     MAX_REASONABLE_FPS,
+    SourceTimestampClock,
     frame_count,
     safe_fps,
 )
@@ -175,6 +177,58 @@ def test_safe_fps_replaces_outliers(capsys):
     assert result == FALLBACK_FPS
     captured = capsys.readouterr()
     assert "unusual FPS" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# Source timestamps
+# ---------------------------------------------------------------------------
+
+
+class _TimestampCapture:
+    def __init__(self, pos_msec):
+        self._pos_msec = iter(pos_msec)
+
+    def get(self, prop):
+        assert prop == cv2.CAP_PROP_POS_MSEC
+        return next(self._pos_msec)
+
+
+def test_file_timestamp_prefers_pts_with_monotonic_cfr_fallback():
+    cap = _TimestampCapture([0.0, 100.0, float("nan"), 150.0, 400.0])
+    clock = SourceTimestampClock(cap, 10.0, live=False)
+
+    timestamps = [clock.timestamp(i) for i in range(5)]
+
+    # Missing frame 2 and regressing frame 3 PTS use their CFR positions.
+    assert timestamps == pytest.approx([0.0, 0.1, 0.2, 0.3, 0.4])
+
+
+def test_file_timestamp_preserves_advancing_variable_frame_rate_pts():
+    cap = _TimestampCapture([0.0, 175.0, 410.0])
+    clock = SourceTimestampClock(cap, 10.0, live=False)
+
+    assert [clock.timestamp(i) for i in range(3)] == pytest.approx([0.0, 0.175, 0.410])
+
+
+def test_file_timestamp_repeated_zero_uses_cfr_fallback():
+    cap = _TimestampCapture([0.0, 0.0, 0.0])
+    clock = SourceTimestampClock(cap, 25.0, live=False)
+
+    assert [clock.timestamp(i) for i in range(3)] == pytest.approx([0.0, 0.04, 0.08])
+
+
+def test_live_timestamp_uses_elapsed_monotonic_time_and_stays_increasing():
+    ticks = iter([50.0, 50.25, 50.20, 50.40])
+    clock = SourceTimestampClock(
+        _TimestampCapture([]),
+        10.0,
+        live=True,
+        monotonic=lambda: next(ticks),
+    )
+
+    timestamps = [clock.timestamp(i) for i in range(4)]
+
+    assert timestamps == pytest.approx([0.0, 0.25, 0.35, 0.40])
 
 
 # ---------------------------------------------------------------------------

@@ -83,20 +83,35 @@ def test_damping_decelerates():
 
 def test_extrapolation_capped():
     """Large velocity is capped at match_thresh per keypoint."""
-    sm = KeypointSmoother(match_thresh=80, min_track_age=0)
-    base = _make_kps()
-    sc = np.ones(133)
+    sm = KeypointSmoother(match_thresh=80, carry_damping=1.0)
+    last = _make_kps()
+    velocity = np.full_like(last, 10_000.0)
 
-    sm(base[np.newaxis], sc[np.newaxis], 0.0)
-    # Huge jump to produce large velocity
-    big_shift = base + 5000.0
-    sm(big_shift[np.newaxis], sc[np.newaxis], 0.033)
-    last = sm.tracks[0]["last_kps"].copy()
-
-    out_kps, _ = sm(np.empty((0, 133, 2)), np.empty((0, 133)), 0.066)
-    step = out_kps[0] - last
+    predicted = sm._extrapolate(last, velocity, 0.0, 0.033, 1)
+    step = predicted - last
     max_norm = np.max(np.linalg.norm(step, axis=1))
     assert max_norm <= 80 + 1e-3, f"per-keypoint step {max_norm:.1f} exceeds match_thresh 80"
+
+
+def test_low_confidence_spike_does_not_drive_carry():
+    sm = KeypointSmoother(match_thresh=150, min_track_age=1)
+    base = np.zeros((133, 2))
+    high_scores = np.ones(133)
+    rejected_scores = np.zeros(133)
+
+    sm(base[np.newaxis], high_scores[np.newaxis], 0.0)
+    sm(base[np.newaxis], high_scores[np.newaxis], 0.01)
+    initial, _ = sm(base[np.newaxis], high_scores[np.newaxis], 0.02)
+    filtered, _ = sm(
+        (base + np.array([100.0, 0.0]))[np.newaxis],
+        rejected_scores[np.newaxis],
+        0.033,
+    )
+    carried, _ = sm(None, None, 0.066)
+
+    np.testing.assert_allclose(filtered, initial)
+    np.testing.assert_allclose(carried, initial)
+    np.testing.assert_allclose(sm.tracks[0]["last_velocity"], 0.0)
 
 
 def test_carry_damping_configurable():
@@ -139,6 +154,38 @@ def test_no_detection_carry_with_time():
     assert out_kps is not None
     dx = out_kps[0][0, 0] - last[0, 0]
     assert dx > 0, f"_carry path should extrapolate, got dx={dx}"
+
+
+def test_carried_track_has_zero_export_confidence():
+    """Predicted geometry must not count as observed multi-view evidence."""
+    sm = KeypointSmoother(min_track_age=1)
+    base = _make_kps()
+    scores = np.ones(133)
+    sm(base[np.newaxis], scores[np.newaxis], 0.0)
+    sm(base[np.newaxis], scores[np.newaxis], 0.01)
+
+    carried, carried_scores = sm(None, None, 0.033)
+
+    assert carried is not None
+    np.testing.assert_array_equal(carried_scores, np.zeros((1, 133)))
+
+
+def test_current_zero_score_caps_held_keypoint_export_confidence():
+    """A held coordinate must not inherit confidence from an earlier frame."""
+    sm = KeypointSmoother(min_track_age=1, match_thresh=1000)
+    base = _make_kps()
+    scores = np.ones(133)
+    sm(base[np.newaxis], scores[np.newaxis], 0.0)
+
+    moved = base.copy()
+    moved[10] += 500.0
+    current_scores = scores.copy()
+    current_scores[10] = 0.0
+    output, output_scores = sm(moved[np.newaxis], current_scores[np.newaxis], 0.033)
+
+    assert output is not None
+    assert output_scores[0, 10] == 0.0
+    np.testing.assert_allclose(output[0, 10], base[10])
 
 
 def test_carry_centroid_updates():

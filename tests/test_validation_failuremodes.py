@@ -8,18 +8,16 @@ injects one known degradation into the shared synthetic 3-camera session
 threshold, the verdict degrades to WARN/FAIL, and bad data is routed to
 NaN — never fabricated.
 
-Injection magnitudes are calibrated empirically against fusion's greedy
-outlier rejection, which drops a
-view reprojecting > ``REPROJ_GATE_PX`` while > ``min_views`` remain — so
-a single grossly-miscalibrated view can be *rejected* (masking reproj
-behind an ``n_views`` drop).  The chosen magnitudes sit on the
-detectable side of that cliff and are deterministic (fixed renders +
-solve, seeded noise).
+The tests account for robust minimal-set consensus: a miscalibrated or
+desynchronised camera can be rejected while accepted-view reprojection stays
+near zero, so candidate-to-consensus view rejection is asserted explicitly.
+Injections are deterministic (fixed renders + solve, seeded noise).
 """
 
 from __future__ import annotations
 
 import copy
+import csv
 import json
 import pathlib
 import shutil
@@ -30,7 +28,8 @@ import pytest
 from pose_estimation._types import SessionCalibration
 from pose_estimation.calibration import save_calibration
 from pose_estimation.validation import run_validation
-from synthetic_session import DEFAULT_VELOCITY, skeleton_processor
+from pose_estimation.video_io import frame_count
+from synthetic_session import DEFAULT_VELOCITY, N_SUBJECT_FRAMES, skeleton_processor
 
 # Right-arm distal region (wrist + finger bases) and the full distal block.
 _REGION = (5, 7, 9, 11)
@@ -88,17 +87,67 @@ def _validate(
     processor,
     session_json: dict | None = None,
     tag: str = "work",
+    complete_hands: bool = True,
 ):
     """Copy the clean session, optionally drop a manifest, run the harness."""
     session_dir, _solved = rendered_session
     work = tmp_path / tag
     shutil.copytree(session_dir, work)
-    if session_json is not None:
-        (work / "session.json").write_text(json.dumps(session_json))
+
+    extra_offsets = {
+        entry["name"]: int(entry.get("sync_offset", 0))
+        for entry in (session_json or {}).get("cameras", [])
+    }
+    cameras = []
+    base_offsets: dict[str, int] = {}
+    for video in sorted(work.glob("cam*.avi")):
+        base = max(0, frame_count(video) - N_SUBJECT_FRAMES)
+        base_offsets[video.stem] = base
+        cameras.append(
+            {
+                "name": video.stem,
+                "file": video.name,
+                "sync_offset": base + extra_offsets.get(video.stem, 0),
+            }
+        )
+    (work / "session.json").write_text(
+        json.dumps(
+            {
+                "format_version": 1,
+                "session_id": (session_json or {}).get("session_id", tag),
+                "cameras": cameras,
+            }
+        )
+    )
+
+    def aligned_processor(**kwargs):
+        processor(**kwargs)
+        csv_path = pathlib.Path(kwargs["output_csv"])
+        with csv_path.open(newline="") as fh:
+            reader = csv.DictReader(fh)
+            fieldnames = list(reader.fieldnames or [])
+            rows = list(reader)
+        with csv_path.open("w", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in rows:
+                row["frame_idx"] = str(int(row["frame_idx"]) + base_offsets[csv_path.stem])
+                if complete_hands:
+                    for side in ("left", "right"):
+                        for index in range(21):
+                            for axis in ("x", "y", "z"):
+                                column = f"{side}_hand_{index}_{axis}"
+                                if column in row and not row[column]:
+                                    row[column] = row[f"arm_{side}_shoulder_{axis}"]
+                            confidence_column = f"{side}_hand_{index}_conf"
+                            if confidence_column in row:
+                                row[confidence_column] = "1.0"
+                writer.writerow(row)
+
     return run_validation(
         work,
         calibration=calibration,
-        camera_processor=processor,
+        camera_processor=aligned_processor,
         output_dir=tmp_path / f"out_{tag}",
         run_clinical=False,
     )
@@ -142,20 +191,25 @@ def test_camera_dropout_collapses_redundancy(rendered_session, tmp_path: pathlib
     )
 
     by_name = {c.name: c for c in report.tracking_2d.cameras}
-    assert by_name["cam3"].n_frames == 2  # dropped frames 2-7
-    assert by_name["cam1"].n_frames == 8
-    assert by_name["cam2"].n_frames == 8
+    assert by_name["cam3"].observed_frames == 2  # dropped frames 2-7
+    assert by_name["cam3"].expected_frames == 8
+    assert by_name["cam3"].dropped_frames == 6
+    assert by_name["cam3"].detection_rate == pytest.approx(0.25)
+    assert by_name["cam1"].observed_frames == 8
+    assert by_name["cam2"].observed_frames == 8
 
     fus = report.fusion_3d
     assert fus.n_views_median == pytest.approx(2.0)  # the third view is gone
     assert fus.n_views_min == 2
     # The surviving pair still fuses every keypoint (no false unfused).
-    assert fus.n_active_keypoints == 12
+    assert fus.n_active_keypoints == 54
     assert fus.unfused_keypoint_fraction == pytest.approx(0.0)
+    assert fus.view_rejection_fraction == pytest.approx(0.0)
 
     v = report.verdict()
-    assert v.grade == "WARN"  # redundancy loss is a caution, not a hard fail
+    assert v.grade == "FAIL"  # severe source-frame detection loss is a hard failure
     assert _grades(report)["fusion.n_views_median"] == "WARN"
+    assert _grades(report)["tracking.worst_detection_rate"] == "FAIL"
 
 
 # ---------------------------------------------------------------------------
@@ -164,14 +218,12 @@ def test_camera_dropout_collapses_redundancy(rendered_session, tmp_path: pathlib
 
 
 def test_miscalibration_inflates_fusion_reprojection(rendered_session, tmp_path: pathlib.Path):
-    """A 5 deg yaw error on cam2 surfaces as inflated fusion reprojection.
+    """A 5 deg yaw error is rejected and surfaces as lost redundancy.
 
     The skeleton is projected through the *true* solve but fused through
-    the perturbed calibration, so the rays no longer intersect.  At 5 deg
-    the bad view's per-keypoint error stays under the rejection gate, so
-    it is *kept* (n_views = 3) and the inconsistency is surfaced as a high
-    ``reproj_err_px_median`` rather than masked by view rejection
-    (~6 deg+ tips into rejection -> n_views collapse instead).
+    the perturbed calibration, so that camera's rays no longer intersect the
+    clean pair.  Minimal-set consensus rejects the inconsistent view: trusted
+    reprojection remains low, while ``n_views`` honestly loses its spare view.
     """
     _session_dir, solved = rendered_session
     bad = _save(_perturb_yaw(solved, "cam2", 5.0), tmp_path / "miscal.json")
@@ -184,11 +236,15 @@ def test_miscalibration_inflates_fusion_reprojection(rendered_session, tmp_path:
     )
 
     fus = report.fusion_3d
-    assert fus.reproj_err_px_median > 12.0  # empirically ~12.8 px
-    assert fus.n_views_median == pytest.approx(3.0)  # bad view kept, error surfaced
+    assert fus.reproj_err_px_median < 1.0
+    assert fus.n_views_median == pytest.approx(2.0)
+    assert fus.trusted_keypoint_fraction == pytest.approx(1.0)
+    assert fus.view_rejection_fraction == pytest.approx(1 / 3)
 
     grades = _grades(report)
-    assert grades["fusion.reproj_err_px_median"] == "FAIL"
+    assert grades["fusion.reproj_err_px_median"] == "PASS"
+    assert grades["fusion.n_views_median"] == "WARN"
+    assert grades["fusion.view_rejection_fraction"] == "FAIL"
     assert report.verdict().grade == "FAIL"
     # The solve itself was clean — the fault is geometric inconsistency at
     # fusion, not a bad calibration RMS.
@@ -201,11 +257,12 @@ def test_miscalibration_inflates_fusion_reprojection(rendered_session, tmp_path:
 
 
 def test_desync_degrades_reprojection(rendered_session, tmp_path: pathlib.Path):
-    """A 2-frame sync error on a fast-moving subject degrades reprojection.
+    """A 2-frame sync error on a fast subject collapses view redundancy.
 
     A control run (correct offsets, same fast motion) reconstructs near
     perfectly; declaring a wrong ``sync_offset`` on cam2 makes it
-    contribute the wrong frame's pose, and the harness flags the rise.
+    contribute the wrong frame's pose.  Consensus rejects that view, keeping
+    trusted reprojection low while surfacing the fault through ``n_views``.
     """
     _session_dir, solved = rendered_session
     calib = _save(solved, tmp_path / "calib.json")
@@ -226,10 +283,13 @@ def test_desync_degrades_reprojection(rendered_session, tmp_path: pathlib.Path):
         tag="sync_bad",
     )
     fus = desynced.fusion_3d
-    assert fus.reproj_err_px_median > control.fusion_3d.reproj_err_px_median + 5.0
-    assert fus.reproj_err_px_median >= 8.0  # empirically ~10.6 px
-    assert _grades(desynced)["fusion.reproj_err_px_median"] in {"WARN", "FAIL"}
-    assert desynced.verdict().grade != "PASS"
+    assert fus.reproj_err_px_median < 1.0
+    assert control.fusion_3d.n_views_median == pytest.approx(3.0)
+    assert fus.n_views_median == pytest.approx(2.0)
+    assert _grades(desynced)["fusion.n_views_median"] == "WARN"
+    assert fus.view_rejection_fraction > 0.20
+    assert _grades(desynced)["fusion.view_rejection_fraction"] == "FAIL"
+    assert desynced.verdict().grade == "FAIL"
 
 
 # ---------------------------------------------------------------------------
@@ -253,6 +313,7 @@ def test_pervasive_low_confidence_is_flagged(rendered_session, tmp_path: pathlib
         calibration=calib,
         processor=skeleton_processor(solved, confidence=0.1),
         tag="lowconf",
+        complete_hands=False,
     )
 
     worst = max(c.low_confidence_fraction for c in report.tracking_2d.cameras)
@@ -283,6 +344,7 @@ def test_subthreshold_confidence_gates_to_nan(rendered_session, tmp_path: pathli
             per_camera={"cam2": {"zero_conf": _REGION}, "cam3": {"zero_conf": _REGION}},
         ),
         tag="zeroconf",
+        complete_hands=False,
     )
 
     fus = report.fusion_3d
@@ -316,8 +378,9 @@ def test_single_camera_occlusion_uses_remaining_views(rendered_session, tmp_path
     )
 
     fus = report.fusion_3d
-    assert fus.n_active_keypoints == 12  # region recovered from cam1 + cam2
+    assert fus.n_active_keypoints == 54  # region + synthetic hands recovered
     assert fus.unfused_keypoint_fraction == pytest.approx(0.0)
+    assert fus.view_rejection_fraction == pytest.approx(0.0)
     assert report.agreement.mean_bone_length_cv < 0.05  # recovered cleanly
     assert report.verdict().grade in {"PASS", "WARN"}
 
@@ -345,6 +408,7 @@ def test_two_camera_occlusion_reports_unfused_not_garbage(rendered_session, tmp_
             },
         ),
         tag="occ2",
+        complete_hands=False,
     )
 
     fus = report.fusion_3d
@@ -391,7 +455,7 @@ def test_degenerate_geometry_flags_instability(rendered_session, tmp_path: pathl
     )
 
     fus, agr = report.fusion_3d, report.agreement
-    assert fus.n_active_keypoints == 12  # fused, just unstable (no crash)
+    assert fus.n_active_keypoints == 54  # fused, just unstable (no crash)
 
     grades = _grades(report)
     # Instability surrogates catch it...

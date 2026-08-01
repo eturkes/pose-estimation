@@ -37,6 +37,9 @@ MAX_ROWS <- 50000
 # Near-zero-variance threshold: fraction of overall max variance
 NZV_FRAC <- 0.01
 
+# Explicit zero means prediction/missing evidence rather than an observation.
+OBSERVATION_CONFIDENCE_GATE <- 0
+
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
@@ -49,6 +52,35 @@ detect_tracking <- function(cols) {
 
 coord_columns <- function(cols) {
   cols[str_detect(cols, "_(x|y|z)$")]
+}
+
+mask_unobserved_coordinates <- function(df) {
+  evidence_cols <- names(df)[
+    str_detect(names(df), "^(arm|body)_.+_vis$") |
+      str_detect(names(df), "^(left|right)_hand_[0-9]+_conf$")
+  ]
+  for (evidence_col in evidence_cols) {
+    prefix <- str_remove(evidence_col, "_(vis|conf)$")
+    evidence <- suppressWarnings(as.numeric(df[[evidence_col]]))
+    unobserved <- !is.finite(evidence) |
+      evidence <= OBSERVATION_CONFIDENCE_GATE
+    for (coord in c("x", "y", "z")) {
+      coord_col <- paste0(prefix, "_", coord)
+      if (coord_col %in% names(df)) {
+        values <- suppressWarnings(as.numeric(df[[coord_col]]))
+        values[unobserved] <- NA_real_
+        df[[coord_col]] <- values
+      }
+    }
+  }
+  # Non-finite geometry is never a usable feature, including in legacy files
+  # that predate explicit hand confidence.
+  for (coord_col in coord_columns(names(df))) {
+    values <- suppressWarnings(as.numeric(df[[coord_col]]))
+    values[!is.finite(values)] <- NA_real_
+    df[[coord_col]] <- values
+  }
+  df
 }
 
 parse_feature_name <- function(col_name) {
@@ -392,6 +424,7 @@ for (f in files) {
   cat(strrep("=", 60), "\n")
 
   df <- read_csv(f, show_col_types = FALSE)
+  df <- mask_unobserved_coordinates(df)
   tracking <- detect_tracking(names(df))
   cat(sprintf("  Tracking mode: %s\n", tracking))
 

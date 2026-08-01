@@ -19,12 +19,12 @@ R deps are managed by `renv` (lockfile: `renv.lock`). Install with `renv::restor
 
 ## Finger mobility / osteoarthritis screen (standalone)
 
-Separate from the `clinical_features.R` ecosystem: each reads one capture's raw landmark CSV directly (`timestamp_sec` + `{left,right}_hand_{0..20}_{x,y,z}`). Finger flexion per frame = sum of the two inter-segment joint angles over a finger's four MediaPipe landmarks (`id..id+3`; MCP start thumb=1, index=5, middle=9, ring=13, pinky=17).
+Separate from the `clinical_features.R` ecosystem: each reads one capture's raw landmark CSV directly (`timestamp_sec` + `{left,right}_hand_{0..20}_{x,y,z,conf}`; legacy files may lack `conf`). Current-schema coordinates with blank/nonfinite/zero confidence are masked before analysis, so carried predictions do not become clinical evidence; legacy files retain finite-coordinate presence semantics. Degenerate joints and non-increasing timestamps yield `NA` rather than infinite or fabricated mobility. Finger flexion per frame = sum of the two inter-segment joint angles over a finger's four MediaPipe landmarks (`id..id+3`; MCP start thumb=1, index=5, middle=9, ring=13, pinky=17).
 
 | Script | Inputs | Outputs |
 |--------|--------|---------|
 | `data_extraction.R` | one landmark CSV `[out_dir]` | `<stem>_angle_data.csv` (per-frame flexion, 5 fingers × both hands), `<stem>_mobility_analysis.csv` (frame-to-frame Δ + angular speed). |
-| `arthrose_diag.R` | one landmark CSV `[out_dir]` | stdout: index range-of-motion, mean angular speed, mobility diagnosis (thresholds amplitude ≥ 40°, speed ≥ 60°/s); `<stem>_closed_hand.png` (thumb–index distance over time). Needs `zoo`. |
+| `arthrose_diag.R` | one landmark CSV `[out_dir]` | stdout: index range-of-motion, mean angular speed, mobility diagnosis (thresholds amplitude ≥ 40°, speed ≥ 60°/s), or an explicit insufficient-observations result; `<stem>_closed_hand.png` (thumb–index distance over time). Needs `zoo`. |
 
 Live-camera captures now feed these: `pose-estimation-run <idx> --output-dir output/` exports `output/camera<idx>.csv` (file sources still use the file stem).
 
@@ -32,14 +32,25 @@ Live-camera captures now feed these: `pose-estimation-run <idx> --output-dir out
 
 | Script | Inputs | Outputs |
 |--------|--------|---------|
-| `features.R` | landmark CSVs | Variance ranking, correlation heatmap, scree plot, biplot, UMAP, feature ranking CSV. Requires `uwot`, `tidyverse`. |
-| `clinical_features.R` | landmark CSVs (hands-arms or body) **or `world3d.csv`** (auto-detected) | `*_clinical.csv` (per-frame): elbow flexion, wrist deviation, finger spread, reach distance (raw + shoulder-normalised), grasp aperture (thumb–index, thumb–pinky), wrist/fingertip displacement, **bilateral comparison** (symmetry ratio, dominance index, absolute difference for each metric pair), **trunk/torso metrics** (body mode only: trunk lean, lateral lean, sagittal lean [3D only], trunk rotation, posture symmetry). `*_clinical_windows.csv` (1 s windows, 50 % overlap): spectral arc length (SAL, configurable fc), mean + peak wrist velocity, **normalized jerk** (wrist + fingertip), **movement efficiency** (wrist), **compensatory pattern index** (body mode only), **trunk windowed summaries** (body mode only: mean/sd/range), **bilateral comparison** for each window metric. 3D inputs get `_3d` output suffixes (see below). Hands-only CSVs skipped (no arm keypoints). Helpers: `angle_at_vertex`, `dist_3d`, `spectral_arc_length`, `normalized_jerk`, `movement_efficiency`, `trunk_lean_angle`, `trunk_lean_lateral`, `trunk_rotation`, `posture_symmetry`, `compute_bilateral`, `is_world3d`, `adapt_world3d`, `trunk_lean_angle_3d`, `trunk_lean_sagittal_3d`, `trunk_rotation_3d`, `posture_symmetry_3d`. |
+| `features.R` | landmark CSVs | Confidence-gated variance ranking, correlation heatmap, scree plot, biplot, UMAP, feature ranking CSV. Requires `uwot`, `tidyverse`. |
+| `clinical_features.R` | landmark CSVs (hands-arms or body) **or `world3d.csv`** (auto-detected) | `*_clinical.csv` (per-frame): elbow flexion, wrist deviation, finger spread, reach distance (raw + shoulder-normalised), grasp aperture (thumb–index, thumb–pinky), wrist/fingertip displacement, **bilateral comparison** (symmetry ratio, dominance index, absolute difference for each metric pair), **trunk/torso metrics** (body mode only: trunk lean, lateral lean, sagittal lean [3D only], trunk rotation, posture symmetry). `*_clinical_windows.csv` (1 s windows, 50 % overlap): spectral arc length (SAL, configurable fc), mean + peak wrist velocity, **normalized jerk** (wrist + fingertip), **movement efficiency** (wrist), **compensatory pattern index** (body mode only), **trunk windowed summaries** (body mode only: mean/sd/range), **bilateral comparison** for each window metric. 3D inputs get `_3d` output suffixes (see below). Hands-only CSVs skipped (no arm keypoints). Helpers include `adapt_2d_confidence`, `adapt_world3d`, `angle_at_vertex`, `dist_3d`, `spectral_arc_length`, `normalized_jerk`, `movement_efficiency`, and the trunk/bilateral helpers. |
+
+## 2D observation gating
+
+Raw 2D consumers gate coordinates before deriving features.
+`clinical_features.R::adapt_2d_confidence()` and
+`features.R::mask_unobserved_coordinates()` mask body/arm coordinates whose
+explicit `_vis` is blank, nonfinite, or zero. Current hand schemas receive the
+same treatment from `_conf`, so carried/held coordinates cannot become clinical
+evidence or drive variance, PCA, and UMAP. Positive scores are retained; the
+validation report separately flags low-but-positive confidence. Legacy hand
+CSVs without `_conf` keep finite-coordinate presence semantics.
 
 ## 3D input mode (world3d.csv)
 
 `clinical_features.R` auto-detects fused 3D inputs (schema: `multicam.md`) via `is_world3d()` — any column ending `_x_m`. Same script, same feature path; differences:
 
-- **Gating first** (`adapt_world3d()`): a keypoint-frame is masked to NA when `reproj_err_px > REPROJ_GATE_PX` (constant, 20 px — matches the fusion-side `max_view_reproj_px`; required because at exactly `min_views` fusion cannot drop an outlier view) **or** `cheirality_ok == 0`. Diagnostic columns are then dropped and `_{x,y,z}_m` renamed to `_{x,y,z}`, after which the existing 3D-capable helpers (`angle_at_vertex`, `dist_3d`, window speed) operate unchanged.
+- **Gating first** (`adapt_world3d()`): a keypoint-frame is masked to NA when reprojection or cheirality diagnostics are blank/nonfinite, `reproj_err_px > REPROJ_GATE_PX` (constant, 20 px — matches the fusion-side `max_view_reproj_px`; required because at exactly `min_views` fusion cannot drop an outlier view), or `cheirality_ok == 0`. When the `triangulation_angle_deg` column exists, blank/nonfinite values also fail closed and finite values must meet the provisional 1° fusion gate. Legacy files lacking the angle column entirely remain readable. Diagnostic columns, including candidate/final view counts, are then dropped and `_{x,y,z}_m` renamed to `_{x,y,z}`, after which the existing 3D-capable helpers (`angle_at_vertex`, `dist_3d`, window speed) operate unchanged.
 - **Units are physical**: angles deg (true 3D, not projected), distances m, velocities m/s, path lengths m. 2D inputs remain normalised-coordinate units.
 - **Trunk metrics use true plane decomposition** (z available): `trunk_lean_angle_3d` (total, vs −y vertical), `trunk_lean_sagittal_3d` → new column `trunk_lean_sagittal_deg` (positive = leaning away from camera; NA in 2D mode — out-of-plane is unmeasurable), `trunk_rotation_3d` (shoulder vs hip line in x–z plane), `posture_symmetry_3d` (3D shoulder width). Lateral lean formula is shared (x–y, identical in both modes). Windowed `trunk_lean_sagittal_mean/sd` added in both branches (NA in 2D).
 - **Vertical assumption**: world −y = up holds only if the `world_frame` camera is level (documented in `multicam.md`).

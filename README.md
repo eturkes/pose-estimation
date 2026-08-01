@@ -132,14 +132,15 @@ Sweep parameters and YAML config format: [`docs/technical/optimization.md`](docs
 | `hands-arms` (default) | 12 (shoulders → finger bases) | 2 × 21 | Yes. |
 | `body` | 33 (face, torso, arms, legs) | 2 × 21 | Yes. |
 
-In `hands` mode, hands are assigned left/right by wrist x-coordinate. In
-`hands-arms`/`body`, hands are matched to arms via Hungarian (optimal) assignment with a
-distality reject.
+In `hands` mode, confident model handedness assigns anatomical left/right (with
+wrist x-coordinate only as the ambiguity fallback). In `hands-arms`/`body`,
+hands are matched to arms via Hungarian (optimal) assignment with a distality
+reject.
 
 Single-subject mode (`--single-subject`) is resilient in three layers: (1) keep the
 largest detected body each frame; (2) carry forward the last body for up to ~0.5 s when
-detection drops; (3) hand-only fallback (left/right by x-coordinate) once carry-forward
-expires.
+detection drops; (3) hand-only fallback (model handedness with x-coordinate ambiguity
+fallback) once carry-forward expires.
 
 ## CSV output
 
@@ -147,15 +148,17 @@ One row per person per frame; normalised (0-1) landmark coordinates.
 
 | Mode | Body columns | Hand columns | Metadata | Total |
 |------|--------------|--------------|----------|-------|
-| `hands` | 0 | 2 × 21 × 3 = 126 | 4 | 130 |
-| `hands-arms` | 12 × 4 = 48 | 126 | 4 | 178 |
-| `body` | 33 × 4 = 132 | 126 | 4 | 262 |
+| `hands` | 0 | 2 × 21 × 4 = 168 | 4 | 172 |
+| `hands-arms` | 12 × 4 = 48 | 168 | 4 | 220 |
+| `body` | 33 × 4 = 132 | 168 | 4 | 304 |
 
-Body columns use prefix `arm_` in hands-arms mode and `body_` in body mode. Each body
-keypoint exports `x, y, z, visibility`; hand keypoints export `x, y, z` only. Missing hand
-data is blank; under `--single-subject`, body columns may also be blank on hand-only
-fallback frames. The multi-camera path additionally writes `world3d.csv` (metric 3D +
-per-keypoint fusion diagnostics).
+Body columns use prefix `arm_` in hands-arms mode and `body_` in body mode. Each
+body keypoint exports `x, y, z, visibility`; hand keypoints export `x, y, z,
+confidence`. Missing hand coordinates are blank with confidence zero; under
+`--single-subject`, body columns may also be blank on hand-only fallback frames.
+The multi-camera path additionally writes `world3d.csv` (metric 3D + per-keypoint
+fusion diagnostics). Legacy three-column hand CSVs remain readable with
+coordinate-presence confidence.
 
 ## Analysis (R)
 

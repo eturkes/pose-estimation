@@ -5,12 +5,21 @@ degenerate-input handling.
 """
 
 import numpy as np
+import pytest
 
 from pose_estimation.processing import (
     _ARM_CHAINS_12,
     _affine_matrix,
+    _preprocess_detector,
     _recrop_from_landmarks,
+    _refine_pose_landmarks_from_heatmap,
     _synthesise_hand_detections,
+    detect_hand_landmarks,
+    detect_pose_landmarks,
+    get_hand_crop,
+    get_pose_crop,
+    run_detection,
+    transform_landmarks_to_image,
 )
 
 # ---------------------------------------------------------------------------
@@ -74,6 +83,29 @@ def _make_palm_det(cx_norm, cy_norm, size=0.1, score=0.9):
         "keypoints": np.array([[cx_norm, cy_norm]] * 7, dtype=np.float32),
         "score": score,
     }
+
+
+class _FakeInput:
+    def __init__(self, size):
+        self.shape = (1, size, size, 3)
+
+
+class _FakeModel:
+    def __init__(self, size, arrays):
+        self._input = _FakeInput(size)
+        self.outputs = [object() for _ in arrays]
+        self._results = dict(zip(self.outputs, arrays, strict=True))
+        self.last_tensor = None
+
+    def input(self, _index):
+        return self._input
+
+    def output(self, index):
+        return self.outputs[index]
+
+    def __call__(self, inputs):
+        self.last_tensor = inputs[0]
+        return self._results
 
 
 # ---------------------------------------------------------------------------
@@ -232,3 +264,210 @@ def test_affine_matrix_valid():
     assert M is not None
     assert M.shape == (2, 3)
     assert np.all(np.isfinite(M))
+
+
+# ---------------------------------------------------------------------------
+# MediaPipe model-contract geometry and decoding
+# ---------------------------------------------------------------------------
+
+
+def test_detector_preprocess_letterboxes_and_uses_model_value_range():
+    frame = np.full((100, 200, 3), 255, dtype=np.uint8)
+    model = _FakeModel(224, [])
+
+    pose_tensor, padding = _preprocess_detector(frame, 224, model, (-1.0, 1.0))
+    palm_tensor, palm_padding = _preprocess_detector(frame, 224, model, (0.0, 1.0))
+
+    np.testing.assert_allclose(padding, [0.0, 0.25, 0.0, 0.25])
+    np.testing.assert_array_equal(palm_padding, padding)
+    assert pose_tensor.shape == (1, 224, 224, 3)
+    assert pose_tensor[0, 0, 0, 0] == -1.0  # zero letterbox in [-1, 1]
+    assert pose_tensor[0, 112, 112, 0] == 1.0
+    assert palm_tensor[0, 0, 0, 0] == 0.0
+    assert palm_tensor[0, 112, 112, 0] == 1.0
+
+
+def test_detector_preprocess_keeps_odd_aspect_padding_symmetric():
+    frame = np.full((101, 200, 3), 255, dtype=np.uint8)
+    model = _FakeModel(224, [])
+
+    tensor, padding = _preprocess_detector(frame, 224, model, (0.0, 1.0))
+
+    expected_vertical_padding = (1.0 - 101.0 / 200.0) * 0.5
+    np.testing.assert_allclose(
+        padding,
+        [0.0, expected_vertical_padding, 0.0, expected_vertical_padding],
+        atol=1e-7,
+    )
+    assert tensor.shape == (1, 224, 224, 3)
+    assert tensor[0, 0, 0, 0] == 0.0
+    assert tensor[0, 112, 112, 0] == 1.0
+
+
+def test_run_detection_removes_letterbox_and_forwards_threshold():
+    size = 224
+    values = np.zeros((1, 1, 12), dtype=np.float32)
+    values[0, 0, 2:4] = 0.2 * size
+    scores = np.zeros((1, 1, 1), dtype=np.float32)  # sigmoid = 0.5
+    model = _FakeModel(size, [values, scores])
+    frame = np.zeros((100, 200, 3), dtype=np.uint8)
+    anchors = np.array([[0.5, 0.5]], dtype=np.float32)
+
+    detections = run_detection(frame, model, size, anchors, 4, score_threshold=0.5)
+    rejected = run_detection(frame, model, size, anchors, 4, score_threshold=0.6)
+
+    assert len(detections) == 1
+    np.testing.assert_allclose(detections[0]["box"], [0.4, 0.3, 0.6, 0.7], atol=1e-6)
+    np.testing.assert_allclose(detections[0]["keypoints"], 0.5, atol=1e-6)
+    assert rejected == []
+
+
+def test_pose_crop_uses_virtual_hip_centre_and_circle_diameter():
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    keypoints = np.zeros((4, 2), dtype=np.float32)
+    keypoints[0] = (0.5, 0.5)
+    keypoints[1] = (0.5, 0.3)
+
+    _crop, matrix = get_pose_crop(frame, {"keypoints": keypoints}, target_size=100)
+
+    assert matrix is not None
+    centre = matrix @ np.array([50.0, 50.0, 1.0])
+    np.testing.assert_allclose(centre, [50.0, 50.0], atol=1e-6)
+    # radius=20 px -> diameter=40 -> graph expansion 1.25 -> 50 px ROI.
+    np.testing.assert_allclose(matrix[:, :2], np.eye(2) * 2.0, atol=1e-6)
+
+
+def test_hand_crop_applies_graph_shift_before_expansion():
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    detection = _make_palm_det(0.5, 0.5, size=0.2)
+    detection["keypoints"][0] = (0.5, 0.55)
+    detection["keypoints"][2] = (0.5, 0.45)
+
+    _crop, matrix = get_hand_crop(frame, detection, target_size=104)
+
+    assert matrix is not None
+    # Raw height=20 px and shift_y=-0.5 moves the centre 10 px upward;
+    # square/scale then produces a 52 px ROI.
+    centre = matrix @ np.array([50.0, 40.0, 1.0])
+    np.testing.assert_allclose(centre, [52.0, 52.0], atol=1e-5)
+    np.testing.assert_allclose(matrix[:, :2], np.eye(2) * 2.0, atol=1e-5)
+
+
+def test_landmark_crops_replicate_image_border():
+    """MediaPipe landmark ROIs extend edge pixels outside the source image."""
+    frame = np.full((20, 20, 3), 77, dtype=np.uint8)
+    pose_keypoints = np.zeros((4, 2), dtype=np.float32)
+    pose_keypoints[0] = (0.0, 0.0)
+    pose_keypoints[1] = (0.0, 0.25)
+    pose_crop, _ = get_pose_crop(frame, {"keypoints": pose_keypoints}, target_size=32)
+
+    hand_detection = _make_palm_det(0.0, 0.0, size=0.2)
+    hand_detection["keypoints"][0] = (0.0, 0.05)
+    hand_detection["keypoints"][2] = (0.0, -0.05)
+    hand_crop, _ = get_hand_crop(frame, hand_detection, target_size=32)
+
+    assert pose_crop is not None
+    assert np.all(pose_crop == 77)
+    assert hand_crop is not None
+    assert np.all(hand_crop == 77)
+
+
+def test_transform_landmarks_scales_depth_with_crop_and_hand_normalization():
+    matrix = _affine_matrix(50.0, 50.0, 0.0, 50.0, 100)
+    landmarks = np.array([[50.0, 50.0, 10.0]], dtype=np.float32)
+
+    pose = transform_landmarks_to_image(landmarks, matrix)
+    hand = transform_landmarks_to_image(landmarks, matrix, z_normalization=0.4)
+
+    np.testing.assert_allclose(pose, [[50.0, 50.0, 5.0]], atol=1e-6)
+    np.testing.assert_allclose(hand, [[50.0, 50.0, 12.5]], atol=1e-6)
+
+
+def test_pose_heatmap_refinement_uses_local_weighted_centroid():
+    landmarks = np.zeros((39, 5), dtype=np.float32)
+    landmarks[:, :2] = 128.0
+    heatmap = np.full((64, 64, 39), -100.0, dtype=np.float32)
+    heatmap[30, 35, 0] = 10.0
+
+    refined = _refine_pose_landmarks_from_heatmap(landmarks, heatmap)
+
+    np.testing.assert_allclose(refined[0, :2], [140.0, 120.0], atol=1e-3)
+    np.testing.assert_array_equal(refined[1:], landmarks[1:])
+
+
+@pytest.mark.parametrize("nonfinite", [np.nan, np.inf, -np.inf])
+def test_pose_heatmap_refinement_skips_nonfinite_kernel(nonfinite):
+    landmarks = np.zeros((39, 5), dtype=np.float32)
+    landmarks[:, :2] = 128.0
+    heatmap = np.full((64, 64, 39), -100.0, dtype=np.float32)
+    heatmap[32, 32, 0] = nonfinite
+
+    refined = _refine_pose_landmarks_from_heatmap(landmarks, heatmap)
+
+    np.testing.assert_array_equal(refined, landmarks)
+
+
+def test_pose_flag_is_already_probability_and_presence_limits_visibility():
+    raw = np.zeros((1, 195), dtype=np.float32)
+    raw.reshape(39, 5)[:, :3] = (128.0, 128.0, 10.0)
+    raw.reshape(39, 5)[:, 3] = 4.0
+    raw.reshape(39, 5)[:, 4] = -2.0
+    model = _FakeModel(
+        256,
+        [
+            raw,
+            np.array([[0.8]], dtype=np.float32),
+            np.zeros((1, 1, 1, 1), dtype=np.float32),
+            np.full((1, 64, 64, 39), -100.0, dtype=np.float32),
+            np.zeros((1, 117), dtype=np.float32),
+        ],
+    )
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    keypoints = np.zeros((4, 2), dtype=np.float32)
+    keypoints[0] = (0.5, 0.5)
+    keypoints[1] = (0.5, 0.3)
+
+    landmarks, visibility, flag = detect_pose_landmarks(
+        frame, {"keypoints": keypoints}, model, keypoint_indices=[0]
+    )
+
+    assert landmarks.shape == (1, 3)
+    assert flag == pytest.approx(0.8)
+    assert visibility[0] == pytest.approx(1.0 / (1.0 + np.exp(2.0)))
+
+
+def test_hand_decoder_uses_image_landmarks_and_already_sigmoided_flag():
+    image_landmarks = np.zeros((1, 63), dtype=np.float32)
+    image_landmarks.reshape(21, 3)[:, :2] = 112.0
+    world_landmarks = np.full((1, 63), 999.0, dtype=np.float32)
+    model = _FakeModel(
+        224,
+        [
+            image_landmarks,
+            np.array([[0.9]], dtype=np.float32),
+            np.array([[0.25]], dtype=np.float32),
+            world_landmarks,
+        ],
+    )
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    detection = _make_palm_det(0.5, 0.5, size=0.2)
+    detection["keypoints"][0] = (0.5, 0.55)
+    detection["keypoints"][2] = (0.5, 0.45)
+
+    landmarks, flag, handedness = detect_hand_landmarks(frame, detection, model)
+
+    assert flag == pytest.approx(0.9)
+    # Raw 0.25 means model class Right with score 0.75. The default input is
+    # unmirrored, so MediaPipe's selfie-oriented label is swapped to Left.
+    assert handedness is not None
+    assert handedness[0] == "left"
+    assert handedness[1] == pytest.approx(0.75)
+    assert landmarks.shape == (21, 3)
+    assert np.max(np.abs(landmarks[:, :2])) < 100.0
+
+    _landmarks, _flag, mirrored_handedness = detect_hand_landmarks(
+        frame, detection, model, input_mirrored=True
+    )
+    assert mirrored_handedness is not None
+    assert mirrored_handedness[0] == "right"
+    assert mirrored_handedness[1] == pytest.approx(0.75)

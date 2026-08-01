@@ -6,6 +6,7 @@ duplicated per entry point, which let the two copies drift.
 """
 
 import pathlib
+import time
 
 import cv2
 import numpy as np
@@ -14,6 +15,58 @@ FALLBACK_FPS = 30.0
 MIN_REASONABLE_FPS = 1.0
 MAX_REASONABLE_FPS = 240.0
 VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv"}
+
+
+class SourceTimestampClock:
+    """Return a stable source timestamp after each decoded frame.
+
+    File-backed captures prefer the media presentation timestamp reported by
+    OpenCV.  Missing, duplicate, or regressing timestamps fall back to the
+    source frame index and nominal FPS.  Live captures use elapsed monotonic
+    time, anchored to zero on the first decoded frame.
+
+    The returned values are strictly increasing after the first frame.  That
+    matters for temporal filters, which otherwise become dependent on inference
+    latency or receive a near-zero interval from an unsupported ``POS_MSEC``
+    backend that repeatedly reports zero.
+    """
+
+    def __init__(self, capture, fps, *, live, monotonic=None):
+        self._capture = capture
+        self._fps = safe_fps(fps)
+        self._live = live
+        self._monotonic = monotonic if monotonic is not None else time.monotonic
+        self._live_origin = None
+        self._last = None
+
+    def timestamp(self, source_frame_idx):
+        """Return seconds for a zero-based decoded-frame index."""
+        fallback = float(source_frame_idx) / self._fps
+        candidate = None
+
+        if self._live:
+            now = float(self._monotonic())
+            if np.isfinite(now):
+                if self._live_origin is None:
+                    self._live_origin = now
+                    candidate = 0.0
+                else:
+                    candidate = now - self._live_origin
+        else:
+            pos_msec = float(self._capture.get(cv2.CAP_PROP_POS_MSEC))
+            if np.isfinite(pos_msec) and pos_msec >= 0.0:
+                candidate = pos_msec / 1000.0
+
+        # A repeated timestamp is unusable for temporal filtering even though
+        # it is technically non-regressing, so use the CFR fallback as well.
+        if candidate is None or (self._last is not None and candidate <= self._last):
+            candidate = fallback
+
+        if self._last is not None and candidate <= self._last:
+            candidate = self._last + 1.0 / self._fps
+
+        self._last = candidate
+        return candidate
 
 
 def open_capture(source, display=None):

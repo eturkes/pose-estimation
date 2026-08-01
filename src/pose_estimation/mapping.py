@@ -19,11 +19,16 @@ _COCO_LHAND_START = 91
 _COCO_LHAND_END = 112
 _COCO_RHAND_START = 112
 _COCO_RHAND_END = 133
+_HAND_PRESENCE_THRESHOLD = 0.1
 
-# Hand sub-array offsets for MCP (base) joints
+# Hand sub-array offsets.  The 12-keypoint arm export intentionally uses MCP
+# bases, while MediaPipe's 33-point body schema defines indices 17--22 as the
+# pinky, index, and thumb *tips*.
 _HAND_INDEX_MCP = 5
 _HAND_PINKY_MCP = 17
-_HAND_THUMB_CMC = 1
+_HAND_THUMB_TIP = 4
+_HAND_INDEX_TIP = 8
+_HAND_PINKY_TIP = 20
 
 # ---------------------------------------------------------------------------
 # Mapping tables: COCO-WholeBody → MediaPipe ARM (12 keypoints)
@@ -85,14 +90,15 @@ _COCO_TO_BODY_FACE = [
     (10, 54),  # mouth_right ← face right mouth corner
 ]
 
-# Hand-derived MP wrist keypoints: (mp_body_idx, hand_base, hand_sub_offset)
+# Hand-derived MediaPipe fingertip keypoints:
+# (mp_body_idx, COCO hand base, COCO hand sub-offset)
 _COCO_TO_BODY_HAND = [
-    (17, _COCO_LHAND_START, _HAND_PINKY_MCP),  # left_pinky (wrist)
-    (18, _COCO_RHAND_START, _HAND_PINKY_MCP),  # right_pinky (wrist)
-    (19, _COCO_LHAND_START, _HAND_INDEX_MCP),  # left_index (wrist)
-    (20, _COCO_RHAND_START, _HAND_INDEX_MCP),  # right_index (wrist)
-    (21, _COCO_LHAND_START, _HAND_THUMB_CMC),  # left_thumb (wrist)
-    (22, _COCO_RHAND_START, _HAND_THUMB_CMC),  # right_thumb (wrist)
+    (17, _COCO_LHAND_START, _HAND_PINKY_TIP),
+    (18, _COCO_RHAND_START, _HAND_PINKY_TIP),
+    (19, _COCO_LHAND_START, _HAND_INDEX_TIP),
+    (20, _COCO_RHAND_START, _HAND_INDEX_TIP),
+    (21, _COCO_LHAND_START, _HAND_THUMB_TIP),
+    (22, _COCO_RHAND_START, _HAND_THUMB_TIP),
 ]
 
 # Wrist keypoint indices in output arrays (for constructing matches)
@@ -145,6 +151,61 @@ def _xy_to_xyz(xy):
     return np.column_stack([xy, np.zeros(xy.shape[0], dtype=xy.dtype)])
 
 
+def _hand_is_present(hand_scores):
+    """Use the same whole-hand admission rule for geometry and metadata."""
+    return float(np.asarray(hand_scores).mean()) > _HAND_PRESENCE_THRESHOLD
+
+
+def coco_hand_handedness(scores, n_kps):
+    """Return anatomical side metadata aligned with mapped whole-body hands."""
+    if scores is None or n_kps != 133 or scores.ndim != 2:
+        return []
+    handedness = []
+    for person_scores in scores:
+        left_scores = person_scores[_COCO_LHAND_START:_COCO_LHAND_END]
+        right_scores = person_scores[_COCO_RHAND_START:_COCO_RHAND_END]
+        # COCO WholeBody slots encode anatomical side structurally.  The
+        # label is therefore authoritative even when observation confidence is
+        # modest; per-keypoint confidence is propagated separately.
+        if _hand_is_present(left_scores):
+            handedness.append(("left", 1.0))
+        if _hand_is_present(right_scores):
+            handedness.append(("right", 1.0))
+    return handedness
+
+
+def coco_hand_confidences(keypoints, scores, n_kps):
+    """Return confidence vectors aligned with mapped whole-body hands."""
+    if (
+        keypoints is None
+        or scores is None
+        or n_kps != 133
+        or keypoints.ndim != 3
+        or scores.ndim != 2
+        or scores.shape != keypoints.shape[:2]
+    ):
+        return []
+
+    confidences = []
+    for person_keypoints, person_scores in zip(keypoints, scores, strict=True):
+        for start, end in (
+            (_COCO_LHAND_START, _COCO_LHAND_END),
+            (_COCO_RHAND_START, _COCO_RHAND_END),
+        ):
+            hand_scores = person_scores[start:end]
+            if not _hand_is_present(hand_scores):
+                continue
+            finite_xy = np.isfinite(person_keypoints[start:end]).all(axis=1)
+            confidences.append(
+                np.where(
+                    finite_xy & np.isfinite(hand_scores),
+                    np.clip(hand_scores, 0.0, 1.0),
+                    0.0,
+                )
+            )
+    return confidences
+
+
 # ---------------------------------------------------------------------------
 # 133-keypoint wholebody mapping
 # ---------------------------------------------------------------------------
@@ -164,11 +225,9 @@ def _map_133_hands(keypoints, scores, n_persons):
     for pi in range(n_persons):
         lh = keypoints[pi, _COCO_LHAND_START:_COCO_LHAND_END]
         rh = keypoints[pi, _COCO_RHAND_START:_COCO_RHAND_END]
-        lh_score = scores[pi, _COCO_LHAND_START:_COCO_LHAND_END].mean()
-        rh_score = scores[pi, _COCO_RHAND_START:_COCO_RHAND_END].mean()
-        if lh_score > 0.1:
+        if _hand_is_present(scores[pi, _COCO_LHAND_START:_COCO_LHAND_END]):
             hand_landmarks.append(_xy_to_xyz(lh))
-        if rh_score > 0.1:
+        if _hand_is_present(scores[pi, _COCO_RHAND_START:_COCO_RHAND_END]):
             hand_landmarks.append(_xy_to_xyz(rh))
     return [], [], hand_landmarks, []
 
@@ -197,15 +256,13 @@ def _map_133_arms(keypoints, scores, n_persons):
         # Extract hands and build matches
         lh = kps[_COCO_LHAND_START:_COCO_LHAND_END]
         rh = kps[_COCO_RHAND_START:_COCO_RHAND_END]
-        lh_mean_score = sc[_COCO_LHAND_START:_COCO_LHAND_END].mean()
-        rh_mean_score = sc[_COCO_RHAND_START:_COCO_RHAND_END].mean()
 
-        if lh_mean_score > 0.1:
+        if _hand_is_present(sc[_COCO_LHAND_START:_COCO_LHAND_END]):
             hidx = len(hand_landmarks)
             hand_landmarks.append(_xy_to_xyz(lh))
             matches.append((pi, _ARM_WRIST_LEFT, hidx))
 
-        if rh_mean_score > 0.1:
+        if _hand_is_present(sc[_COCO_RHAND_START:_COCO_RHAND_END]):
             hidx = len(hand_landmarks)
             hand_landmarks.append(_xy_to_xyz(rh))
             matches.append((pi, _ARM_WRIST_RIGHT, hidx))
@@ -250,15 +307,13 @@ def _map_133_body(keypoints, scores, n_persons):
         # Extract hands and build matches
         lh = kps[_COCO_LHAND_START:_COCO_LHAND_END]
         rh = kps[_COCO_RHAND_START:_COCO_RHAND_END]
-        lh_mean_score = sc[_COCO_LHAND_START:_COCO_LHAND_END].mean()
-        rh_mean_score = sc[_COCO_RHAND_START:_COCO_RHAND_END].mean()
 
-        if lh_mean_score > 0.1:
+        if _hand_is_present(sc[_COCO_LHAND_START:_COCO_LHAND_END]):
             hidx = len(hand_landmarks)
             hand_landmarks.append(_xy_to_xyz(lh))
             matches.append((pi, _BODY_WRIST_LEFT, hidx))
 
-        if rh_mean_score > 0.1:
+        if _hand_is_present(sc[_COCO_RHAND_START:_COCO_RHAND_END]):
             hidx = len(hand_landmarks)
             hand_landmarks.append(_xy_to_xyz(rh))
             matches.append((pi, _BODY_WRIST_RIGHT, hidx))
@@ -333,4 +388,4 @@ def _map_17(keypoints, scores, n_persons, tracking):
     return body_landmarks, body_visibilities, [], []
 
 
-__all__ = ["coco_to_mediapipe"]
+__all__ = ["coco_hand_confidences", "coco_hand_handedness", "coco_to_mediapipe"]

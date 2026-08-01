@@ -145,3 +145,17 @@ def test_cross_body_nearest_wrist():
     assert arm_idx == 0, "should match to body 0 (closer)"
     assert wrist_kp == 5, "should match to right wrist"
     assert hand_idx == 0
+
+
+def test_distality_is_applied_before_hungarian_solve():
+    """An invalid distal edge must not block two valid alternative pairs."""
+    body = np.zeros((12, 3), dtype=np.float64)
+    body[0, :2] = [1.499, 8.208]
+    body[1, :2] = [1.499, 8.208]
+    body[4, :2] = [0.0, 0.0]
+    body[5, :2] = [5.0, 0.0]
+    hands = [_make_hand(1.0, 0.0), _make_hand(1.499, 3.708)]
+
+    result = match_hands_to_arms([body], hands, threshold=10.0)
+
+    assert set(result) == {(0, 5, 0), (0, 4, 1)}

@@ -31,7 +31,7 @@ import numpy as np
 from .calibration import CalibrationError
 from .constraints import BoneLengthSmoother
 from .export import frame_to_rows, open_csv_writer
-from .mapping import coco_to_mediapipe
+from .mapping import coco_hand_confidences, coco_hand_handedness, coco_to_mediapipe
 from .multicam import (
     SessionError,
     process_session,
@@ -46,7 +46,13 @@ from .rtmlib_smoothing import (
     KeypointSmoother,
     OneEuroFilter,  # noqa: F401  # re-exported for tests (shared smoothing.OneEuroFilter)
 )
-from .video_io import collect_video_files, frame_to_surface, open_capture, safe_fps
+from .video_io import (
+    SourceTimestampClock,
+    collect_video_files,
+    frame_to_surface,
+    open_capture,
+    safe_fps,
+)
 
 # ---------------------------------------------------------------------------
 # Model registry — NPU-compatible models (verified via scripts/npu_compat.py)
@@ -165,6 +171,13 @@ def mask_tracking_scores(scores, tracking_mode):
         if i not in visible:
             masked[:, i] = 0.0
     return masked
+
+
+def _reset_if_supported(component):
+    """Reset source-local state without depending on a concrete backend type."""
+    reset = getattr(component, "reset", None)
+    if callable(reset):
+        reset()
 
 
 # ---------------------------------------------------------------------------
@@ -292,7 +305,16 @@ def process_source(
     if cap is None:
         return []
 
+    _reset_if_supported(pose_tracker)
+    _reset_if_supported(smoother)
+    _reset_if_supported(bone_smoother)
+
     fps_video = safe_fps(cap.get(cv2.CAP_PROP_FPS))
+    source_clock = SourceTimestampClock(
+        cap,
+        fps_video,
+        live=isinstance(source, int),
+    )
     total_frames = max(0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT)))
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -318,6 +340,7 @@ def process_source(
     latencies = []
     processing_times = collections.deque(maxlen=60)
     frame_idx = 0
+    source_frame_idx = 0
     try:
         while cap.isOpened():
             if use_pygame:
@@ -332,8 +355,11 @@ def process_source(
             ret, frame = cap.read()
             if not ret:
                 break
+            decoded_frame_idx = source_frame_idx
+            source_frame_idx += 1
+            timestamp = source_clock.timestamp(decoded_frame_idx)
             if frame is None or frame.size == 0:
-                print(f"WARNING: skipping malformed frame {frame_idx}")
+                print(f"WARNING: skipping malformed source frame {decoded_frame_idx}")
                 continue
             frame_idx += 1
             if args.max_frames and frame_idx > args.max_frames:
@@ -345,15 +371,37 @@ def process_source(
             latencies.append(dt * 1000)
 
             if smoother is not None:
-                keypoints, scores = smoother(keypoints, scores, t0)
+                keypoints, scores = smoother(keypoints, scores, timestamp)
+
+            if bone_smoother is not None:
+                if smoother is not None:
+                    if keypoints is not None and keypoints.ndim == 3 and keypoints.shape[0] > 0:
+                        track_keys = smoother.output_track_keys()
+                        if len(track_keys) != keypoints.shape[0]:
+                            raise RuntimeError(
+                                "smoother output track keys are not aligned with keypoints"
+                            )
+                        if scores is None or scores.shape != keypoints.shape[:2]:
+                            raise RuntimeError("scores are not aligned with constrained keypoints")
+                        for track_key, person_keypoints, person_scores in zip(
+                            track_keys, keypoints, scores, strict=True
+                        ):
+                            validity = (
+                                np.isfinite(person_keypoints).all(axis=1)
+                                & np.isfinite(person_scores)
+                                & (person_scores > 0.0)
+                            )
+                            bone_smoother.update(track_key, person_keypoints, validity=validity)
+                    bone_smoother.prune(smoother.live_track_keys())
+                else:
+                    # Without temporal association, detector row order is not
+                    # an identity, even when only one row happens to be present.
+                    # Cross-applying learned proportions is worse than skipping
+                    # the temporal constraint.
+                    bone_smoother.prune([])
 
             if args.single_subject:
                 keypoints, scores = filter_single_subject(keypoints, scores)
-
-            if bone_smoother is not None and keypoints is not None:
-                for pi in range(keypoints.shape[0]):
-                    keypoints[pi], _ = bone_smoother.update(pi, keypoints[pi])
-                bone_smoother.prune(range(keypoints.shape[0]))
 
             n_persons = (
                 keypoints.shape[0] if keypoints is not None and len(keypoints.shape) == 3 else 0
@@ -362,13 +410,16 @@ def process_source(
 
             # CSV export
             if csv_writer is not None and n_persons > 0:
-                timestamp = (frame_idx - 1) / fps_video if fps_video > 0 else 0.0
                 body_lm, body_vis, hand_lm, matches = coco_to_mediapipe(
                     keypoints, scores, n_kps, args.tracking
                 )
+                hand_handedness = (
+                    coco_hand_handedness(scores, n_kps) if args.tracking == "hands" else None
+                )
+                hand_confidences = coco_hand_confidences(keypoints, scores, n_kps)
                 rows = frame_to_rows(
                     video_name=csv_video_name,
-                    frame_idx=frame_idx,
+                    frame_idx=decoded_frame_idx,
                     timestamp_sec=timestamp,
                     frame_h=h,
                     frame_w=w,
@@ -377,6 +428,8 @@ def process_source(
                     hand_landmarks=hand_lm,
                     matches=matches,
                     tracking=args.tracking,
+                    hand_handedness=hand_handedness,
+                    hand_confidences=hand_confidences,
                 )
                 for row in rows:
                     csv_writer.writerow(row)
@@ -506,8 +559,6 @@ def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoo
     sessions = resolve_cli_sessions(args.session_dir, args.sessions_dir, args.calibration)
 
     def _camera_processor(*, source, output_csv, output_diag, video_name, **_kw):
-        if smoother is not None:
-            smoother.reset()
         latencies = process_source(
             args,
             pose_tracker,
@@ -705,8 +756,6 @@ def main():
                 stem = f"camera{src}" if src.isdigit() else pathlib.Path(src).stem
                 csv_path = str(out_dir / (stem + ".csv"))
 
-            if smoother is not None:
-                smoother.reset()
             latencies = process_source(
                 args,
                 pose_tracker,

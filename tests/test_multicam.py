@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import pathlib
 
@@ -18,6 +19,7 @@ from pose_estimation.calibration import (
 from pose_estimation.export import (
     WORLD3D_FILENAME,
     frame_to_rows,
+    make_csv_header,
     make_world3d_header,
     open_csv_writer,
     read_csv_keypoints,
@@ -35,7 +37,7 @@ from pose_estimation.multicam import (
     iter_synchronized_frames,
     process_session,
 )
-from pose_estimation.processing import TRACKING_HANDS_ARMS
+from pose_estimation.processing import TRACKING_HANDS, TRACKING_HANDS_ARMS
 from pose_estimation.triangulation import project_points
 
 # ---------------------------------------------------------------------------
@@ -649,6 +651,66 @@ def test_read_csv_keypoints_round_trip(tmp_path: pathlib.Path):
         assert np.all(conf[12:] == 0.0)
 
 
+def test_read_csv_keypoints_preserves_hand_confidence(tmp_path: pathlib.Path):
+    csv_path = tmp_path / "hands.csv"
+    hand = np.zeros((21, 3), dtype=np.float64)
+    hand[:, 0] = np.arange(21) + 10.0
+    hand[:, 1] = np.arange(21) + 20.0
+    confidence = np.linspace(0.05, 0.95, 21)
+    fh, writer = open_csv_writer(csv_path, tracking=TRACKING_HANDS)
+    try:
+        row = frame_to_rows(
+            "v",
+            2,
+            0.2,
+            100,
+            100,
+            [],
+            [],
+            [hand],
+            [],
+            tracking=TRACKING_HANDS,
+            hand_confidences=[confidence],
+        )[0]
+        writer.writerow(row)
+    finally:
+        fh.close()
+
+    _names, frames = read_csv_keypoints(csv_path)
+
+    np.testing.assert_allclose(frames[2][1][:21], confidence, atol=1e-4)
+    np.testing.assert_array_equal(frames[2][1][21:], 0.0)
+
+
+def test_read_csv_keypoints_accepts_legacy_hand_presence_schema(tmp_path: pathlib.Path):
+    csv_path = tmp_path / "legacy.csv"
+    new_header = make_csv_header(TRACKING_HANDS)
+    legacy_header = [column for column in new_header if not column.endswith("_conf")]
+    hand = np.zeros((21, 3), dtype=np.float64)
+    hand[:, :2] = 25.0
+    row = frame_to_rows(
+        "legacy",
+        3,
+        0.3,
+        100,
+        100,
+        [],
+        [],
+        [hand],
+        [],
+        tracking=TRACKING_HANDS,
+    )[0]
+    with csv_path.open("w", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=legacy_header, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerow(row)
+
+    _names, frames = read_csv_keypoints(csv_path)
+
+    np.testing.assert_array_equal(frames[3][1][:21], 1.0)
+    np.testing.assert_array_equal(frames[3][1][21:], 0.0)
+
+
 def test_read_csv_keypoints_rejects_foreign_csv(tmp_path: pathlib.Path):
     p = tmp_path / "foreign.csv"
     p.write_text("a,b,c\n1,2,3\n")
@@ -660,10 +722,12 @@ def test_write_world3d_csv_round_trip(tmp_path: pathlib.Path):
     names = ["arm_left_wrist", "left_hand_0"]
     world = np.array([[0.1234567, -0.25, 2.0], [np.nan, np.nan, np.nan]])
     diag = {
+        "candidate_n_views": np.array([3, 2]),
         "n_views": np.array([3, 1]),
         "confidence": np.array([0.85, 0.0]),
         "reprojection_error_px": np.array([1.2345, np.nan]),
         "cheirality_ok": np.array([True, False]),
+        "triangulation_angle_deg": np.array([12.3456, np.nan]),
     }
     out = write_world3d_csv(tmp_path / WORLD3D_FILENAME, "sess1", names, [(7, 0.2333, world, diag)])
 
@@ -681,10 +745,14 @@ def test_write_world3d_csv_round_trip(tmp_path: pathlib.Path):
     assert float(row["arm_left_wrist_y_m"]) == pytest.approx(-0.25)
     assert float(row["arm_left_wrist_confidence"]) == pytest.approx(0.85)
     assert float(row["arm_left_wrist_reproj_err_px"]) == pytest.approx(1.234, abs=1e-9)
+    assert row["arm_left_wrist_candidate_n_views"] == "3"
     assert (row["arm_left_wrist_n_views"], row["arm_left_wrist_cheirality_ok"]) == ("3", "1")
+    assert float(row["arm_left_wrist_triangulation_angle_deg"]) == pytest.approx(12.346, abs=1e-9)
     # Unfused keypoint: blank coords/reproj, zero confidence, flags down.
     assert row["left_hand_0_x_m"] == row["left_hand_0_reproj_err_px"] == ""
+    assert row["left_hand_0_triangulation_angle_deg"] == ""
     assert float(row["left_hand_0_confidence"]) == 0.0
+    assert row["left_hand_0_candidate_n_views"] == "2"
     assert (row["left_hand_0_n_views"], row["left_hand_0_cheirality_ok"]) == ("1", "0")
 
 
@@ -714,6 +782,7 @@ def test_fuse_session_outputs_reconstructs_skeleton(tmp_path: pathlib.Path):
         # cam1 is the world-frame camera (offset 0): ts = logical/30.
         assert timestamp == pytest.approx(frame_idx / 30.0, abs=1e-4)
         np.testing.assert_allclose(world[:12], _arm_world(frame_idx), atol=1e-3)
+        assert np.all(diag["candidate_n_views"][:12] == 3)
         assert np.all(diag["n_views"][:12] == 3)
         assert np.all(diag["cheirality_ok"][:12])
         # Hand keypoints were never observed → NaN world, zero views.

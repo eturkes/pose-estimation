@@ -163,6 +163,37 @@ def test_smooth_bodies_passes_confidence():
     assert move2 < move1, f"Low-vis body should move less: move1={move1:.2f}, move2={move2:.2f}"
 
 
+def test_nonfinite_body_observation_has_zero_emitted_visibility():
+    smoother = PoseSmoother()
+    landmarks = _make_landmarks(12)
+    visibility = np.ones(12)
+    smoother.smooth_bodies([landmarks], [visibility], 0.0)
+
+    invalid = landmarks.copy()
+    invalid[3, 0] = np.nan
+    smoothed, emitted_visibility, n_active = smoother.smooth_bodies([invalid], [visibility], 0.1)
+
+    assert n_active == 1
+    assert np.isfinite(smoothed[0][3]).all()
+    assert emitted_visibility[0][3] == 0.0
+
+
+def test_nonfinite_shoulder_uses_finite_anchor_without_splitting_track():
+    smoother = PoseSmoother()
+    landmarks = _make_landmarks(12)
+    visibility = np.ones(12)
+    smoother.smooth_bodies([landmarks], [visibility], 0.0)
+
+    partial = landmarks + 2.0
+    partial[0, 0] = np.nan
+    smoothed, emitted_visibility, n_active = smoother.smooth_bodies([partial], [visibility], 0.1)
+
+    assert n_active == 1
+    assert len(smoothed) == 1
+    assert len(smoother.body_tracks) == 1
+    assert emitted_visibility[0][0] == 0.0
+
+
 def test_hand_path_unaffected():
     """smooth_hands should work without confidence (no regression)."""
     smoother = PoseSmoother()
@@ -383,3 +414,138 @@ def test_pose_smoother_adaptive_default():
     filt = smoother.body_tracks[0][0]
     assert filt.rest_cutoff is not None
     assert filt.rest_cutoff < filt.min_cutoff
+
+
+# ---- Tracking correctness regressions ---------------------------------------
+
+
+def test_body_track_keys_follow_identity_when_detection_order_swaps():
+    smoother = PoseSmoother(match_threshold=200.0)
+    first = _make_landmarks(12)
+    second = first + np.array([500.0, 0.0, 0.0])
+    visibility = np.ones(12)
+    smoother.smooth_bodies([first, second], [visibility, visibility], 0.0)
+    first_keys = smoother.body_track_keys()
+
+    smoother.smooth_bodies([second, first], [visibility, visibility], 0.033)
+
+    assert smoother.body_track_keys() == [first_keys[1], first_keys[0]]
+
+
+def test_hand_observation_indices_skip_detection_without_track_capacity():
+    smoother = PoseSmoother(match_threshold=150.0)
+    smoother.smooth_hands([_hand_at(100.0, 0.0), _hand_at(300.0, 0.0)], 0.0, max_tracks=2)
+
+    outputs, n_active = smoother.smooth_hands(
+        [_hand_at(700.0, 0.0), _hand_at(101.0, 0.0), _hand_at(301.0, 0.0)],
+        0.033,
+        max_tracks=2,
+    )
+
+    assert len(outputs) == n_active == 2
+    assert smoother.hand_observation_indices() == [1, 2]
+
+
+def test_zero_and_nan_confidence_do_not_update_velocity():
+    """Rejected observations must not leak motion into carry-forward state."""
+    filt = OneEuroFilter(min_cutoff=0.3, beta=0.5)
+    initial = np.zeros((2, 2))
+    filt(initial, 0.0, confidence=np.ones(2))
+
+    zero_result = filt(np.full((2, 2), 100.0), 0.033, confidence=np.zeros(2))
+    np.testing.assert_allclose(zero_result, initial)
+    velocity = filt.dx_prev
+    assert velocity is not None
+    np.testing.assert_allclose(velocity, 0.0)
+
+    nan_result = filt(np.full((2, 2), 200.0), 0.066, confidence=np.full(2, np.nan))
+    np.testing.assert_allclose(nan_result, initial)
+    velocity = filt.dx_prev
+    assert velocity is not None
+    np.testing.assert_allclose(velocity, 0.0)
+
+    zero_gamma = OneEuroFilter(gamma=0.0)
+    zero_gamma(initial, 0.0)
+    zero_gamma(np.full((2, 2), 100.0), 0.033, confidence=np.zeros(2))
+    velocity = zero_gamma.dx_prev
+    assert velocity is not None
+    np.testing.assert_allclose(velocity, 0.0)
+
+
+def test_first_observed_coordinate_bypasses_placeholder_and_outlier_cap():
+    """A confidence-zero detector placeholder must never seed filter state."""
+    filt = OneEuroFilter(min_cutoff=0.3, beta=0.5, outlier_cap=20.0)
+    placeholder = np.array([[1000.0, 1000.0], [10.0, 10.0]])
+    filt(placeholder, 0.0, confidence=np.array([0.0, 1.0]))
+
+    observed = np.array([[0.0, 0.0], [11.0, 10.0]])
+    result = filt(observed, 1 / 30, confidence=np.ones(2))
+
+    np.testing.assert_allclose(result[0], observed[0], atol=1e-12)
+    assert np.linalg.norm(result[1] - observed[1]) > 0.0
+
+
+def test_nonfinite_measurement_does_not_poison_filter_state():
+    filt = OneEuroFilter()
+    initial = np.array([[10.0, 20.0], [30.0, 40.0]])
+    filt(initial, 0.0)
+
+    malformed = np.array([[np.nan, 25.0], [35.0, np.inf]])
+    result = filt(malformed, 0.033)
+
+    assert np.isfinite(result).all()
+    velocity = filt.dx_prev
+    assert velocity is not None
+    assert np.isfinite(velocity).all()
+    assert result[0, 0] == initial[0, 0]
+    assert result[1, 1] == initial[1, 1]
+
+
+def _hand_at(x, y):
+    hand = np.zeros((21, 3))
+    hand[:, :2] = (x, y)
+    return hand
+
+
+def test_pose_assignment_gates_before_hungarian_solve():
+    """An invalid edge must not block a full valid hand-track assignment."""
+    smoother = PoseSmoother(match_threshold=5.0)
+    smoother.smooth_hands([_hand_at(0.0, 0.0), _hand_at(5.0, 0.0)], 0.0)
+
+    # Distances to the two tracks are approximately [[1, 4], [4, 5.1]].
+    _, n_active = smoother.smooth_hands([_hand_at(1.0, 0.0), _hand_at(1.499, 3.708)], 0.033)
+
+    assert n_active == 2
+    assert len(smoother.hand_tracks) == 2
+    assert [track[2] for track in smoother.hand_tracks] == [2, 2]
+    assert [track[3] for track in smoother.hand_tracks] == [0, 0]
+
+
+def test_pose_matching_uses_velocity_prediction():
+    smoother = PoseSmoother(match_threshold=5.0)
+    hand = _hand_at(0.0, 0.0)
+    smoother.smooth_hands([hand], 0.0)
+    filt, anchor, age, misses, last_out, _, last_t = smoother.hand_tracks[0]
+    velocity = np.zeros_like(hand)
+    velocity[:, 0] = 6.0
+    smoother.hand_tracks[0] = (filt, anchor, age, misses, last_out, velocity, last_t)
+
+    _, n_active = smoother.smooth_hands([_hand_at(6.0, 0.0)], 1.0)
+
+    assert n_active == 1
+    assert len(smoother.hand_tracks) == 1
+    assert smoother.hand_tracks[0][2] == 2
+
+
+def test_max_tracks_counts_dormant_tracks_before_births():
+    smoother = PoseSmoother()
+    smoother.smooth_hands([_hand_at(0.0, 0.0), _hand_at(300.0, 0.0)], 0.0, max_tracks=2)
+
+    outputs, n_active = smoother.smooth_hands(
+        [_hand_at(700.0, 0.0), _hand_at(1000.0, 0.0)], 0.033, max_tracks=2
+    )
+
+    assert n_active == 0
+    assert len(outputs) == 2
+    assert len(smoother.hand_tracks) == 2
+    assert [track[3] for track in smoother.hand_tracks] == [1, 1]
