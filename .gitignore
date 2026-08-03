@@ -68,3 +68,16 @@ Thumbs.db
 
 # MediaPipe downloaded models
 mediapipe/
+
+# Claude Code machine-local state (the shared .claude/settings.json is committed);
+# .claude/.headroom_wrap_marker.json is ephemeral per-session (pid/port/env key).
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/.headroom_wrap_marker.json
+
+# Per-session teammate reports + rosters (see .claude/commands/session-prompt.md)
+.scratch/
+
+# Serena self-governs via .serena/.gitignore: cache + project.local.yml local,
+# project.yml + .gitignore committed. Memory tools are disabled globally, so
+# .serena/memories/ stays empty.

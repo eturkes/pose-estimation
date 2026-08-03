@@ -35,7 +35,7 @@ Astral's type checker (alpha; pre-1.0). Config: `[tool.ty.*]`.
 uv run ty check
 ```
 
-`tool.ty.environment.root = ["src"]`, Python 3.10 target. `tool.ty.src.include = ["src", "tests"]`.
+`tool.ty.environment.root = ["src", "tests"]`, Python 3.10 target. `tool.ty.src.include = ["src", "tests"]`.
 
 ## Testing — `pytest`
 
