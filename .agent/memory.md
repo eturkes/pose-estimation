@@ -28,3 +28,11 @@ uv run --no-sync ruff check && uv run --no-sync ruff format --check \
 - `--no-sync` keeps the shared environment unmutated, which is what makes concurrent worktree gating safe.
 - Tool caches (`.ruff_cache`, `.pytest_cache`, `.ty_cache`, `.coverage`) are cwd-relative → already private per worktree; no extra state paths needed.
 - The R gate is primary-tree-only: `renv/library/` is gitignored, so it never lands in a worktree and the R-library-dependent cases report SKIP where the primary tree reports PASS (17 at present: worktree 452 passed/17 skipped vs primary 469 passed/0 skipped). A green worktree gate is therefore no evidence for changed `analysis/*.R` → route those to a primary-tree run.
+
+## Session launch cost
+
+`headroom wrap claude` blocks on `uvx … serena project index` (`cli/wrap.py:_index_serena_project`, 300 s cap) before Claude Code starts → anything that stalls Serena's indexer is felt as launch latency, and only in the repo that holds it.
+
+- Budget: full cold index = ~12 s (109 files, 7 language servers), warm ~6 s. A launch stalling far past that means one file is eating an LS request timeout (`serena_config.yml` `tool_timeout` 240 − 5 = 235 s each) → `.serena/logs/indexing.txt` names the file.
+- `**/*.Rmd` is excluded in `.serena/project.yml` for exactly that reason (R LS never answers `documentSymbol` for R Markdown; `.R` files are unaffected at ~4 files/s). Reach `analysis/analysis_summary.Rmd` by `Read`/`rg`; Serena's symbol + search tools do not see it.
+- Serena's own session start is repo-independent (~3.5 s, dominated by the bash LS) and asynchronous — it never blocks the MCP handshake.

@@ -120,11 +120,16 @@ ls_specific_settings: {}
 # Note: global ignored_paths from serena_config.yml are also applied additively.
 # Committed, non-gitignored paths whose read cost exceeds their value; the gitignored
 # half of that set lives in .claude/settings.json permissions.deny (see CLAUDE.md).
+# `**/*.Rmd` is here for a second reason — cost, not value: solidlsp routes .Rmd to the
+# R language server (ls_config FilenameMatcher .R/.r/.Rmd/.Rnw), which never answers
+# documentSymbol for it, so every indexing pass blocks the full 235 s LS request timeout
+# (tool_timeout 240 - 5). Read/grep .Rmd directly; Serena never resolved its symbols.
 ignored_paths:
 - "renv/**"
 - "uv.lock"
 - "renv.lock"
 - "LICENSE"
+- "**/*.Rmd"
 
 # list of workspace folder paths (LSP backend only).
 # These folders will be used to build up Serena's symbol index.
