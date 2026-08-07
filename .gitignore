@@ -75,9 +75,12 @@ CLAUDE.local.md
 .claude/settings.local.json
 .claude/.headroom_wrap_marker.json
 
-# Per-session teammate reports + rosters (see .claude/commands/session-prompt.md)
+# Per-session teammate reports, rosters + per-teammate git worktrees
+# (.scratch/worktrees/<name>; see .claude/commands/session-prompt.md)
 .scratch/
 
 # Serena self-governs via .serena/.gitignore: cache + project.local.yml local,
 # project.yml + .gitignore committed. Memory tools are disabled globally, so
-# .serena/memories/ stays empty.
+# .serena/memories/ stays empty. Serena's own .gitignore omits logs/, which is
+# regenerable and unmatched by the *.log rule above.
+.serena/logs/

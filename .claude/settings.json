@@ -23,7 +23,8 @@
       "Read(./analysis/*.html)",
       "Read(./analysis/*_files/**)",
       "Read(./analysis/*_cache/**)",
-      "Read(./.serena/cache/**)"
+      "Read(./.serena/cache/**)",
+      "Read(./.serena/logs/**)"
     ]
   }
 }

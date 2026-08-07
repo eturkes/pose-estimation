@@ -2,8 +2,28 @@
 
 ## Git
 
-- Commit messages: [Scoped Commits](https://scopedcommits.com/) — `<scope>: <description>`, scope first (the subsystem/area touched, e.g. `tracking`, `calibration`, `multicam`, or a cross-cutting label such as `Tooling`, `Maintenance`, `Refactor`, `Docs`). For multi-area commits, comma-list the scopes, generalize to one, or use `treewide`. Optimize for LLM parsing: subject ≤50 chars, imperative description, body wrap ≤72 chars.
+- Commit messages: [Scoped Commits](https://scopedcommits.com/) — `<scope>: <description>`, scope first (the subsystem/area touched, e.g. `tracking`, `calibration`, `multicam`, or a cross-cutting label such as `Tooling`, `Maintenance`, `Refactor`, `Docs`). For multi-area commits, comma-list the scopes, generalize to one, or use `treewide`. Subject + body take the `CLAUDE.md` `Authoring` standard: subject ≤50 chars, imperative; body wrap ≤72 chars; `→` for cause→fix; measurements + SHAs kept as payload while the narration around them goes.
 - Before committing, always check whether `README.md`, `.gitignore`, `pyproject.toml`, or other housekeeping files need a matching update.
+
+## Quality gate
+
+Ordered; every stage passes before a commit.
+
+```bash
+uv run ruff check && uv run ruff format --check && uv run ty check && uv run pytest
+```
+
+- `pytest` is strict — warnings are errors. `ruff format --check` is the gate form; `ruff format` is the autofix form.
+- Changed `analysis/*.R` must exit 0 under `Rscript` with the project renv active. After an R upgrade, update + snapshot `renv.lock` first.
+- Smoke-test each changed console entry point on a non-sensitive, non-interactive path.
+- Non-interactive shells (scripts, agents, fresh shells) export the layer's `UV_PROJECT_ENVIRONMENT` before `uv` runs — `.envrc` covers hooked interactive shells only. See `environment.md`.
+
+## Maintenance
+
+- A module, CLI flag, output schema, public export, or test-layout change updates its affected `docs/technical/` reference.
+- Keep `src/pose_estimation/__init__.py` + `tests/test_public_api.py` synchronized.
+- Session/calibration manifest paths + labels are hostile input → preserve containment checks, safe path-component validation, and traversal regression coverage.
+- Source, manifests, and tests outrank prose when they disagree; fix the prose.
 
 ## Python style — `ruff`
 
