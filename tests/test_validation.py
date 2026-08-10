@@ -236,7 +236,8 @@ def test_run_validation_end_to_end_solve(rendered_session, tmp_path: pathlib.Pat
 
     # Timing present and finite.
     tim = report.timing
-    assert tim.device == "NPU"
+    assert tim.det_device == "CPU"
+    assert tim.pose_device == "NPU"
     assert tim.total_sec >= 0.0
     assert np.isfinite(tim.throughput_fps)
 
@@ -773,7 +774,8 @@ def _good_report() -> ValidationReport:
             unfused_keypoint_fraction=0.0,
         ),
         timing=TimingSection(
-            device="NPU",
+            det_device="CPU",
+            pose_device="NPU",
             backend="onnxruntime",
             solve_sec=1.0,
             tracking_2d_sec=1.0,

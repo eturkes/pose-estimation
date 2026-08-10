@@ -206,7 +206,7 @@ pose-estimation-validate --session-dir videos/subject_a \
 ```
 
 Flags (`main`): `--session-dir` (required), `--calibration` (file | dir | omit to
-reuse `<session>/calibration.json`), `--baseline`, `--device`, `--backend`,
+reuse `<session>/calibration.json`), `--baseline`, `--det-device`, `--pose-device`, `--backend`,
 `--output-dir`, `--out` (JSON), `--markdown`, `--no-clinical`, `--qa-only`,
 `--strict`. `--qa-only` runs `qa_check` instead of `run_validation` (pass the
 raw ChArUco *session directory* as `--calibration` for board coverage). Exit

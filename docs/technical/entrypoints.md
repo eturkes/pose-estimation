@@ -21,12 +21,12 @@ python -m pose_estimation.main --headless                 # no pygame, emit metr
 python -m pose_estimation.main --metrics-detail           # adds *_kp_detail.csv
 python -m pose_estimation.main --single-subject           # keep largest body only
 python -m pose_estimation.main --postprocess              # +Savitzky-Golay smoothing pass
-python -m pose_estimation.main --device CPU               # CPU instead of NPU
+python -m pose_estimation.main --det-device CPU --pose-device CPU   # CPU instead of NPU
 python -m pose_estimation.main --no-flip                  # disable mirror flip
 python -m pose_estimation.main --tracking hands|hands-arms|body
 ```
 
-Key flags: `--source`, `--batch-dir`, `--session-dir`, `--sessions-dir`, `--calibration`, `--output-dir`, `--device`, `--model-dir`, `--tracking`, `--single-subject`, `--headless`, `--metrics-detail`, `--postprocess`, `--savgol-window`, `--savgol-polyorder`, `--no-flip`.
+Key flags: `--source`, `--batch-dir`, `--session-dir`, `--sessions-dir`, `--calibration`, `--output-dir`, `--det-device`, `--pose-device`, `--model-dir`, `--tracking`, `--single-subject`, `--headless`, `--metrics-detail`, `--postprocess`, `--savgol-window`, `--savgol-polyorder`, `--no-flip`.
 
 Multi-camera flags (`--session-dir`, `--sessions-dir`, `--calibration`) are mutually exclusive with `--source`/`--batch-dir`. They resolve a `Session` (per `multicam.md`) and call `process_session(...)` with a MediaPipe camera processor callback that wraps `process_video()`. Per-camera CSVs are written to `<output-dir>/<session_id>/camN.csv`.
 
@@ -48,7 +48,7 @@ gap instead of shifting every later row relative to the other cameras.
 ```bash
 python -m pose_estimation.run                                          # webcam 0, rtmw-l
 python -m pose_estimation.run --model dwpose-m
-python -m pose_estimation.run --source video.mp4 --backend openvino --device NPU
+python -m pose_estimation.run --source video.mp4 --det-device CPU --pose-device NPU
 python -m pose_estimation.run --batch-dir videos/ --single-subject
 python -m pose_estimation.run --session-dir videos/session_a/           # multi-camera
 python -m pose_estimation.run --sessions-dir videos/ --calibration calib.json

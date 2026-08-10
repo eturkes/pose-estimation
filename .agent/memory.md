@@ -14,6 +14,18 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 - The container + host share the checkout through different absolute paths, so uv environments are layer-specific. Container work uses `.venv`; host work uses `.venv-host`. Recreate the matching environment after a move; repair text shebang/activation/editable-path metadata only when offline, and regenerate binary/cache artifacts.
 - GPU/NPU access depends on the inherited Intel driver/runtime environment (`LD_LIBRARY_PATH`, ICD, Level Zero, and any accelerator `PYTHONPATH`). Confirm with `openvino.Core().available_devices` in the correct uv environment; the pip dependency remains required for generic CPU-only checkouts.
 
+## Device placement — detector vs pose
+
+- Detector + pose model take separate devices (`--det-device` / `--pose-device` on `run`/`main`/`benchmark`/`validate`). No `--device` flag exists anywhere; a bare `--device` is an argparse error, not a silent default.
+- **rtmlib YOLOX must not run on NPU.** In-graph NMS ⇒ dynamic `dets` shape; NPU demands static ⇒ fixed 100-row buffer whose unused rows are never written. Symptom: every frame reports exactly 100 detections, all rows sharing one score, values outside `[0,1]` (observed 1.128, 1.263). CPU on the same frames returns 1–3 detections, max 0.918. Compiles cleanly ⇒ `rtmlib_openvino.py`'s NPU→CPU fallback never fires; failure is numerical, silent, and reaches the CSV.
+- Pose models are NPU-safe: RTMW-L NPU vs CPU = 0.505 px mean / 2.265 px p95 / 5.3 px p99 keypoint deviation, score MAE 0.00056. Per-call 7.17 ms NPU vs 134.26 ms CPU (~19×). Detector 109.82 ms NPU (garbage) vs 445.21 ms CPU. Projected 15 455-frame batch: all-CPU 51 min, det-CPU/pose-NPU 18 min.
+- MediaPipe is unaffected — SSD anchors + NMS decode in Python (`detection.py`), graphs stay static-shaped ⇒ both roles default NPU. `models.DETECTOR_MODELS` selects which compile on `--det-device`.
+- Reproduce either finding: `.scratch/det_npu_vs_cpu.py`, `.scratch/pose_npu_vs_cpu.py`, `.scratch/device_timing.py` (scalars only, no imagery/identifiers).
+
+## GPU unavailable in-container (as of this writing)
+
+`Core().available_devices` = `['CPU','NPU']`; GPU plugin reports no devices. Two stacked causes: (1) host `libze_intel_gpu.so.1` needs `GLIBCXX_3.4.35`, container `libstdc++` tops out at 3.4.33 — fixable by prepending host `libstdc++.so.6.0.36` to `LD_LIBRARY_PATH`; (2) past that, Intel compute-runtime aborts in `command_stream_receiver.cpp:1205`. Device nodes are accessible (`/dev/dri/render*`, `/dev/accel/accel0` all RW). Not chased further — CPU detector suffices.
+
 ## Worktree gate recipe (`.scratch/worktrees/<name>`)
 
 Every teammate worktree runs the full Python gate concurrently off the one primary environment, read-only:

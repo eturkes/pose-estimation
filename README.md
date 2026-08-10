@@ -21,14 +21,14 @@ Both apply temporal smoothing, biomechanical constraints, and a skeleton overlay
 - **Python 3.10+** (3.10-3.13 are tested).
 - **[`uv`](https://docs.astral.sh/uv/)** for dependency and virtualenv management.
 - An **OpenVINO device.** NPU is the default but optional; CPU and GPU also work
-  (`--device CPU`), so no special hardware is needed to contribute.
+  (`--det-device CPU --pose-device CPU`), so no special hardware is needed to contribute.
 - **R + [`renv`](https://rstudio.github.io/renv/)** for the `analysis/` scripts only.
 
 ## Quick start
 
 ```bash
 uv sync                                          # runtime + dev tooling (tests, lint, types)
-uv run python -m pose_estimation.run --device CPU   # live webcam overlay; ESC or close window to quit
+uv run python -m pose_estimation.run                # live webcam overlay; ESC or close window to quit
 ```
 
 Models download to `model/` on first run. The `videos/`, `output/`, and `model/`
@@ -57,7 +57,7 @@ python -m pose_estimation.main --source video.mp4
 python -m pose_estimation.main --source 1                 # camera index
 python -m pose_estimation.main --batch-dir videos/        # process every video in a dir
 python -m pose_estimation.main --batch-dir videos/ --single-subject --postprocess
-python -m pose_estimation.main --device CPU --no-flip     # CPU; rear camera (no mirror)
+python -m pose_estimation.main --pose-device CPU --no-flip  # CPU landmarks; rear camera (no mirror)
 python -m pose_estimation.main --headless                 # no window; writes *_metrics.csv
 ```
 
@@ -72,7 +72,7 @@ python -m pose_estimation.run                                  # webcam 0, rtmw-
 python -m pose_estimation.run --model dwpose-m                 # DWPose wholebody
 python -m pose_estimation.run --model rtmpose-m               # body-only (17 kp)
 python -m pose_estimation.run --model mediapipe               # delegates to main
-python -m pose_estimation.run --source video.mp4 --backend openvino --device NPU
+python -m pose_estimation.run --source video.mp4 --det-device CPU --pose-device NPU
 python -m pose_estimation.run --headless
 ```
 
@@ -244,6 +244,14 @@ optimization, tests, environment) lives under [`docs/technical/`](docs/technical
   Wayland. Image processing uses `opencv-python-headless`.
 - **Inference:** OpenVINO (NPU, CPU, GPU). `main` converts MediaPipe TFLite to IR; the
   rtmlib path (`run`) supports ONNX Runtime or OpenVINO via `--backend`.
+- **Detector and pose model take separate devices** (`--det-device` / `--pose-device`),
+  because their device compatibility differs. rtmlib's YOLOX detector exports NMS into
+  the graph, so its output shape is dynamic; a static-shape-only device (the NPU)
+  returns a fixed-size buffer whose unused rows hold uninitialised scores, and every
+  frame then saturates at the padded row count with scores outside `[0, 1]`. `run`
+  therefore defaults to `--det-device CPU --pose-device NPU`. The pose models are
+  static-shaped and agree with CPU to ~0.5 px median while running ~19× faster on NPU.
+  MediaPipe decodes anchors and runs NMS in Python, so both of its roles default to NPU.
 - **Single cv2 wheel:** `[tool.uv] override-dependencies` excludes rtmlib's
   `opencv-python`/`opencv-contrib-python` so only `opencv-python-headless` is installed
   (all cv2 wheels unpack the same tree and would otherwise file-stomp).

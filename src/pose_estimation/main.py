@@ -6,7 +6,7 @@ Usage:
     python -m pose_estimation.main --source 1               # webcam 1
     python -m pose_estimation.main --source video.mp4       # single video file
     python -m pose_estimation.main --batch-dir videos/      # process all videos in a directory
-    python -m pose_estimation.main --device CPU             # run on CPU
+    python -m pose_estimation.main --det-device CPU --pose-device CPU   # run on CPU
     python -m pose_estimation.main --no-flip                # disable mirror for front camera
     python -m pose_estimation.main --tracking hands          # hands only
     python -m pose_estimation.main --tracking body           # whole body + hands
@@ -605,7 +605,16 @@ def main():
     parser.add_argument(
         "--output-dir", default="output", help="Directory for CSV output (default: output/)"
     )
-    parser.add_argument("--device", default="NPU", help="OpenVINO inference device (default: NPU)")
+    parser.add_argument(
+        "--det-device",
+        default="NPU",
+        help="OpenVINO device for the pose/palm detectors (default: NPU)",
+    )
+    parser.add_argument(
+        "--pose-device",
+        default="NPU",
+        help="OpenVINO device for the pose/hand landmark models (default: NPU)",
+    )
     parser.add_argument(
         "--no-flip", action="store_true", help="Disable horizontal flip (useful for rear cameras)"
     )
@@ -655,7 +664,7 @@ def main():
     tracking = args.tracking
 
     # Download, convert, and compile models
-    models = download_and_compile_models(args.model_dir, args.device)
+    models = download_and_compile_models(args.model_dir, args.det_device, args.pose_device)
 
     # Pre-generate detection anchors
     palm_anchors = generate_anchors(PALM_INPUT_SIZE, strides=[8, 16, 16, 16])
@@ -761,7 +770,14 @@ def main():
                 mc = MetricsCollector(args.output_dir, vpath.name, detail=args.metrics_detail)
 
             video_name = pathlib.Path(source).name if isinstance(source, str) else None
-            print(f"Source: {source} | Device: {args.device} | Flip: {flip} | Tracking: {tracking}")
+            device_label = (
+                args.det_device
+                if args.det_device == args.pose_device
+                else f"det={args.det_device}/pose={args.pose_device}"
+            )
+            print(
+                f"Source: {source} | Device: {device_label} | Flip: {flip} | Tracking: {tracking}"
+            )
             if not headless:
                 print("Close the window or press ESC to exit.")
 

@@ -6,7 +6,7 @@ import numpy as np
 # Monkey-patch rtmlib's OpenVINO backend to support NPU / GPU devices
 # ---------------------------------------------------------------------------
 # rtmlib hardcodes device_name='CPU' in its OpenVINO backend.  The patch
-# below overrides that so we can pass --device NPU (or GPU) and have it
+# below overrides that so we can pass --det-device/--pose-device NPU (or GPU) and have it
 # forwarded to OpenVINO's compile_model().  For NPU, models are also
 # reshaped to static shapes (batch=1) before compilation.
 _ORIG_BASE_INIT = None  # set lazily after import

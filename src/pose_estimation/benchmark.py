@@ -141,7 +141,8 @@ def run_single(
     output_dir,
     run_label,
     overrides,
-    device,
+    det_device,
+    pose_device,
     tracking,
     single_subject,
     models=None,
@@ -171,8 +172,10 @@ def run_single(
         str(source),
         "--output-dir",
         str(run_dir),
-        "--device",
-        device,
+        "--det-device",
+        det_device,
+        "--pose-device",
+        pose_device,
         "--tracking",
         tracking,
         "--headless",
@@ -246,7 +249,14 @@ def main():
     parser.add_argument(
         "--output-dir", default="benchmark_output", help="Base directory for benchmark results"
     )
-    parser.add_argument("--device", default="NPU", help="OpenVINO device (default: NPU)")
+    parser.add_argument(
+        "--det-device", default="NPU", help="OpenVINO device for the detectors (default: NPU)"
+    )
+    parser.add_argument(
+        "--pose-device",
+        default="NPU",
+        help="OpenVINO device for the landmark models (default: NPU)",
+    )
     parser.add_argument("--tracking", default="hands-arms", choices=["hands", "hands-arms", "body"])
     parser.add_argument("--single-subject", action="store_true")
 
@@ -334,7 +344,8 @@ def main():
                 out_base,
                 label,
                 overrides,
-                args.device,
+                args.det_device,
+                args.pose_device,
                 args.tracking,
                 args.single_subject,
             )

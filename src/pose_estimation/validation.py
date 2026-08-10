@@ -457,7 +457,8 @@ class Fusion3DSection:
 
 @dataclasses.dataclass
 class TimingSection:
-    device: str
+    det_device: str
+    pose_device: str
     backend: str
     solve_sec: float
     tracking_2d_sec: float
@@ -528,7 +529,8 @@ def run_validation(
     *,
     calibration: str | pathlib.Path | None = None,
     baseline: str | pathlib.Path | None = None,
-    device: str = "NPU",
+    det_device: str = "CPU",
+    pose_device: str = "NPU",
     backend: str = "onnxruntime",
     output_dir: str | pathlib.Path | None = None,
     camera_processor: Any = None,
@@ -586,7 +588,7 @@ def run_validation(
 
     # --- 2. 2D tracking -----------------------------------------------------
     per_camera_time, reused = _run_tracking(
-        session, session_out, output_dir, camera_processor, device, backend, notes
+        session, session_out, output_dir, camera_processor, det_device, pose_device, backend, notes
     )
     tracking_section = _measure_tracking(session, session_out, confidence_floor, reused, notes)
 
@@ -623,7 +625,8 @@ def run_validation(
     total_sec = solve_sec + tracking_sec + fusion_sec + clinical_sec
     throughput = fusion_section.n_frames_fused / total_sec if total_sec > 0 else float("nan")
     timing_section = TimingSection(
-        device=device,
+        det_device=det_device,
+        pose_device=pose_device,
         backend=backend,
         solve_sec=solve_sec,
         tracking_2d_sec=tracking_sec,
@@ -710,7 +713,8 @@ def _run_tracking(
     session_out: pathlib.Path,
     output_dir: str | pathlib.Path | None,
     camera_processor: Any,
-    device: str,
+    det_device: str,
+    pose_device: str,
     backend: str,
     notes: list[str],
 ) -> tuple[dict[str, float], bool]:
@@ -739,14 +743,15 @@ def _run_tracking(
         notes.append(f"reused {len(existing)} existing per-camera CSV(s) under {session_out}")
         return {c.name: 0.0 for c in existing}, True
 
-    elapsed = _run_default_backend(session, output_dir, device, backend, notes)
+    elapsed = _run_default_backend(session, output_dir, det_device, pose_device, backend, notes)
     return {"_backend_subprocess": elapsed}, False
 
 
 def _run_default_backend(
     session: Session,
     output_dir: str | pathlib.Path | None,
-    device: str,
+    det_device: str,
+    pose_device: str,
     backend: str,
     notes: list[str],
 ) -> float:
@@ -764,8 +769,10 @@ def _run_default_backend(
         str(session.directory),
         "--backend",
         backend,
-        "--device",
-        device,
+        "--det-device",
+        det_device,
+        "--pose-device",
+        pose_device,
     ]
     if output_dir is not None:
         cmd += ["--output-dir", str(output_dir)]
@@ -776,7 +783,9 @@ def _run_default_backend(
         raise ValidationError(
             f"2D backend failed (exit {result.returncode}): {result.stderr.strip()[:300]}"
         )
-    notes.append(f"ran default backend ({backend}/{device}) for 2D tracking")
+    notes.append(
+        f"ran default backend ({backend}, det={det_device}/pose={pose_device}) for 2D tracking"
+    )
     return elapsed
 
 
@@ -1586,7 +1595,8 @@ def qa_check(
     calibration: str | pathlib.Path | None = None,
     output_dir: str | pathlib.Path | None = None,
     camera_processor: Any = None,
-    device: str = "NPU",
+    det_device: str = "CPU",
+    pose_device: str = "NPU",
     backend: str = "onnxruntime",
     confidence_floor: float = DEFAULT_CONFIDENCE_FLOOR,
     board: Any = None,
@@ -1619,7 +1629,14 @@ def qa_check(
     calibration_qa = _qa_calibration(session, calibration, board, notes)
     parity_qa = _qa_parity(session)
     subject_qa = _qa_subject(
-        session, output_dir, camera_processor, device, backend, confidence_floor, notes
+        session,
+        output_dir,
+        camera_processor,
+        det_device,
+        pose_device,
+        backend,
+        confidence_floor,
+        notes,
     )
     return QAReport(
         session_id=session.session_id,
@@ -1733,7 +1750,8 @@ def _qa_subject(
     session: Session,
     output_dir: str | pathlib.Path | None,
     camera_processor: Any,
-    device: str,
+    det_device: str,
+    pose_device: str,
     backend: str,
     confidence_floor: float,
     notes: list[str],
@@ -1742,7 +1760,14 @@ def _qa_subject(
     session_out = _resolve_session_output(session, output_dir)
     try:
         _per_camera_time, reused = _run_tracking(
-            session, session_out, output_dir, camera_processor, device, backend, notes
+            session,
+            session_out,
+            output_dir,
+            camera_processor,
+            det_device,
+            pose_device,
+            backend,
+            notes,
         )
         tracking = _measure_tracking(session, session_out, confidence_floor, reused, notes)
     except (ValidationError, SessionError) as exc:
@@ -2023,7 +2048,7 @@ def _render_markdown(report: ValidationReport) -> str:
         f"- unfused-keypoint fraction (active): {_fmt(fus.unfused_keypoint_fraction)}",
         "",
         "## Timing",
-        f"- device/backend: `{tim.device}` / `{tim.backend}`",
+        f"- device/backend: det `{tim.det_device}`, pose `{tim.pose_device}` / `{tim.backend}`",
         f"- solve {_fmt(tim.solve_sec)}s · 2D {_fmt(tim.tracking_2d_sec)}s · "
         f"fusion {_fmt(tim.fusion_sec)}s · clinical {_fmt(tim.clinical_sec)}s · "
         f"total {_fmt(tim.total_sec)}s",
@@ -2066,7 +2091,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         default=None,
         help="optional reference-metrics JSON for clinical agreement",
     )
-    parser.add_argument("--device", default="NPU", help="inference device (NPU/CPU/GPU)")
+    parser.add_argument(
+        "--det-device", default="CPU", help="detector inference device (NPU/CPU/GPU)"
+    )
+    parser.add_argument(
+        "--pose-device", default="NPU", help="pose-model inference device (NPU/CPU/GPU)"
+    )
     parser.add_argument(
         "--backend", default="onnxruntime", help="rtmlib backend (onnxruntime/openvino)"
     )
@@ -2125,7 +2155,8 @@ def main(argv: list[str] | None = None) -> int:
                 args.session_dir,
                 calibration=args.calibration,
                 output_dir=args.output_dir,
-                device=args.device,
+                det_device=args.det_device,
+                pose_device=args.pose_device,
                 backend=args.backend,
             )
         else:
@@ -2133,7 +2164,8 @@ def main(argv: list[str] | None = None) -> int:
                 args.session_dir,
                 calibration=args.calibration,
                 baseline=args.baseline,
-                device=args.device,
+                det_device=args.det_device,
+                pose_device=args.pose_device,
                 backend=args.backend,
                 output_dir=args.output_dir,
                 run_clinical=not args.no_clinical,

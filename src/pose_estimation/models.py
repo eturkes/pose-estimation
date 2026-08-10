@@ -94,8 +94,17 @@ def download_file(url, filepath, expected_sha256=None):
     return filepath
 
 
-def download_and_compile_models(model_dir="model", device="NPU"):
+# Which compiled models answer to --det-device; the rest take --pose-device.
+# MediaPipe decodes SSD anchors and runs NMS in Python (see detection.py), so
+# unlike rtmlib's YOLOX these graphs stay static-shaped and both roles are free
+# to sit on any device.
+DETECTOR_MODELS = frozenset({"pose_detection", "palm_detection"})
+
+
+def download_and_compile_models(model_dir="model", det_device="NPU", pose_device="NPU"):
     """Download TFLite models, convert to OpenVINO IR, and compile.
+
+    Detectors compile on *det_device*, landmark models on *pose_device*.
 
     Returns a dict mapping model name to compiled model:
         {"pose_detection", "pose_landmark", "palm_detection", "hand_landmark"}
@@ -124,9 +133,12 @@ def download_and_compile_models(model_dir="model", device="NPU"):
     for name, ir_path in ir_files.items():
         compiled[name] = core.compile_model(
             model=core.read_model(ir_path),
-            device_name=device,
+            device_name=det_device if name in DETECTOR_MODELS else pose_device,
             config=config,
         )
 
-    print(f"All models compiled for {device}.")
+    if det_device == pose_device:
+        print(f"All models compiled for {det_device}.")
+    else:
+        print(f"Detectors compiled for {det_device}, landmark models for {pose_device}.")
     return compiled

@@ -7,11 +7,10 @@ Usage:
     python -m pose_estimation.run --model dwpose-m                    # DWPose wholebody
     python -m pose_estimation.run --model rtmpose-m                   # body-only (17 kps)
     python -m pose_estimation.run --model mediapipe                   # MediaPipe pose + hand
-    python -m pose_estimation.run --source video.mp4 --backend openvino --device GPU
-    python -m pose_estimation.run --backend openvino --device NPU
-    python -m pose_estimation.run --source video.mp4 --backend openvino --device NPU --headless
-    python -m pose_estimation.run --batch-dir videos/ --backend openvino --device NPU
-    python -m pose_estimation.run --batch-dir videos/ --single-subject --backend openvino --device NPU --tracking hands-arms
+    python -m pose_estimation.run --source video.mp4 --headless
+    python -m pose_estimation.run --batch-dir videos/
+    python -m pose_estimation.run --batch-dir videos/ --single-subject --tracking hands-arms
+    python -m pose_estimation.run --pose-device CPU --det-device CPU   # no accelerator
 
 Requirements:
     pip install rtmlib openvino  # or: pip install rtmlib onnxruntime
@@ -136,6 +135,59 @@ BONE_SEGMENTS_WB_BODY = [
 WINDOW_TITLE = "Pose Estimation"
 
 
+# ---------------------------------------------------------------------------
+# Detector / pose model device placement
+# ---------------------------------------------------------------------------
+class SplitDeviceSolution:
+    """rtmlib solution that compiles the detector and pose model on separate devices.
+
+    rtmlib's ``Custom`` takes a single ``device`` for both models, but the two do
+    not share device compatibility.  YOLOX exports its NMS into the graph, so its
+    ``dets`` output shape is dynamic (one row per surviving box).  A device that
+    demands static shapes — the NPU — instead returns a fixed-size buffer whose
+    unused rows are never written, so their scores read as uninitialised memory:
+    every frame saturates at the padded row count, with scores outside [0, 1].
+    The pose models are static-shaped and agree with CPU to well under a pixel.
+
+    ``PoseTracker`` consumes ``det_model``, ``pose_model`` and ``det_categories``;
+    it also reads ``det_model.mode``, which ``YOLOX`` sets from its own default.
+    """
+
+    def __init__(
+        self,
+        *,
+        det,
+        det_input_size,
+        det_device,
+        pose_class,
+        pose,
+        pose_input_size,
+        pose_device,
+        backend,
+        mode=None,
+        to_openpose=False,
+        device=None,
+    ):
+        # ``mode`` and ``device`` arrive from PoseTracker and are deliberately
+        # unused: explicit registry URLs make ``mode`` moot, and device placement
+        # is already resolved per model by the two device arguments.
+        del mode, device
+        import rtmlib
+
+        self.det_model = rtmlib.YOLOX(
+            det, model_input_size=det_input_size, backend=backend, device=det_device
+        )
+        self.pose_model = getattr(rtmlib, pose_class)(
+            pose,
+            model_input_size=pose_input_size,
+            to_openpose=to_openpose,
+            backend=backend,
+            device=pose_device,
+        )
+        self.det_categories = None
+        self.one_stage = False
+
+
 def _parse_rest_cutoff(env_var, default):
     """Parse an env var as optional float (returns None for 'none' or empty)."""
     val = os.environ.get(env_var, "")
@@ -236,7 +288,18 @@ def parse_args():
         help="Inference backend (default: openvino)",
     )
     p.add_argument(
-        "--device", default="NPU", help="Device for inference: NPU, CPU, GPU (default: NPU)"
+        "--det-device",
+        default="CPU",
+        help=(
+            "Device for the person detector: NPU, CPU, GPU (default: CPU).  YOLOX exports "
+            "in-graph NMS, whose dynamic output shape the NPU cannot honour — see "
+            "SplitDeviceSolution."
+        ),
+    )
+    p.add_argument(
+        "--pose-device",
+        default="NPU",
+        help="Device for the pose model: NPU, CPU, GPU (default: NPU)",
     )
     p.add_argument(
         "--mode",
@@ -534,7 +597,8 @@ def _run_mediapipe(args):
         cmd += ["--source", args.source]
     if args.calibration:
         cmd += ["--calibration", args.calibration]
-    cmd += ["--device", args.device]
+    cmd += ["--det-device", args.det_device]
+    cmd += ["--pose-device", args.pose_device]
     cmd += ["--tracking", args.tracking]
     if args.output_dir:
         cmd += ["--output-dir", args.output_dir]
@@ -641,17 +705,18 @@ def main():
     # ── Import rtmlib (deferred so --help works without it) ─────────
     from functools import partial
 
-    from rtmlib import Custom, PoseTracker, draw_skeleton
+    from rtmlib import PoseTracker, draw_skeleton
 
     # ── Set up model (explicit URLs from registry for all devices) ──
     solution_cls = partial(
-        Custom,
-        det_class="YOLOX",
+        SplitDeviceSolution,
         det=_DET_URL,
         det_input_size=_DET_INPUT_SIZE,
+        det_device=args.det_device,
         pose_class=model["pose_class"],
         pose=model["pose"],
         pose_input_size=model["pose_input_size"],
+        pose_device=args.pose_device,
     )
     print(f"Model:   {model['label']} [{model_name}]")
 
@@ -660,7 +725,8 @@ def main():
     smooth_label = ", no-smooth" if args.no_smooth else ", smooth"
     constraint_label = ", no-constraints" if args.no_constraints else ""
     print(
-        f"Backend: {args.backend}, device={args.device}"
+        f"Backend: {args.backend}, det-device={args.det_device}, "
+        f"pose-device={args.pose_device}"
         f"{tracking_label}{single_label}{smooth_label}"
         f"{constraint_label}"
     )
@@ -670,7 +736,6 @@ def main():
         mode=args.mode,
         det_frequency=args.det_frequency,
         backend=args.backend,
-        device=args.device,
         to_openpose=False,
     )
 
