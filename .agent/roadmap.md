@@ -21,6 +21,10 @@ Live long-horizon state only; completed trajectory belongs in git.
 
 **Acceptance:** reproducible commands + reports trace every claim to cleared inputs; thresholds have explicit evidence; clinical-validity gaps remain visible; all repository validation gates pass.
 
+## Produced datasets
+
+- `output/rtmw-l_body_single/` — all 12 single-camera clips, RTMW-L / `--tracking body` / `--single-subject`, det-CPU + pose-NPU. 15 430 rows over 15 455 decoded frames, 99.7% mean coverage, 304-col schema conformant on every file, 100% body-wrist observation. `manifest.json` (per-video provenance + SHA-256) and `qa_report.md` sit beside the CSVs; regenerate both with `scripts/run_report.py`. Destined for `Projects/rehab/`, which has no pose-ingest contract yet — its schema is tabular ISNCSCI/SCIM, so the join surface still has to be designed.
+
 ## Backlog
 
 - 3D-aware downstream aggregation in `analysis/`.

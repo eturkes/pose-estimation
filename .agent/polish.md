@@ -12,8 +12,8 @@ Items run inside the artifact's existing assurance tier; tier raises, new units 
 
 | pri | size | where | item | why | acceptance |
 | --- | ---- | ----- | ---- | --- | ---------- |
-
-_empty_
+| 2 | S | `src/pose_estimation/rtmlib_openvino.py` | Detector-output sanity guard: raise, or warn once and fall back to CPU, when a detector returns scores outside `[0,1]` or saturates at its padded row count. Today only the `--det-device` default keeps the NPU-YOLOX corruption out of the data; `--det-device NPU`, or a device whose dynamic-shape support regresses, still yields silent garbage. | f3d18ad; `.scratch/det_npu_vs_cpu.py` → NPU 100 rows sharing one score, max 1.263 vs CPU 1–3 rows, max 0.918 | `uv run python .scratch/det_npu_vs_cpu.py 7 6` errors or warns on the NPU rows and stays silent for CPU; `pytest` green |
+| 3 | M | container env + `~/agents/docs/openvino.md` | Enable GPU in-container: prepend host `libstdc++.so.6.0.36` to the accel farm (clears the `GLIBCXX_3.4.35` load failure), then resolve the Intel compute-runtime abort at `command_stream_receiver.cpp:1205`. Gives the detector an accelerator and frees the contended CPU. | this session: `Core().available_devices` = `['CPU','NPU']`; `/dev/dri/render*` + `/dev/accel/accel0` RW; abort reproduced with the libstdc++ override in place | `source intel-accel/env.sh && python -c "import openvino;print(openvino.Core().available_devices)"` lists `GPU`, and `intel-accel/selftest.py` reports `[GPU] OK correct=True` |
 
 ## spine?
 

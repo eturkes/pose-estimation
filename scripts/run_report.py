@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import pathlib
 import subprocess
@@ -70,7 +71,14 @@ def _versions() -> dict[str, str | None]:
             mod = __import__(module)
         except ImportError:
             return None
-        return getattr(mod, "__version__", None)
+        version = getattr(mod, "__version__", None)
+        if version:
+            return version
+        # rtmlib and friends ship no __version__; fall back to install metadata.
+        try:
+            return importlib.metadata.version(module)
+        except importlib.metadata.PackageNotFoundError:
+            return None
 
     return {
         "python": sys.version.split()[0],
@@ -138,7 +146,25 @@ def _measure_csv(csv_path: pathlib.Path, tracking: str, decoded_frames: int) -> 
     vis = _flat_numeric(df, vis_cols)
     conf = _flat_numeric(df, conf_cols)
 
+    # Plausibility, not just conformance: a corrupt detector (see
+    # SplitDeviceSolution) still fills every column, so schema checks pass while
+    # the boxes are nonsense.  Normalised landmarks must sit in [0, 1], and a
+    # tracked wrist must move continuously rather than teleport between frames.
+    coord_cols = [c for c in df.columns if c.endswith(("_x", "_y")) and not c.startswith("frame")]
+    coords = _flat_numeric(df, coord_cols).dropna()
+    out_of_range = float(((coords < 0) | (coords > 1)).mean()) if len(coords) else float("nan")
+    wrist_step = float("nan")
+    if len(wrist) == 2 and len(df) > 1:
+        wx = pd.to_numeric(df[wrist[0]], errors="coerce")
+        wy = pd.to_numeric(df[wrist[1]], errors="coerce")
+        step = np.hypot(wx.diff(), wy.diff()).dropna()
+        wrist_step = float(step.median()) if len(step) else float("nan")
+
     return {
+        "coord_out_of_unit_range_pct": (
+            round(100 * out_of_range, 4) if np.isfinite(out_of_range) else None
+        ),
+        "median_wrist_step_norm": round(wrist_step, 5) if np.isfinite(wrist_step) else None,
         "rows": len(df),
         "unique_frames": idx.nunique(),
         "coverage_pct": (
