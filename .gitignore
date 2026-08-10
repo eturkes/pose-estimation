@@ -76,7 +76,7 @@ CLAUDE.local.md
 .claude/.headroom_wrap_marker.json
 
 # Per-session teammate reports, rosters + per-teammate git worktrees
-# (.scratch/worktrees/<name>; see .claude/commands/session-prompt.md)
+# (.scratch/worktrees/<name>; see .claude/commands/session-roadmap.md)
 .scratch/
 
 # Serena self-governs via .serena/.gitignore: cache + project.local.yml local,
