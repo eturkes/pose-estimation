@@ -47,6 +47,8 @@ The 3D quality gate creates NA holes by design, so 3D is where this bites hardes
 | M3.5 | Video-level reducer | Long-form reduction, immutable base key, attempted/all-failed strata, exact reducers → `clinical_3d_video_aggregate.csv`. |
 | M3.6 | Aggregate CLI + consumability path | Exact discovery, atomic idempotent output; `analysis_summary.Rmd` 3D inventory/QC section with `m` / `m/s` / `deg` / `1` labels; `docs/technical/analysis.md` current. |
 
+**Unit status.** M3.1 IN-PROGRESS — kernel + R-gate closure shipped; committed regression suite and frozen goldens outstanding (`test-m3u1`, `prod-m3u1` in flight). M3.2-M3.6 OPEN.
+
 **Standing constraints.**
 
 - **No 2D schema widening.** `analysis/utils.R:59-87` `aggregate_per_video()` treats every numeric non-metadata column as a feature, and the R gate invokes no downstream consumer — a QC column added to 2D outputs would silently enter PCA, correlations and z-scores unnoticed. QC/identity evidence is 3D-only; 2D outputs stay byte-identical under golden gates.

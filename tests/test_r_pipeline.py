@@ -57,7 +57,7 @@ def _r_available():
 
 
 def _arthrose_r_available():
-    """Check the additional plotting and rolling-window dependencies."""
+    """Check the additional plotting dependency."""
     if not _r_available():
         return False
     try:
@@ -65,8 +65,7 @@ def _arthrose_r_available():
             [
                 "Rscript",
                 "-e",
-                'for (p in c("zoo","ggplot2")) '
-                "if (!requireNamespace(p, quietly=TRUE)) quit(status=1)",
+                'for (p in c("ggplot2")) if (!requireNamespace(p, quietly=TRUE)) quit(status=1)',
             ],
             capture_output=True,
             timeout=30,

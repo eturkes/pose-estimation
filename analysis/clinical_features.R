@@ -42,6 +42,16 @@ WINDOW_SEC <- 1.0
 # Frequency cutoff (Hz) for spectral arc length calculation.
 SAL_FREQ_CUTOFF <- 10
 
+# An inter-sample interval longer than this multiple of the median is a
+# tracking gap rather than a frame, and is excluded when estimating the
+# nominal frame rate.
+GAP_INTERVAL_FACTOR <- 1.5
+
+# Largest sub-slot deviation tolerated when mapping timestamps onto the
+# nominal frame grid. Rounded exports jitter by ~1e-5 slots; anything past a
+# quarter slot means the series is not on the assumed grid.
+GRID_SLOT_TOLERANCE <- 0.25
+
 # 3D quality gate: keypoints whose mean reprojection error exceeds this
 # (px) are masked to NA. Matches fuse_session_frame's per-view rejection
 # threshold — at exactly min_views an outlier view cannot be dropped
@@ -296,6 +306,187 @@ movement_efficiency <- function(x, y, z) {
 
   if (straight < 1e-10) return(NA_real_)
   path_len / straight
+}
+
+#' Nominal frame rate, robust to timestamp quantisation.
+#'
+#' Exported timestamps are rounded to four decimals (see
+#' \code{src/pose_estimation/export.py}), so \code{1 / median(diff(t))} reads
+#' 30.03 Hz for a 30 fps capture: the rounded intervals alternate 0.0333 and
+#' 0.0334 and the median picks the shorter one.  Averaging the non-gap
+#' intervals cancels the quantisation instead of amplifying it.  Intervals
+#' longer than \code{GAP_INTERVAL_FACTOR} times the median are dropped so that
+#' tracking gaps do not inflate the estimate.
+#'
+#' @param t Numeric vector — timestamps in seconds.
+#' @return Scalar sampling frequency in Hz, or \code{NA_real_} when
+#'   undeterminable.
+nominal_fs <- function(t) {
+  d <- diff(t[!is.na(t)])
+  d <- d[is.finite(d) & d > 0]
+  if (length(d) == 0) return(NA_real_)
+
+  keep <- d <= GAP_INTERVAL_FACTOR * median(d)
+  dt <- mean(d[keep])
+  if (!is.finite(dt) || dt <= 0) return(NA_real_)
+  1 / dt
+}
+
+#' Map a timestamped sample series onto its nominal uniform frame grid.
+#'
+#' Video frames are nominally uniform, so a quality-gated NA sample and an
+#' absent row are both holes at *known* grid positions.  Rounding to the
+#' nearest slot absorbs sub-slot timestamp jitter, which keeps a complete
+#' series on exactly the legacy arithmetic while giving a gapped series a
+#' correct time base.  Fails closed rather than guessing: ambiguous or
+#' colliding timestamps are an input defect, not something to repair silently.
+#'
+#' @param t Numeric vector — timestamps in seconds, strictly increasing.
+#' @param fs Scalar — nominal sampling frequency in Hz.
+#' @return List of \code{slot} (0-based grid index per sample), \code{n_grid}
+#'   (grid length) and \code{residual} (largest sub-slot deviation).
+trajectory_grid <- function(t, fs) {
+  if (!is.finite(fs) || fs <= 0) {
+    stop("trajectory_grid(): fs must be finite and positive")
+  }
+  if (length(t) < 2) stop("trajectory_grid(): need at least two timestamps")
+  if (any(!is.finite(t))) stop("trajectory_grid(): timestamps must be finite")
+  if (any(diff(t) <= 0)) {
+    stop("trajectory_grid(): timestamps must be strictly increasing")
+  }
+
+  raw <- (t - t[1]) * fs
+  slot <- round(raw)
+  residual <- max(abs(raw - slot))
+  if (residual > GRID_SLOT_TOLERANCE) {
+    stop(sprintf(
+      "trajectory_grid(): timestamps are not on a %g Hz grid (residual %.3f)",
+      fs, residual
+    ))
+  }
+  if (anyDuplicated(slot)) {
+    stop("trajectory_grid(): two samples map onto one grid slot")
+  }
+
+  list(slot = slot, n_grid = slot[length(slot)] + 1, residual = residual)
+}
+
+#' Gap-aware trajectory metrics over the nominal frame grid.
+#'
+#' The timestamp-aware kernel behind every window-scope smoothness and
+#' velocity quantity.  Samples are placed on their nominal slots and each
+#' derivative is masked wherever its stencil touches a hole, so a tracking gap
+#' can no longer be differentiated across as though the survivors were
+#' adjacent.  On a complete grid every metric reduces to the legacy operation
+#' order and stays bit-identical.
+#'
+#' Estimands, which differ deliberately in how they treat an unobserved span:
+#' \itemize{
+#'   \item \code{nj} — jerk over fully observed 4-wide stencils, fixed
+#'     \code{dt}, duration = the true grid span.
+#'   \item \code{sal} — interior missing speed intervals are filled linearly;
+#'     a leading or trailing gap yields \code{NA} rather than extrapolated
+#'     motion.
+#'   \item \code{v_mean}, \code{v_peak} — observed support only.  A gap hides
+#'     whatever happened inside it, so both are biased low under loss;
+#'     \code{dropout} is what tells a consumer by how much.
+#'   \item \code{efficiency} — \code{NA} when the observed path is broken.
+#'     Bridging a hole with a straight chord biases the ratio toward 1.0, i.e.
+#'     reports a straighter, healthier movement than was observed.
+#' }
+#'
+#' @param t Numeric vector — timestamps in seconds.
+#' @param x,y,z Numeric vectors — 3D position time series.
+#' @param fs Scalar — sampling frequency in Hz; derived from \code{t} when
+#'   \code{NULL}.
+#' @param fc Scalar — spectral arc length frequency cutoff in Hz.
+#' @return Named list of \code{sal}, \code{nj}, \code{v_mean}, \code{v_peak},
+#'   \code{efficiency}, \code{dropout} and \code{longest_gap_sec}.
+trajectory_metrics <- function(t, x, y, z, fs = NULL, fc = SAL_FREQ_CUTOFF) {
+  empty <- list(
+    sal = NA_real_, nj = NA_real_, v_mean = NA_real_, v_peak = NA_real_,
+    efficiency = NA_real_, dropout = NA_real_, longest_gap_sec = NA_real_
+  )
+  if (length(t) < 2) return(empty)
+
+  if (is.null(fs)) fs <- nominal_fs(t)
+  if (!is.finite(fs) || fs <= 0) return(empty)
+
+  grid <- trajectory_grid(t, fs)
+  dt <- 1 / fs
+  n_grid <- grid$n_grid
+  at <- grid$slot + 1
+
+  gx <- rep(NA_real_, n_grid); gx[at] <- x
+  gy <- rep(NA_real_, n_grid); gy[at] <- y
+  gz <- rep(NA_real_, n_grid); gz[at] <- z
+
+  valid <- !is.na(gx) & !is.na(gy) & !is.na(gz)
+  gx[!valid] <- NA_real_; gy[!valid] <- NA_real_; gz[!valid] <- NA_real_
+
+  runs <- rle(valid)
+  gap_runs <- runs$lengths[!runs$values]
+  out <- empty
+  out$dropout <- (n_grid - sum(valid)) / n_grid
+  out$longest_gap_sec <- if (length(gap_runs)) max(gap_runs) * dt else 0
+
+  # Interval quantities.  diff() propagates NA outward one slot per derivative
+  # order, so a hole invalidates exactly the stencils that span it.
+  step <- sqrt(diff(gx)^2 + diff(gy)^2 + diff(gz)^2)
+  speed <- step * fs
+  n_step <- sum(!is.na(step))
+  if (n_step == 0) return(out)
+
+  # Duration-weighted mean over observed intervals: sum(step) / (n_step * dt)
+  # is exactly mean(speed) once the shared dt cancels.
+  out$v_mean <- mean(speed, na.rm = TRUE)
+  out$v_peak <- max(speed, na.rm = TRUE)
+
+  amplitude <- sum(step, na.rm = TRUE)
+
+  # Normalized jerk over fully observed stencils, normalised by the true span.
+  if (n_grid >= 5 && amplitude >= 1e-10) {
+    vx <- diff(gx) * fs;  vy <- diff(gy) * fs;  vz <- diff(gz) * fs
+    ax <- diff(vx) * fs;  ay <- diff(vy) * fs;  az <- diff(vz) * fs
+    jx <- diff(ax) * fs;  jy <- diff(ay) * fs;  jz <- diff(az) * fs
+
+    if (any(!is.na(jx))) {
+      integral_jerk_sq <- sum(jx^2 + jy^2 + jz^2, na.rm = TRUE) * dt
+      T_dur <- (n_grid - 1) * dt
+      out$nj <- sqrt(T_dur^5 / (2 * amplitude^2) * integral_jerk_sq)
+    }
+  }
+
+  # Movement efficiency needs an unbroken observed path; a hole between the
+  # first and last observation makes the true path length unidentifiable.
+  first <- which(valid)[1]
+  last <- which(valid)[sum(valid)]
+  if (last > first && all(valid[first:last])) {
+    straight <- sqrt(
+      (gx[last] - gx[first])^2 + (gy[last] - gy[first])^2 +
+        (gz[last] - gz[first])^2
+    )
+    if (straight >= 1e-10) {
+      out$efficiency <- sum(step[first:(last - 1)]) / straight
+    }
+  }
+
+  # Spectral arc length presumes a complete uniform series.  Interior speed
+  # intervals are reconstructed linearly; edges are never extrapolated.
+  obs <- which(!is.na(speed))
+  if (length(obs) >= 4) {
+    lo <- obs[1]
+    hi <- obs[length(obs)]
+    if (lo == 1 && hi == length(speed)) {
+      filled <- speed
+      if (anyNA(filled)) {
+        filled <- approx(obs, speed[obs], xout = seq_along(speed))$y
+      }
+      out$sal <- spectral_arc_length(filled, fs, fc)
+    }
+  }
+
+  out
 }
 
 #' Trunk lean angle from vertical (2D, unsigned).
@@ -664,34 +855,20 @@ compute_window_features <- function(df, frame_features, tracking,
         window_end_sec   = round(we, 4)
       )
 
+      win_ts <- ts[win_mask]
+
       for (side in c("left", "right")) {
         wr_x <- as.numeric(sub_df[[bcol(side, "wrist", "x")]])[win_mask]
         wr_y <- as.numeric(sub_df[[bcol(side, "wrist", "y")]])[win_mask]
         wr_z <- as.numeric(sub_df[[bcol(side, "wrist", "z")]])[win_mask]
 
-        wrist_na <- all(is.na(wr_x))
+        wrist <- trajectory_metrics(win_ts, wr_x, wr_y, wr_z, fs)
 
-        if (wrist_na) {
-          row[[paste0(side, "_wrist_sal")]]              <- NA_real_
-          row[[paste0(side, "_wrist_velocity_mean")]]     <- NA_real_
-          row[[paste0(side, "_wrist_velocity_peak")]]     <- NA_real_
-          row[[paste0(side, "_wrist_normalized_jerk")]]   <- NA_real_
-          row[[paste0(side, "_wrist_movement_efficiency")]] <- NA_real_
-        } else {
-          dx <- diff(wr_x);  dy <- diff(wr_y);  dz <- diff(wr_z)
-          speed <- sqrt(dx^2 + dy^2 + dz^2) * fs
-
-          row[[paste0(side, "_wrist_sal")]] <-
-            spectral_arc_length(speed, fs)
-          row[[paste0(side, "_wrist_velocity_mean")]] <-
-            mean(speed, na.rm = TRUE)
-          row[[paste0(side, "_wrist_velocity_peak")]] <-
-            max(speed, na.rm = TRUE)
-          row[[paste0(side, "_wrist_normalized_jerk")]] <-
-            normalized_jerk(wr_x, wr_y, wr_z, fs)
-          row[[paste0(side, "_wrist_movement_efficiency")]] <-
-            movement_efficiency(wr_x, wr_y, wr_z)
-        }
+        row[[paste0(side, "_wrist_sal")]]                 <- wrist$sal
+        row[[paste0(side, "_wrist_velocity_mean")]]       <- wrist$v_mean
+        row[[paste0(side, "_wrist_velocity_peak")]]       <- wrist$v_peak
+        row[[paste0(side, "_wrist_normalized_jerk")]]     <- wrist$nj
+        row[[paste0(side, "_wrist_movement_efficiency")]] <- wrist$efficiency
 
         # Fingertip (index tip, hand landmark 8) normalized jerk.
         ft_x <- as.numeric(sub_df[[hcol(side, 8, "x")]])[win_mask]
@@ -699,8 +876,7 @@ compute_window_features <- function(df, frame_features, tracking,
         ft_z <- as.numeric(sub_df[[hcol(side, 8, "z")]])[win_mask]
 
         row[[paste0(side, "_fingertip_normalized_jerk")]] <-
-          if (all(is.na(ft_x))) NA_real_
-          else normalized_jerk(ft_x, ft_y, ft_z, fs)
+          trajectory_metrics(win_ts, ft_x, ft_y, ft_z, fs)$nj
       }
 
       # Body-mode-only metrics (CPI + trunk/torso — require hip keypoints).

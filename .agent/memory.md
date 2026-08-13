@@ -36,7 +36,7 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 ## Scratch validators pending port
 
 - `.scratch/gap_bias_probe.R` — backs M3's gap-corruption claim. Sources `analysis/clinical_features.R` (helpers are defined before the CLI block, so `try(source(...))` yields them), builds an analytic minimum-jerk reach, and mirrors the production window block at `analysis/clinical_features.R:681-689` verbatim. Regenerate with `Rscript .scratch/gap_bias_probe.R`. Ports into M3.1's regression suite as the sentinel case; delete the scratch copy once the committed test reproduces the numbers.
-- `zoo` ↔ base R: `stats::filter(x, rep(1/5, 5), sides = 2)` reproduces `zoo::rollmean(x, 5, fill = NA, align = "center")` to 1.11e-16 with identical NA propagation including interior NAs — the equivalence M3.1 relies on.
+- `zoo` is gone (M3.1). `stats::filter(x, rep(1/5, 5), sides = 2)` replaced `zoo::rollmean(x, 5, fill = NA, align = "center")`: NA propagation identical at centre, both edges and interior/leading/trailing/scattered holes; values differ ~1-2 ULP (2.8e-14 absolute on ~100-magnitude input — the old "1.11e-16" note was relative, not absolute), and no golden pins that column. `dplyr` masks `stats::filter`, so the call must stay namespace-qualified.
 
 ## Worktree gate recipe (`.scratch/worktrees/<name>`)
 
@@ -51,7 +51,7 @@ uv run --no-sync ruff check && uv run --no-sync ruff format --check \
 - `PYTHONPATH=<worktree>/src` is mandatory: the hatchling editable install resolves `pose_estimation` to the **primary** tree's `src/`, so a worktree gate without it silently tests the primary code and reports green for untested changes.
 - `--no-sync` keeps the shared environment unmutated, which is what makes concurrent worktree gating safe.
 - Tool caches (`.ruff_cache`, `.pytest_cache`, `.ty_cache`, `.coverage`) are cwd-relative → already private per worktree; no extra state paths needed.
-- The R gate is primary-tree-only: `renv/library/` is gitignored, so it never lands in a worktree and the R-library-dependent cases report SKIP where the primary tree reports PASS (17 at present: worktree 452 passed/17 skipped vs primary 469 passed/0 skipped). A green worktree gate is therefore no evidence for changed `analysis/*.R` → route those to a primary-tree run.
+- `renv/library/` is gitignored, so a fresh worktree has no R library and every R case SKIPs. Symlink it read-only and the worktree gate becomes fully equivalent: `ln -sfn <primary>/renv/library <worktree>/renv/library` → 469 passed/0 skipped, `tests/test_r_pipeline.py` 25 passed/0 skipped, same as primary. Concurrent worktrees share it safely because R only reads packages; never `renv::install`/`renv::snapshot` through the link.
 
 ## Session launch cost
 

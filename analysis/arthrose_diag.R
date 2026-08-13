@@ -14,7 +14,6 @@
 
 library(dplyr)
 library(tidyr)
-library(zoo)
 library(ggplot2)
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -88,7 +87,11 @@ df_angles <- df %>%
     angle_index = (180 - angle_567) + (180 - angle_678)
   ) %>%
   ungroup() %>%
-  mutate(angle_smooth = rollmean(angle_index, 5, fill = NA, align = "center")) %>%
+  # Centred 5-frame moving average; base stats::filter matches the former
+  # zoo::rollmean(fill = NA, align = "center") including NA propagation.
+  mutate(
+    angle_smooth = as.numeric(stats::filter(angle_index, rep(1 / 5, 5), sides = 2))
+  ) %>%
   mutate(
     delta_angle = angle_smooth - lag(angle_smooth),
     variation_speed_angle = if_else(
