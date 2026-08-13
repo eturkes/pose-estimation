@@ -47,7 +47,9 @@ The 3D quality gate creates NA holes by design, so 3D is where this bites hardes
 | M3.5 | Video-level reducer | Long-form reduction, immutable base key, attempted/all-failed strata, exact reducers → `clinical_3d_video_aggregate.csv`. |
 | M3.6 | Aggregate CLI + consumability path | Exact discovery, atomic idempotent output; `analysis_summary.Rmd` 3D inventory/QC section with `m` / `m/s` / `deg` / `1` labels; `docs/technical/analysis.md` current. |
 
-**Unit status.** M3.1 IN-PROGRESS — kernel + R-gate closure shipped; committed regression suite and frozen goldens outstanding (`test-m3u1`, `prod-m3u1` in flight). M3.2-M3.6 OPEN.
+**Unit status.** M3.1 DONE (`0fa2079` kernel + R-gate closure, `c93382d` goldens, red suite). M3.2-M3.6 OPEN.
+
+M3.1 close: gate 541 passed / 0 skipped (469 baseline + 24 goldens + 48 kernel); `renv::status()` consistent; gap-free metrics bit-identical to the pre-change implementation under all three timestamp representations; NJ at 1/3/8/15/scattered-15 dropped frames +0.8…+22.9 % vs gap-free, replacing +14 712…+143 346 %. `nominal_fs()` ships unused by the call sites — adopting it moves every shipped metric value, so it is `.agent/polish.md` `spine?` work needing its own unit and a decision on re-deriving `output/rtmw-l_body_single/`.
 
 **Standing constraints.**
 

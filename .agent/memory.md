@@ -35,7 +35,7 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 
 ## Scratch validators pending port
 
-- `.scratch/gap_bias_probe.R` — backs M3's gap-corruption claim. Sources `analysis/clinical_features.R` (helpers are defined before the CLI block, so `try(source(...))` yields them), builds an analytic minimum-jerk reach, and mirrors the production window block at `analysis/clinical_features.R:681-689` verbatim. Regenerate with `Rscript .scratch/gap_bias_probe.R`. Ports into M3.1's regression suite as the sentinel case; delete the scratch copy once the committed test reproduces the numbers.
+_empty_ — `.scratch/gap_bias_probe.R` ported into `tests/test_r_trajectory_kernel.py::test_gap_bias_probe_corpus_is_bounded_and_gapfree_exact` (M3.1) and deleted.
 - `zoo` is gone (M3.1). `stats::filter(x, rep(1/5, 5), sides = 2)` replaced `zoo::rollmean(x, 5, fill = NA, align = "center")`: NA propagation identical at centre, both edges and interior/leading/trailing/scattered holes; values differ ~1-2 ULP (2.8e-14 absolute on ~100-magnitude input — the old "1.11e-16" note was relative, not absolute), and no golden pins that column. `dplyr` masks `stats::filter`, so the call must stay namespace-qualified.
 
 ## Worktree gate recipe (`.scratch/worktrees/<name>`)
