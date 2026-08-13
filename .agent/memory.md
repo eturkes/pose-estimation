@@ -26,6 +26,18 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 
 `Core().available_devices` = `['CPU','NPU']`; GPU plugin reports no devices. Two stacked causes: (1) host `libze_intel_gpu.so.1` needs `GLIBCXX_3.4.35`, container `libstdc++` tops out at 3.4.33 — fixable by prepending host `libstdc++.so.6.0.36` to `LD_LIBRARY_PATH`; (2) past that, Intel compute-runtime aborts in `command_stream_receiver.cpp:1205`. Device nodes are accessible (`/dev/dri/render*`, `/dev/accel/accel0` all RW). Not chased further — CPU detector suffices.
 
+## R analysis layer — non-obvious hazards
+
+- `analysis/utils.R:59-87` `aggregate_per_video()` treats **every numeric non-metadata column as a feature**. Adding a count, coverage or QC column to an output that legacy consumers read makes it enter per-video means, z-scores, correlations and PCA silently. The R gate invokes no downstream consumer (`tests/test_r_pipeline.py` covers the producer, `features.R`, `arthrose_diag.R` only), so the full suite stays green while downstream tables change meaning.
+- The 2D/3D partition is enforced by regex alone: consumers glob `_clinical\.csv$` / `_clinical_windows\.csv$`, which cannot match `_clinical_3d.csv`. Six consumers replicate that discovery, so widening one is a local edit with global consequences.
+- Producer keys are `video`/`person_idx`/`window` only. No task, condition, trial or session identity exists anywhere in the schema — any "session" or "trial" grain has to come from metadata that does not yet exist, not from the CSVs.
+- Gate constants are duplicated across languages: reprojection 20 px and triangulation angle 1° live in `src/pose_estimation/triangulation.py:423-424`, `src/pose_estimation/validation.py:77,86` and `analysis/clinical_features.R:49,54`. Changing one silently desynchronises the R adapter from fusion.
+
+## Scratch validators pending port
+
+- `.scratch/gap_bias_probe.R` — backs M3's gap-corruption claim. Sources `analysis/clinical_features.R` (helpers are defined before the CLI block, so `try(source(...))` yields them), builds an analytic minimum-jerk reach, and mirrors the production window block at `analysis/clinical_features.R:681-689` verbatim. Regenerate with `Rscript .scratch/gap_bias_probe.R`. Ports into M3.1's regression suite as the sentinel case; delete the scratch copy once the committed test reproduces the numbers.
+- `zoo` ↔ base R: `stats::filter(x, rep(1/5, 5), sides = 2)` reproduces `zoo::rollmean(x, 5, fill = NA, align = "center")` to 1.11e-16 with identical NA propagation including interior NAs — the equivalence M3.1 relies on.
+
 ## Worktree gate recipe (`.scratch/worktrees/<name>`)
 
 Every teammate worktree runs the full Python gate concurrently off the one primary environment, read-only:

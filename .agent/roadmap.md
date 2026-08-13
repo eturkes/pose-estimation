@@ -21,13 +21,52 @@ Live long-horizon state only; completed trajectory belongs in git.
 
 **Acceptance:** reproducible commands + reports trace every claim to cleared inputs; thresholds have explicit evidence; clinical-validity gaps remain visible; all repository validation gates pass.
 
+## M3 — analysis-ready 3D aggregation
+
+**Status: IN-PROGRESS** — units enumerated, none started. No precondition: develops + gates entirely on synthetic fixtures, no patient-data clearance needed.
+
+**Goal:** carry trusted metric-3D producer output to one analysis-ready per-video aggregate that the repo's own analysis layer surfaces, with 2D/3D pooling unrepresentable by construction.
+
+**Consumable artifact:** `<input-dir>/clinical_3d_video_aggregate.csv` — grain `video × person_idx × limb × source_level × metric_id × statistic`; carries `coord_space`, `distance_unit`, `unit`, `normalizer_id`, capture/artifact identity, producer + metric-method + QC-policy versions, `estimate`, attempted/valid/failed counts, coverage, longest gap, `qc_status`/`qc_reason`. Surfaced by `analysis/analysis_summary.Rmd`.
+
+**Spine premise — measured, not assumed.** The producer's window metrics are gap-corrupt, so aggregating them today aggregates gap artefacts. `.scratch/gap_bias_probe.R` (synthetic min-jerk reach, fs=30, T=3 s, amp=0.40 m; mirrors `analysis/clinical_features.R:681-689` verbatim) measures two distinct failure modes:
+
+- **Bridging** — `normalized_jerk` (`:261-294`) and `movement_efficiency` (`:289-294`) `ok`-filter NAs, then differentiate at fixed `dt = 1/fs` with `T_dur` from survivor count. NJ 16.456 → **2456 on one dropped frame (+14 826 %)**, +42 217 % at 3, +96 208 % at 8, +138 487 % at 15 (0.50 s), +23 060 % scattered. `movement_efficiency` reads 0 % on this chord-dominated case — mechanism real, magnitude **unmeasured**.
+- **Dropping** — `speed`/SAL/`v_mean`/`v_peak` (`:681-689`, `:225-246`) void NA intervals and under-count duration. SAL +1.0…+3.7 %, `v_mean` −1.6…−13.4 %, `v_peak` −0.6 %. Small enough that tolerance smoke tests miss them; they need exact-expected-value oracles.
+
+The 3D quality gate creates NA holes by design, so 3D is where this bites hardest. The fix necessarily moves 2D gapped values too — gap-free goldens must stay byte-identical.
+
+**Units.** All `kernel`; each closes with a scoped commit and its own primary-tree gate run.
+
+| id | unit | spine result |
+| -- | ---- | ------------ |
+| M3.1 | R-gate closure + timestamp-aware trajectory kernel | Drop `zoo`; freeze gap-free goldens; actual-interval kernel over frame/window scope with exact NJ/SAL/velocity/efficiency/dropout semantics. |
+| M3.2 | Producer identity schema, 3D-only | Capture/artifact identity + coord/unit/method/QC-version tags on 3D outputs; typed empty outputs; **2D schemas unchanged**; phase outputs explicitly unqualified. |
+| M3.3 | Metric-specific QC evidence | Frame + interval expected/valid/duration/gap counts, metric-required-keypoint status/reason, versioned provisional thresholds, derived from the adapter's own gate masks. |
+| M3.4 | Metric registry + fail-closed reader | Declarative header→metric/limb/unit/normalizer registry; central `utils.R` reader rejecting missing/blank/mixed/incompatible tags, duplicate artifact identity, QC contradictions. |
+| M3.5 | Video-level reducer | Long-form reduction, immutable base key, attempted/all-failed strata, exact reducers → `clinical_3d_video_aggregate.csv`. |
+| M3.6 | Aggregate CLI + consumability path | Exact discovery, atomic idempotent output; `analysis_summary.Rmd` 3D inventory/QC section with `m` / `m/s` / `deg` / `1` labels; `docs/technical/analysis.md` current. |
+
+**Standing constraints.**
+
+- **No 2D schema widening.** `analysis/utils.R:59-87` `aggregate_per_video()` treats every numeric non-metadata column as a feature, and the R gate invokes no downstream consumer — a QC column added to 2D outputs would silently enter PCA, correlations and z-scores unnoticed. QC/identity evidence is 3D-only; 2D outputs stay byte-identical under golden gates.
+- **No session or trial claim.** Producer keys only `video/person/window`; no task/condition/trial identity exists. The artifact is a *video* aggregate; windows are never called trials, and `res-m3-1`'s trial→session median/IQR hierarchy stays unreachable until a real protocol schema lands.
+- **Provisional QC thresholds.** `coverage ≥ 0.80`, `max_gap ≤ 0.10 s` are conservative engineering defaults, not validated standards — labelled provisional everywhere and carried under `qc_policy_version`; calibration belongs to M2.
+- **Unknown provenance fails closed** to within-file aggregation rather than pooling across unverified rig/model/filter identity.
+- **Decisive gate is primary-tree.** `renv/library/` is gitignored, so worktrees skip R cases; a green worktree run is no evidence for `analysis/*.R`.
+
+**Acceptance:** every gap-sensitive quantity *admitted to the frame/window aggregate* is timestamp-aware; a one-frame interior-drop regression over an analytic trajectory can never again pass at the observed NJ error; 2D goldens byte-identical; the aggregate has a unique composite key and no representable 2D/3D pooling; `pytest tests/test_r_pipeline.py` and the full suite pass in the primary tree with 0 skips; every external R import resolves to a committed `renv.lock` entry.
+
+**Known consequence:** `output/rtmw-l_body_single/` clinical features predate the gap fix — any normalized-jerk or velocity figure derived from them is suspect and needs recomputation after M3.1.
+
 ## Produced datasets
 
 - `output/rtmw-l_body_single/` — all 12 single-camera clips, RTMW-L / `--tracking body` / `--single-subject`, det-CPU + pose-NPU. 15 430 rows over 15 455 decoded frames, 99.7% mean coverage, 304-col schema conformant on every file, 100% body-wrist observation. `manifest.json` (per-video provenance + SHA-256) and `qa_report.md` sit beside the CSVs; regenerate both with `scripts/run_report.py`. Destined for `Projects/rehab/`, which has no pose-ingest contract yet — its schema is tabular ISNCSCI/SCIM, so the join surface still has to be designed.
 
 ## Backlog
 
-Scope seed for the next milestone while M2 stays PARKED — no UNPLANNED milestone exists, so a bare `/session-roadmap` plans one from here.
+Scope seed for the milestone after M3.
 
-- 3D-aware downstream aggregation in `analysis/`.
+- Clinical join surface — capture/session metadata mapping, then a capture→assessment bridge emitting joined observations with instrument/version/domain/side/status and cardinality safety. Cut from M3 because it needs a real instrument schema: `Projects/rehab/` holds tabular ISNCSCI/SCIM and has no pose-ingest contract, and ISNCSCI is side/myotome-resolved while SCIM is whole-person, so the join grain cannot be settled against synthetic data alone.
 - Cross-camera identity matching for multi-person scenes; fusion currently assumes one subject.
+- Gap-aware movement-phase metrics — M3.1's kernel covers frame/window scope only; `analysis/clinical_features.R:918-1097` phase speed/path/SAL/NJ/efficiency stay gap-unsafe and are explicitly unqualified by M3.
