@@ -121,14 +121,34 @@ Dimensionless jerk metric: `NJ = sqrt(T^5 / (2 * a^2) * integral(||jerk||^2 dt))
 - `T` = window duration (seconds), `a` = path length (amplitude), jerk = 3rd derivative of position.
 - Lower NJ = smoother movement; minimum-jerk trajectory gives ~18.97.
 - Applied to wrist (`{side}_wrist_normalized_jerk`) and index fingertip (`{side}_fingertip_normalized_jerk`).
-- Guards: returns NA when n < 5 frames or amplitude < 1e-10.
+- Jerk is summed over fully observed 4-sample stencils only; `T` is the true grid span, and amplitude counts observed intervals alone.
+- Guards: returns NA when n < 5 frames, amplitude < 1e-10, or no stencil is gap-free.
 
 ### Movement Efficiency
 
 Path curvature ratio: `ME = path_length / straight_line_distance`.
 - 1.0 = perfectly straight start-to-end movement; higher = more curved/corrective.
 - Applied to wrist trajectory (`{side}_wrist_movement_efficiency`).
-- Guard: returns NA when start ≈ end (straight_line < 1e-10).
+- Guards: returns NA when start ≈ end (straight_line < 1e-10), or when the observed path is broken by an interior gap. Leading and trailing gaps are trimmed instead, since they shorten the span without breaking it.
+
+### Gap handling (window scope)
+
+Window metrics run through `trajectory_metrics()`, which places samples on the nominal frame grid (`trajectory_grid()`) and masks each derivative wherever its stencil touches a hole. Quality-gated NA samples and absent rows are treated alike.
+
+Why it matters: differentiating across a gap as though survivors were adjacent moved normalized jerk from 16.456 to 2437 on a *single* dropped frame, and to 23 605 on a 15-frame hole. Masking holds those at +0.8 % and +22.9 %.
+
+The estimands deliberately differ in how they treat an unobserved span:
+- **NJ** — fully observed stencils, fixed `dt`, true span duration.
+- **SAL** — interior missing speed intervals are filled linearly; a leading or trailing gap returns NA rather than extrapolated motion. Needs ≥4 observed intervals.
+- **Velocity mean/peak** — observed support only, so both are biased low under loss; a peak hidden inside a gap is unrecoverable.
+- **Efficiency** — NA on a broken path. Bridging a hole with a straight chord biases the ratio toward 1.0, reporting a straighter, healthier movement than was observed.
+- **Dropout** — missing nominal duration over the full span, plus the longest gap run. Returned by the kernel; it becomes an output column in M3.3.
+
+On a complete grid every metric reduces to the previous operation order and stays bit-identical — enforced by `tests/goldens/r_clinical/` and `tests/test_r_trajectory_kernel.py`.
+
+The movement-phase block (`analysis/clinical_features.R`) still calls the legacy gap-unsafe primitives and is explicitly out of scope for this work.
+
+Known defect, not yet fixed: `fs` is derived per video as `1 / median(diff(timestamp_sec))`, which reads 30.03 Hz for a 30 fps capture because the exporter rounds timestamps to 4 decimals. `nominal_fs()` is the correct estimator and is tested, but adopting it at the call sites would move every shipped metric value, so it awaits its own unit.
 
 ### Compensatory Pattern Index (body mode only)
 
