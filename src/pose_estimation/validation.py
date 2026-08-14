@@ -615,7 +615,7 @@ def run_validation(
     clinical_outputs = _run_clinical(world3d_path, notes) if run_clinical else []
     clinical_sec = time.perf_counter() - t0
     if not run_clinical:
-        notes.append("clinical metrics skipped (run_clinical=False)")
+        notes.append("The pipeline skipped clinical metrics (run_clinical=False).")
     agreement_section = _build_agreement(
         world3d_path, session_out, baseline, clinical_outputs, notes
     )
@@ -740,7 +740,9 @@ def _run_tracking(
 
     existing = [c for c in session.cameras if (session_out / f"{c.name}.csv").is_file()]
     if len(existing) >= 2:
-        notes.append(f"reused {len(existing)} existing per-camera CSV(s) under {session_out}")
+        notes.append(
+            f"The pipeline reused {len(existing)} existing per-camera CSV(s) under {session_out}."
+        )
         return {c.name: 0.0 for c in existing}, True
 
     elapsed = _run_default_backend(session, output_dir, det_device, pose_device, backend, notes)
@@ -784,7 +786,8 @@ def _run_default_backend(
             f"2D backend failed (exit {result.returncode}): {result.stderr.strip()[:300]}"
         )
     notes.append(
-        f"ran default backend ({backend}, det={det_device}/pose={pose_device}) for 2D tracking"
+        f"The pipeline ran the default backend ({backend}, det={det_device}/pose={pose_device}) "
+        "for 2D tracking."
     )
     return elapsed
 
@@ -801,7 +804,7 @@ def _measure_tracking(
     for cam in session.cameras:
         csv_path = session_out / f"{cam.name}.csv"
         if not csv_path.is_file():
-            notes.append(f"camera {cam.name!r}: no 2D CSV at {csv_path}")
+            notes.append(f"Camera {cam.name!r} has no 2D CSV at {csv_path}.")
             continue
         names, frames = read_csv_keypoints(csv_path)
         measured[cam.name] = (names, frames)
@@ -1146,7 +1149,7 @@ def _run_clinical(world3d_path: pathlib.Path, notes: list[str]) -> list[str]:
     """
     rscript = shutil.which("Rscript")
     if rscript is None:
-        notes.append("clinical metrics skipped: Rscript not found on PATH")
+        notes.append("The pipeline skipped clinical metrics. PATH does not contain Rscript.")
         return []
     try:
         result = subprocess.run(
@@ -1157,16 +1160,17 @@ def _run_clinical(world3d_path: pathlib.Path, notes: list[str]) -> list[str]:
             check=False,
         )
     except subprocess.TimeoutExpired:
-        notes.append(f"clinical_features.R timed out after {_CLINICAL_TIMEOUT_S}s")
+        notes.append(f"clinical_features.R timed out after {_CLINICAL_TIMEOUT_S}s.")
         return []
     if result.returncode != 0:
         notes.append(
-            f"clinical_features.R failed (exit {result.returncode}): {result.stderr.strip()[:200]}"
+            f"clinical_features.R failed with exit code {result.returncode}: "
+            f"{result.stderr.strip()[:200]}"
         )
         return []
     outputs = sorted(p.name for p in world3d_path.parent.glob("*_clinical_3d*.csv"))
     if not outputs:
-        notes.append("clinical_features.R produced no *_clinical_3d.csv")
+        notes.append("clinical_features.R produced no *_clinical_3d.csv files.")
     return outputs
 
 
@@ -1305,11 +1309,11 @@ def _baseline_agreement(
     """
     bpath = pathlib.Path(baseline)
     if not bpath.is_file():
-        notes.append(f"baseline not found: {bpath}")
+        notes.append(f"The baseline file does not exist: {bpath}.")
         return None
     reference = json.loads(bpath.read_text())
     if not clinical_outputs:
-        notes.append("baseline supplied but no clinical CSV to compare against")
+        notes.append("The report has a baseline but no clinical CSV for comparison.")
         return None
     aggregates = _aggregate_clinical(session_out, clinical_outputs)
     errors: dict[str, float] = {}
@@ -1317,7 +1321,7 @@ def _baseline_agreement(
         if metric in aggregates and isinstance(ref, (int, float)):
             errors[metric] = abs(float(aggregates[metric]) - float(ref))
         else:
-            notes.append(f"baseline metric {metric!r} absent from clinical output")
+            notes.append(f"The clinical output does not contain baseline metric {metric!r}.")
     return errors
 
 
@@ -1400,7 +1404,8 @@ def _grade_report(report: ValidationReport, thresholds: Thresholds) -> Verdict:
         )
     else:
         notes.append(
-            "world3d has no triangulation-angle columns (legacy schema): angle quality is ungraded"
+            "world3d has no triangulation-angle columns (legacy schema). "
+            "The report does not grade angle quality."
         )
     if fus.candidate_views_available:
         _check(
@@ -1410,8 +1415,8 @@ def _grade_report(report: ValidationReport, thresholds: Thresholds) -> Verdict:
         )
     else:
         notes.append(
-            "world3d has no candidate-view diagnostics (legacy schema): "
-            "consensus view rejection is ungraded"
+            "world3d has no candidate-view diagnostics (legacy schema). "
+            "The report does not grade consensus view rejection."
         )
 
     # Hard floor: a fused keypoint below min views means malformed /
@@ -1484,18 +1489,24 @@ def _grade_report(report: ValidationReport, thresholds: Thresholds) -> Verdict:
                 _check(f"agreement.{metric}", err, thresholds.agreement_tolerance_deg)
                 graded += 1
             else:
-                notes.append(f"baseline metric {metric!r} ungraded (no unit-aware tolerance)")
+                notes.append(
+                    f"The report does not grade baseline metric {metric!r} because the metric "
+                    "has no unit-aware tolerance."
+                )
         if not graded:
-            notes.append("baseline supplied but no angle (_deg) metric to grade")
+            notes.append("The supplied baseline has no angle (_deg) metric to grade.")
     elif agr.has_baseline:
-        notes.append("baseline supplied but produced no per-metric error (see report notes)")
+        notes.append("The baseline produced no per-metric error. See the report notes.")
     else:
         notes.append(
-            "no baseline: clinical-metric agreement UNVALIDATED — verdict rests on "
-            "self-consistency surrogates + reprojection (see gap register)"
+            "No baseline is available. Clinical-metric agreement remains UNVALIDATED. "
+            "The verdict uses only self-consistency surrogates and reprojection "
+            "(see the gap register)."
         )
 
-    notes.append("timing throughput + L/R symmetry are informational (excluded from the grade)")
+    notes.append(
+        "Timing throughput and L/R symmetry are informational. They do not affect the grade."
+    )
     overall = max((Grade[c.grade] for c in checks if not c.informational), default=Grade.PASS)
     return Verdict(
         grade=overall.name,
@@ -1664,11 +1675,13 @@ def _qa_calibration(
             calib, solved = _resolve_external_calibration(calibration)
             reproj = float(calib["reprojection_error_px"])
         except (ValidationError, CalibrationError, SessionError) as exc:
-            notes.append(f"calibration RMS unassessed: {exc}")
+            notes.append(f"The report leaves calibration RMS unassessed: {exc}")
     elif session.calibration is not None:
         reproj = float(session.calibration["reprojection_error_px"])
     else:
-        notes.append("no calibration available: reprojection RMS unassessed")
+        notes.append(
+            "The report leaves reprojection RMS unassessed because no calibration is available."
+        )
 
     # Per-camera coverage/detection needs the raw ChArUco videos, so it runs
     # only when ``calibration`` resolves to a session directory.
@@ -1678,15 +1691,21 @@ def _qa_calibration(
         try:
             calib_session = discover_session(calib_dir)
         except SessionError as exc:
-            notes.append(f"calibration board coverage unassessed: {exc}")
+            notes.append(f"The report leaves calibration board coverage unassessed: {exc}")
         else:
             for cam in calib_session.cameras:
                 video = calib_session.directory / cam.file
                 cameras.append(_charuco_camera_qa(cam.name, video, cam.sync_offset, board))
     elif calib_dir is not None:
-        notes.append("calibration is a file: board coverage/detection unassessed (RMS only)")
+        notes.append(
+            "The report cannot assess board coverage or detection from a calibration file. "
+            "Only RMS is available."
+        )
     else:
-        notes.append("no ChArUco session supplied: board coverage/detection unassessed")
+        notes.append(
+            "The report cannot assess board coverage or detection because no ChArUco session "
+            "was supplied."
+        )
 
     return CalibrationQA(
         assessed=bool(cameras),
@@ -1771,7 +1790,7 @@ def _qa_subject(
         )
         tracking = _measure_tracking(session, session_out, confidence_floor, reused, notes)
     except (ValidationError, SessionError) as exc:
-        notes.append(f"subject 2D detection unassessed: {exc}")
+        notes.append(f"The report leaves subject 2D detection unassessed: {exc}")
         return SubjectQA(
             assessed=False,
             tracking=None,
@@ -1844,7 +1863,10 @@ def _grade_qa(report: QAReport, thresholds: Thresholds, qa_thresholds: QAThresho
             )
         )
     else:
-        notes.append("calibration board coverage unassessed (no raw ChArUco session videos)")
+        notes.append(
+            "The report leaves calibration board coverage unassessed because no raw ChArUco "
+            "session videos are available."
+        )
 
     # Synchronization: frame-count parity (desync proxy).
     _check("parity.frame_count_disparity", par.disparity, qa_thresholds.max_frame_count_disparity)
@@ -1862,7 +1884,10 @@ def _grade_qa(report: QAReport, thresholds: Thresholds, qa_thresholds: QAThresho
             thresholds.max_low_confidence_fraction,
         )
     else:
-        notes.append("subject 2D detection unassessed (no per-camera CSVs and no backend run)")
+        notes.append(
+            "The report leaves subject 2D detection unassessed because no per-camera CSVs or "
+            "backend run are available."
+        )
 
     overall = max((Grade[c.grade] for c in checks), default=Grade.PASS)
     return Verdict(
@@ -1885,8 +1910,8 @@ def _render_qa_markdown(report: QAReport) -> str:
         "",
         f"## Verdict: {_GRADE_MARK.get(v.grade, v.grade)} **{v.grade}**",
         "",
-        "| Check | Value | Grade | Detail |",
-        "|-------|-------|-------|--------|",
+        "| Check | Value | Grade | Details |",
+        "|-------|-------|-------|---------|",
     ]
     for c in v.checks:
         mark = _GRADE_MARK.get(c.grade, c.grade)
@@ -1895,14 +1920,14 @@ def _render_qa_markdown(report: QAReport) -> str:
         "",
         "## Calibration capture",
         "",
-        f"- reprojection RMS: {_fmt(cal.reprojection_error_px)} px "
+        f"- Reprojection RMS: {_fmt(cal.reprojection_error_px)} px "
         f"({'solved' if cal.solved else 'loaded'})",
     ]
     if cal.cameras:
         lines += [
             "",
-            "| Camera | frames | detected | rate | coverage |",
-            "|--------|--------|----------|------|----------|",
+            "| Camera | Frames | Detected frames | Detection rate | Board coverage |",
+            "|--------|--------|-----------------|----------------|----------------|",
         ]
         for c in cal.cameras:
             lines.append(
@@ -1910,24 +1935,27 @@ def _render_qa_markdown(report: QAReport) -> str:
                 f"{_fmt(c.detection_rate)} | {_fmt(c.coverage)} |"
             )
     else:
-        lines.append("- board coverage unassessed (no raw ChArUco session supplied)")
+        lines.append(
+            "- The report leaves board coverage unassessed because no raw ChArUco session "
+            "was supplied."
+        )
     counts = ", ".join(f"{k}={n}" for k, n in par.frame_counts.items())
     lines += [
         "",
-        "## Frame-count parity (desync proxy)",
+        "## Frame-count parity (desynchronization proxy)",
         "",
-        f"- disparity {_fmt(par.disparity)} ({counts})",
+        f"- Frame-count disparity: {_fmt(par.disparity)} ({counts})",
         "",
         "## Subject clip",
         "",
     ]
     if sub.assessed:
         lines += [
-            f"- worst per-camera detection rate: {_fmt(sub.worst_detection_rate)}",
-            f"- worst low-confidence fraction: {_fmt(sub.worst_low_confidence_fraction)}",
+            f"- Worst per-camera detection rate: {_fmt(sub.worst_detection_rate)}",
+            f"- Worst low-confidence fraction: {_fmt(sub.worst_low_confidence_fraction)}",
         ]
     else:
-        lines.append("- subject 2D detection unassessed")
+        lines.append("- The report leaves subject 2D detection unassessed.")
     allnotes = [*report.notes, *v.notes]
     if allnotes:
         lines += ["", "## Notes", ""]
@@ -1982,11 +2010,11 @@ def _render_markdown(report: ValidationReport) -> str:
     lines = [
         f"# Validation report — `{report.session_id}`",
         "",
-        f"_report schema v{report.schema_version} · thresholds v{v.thresholds_version}._",
+        f"_Report schema v{report.schema_version} · thresholds v{v.thresholds_version}._",
         "",
         f"## Verdict: {_GRADE_MARK.get(v.grade, v.grade)} **{v.grade}**",
         "",
-        "| check | value | grade |",
+        "| Check | Value | Grade |",
         "|-------|-------|-------|",
     ]
     lines += [
@@ -1999,12 +2027,12 @@ def _render_markdown(report: ValidationReport) -> str:
     lines += [
         "",
         "## Calibration",
-        f"- cameras: **{cal.n_cameras}**, world frame: `{cal.world_frame}`",
-        f"- reprojection RMS: **{_fmt(cal.reprojection_error_px)} px** "
+        f"- Cameras: **{cal.n_cameras}**; world frame: `{cal.world_frame}`",
+        f"- Reprojection RMS: **{_fmt(cal.reprojection_error_px)} px** "
         f"({'solved this run' if cal.solved else 'loaded'})",
         "",
-        "| camera | resolution | fx | fy | cx | cy | ‖dist‖ |",
-        "|--------|-----------|----|----|----|----|--------|",
+        "| Camera | Resolution | fx | fy | cx | cy | ‖dist‖ |",
+        "|--------|------------|----|----|----|----|--------|",
     ]
     lines += [
         f"| {c.name} | {c.resolution[0]}x{c.resolution[1]} | {_fmt(c.fx, 1)} | "
@@ -2014,14 +2042,14 @@ def _render_markdown(report: ValidationReport) -> str:
     lines += [
         "",
         "## 2D tracking",
-        f"- confidence floor: {_fmt(trk.confidence_floor, 2)}; "
-        f"reused existing CSVs: {trk.reused_existing_csvs}",
-        f"- frames observed/expected: {trk.total_observed_frames}/"
+        f"- Confidence floor: {_fmt(trk.confidence_floor, 2)}",
+        f"- Reused existing CSVs: {trk.reused_existing_csvs}",
+        f"- Frames observed/expected: {trk.total_observed_frames}/"
         f"{trk.total_expected_frames}; mean detection rate: "
         f"**{_fmt(trk.mean_detection_rate)}**",
         "",
-        "| camera | observed | expected | detection rate | low-conf frac | dropped |",
-        "|--------|----------|----------|----------------|---------------|---------|",
+        "| Camera | Observed frames | Expected frames | Detection rate | Low-confidence fraction | Dropped frames |",
+        "|--------|-----------------|-----------------|----------------|-------------------------|----------------|",
     ]
     lines += [
         f"| {c.name} | {c.observed_frames} | {c.expected_frames} | "
@@ -2032,38 +2060,39 @@ def _render_markdown(report: ValidationReport) -> str:
     lines += [
         "",
         "## 3D fusion",
-        f"- frames fused/expected: **{fus.n_frames_fused}/{fus.expected_frames}** "
+        f"- Frames fused/expected: **{fus.n_frames_fused}/{fus.expected_frames}** "
         f"({_fmt(fus.fused_frame_fraction)}); active keypoints: {fus.n_active_keypoints}",
-        f"- trusted keypoint fraction (expected active slots): "
+        f"- Trusted keypoint fraction (expected active slots): "
         f"**{_fmt(fus.trusted_keypoint_fraction)}**",
-        f"- reproj err px — median {_fmt(fus.reproj_err_px_median)}, "
-        f"p95 {_fmt(fus.reproj_err_px_p95)}, max {_fmt(fus.reproj_err_px_max)}",
-        f"- views/keypoint — median {_fmt(fus.n_views_median, 1)}, min {fus.n_views_min}",
-        f"- cheirality violation rate: {_fmt(fus.cheirality_violation_rate)}",
-        f"- triangulation angle deg — "
+        f"- Reprojection error (px) — median {_fmt(fus.reproj_err_px_median)}, "
+        f"p95 {_fmt(fus.reproj_err_px_p95)}, maximum {_fmt(fus.reproj_err_px_max)}",
+        f"- Views per keypoint — median {_fmt(fus.n_views_median, 1)}, minimum {fus.n_views_min}",
+        f"- Cheirality violation rate: {_fmt(fus.cheirality_violation_rate)}",
+        f"- Triangulation angle (deg) — "
         f"{'p05 ' + _fmt(fus.triangulation_angle_deg_p05) + ', median ' + _fmt(fus.triangulation_angle_deg_median) if fus.triangulation_angle_available else 'unavailable (legacy world3d)'}; "
         f"trust gate >= {_fmt(fus.triangulation_angle_gate_deg)}",
-        f"- candidate views — "
+        f"- Candidate views — "
         f"{'median ' + _fmt(fus.candidate_n_views_median, 1) + ', rejected fraction ' + _fmt(fus.view_rejection_fraction) if fus.candidate_views_available else 'unavailable (legacy world3d)'}",
-        f"- unfused-keypoint fraction (active): {_fmt(fus.unfused_keypoint_fraction)}",
+        f"- Unfused-keypoint fraction (active): {_fmt(fus.unfused_keypoint_fraction)}",
         "",
         "## Timing",
-        f"- device/backend: det `{tim.det_device}`, pose `{tim.pose_device}` / `{tim.backend}`",
-        f"- solve {_fmt(tim.solve_sec)}s · 2D {_fmt(tim.tracking_2d_sec)}s · "
-        f"fusion {_fmt(tim.fusion_sec)}s · clinical {_fmt(tim.clinical_sec)}s · "
-        f"total {_fmt(tim.total_sec)}s",
-        f"- throughput: {_fmt(tim.throughput_fps, 1)} fused fps",
+        f"- Detector device: `{tim.det_device}`; pose device: `{tim.pose_device}`; "
+        f"backend: `{tim.backend}`",
+        f"- Solve: {_fmt(tim.solve_sec)} s · 2D tracking: {_fmt(tim.tracking_2d_sec)} s · "
+        f"fusion: {_fmt(tim.fusion_sec)} s · clinical: {_fmt(tim.clinical_sec)} s · "
+        f"total: {_fmt(tim.total_sec)} s",
+        f"- Throughput: {_fmt(tim.throughput_fps, 1)} fused fps",
         "",
-        "## Agreement / self-consistency",
-        f"- baseline supplied: {agr.has_baseline}; clinical CSV produced: "
+        "## Agreement and self-consistency",
+        f"- Baseline supplied: {agr.has_baseline}; clinical CSV produced: "
         f"{agr.clinical_csv_produced}",
-        f"- clinical outputs: {', '.join(agr.clinical_outputs) or 'none'}",
-        f"- mean bone-length CV: **{_fmt(agr.mean_bone_length_cv)}**",
-        f"- mean L/R symmetry rel-diff: **{_fmt(agr.mean_symmetry_rel_diff)}**",
-        f"- temporal jitter: {_fmt(agr.temporal_jitter_mm, 2)} mm",
+        f"- Clinical outputs: {', '.join(agr.clinical_outputs) or 'none'}",
+        f"- Mean bone-length CV: **{_fmt(agr.mean_bone_length_cv)}**",
+        f"- Mean left/right symmetry relative difference: **{_fmt(agr.mean_symmetry_rel_diff)}**",
+        f"- Temporal jitter: {_fmt(agr.temporal_jitter_mm, 2)} mm",
     ]
     if agr.per_metric_error:
-        lines.append("- baseline per-metric abs error:")
+        lines.append("- Baseline per-metric absolute error:")
         lines += [f"  - {m}: {_fmt(e)}" for m, e in sorted(agr.per_metric_error.items())]
     if report.notes:
         lines += ["", "## Notes"] + [f"- {n}" for n in report.notes]
@@ -2078,45 +2107,67 @@ def _render_markdown(report: ValidationReport) -> str:
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="pose-estimation-validate",
-        description="Run the 3D clinical pipeline on one session and report quality.",
+        description="Run the 3D clinical pipeline on one session. Report its quality.",
     )
-    parser.add_argument("--session-dir", required=True, help="session directory (cam*.mp4 + ...)")
+    parser.add_argument(
+        "--session-dir",
+        required=True,
+        help="Select a session directory (cam*.mp4 + ...).",
+    )
     parser.add_argument(
         "--calibration",
         default=None,
-        help="calibration.json, or a ChArUco calibration-session dir to solve",
+        help="Select calibration.json or a ChArUco calibration-session directory to solve.",
     )
     parser.add_argument(
         "--baseline",
         default=None,
-        help="optional reference-metrics JSON for clinical agreement",
+        help="Read an optional reference-metrics JSON file for clinical agreement.",
     )
     parser.add_argument(
-        "--det-device", default="CPU", help="detector inference device (NPU/CPU/GPU)"
+        "--det-device",
+        default="CPU",
+        help="Select the detector inference device: NPU, CPU, or GPU (default: CPU).",
     )
     parser.add_argument(
-        "--pose-device", default="NPU", help="pose-model inference device (NPU/CPU/GPU)"
+        "--pose-device",
+        default="NPU",
+        help="Select the pose-model inference device: NPU, CPU, or GPU (default: NPU).",
     )
     parser.add_argument(
-        "--backend", default="onnxruntime", help="rtmlib backend (onnxruntime/openvino)"
-    )
-    parser.add_argument("--output-dir", default=None, help="where per-camera CSVs / world3d live")
-    parser.add_argument("--out", default="report.json", help="report JSON path")
-    parser.add_argument(
-        "--markdown", default=None, help="also write the Markdown summary to this path"
+        "--backend",
+        default="onnxruntime",
+        help="Select the rtmlib backend: onnxruntime or openvino (default: onnxruntime).",
     )
     parser.add_argument(
-        "--no-clinical", action="store_true", help="skip the R clinical-metrics stage"
+        "--output-dir",
+        default=None,
+        help="Write per-camera CSVs and world3d to this directory.",
+    )
+    parser.add_argument(
+        "--out",
+        default="report.json",
+        help="Write the report JSON to this path (default: report.json).",
+    )
+    parser.add_argument(
+        "--markdown",
+        default=None,
+        help="Also write the Markdown summary to this path.",
+    )
+    parser.add_argument(
+        "--no-clinical",
+        action="store_true",
+        help="Skip the R clinical-metrics stage.",
     )
     parser.add_argument(
         "--qa-only",
         action="store_true",
-        help="run only the pre-flight capture QA gate (no fusion/clinical chain)",
+        help="Run only the pre-flight capture QA gate. Skip the fusion and clinical chain.",
     )
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="treat a WARN verdict as a failure too (exit nonzero on WARN or FAIL)",
+        help="Treat a WARN verdict as a failure. Exit nonzero on WARN or FAIL.",
     )
     return parser.parse_args(argv)
 

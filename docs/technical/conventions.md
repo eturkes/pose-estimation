@@ -25,6 +25,16 @@ uv run ruff check && uv run ruff format --check && uv run ty check && uv run pyt
 - Session/calibration manifest paths + labels are hostile input → preserve containment checks, safe path-component validation, and traversal regression coverage.
 - Source, manifests, and tests outrank prose when they disagree; fix the prose.
 
+## Text register
+
+Rule lives in `CLAUDE.md` `Authoring`; this section owns only the inventory of what counts as human-facing here. Agent register (dense, telegraphic, human-sparse) is the default for every artifact. ASD-STE100 register (≤20 words/sentence in instructions, ≤25 in descriptions; imperative, active, one instruction per sentence, condition before command, full forms, fixed terminology) applies to this surface alone:
+
+- `README.md`, `docs/capture_protocol.md`.
+- `analysis/analysis_summary.Rmd` prose outside chunks + the plot/table labels it renders; operator-visible `cat`/`message`/`warning`/`stop` text in `analysis/*.R`.
+- `argparse` `help=`/`description=`/`epilog=` under `src/pose_estimation/` + `scripts/`; `_render_markdown` + `_render_qa_markdown` in `validation.py`; error text that reaches the terminal.
+
+Agent register everywhere else: `docs/technical/`, `.agent/`, `CLAUDE.md`, `.claude/`, code comments, docstrings, tests. Identifiers, flag names, units, defaults, and paths stay verbatim in both registers — a register change never moves a claim.
+
 ## Python style — `ruff`
 
 Config: `[tool.ruff]` in `pyproject.toml`. Line length 100, target py310.

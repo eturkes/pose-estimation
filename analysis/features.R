@@ -123,21 +123,21 @@ prepare_features <- function(df, coord_cols) {
   cat(sprintf("  Feature matrix: %d rows × %d features\n", n, ncol(feat)))
   high_na <- na_counts[na_counts > 0.5 * n]
   if (length(high_na) > 0) {
-    cat(sprintf("  %d features have >50%% missing (likely undetected hand).\n",
+    cat(sprintf("  %d features have >50%% missing values (likely an undetected hand).\n",
                 length(high_na)))
   }
 
   # Drop rows that are entirely NA across all coordinate columns.
   all_na <- rowSums(is.na(feat)) == ncol(feat)
   if (any(all_na)) {
-    cat(sprintf("  Dropping %d fully-empty rows.\n", sum(all_na)))
+    cat(sprintf("  The script drops %d fully empty rows.\n", sum(all_na)))
     feat <- feat[!all_na, , drop = FALSE]
   }
 
   # Impute remaining sporadic NAs with column medians.
   na_remaining <- sum(is.na(feat))
   if (na_remaining > 0) {
-    cat(sprintf("  Imputing %d remaining NAs with column medians.\n", na_remaining))
+    cat(sprintf("  The script imputes %d remaining NAs with column medians.\n", na_remaining))
     feat <- feat |>
       mutate(across(everything(), \(x) replace(x, is.na(x), median(x, na.rm = TRUE))))
     # If a column is still all-NA after median imputation, fill with 0.
@@ -413,7 +413,7 @@ if (dir.exists(path)) {
   files <- list.files(path, pattern = "\\.csv$", full.names = TRUE)
   files <- files[!str_detect(basename(files),
                               "(metrics|kp_detail|diag|summary|smooth|feature_rank)\\.csv$")]
-  if (length(files) == 0) stop("No landmark CSVs found in ", path)
+  if (length(files) == 0) stop("The directory contains no landmark CSVs: ", path)
 } else {
   files <- path
 }
@@ -430,7 +430,7 @@ for (f in files) {
 
   coord_cols <- coord_columns(names(df))
   if (length(coord_cols) == 0) {
-    cat("  No coordinate columns found — skipping.\n")
+    cat("  The file has no coordinate columns. The script skips it.\n")
     next
   }
 
@@ -441,7 +441,7 @@ for (f in files) {
 
   # Subsample if too large.
   if (nrow(feat) > MAX_ROWS) {
-    cat(sprintf("  Subsampling %d → %d rows for PCA/UMAP.\n", nrow(feat), MAX_ROWS))
+    cat(sprintf("  The script subsamples %d → %d rows for PCA/UMAP.\n", nrow(feat), MAX_ROWS))
     set.seed(3194)
     idx  <- sample(nrow(feat), MAX_ROWS)
     feat <- feat[idx, , drop = FALSE]
@@ -452,19 +452,19 @@ for (f in files) {
   title <- basename(stem)
 
   # 1. Variance.
-  cat("  Plotting variance...\n")
+  cat("  The script plots the variance.\n")
   p_var <- plot_variance(feat, title)
   ggsave(paste0(stem, "_variance.png"), p_var,
          width = 10, height = max(6, length(coord_cols) * 0.12), dpi = 150)
 
   # 2. Correlation.
-  cat("  Plotting correlation...\n")
+  cat("  The script plots the correlation.\n")
   p_cor <- plot_correlation(feat, title)
   ggsave(paste0(stem, "_correlation.png"), p_cor,
          width = 12, height = 11, dpi = 150)
 
   # 3. PCA.
-  cat("  Running PCA...\n")
+  cat("  The script runs PCA.\n")
   pca_fit <- run_pca(feat)
 
   p_scree <- plot_pca_scree(pca_fit, title)
@@ -479,9 +479,9 @@ for (f in files) {
   # Drop zero-variance columns before scaling (scale() produces NaN for sd=0).
   feat_var <- feat[, apply(feat, 2, \(x) sd(x, na.rm = TRUE) > 1e-12), drop = FALSE]
   if (ncol(feat_var) < 2) {
-    cat("  Skipping UMAP — fewer than 2 variable features.\n")
+    cat("  The script skips UMAP because fewer than 2 variable features remain.\n")
   } else {
-    cat("  Running UMAP...\n")
+    cat("  The script runs UMAP.\n")
     feat_scaled <- scale(feat_var)
     feat_scaled[is.na(feat_scaled)] <- 0
     umap_coords <- run_umap(feat_scaled)
@@ -498,9 +498,9 @@ for (f in files) {
   }
 
   # 5. Feature ranking table.
-  cat("  Writing feature ranking...\n")
+  cat("  The script writes the feature ranking.\n")
   rank_df <- build_feature_rank(feat, pca_fit)
   write_csv(rank_df, paste0(stem, "_feature_rank.csv"))
 
-  cat("  Done. Outputs written to", dirname(f), "\n")
+  cat("  The script finished. It wrote the outputs to", dirname(f), "\n")
 }

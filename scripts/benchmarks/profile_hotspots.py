@@ -151,11 +151,11 @@ def _profile_target(label: str, spec: str, runs: int, outdir: pathlib.Path) -> s
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--outdir", default="output/benchmarks/profiles")
-    parser.add_argument("--runs", type=int, default=50, help="Iterations per target")
+    parser.add_argument("--runs", type=int, default=50, help="Set the iterations per target.")
     parser.add_argument(
         "targets",
         nargs="*",
-        help="Target labels (default: all)",
+        help="Select target labels (default: all).",
     )
     args = parser.parse_args()
 
@@ -171,12 +171,12 @@ def main() -> int:
     if args.targets:
         selected = [t for t in _PROFILE_TARGETS if t[0] in set(args.targets)]
         if not selected:
-            print(f"No matching targets.  Known: {[t[0] for t in _PROFILE_TARGETS]}")
+            print(f"No targets matched. Available targets: {[t[0] for t in _PROFILE_TARGETS]}")
             return 2
 
     summaries: list[str] = []
     for label, spec in selected:
-        print(f"Profiling {label} ...")
+        print(f"The profiler runs {label}.")
         summary = _profile_target(label, spec, runs=args.runs, outdir=outdir)
         summaries.append(summary)
 

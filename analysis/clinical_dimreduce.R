@@ -50,7 +50,7 @@ if (length(args) < 1) {
   stop("Usage: Rscript analysis/clinical_dimreduce.R <output_dir>")
 }
 out_dir <- args[1]
-if (!dir.exists(out_dir)) stop("Directory not found: ", out_dir)
+if (!dir.exists(out_dir)) stop("The directory does not exist: ", out_dir)
 
 # ------------------------------------------------------------------
 # Load and aggregate per-frame features
@@ -59,9 +59,9 @@ if (!dir.exists(out_dir)) stop("Directory not found: ", out_dir)
 frame_files <- list.files(out_dir, pattern = "_clinical\\.csv$",
                           full.names = TRUE)
 frame_files <- frame_files[!str_detect(basename(frame_files), "_windows\\.csv$")]
-if (length(frame_files) == 0) stop("No *_clinical.csv files found in ", out_dir)
+if (length(frame_files) == 0) stop("The directory contains no *_clinical.csv files: ", out_dir)
 
-cat(sprintf("Loading %d per-frame clinical CSVs...\n", length(frame_files)))
+cat(sprintf("The script loads %d per-frame clinical CSVs.\n", length(frame_files)))
 frame_df <- map(frame_files, \(f) {
   d <- read_csv(f, show_col_types = FALSE)
   if (nrow(d) == 0) return(NULL)
@@ -81,7 +81,7 @@ win_files <- list.files(out_dir, pattern = "_clinical_windows\\.csv$",
 
 win_agg <- tibble()
 if (length(win_files) > 0) {
-  cat(sprintf("Loading %d per-window clinical CSVs...\n", length(win_files)))
+  cat(sprintf("The script loads %d per-window clinical CSVs.\n", length(win_files)))
   win_df <- map(win_files, \(f) {
     d <- read_csv(f, show_col_types = FALSE)
     if (nrow(d) == 0) return(NULL)
@@ -106,7 +106,7 @@ if (nrow(win_agg) > 0 && "video" %in% names(win_agg)) {
     select(-ends_with(".win"))
 }
 
-cat(sprintf("Aggregated %d videos × %d columns.\n",
+cat(sprintf("The script aggregated %d videos × %d columns.\n",
             nrow(summary_df), ncol(summary_df)))
 
 # ------------------------------------------------------------------
@@ -127,12 +127,12 @@ feat_cols <- feat_cols[map_lgl(feat_cols, \(c) {
 
 if (length(feat_cols) < 2) {
   message("Warning: Fewer than 2 variable features remain after filtering. ",
-          "Skipping dimensionality reduction.")
-  cat("\nDone (insufficient variable features for PCA/UMAP).\n")
+          "The script skips dimensionality reduction.")
+  cat("\nThe script finished without PCA/UMAP because too few variable features remain.\n")
   quit(save = "no", status = 0)
 }
 
-cat(sprintf("Using %d features after dropping zero-variance / high-NA columns.\n",
+cat(sprintf("The script uses %d features after dropping zero-variance / high-NA columns.\n",
             length(feat_cols)))
 
 feat_mat <- summary_df |> select(all_of(feat_cols)) |> as.matrix()
@@ -141,7 +141,7 @@ videos   <- summary_df$video
 # Impute remaining NAs with column medians
 na_count <- sum(is.na(feat_mat))
 if (na_count > 0) {
-  cat(sprintf("Imputing %d remaining NAs with column medians.\n", na_count))
+  cat(sprintf("The script imputes %d remaining NAs with column medians.\n", na_count))
   for (j in seq_len(ncol(feat_mat))) {
     na_idx <- is.na(feat_mat[, j])
     if (any(na_idx)) {
@@ -166,7 +166,7 @@ cat(sprintf("Feature matrix: %d videos × %d features (z-scored).\n",
 # PCA
 # ------------------------------------------------------------------
 
-cat("Running PCA...\n")
+cat("The script runs PCA.\n")
 pca_fit <- prcomp(feat_scaled, center = FALSE, scale. = FALSE)
 var_exp <- pca_fit$sdev^2 / sum(pca_fit$sdev^2)
 cum_var <- cumsum(var_exp)
@@ -199,12 +199,12 @@ p_scree <- ggplot(scree_df, aes(PC)) +
 
 out_scree <- file.path(out_dir, "all_clinical_pca_scree.png")
 ggsave(out_scree, p_scree, width = 8, height = 5, dpi = 150)
-cat(sprintf("Wrote → %s\n", out_scree))
+cat(sprintf("The script wrote %s.\n", out_scree))
 
 # --- Biplot ---
 scores <- as.data.frame(pca_fit$x[, 1:min(2, ncol(pca_fit$x))])
 if (ncol(scores) < 2) {
-  cat("Only 1 PC available — skipping biplot.\n")
+  cat("PCA produced only 1 PC. The script skips the biplot.\n")
 } else {
   scores$video <- videos
   pc1_lab <- sprintf("PC1 (%.1f%%)", var_exp[1] * 100)
@@ -245,7 +245,7 @@ if (ncol(scores) < 2) {
 
   out_biplot <- file.path(out_dir, "all_clinical_pca_biplot.png")
   ggsave(out_biplot, p_biplot, width = 10, height = 8, dpi = 150)
-  cat(sprintf("Wrote → %s\n", out_biplot))
+  cat(sprintf("The script wrote %s.\n", out_biplot))
 }
 
 # ------------------------------------------------------------------
@@ -256,9 +256,9 @@ n_videos <- nrow(feat_scaled)
 n_neighbors <- min(5, n_videos - 1)
 
 if (n_videos < 4) {
-  cat(sprintf("Only %d videos — skipping UMAP (need ≥4).\n", n_videos))
+  cat(sprintf("The data contains only %d videos. UMAP needs ≥4, so the script skips it.\n", n_videos))
 } else {
-  cat(sprintf("Running UMAP (n_neighbors = %d)...\n", n_neighbors))
+  cat(sprintf("The script runs UMAP with n_neighbors = %d.\n", n_neighbors))
   set.seed(4817)
   umap_coords <- umap(feat_scaled, n_neighbors = n_neighbors, min_dist = 0.1,
                        metric = "euclidean", n_epochs = 500)
@@ -279,7 +279,7 @@ if (n_videos < 4) {
 
   out_umap <- file.path(out_dir, "all_clinical_umap.png")
   ggsave(out_umap, p_umap, width = 8, height = 7, dpi = 150)
-  cat(sprintf("Wrote → %s\n", out_umap))
+  cat(sprintf("The script wrote %s.\n", out_umap))
 }
 
 # ------------------------------------------------------------------
@@ -298,7 +298,7 @@ loadings_df <- as.data.frame(pca_fit$rotation[, seq_len(n_pcs_save)]) |>
 
 out_loadings <- file.path(out_dir, "all_clinical_pca_loadings.csv")
 write_csv(loadings_df, out_loadings)
-cat(sprintf("Wrote → %s\n", out_loadings))
+cat(sprintf("The script wrote %s.\n", out_loadings))
 
 # ------------------------------------------------------------------
 # Console summary
@@ -338,4 +338,4 @@ if (n_pcs >= 2) {
   }
 }
 
-cat("\nDone.\n")
+cat("\nThe script finished.\n")

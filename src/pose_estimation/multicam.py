@@ -58,7 +58,7 @@ def _safe_resolve(base: pathlib.Path, ref: str) -> pathlib.Path:
     resolved = (base / ref).resolve()
     base_resolved = base.resolve()
     if not resolved.is_relative_to(base_resolved):
-        raise SessionError(f"path traversal detected: {ref!r} escapes {base}")
+        raise SessionError(f"The path traversal check found that {ref!r} escapes {base}.")
     return resolved
 
 
@@ -77,7 +77,7 @@ class SessionCamera:
     def __post_init__(self) -> None:
         if self.sync_offset < 0:
             raise SessionError(
-                f"camera {self.name!r}: sync_offset must be non-negative (got {self.sync_offset})"
+                f"Camera {self.name!r}: sync_offset must be non-negative; got {self.sync_offset}."
             )
 
 
@@ -133,7 +133,7 @@ def discover_session(
     """
     d = pathlib.Path(directory).resolve()
     if not d.is_dir():
-        raise SessionError(f"not a directory: {d}")
+        raise SessionError(f"The path is not a directory: {d}")
 
     manifest_path = d / SESSION_MANIFEST_FILENAME
     if manifest_path.is_file():
@@ -153,8 +153,8 @@ def discover_session(
 
     if not cameras:
         raise SessionError(
-            f"{d}: no camera videos found (looked for {SESSION_MANIFEST_FILENAME} or "
-            f"{CAMERA_GLOB}{{{','.join(VIDEO_EXTENSIONS)}}})"
+            f"No camera videos exist in {d}. The search used {SESSION_MANIFEST_FILENAME} "
+            f"or {CAMERA_GLOB}{{{','.join(VIDEO_EXTENSIONS)}}}."
         )
     _assert_unique_names(cameras, source=str(d))
 
@@ -181,7 +181,7 @@ def discover_sessions(parent_dir: str | pathlib.Path) -> list[Session]:
     """
     p = pathlib.Path(parent_dir).resolve()
     if not p.is_dir():
-        raise SessionError(f"not a directory: {p}")
+        raise SessionError(f"The path is not a directory: {p}")
     sessions: list[Session] = []
     for child in sorted(p.iterdir()):
         if not child.is_dir():
@@ -212,17 +212,17 @@ def resolve_cli_sessions(
     keeping the deny-listed tree's session ids / camera names out of context.
     """
     if session_dir and sessions_dir:
-        raise SessionError("--session-dir and --sessions-dir are mutually exclusive")
+        raise SessionError("You must specify only one of --session-dir and --sessions-dir.")
     if session_dir:
         sessions = [discover_session(session_dir, calibration_path=calibration_path)]
     else:
         if calibration_path is not None:
             print(
-                "WARNING: --calibration applies the same calibration to every "
-                "discovered session; pass --session-dir for per-session overrides."
+                "WARNING: --calibration applies the same calibration to every discovered "
+                "session. Use --session-dir for per-session overrides."
             )
         if sessions_dir is None:
-            raise SessionError("one of --session-dir / --sessions-dir is required")
+            raise SessionError("You must provide either --session-dir or --sessions-dir.")
         sessions = discover_sessions(sessions_dir)
         if not sessions:
             raise SessionError(f"no sessions discovered under {sessions_dir}")
@@ -264,17 +264,17 @@ def _load_manifest(path: pathlib.Path) -> dict[str, Any]:
         try:
             data = json.load(fh)
         except json.JSONDecodeError as exc:
-            raise SessionError(f"{path}: invalid JSON ({exc.msg})") from exc
+            raise SessionError(f"The JSON in {path} is invalid: {exc.msg}.") from exc
     if not isinstance(data, dict):
-        raise SessionError(f"{path}: top-level value must be an object")
+        raise SessionError(f"The top-level value in {path} must be an object.")
     version = data.get("format_version", SESSION_FORMAT_VERSION)
     if version != SESSION_FORMAT_VERSION:
         raise SessionError(
-            f"{path}: unsupported format_version={version!r} "
-            f"(this build accepts {SESSION_FORMAT_VERSION})"
+            f"The format_version in {path} is unsupported: {version!r}. "
+            f"This build accepts {SESSION_FORMAT_VERSION}."
         )
     if "cameras" not in data:
-        raise SessionError(f"{path}: missing required field 'cameras'")
+        raise SessionError(f"The {path} file must contain the required field 'cameras'.")
     return data
 
 
@@ -288,13 +288,17 @@ def _safe_name_component(value: str, *, kind: str, source: str) -> str:
     Returns *value* unchanged when safe; raises ``SessionError`` otherwise.
     """
     if not value or value.isspace():
-        raise SessionError(f"{source}: {kind} must be a non-empty string")
+        raise SessionError(f"The {kind} in {source} must be a non-empty string.")
     if "/" in value or "\\" in value:
-        raise SessionError(f"{source}: {kind} must not contain a path separator: {value!r}")
+        raise SessionError(f"The {kind} in {source} must not contain a path separator: {value!r}.")
     if value in (".", ".."):
-        raise SessionError(f"{source}: {kind} must not be a '.'/'..' path component: {value!r}")
+        raise SessionError(
+            f"The {kind} in {source} must not be a '.'/'..' path component: {value!r}."
+        )
     if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
-        raise SessionError(f"{source}: {kind} must not contain control characters: {value!r}")
+        raise SessionError(
+            f"The {kind} in {source} must not contain control characters: {value!r}."
+        )
     return value
 
 
@@ -304,24 +308,26 @@ def _cameras_from_manifest(
     raw_cameras = manifest["cameras"]
     if not isinstance(raw_cameras, list) or not raw_cameras:
         raise SessionError(
-            f"{directory / SESSION_MANIFEST_FILENAME}: cameras must be a non-empty array"
+            f"The cameras field in {directory / SESSION_MANIFEST_FILENAME} must be a "
+            "non-empty array."
         )
     cameras: list[SessionCamera] = []
     for i, raw_entry in enumerate(raw_cameras):
         if not isinstance(raw_entry, dict):
-            raise SessionError(f"{directory}: cameras[{i}] must be an object")
+            raise SessionError(f"cameras[{i}] in {directory} must be an object.")
         entry = cast(dict[str, Any], raw_entry)
         name = entry.get("name")
         if not isinstance(name, str):
-            raise SessionError(f"{directory}: cameras[{i}].name must be a string")
+            raise SessionError(f"cameras[{i}].name in {directory} must be a string.")
         name = _safe_name_component(name, kind=f"cameras[{i}].name", source=str(directory))
         file_ref = entry.get("file")
         if file_ref is None:
             file_path = _find_glob_for_name(directory, name)
             if file_path is None:
                 raise SessionError(
-                    f"{directory}: cameras[{i}] ({name!r}) declares no file and no "
-                    f"matching {name}.{{{','.join(e.lstrip('.') for e in VIDEO_EXTENSIONS)}}} exists"
+                    f"cameras[{i}] ({name!r}) in {directory} declares no file. "
+                    f"No matching {name}.{{{','.join(e.lstrip('.') for e in VIDEO_EXTENSIONS)}}} "
+                    "file exists."
                 )
         else:
             file_path = _safe_resolve(directory, str(file_ref))
@@ -339,7 +345,7 @@ def _cameras_from_glob(directory: pathlib.Path) -> list[SessionCamera]:
 
 def _find_glob_for_name(directory: pathlib.Path, name: str) -> pathlib.Path | None:
     if "/" in name or "\\" in name:
-        raise SessionError(f"camera name contains path separator: {name!r}")
+        raise SessionError(f"The camera name contains a path separator: {name!r}.")
     for ext in VIDEO_EXTENSIONS:
         candidate = directory / f"{name}{ext}"
         if candidate.is_file():
@@ -351,7 +357,7 @@ def _assert_unique_names(cameras: list[SessionCamera], *, source: str) -> None:
     seen: set[str] = set()
     for cam in cameras:
         if cam.name in seen:
-            raise SessionError(f"{source}: duplicate camera name {cam.name!r}")
+            raise SessionError(f"The {source} source has a duplicate camera name: {cam.name!r}.")
         seen.add(cam.name)
 
 
@@ -364,14 +370,14 @@ def _resolve_calibration(
     if explicit_path is not None:
         p = pathlib.Path(explicit_path)
         if not p.is_file():
-            raise CalibrationError(f"calibration file not found: {p}")
+            raise CalibrationError(f"Calibration file not found: {p}.")
         return load_calibration(p)
     if manifest_ref is not None:
         p = _safe_resolve(directory, str(manifest_ref))
         if not p.is_file():
             raise CalibrationError(
-                f"{directory / SESSION_MANIFEST_FILENAME}: calibration "
-                f"{manifest_ref!r} not found at {p}"
+                f"Calibration {manifest_ref!r} from {directory / SESSION_MANIFEST_FILENAME} "
+                f"not found at {p}."
             )
         return load_calibration(p)
     return load_session_calibration(directory)
@@ -400,8 +406,8 @@ def iter_synchronized_frames(session: Session) -> Iterator[SessionFrame]:
                 ok, _frame = cap.read()
                 if not ok:
                     raise SessionError(
-                        f"camera {cam.name!r}: sync_offset={cam.sync_offset} exceeds "
-                        f"available frames in {cam.file}"
+                        f"Camera {cam.name!r}: sync_offset={cam.sync_offset} exceeds available "
+                        f"frames in {cam.file}."
                     )
         frame_index = 0
         while True:
@@ -428,7 +434,7 @@ def _open_session_captures(session: Session) -> list[cv2.VideoCapture]:
         for cam in session.cameras:
             cap = cv2.VideoCapture(str(cam.file))
             if not cap.isOpened():
-                raise SessionError(f"camera {cam.name!r}: cannot open {cam.file}")
+                raise SessionError(f"Camera {cam.name!r}: OpenCV cannot open {cam.file}.")
             captures.append(cap)
     except BaseException:
         for cap in captures:
@@ -490,10 +496,7 @@ def process_session(
     session_out = _resolve_session_output(session, output_dir)
     session_out.mkdir(parents=True, exist_ok=True)
 
-    print(
-        f"\nSession {session.session_id!r}: processing {session.n_cameras} camera(s) "
-        f"→ {session_out}"
-    )
+    print(f"\nSession {session.session_id!r}: {session.n_cameras} camera(s) → {session_out}")
 
     results: dict[str, Any] = {}
     for i, cam in enumerate(session.cameras, 1):
@@ -509,13 +512,13 @@ def process_session(
             output_diag=diag_path,
             video_name=video_name,
         )
-        print(f"    CSV:  {csv_path}")
-        print(f"    Diag: {diag_path}")
+        print(f"    Wrote CSV: {csv_path}")
+        print(f"    Wrote diagnostics: {diag_path}")
 
     if session.calibration is not None:
         _fuse_and_report(session, output_dir)
 
-    print(f"\nSession {session.session_id!r}: complete ({session.n_cameras} cameras)")
+    print(f"\nSession {session.session_id!r} is complete ({session.n_cameras} cameras).")
     return results
 
 
@@ -565,9 +568,9 @@ def fuse_session_outputs(
     mode, or fewer than *min_views* CSVs exist.
     """
     if session.calibration is None:
-        raise SessionError(f"session {session.session_id!r}: 3D fusion requires calibration")
+        raise SessionError(f"Session {session.session_id!r}: 3D fusion requires calibration.")
     if min_views < 2:
-        raise ValueError(f"fuse_session_outputs: min_views must be >= 2 (got {min_views})")
+        raise ValueError(f"fuse_session_outputs: min_views must be >= 2; got {min_views}.")
     calibration = session.calibration
     session_out = _resolve_session_output(session, output_dir)
 
@@ -579,15 +582,15 @@ def fuse_session_outputs(
             continue
         if cam.name not in calibration["cameras"]:
             raise SessionError(
-                f"session {session.session_id!r}: camera {cam.name!r} has no calibration entry"
+                f"Session {session.session_id!r}: calibration has no entry for camera {cam.name!r}."
             )
         names, frames = read_csv_keypoints(csv_path)
         if keypoint_names is None:
             keypoint_names = names
         elif names != keypoint_names:
             raise SessionError(
-                f"session {session.session_id!r}: camera {cam.name!r} CSV keypoint set "
-                "differs from other cameras (mixed tracking modes?)"
+                f"Session {session.session_id!r}: the CSV keypoint set for camera "
+                f"{cam.name!r} differs from the other cameras (mixed tracking modes?)."
             )
         # Normalised [0, 1] → pixels in the calibrated resolution.
         scale = np.asarray(calibration["cameras"][cam.name]["resolution"], dtype=np.float64)
@@ -600,8 +603,8 @@ def fuse_session_outputs(
 
     if keypoint_names is None or len(per_cam_frames) < min_views:
         raise SessionError(
-            f"session {session.session_id!r}: 3D fusion needs >= {min_views} per-camera "
-            f"CSVs under {session_out} (found {len(per_cam_frames)})"
+            f"Session {session.session_id!r}: 3D fusion needs >= {min_views} per-camera CSVs "
+            f"under {session_out}; found {len(per_cam_frames)}."
         )
 
     frame_counts: dict[int, int] = {}
@@ -645,7 +648,10 @@ def _fuse_and_report(session: Session, output_dir: str | pathlib.Path | None) ->
     try:
         fusion = fuse_session_outputs(session, output_dir)
         if not fusion.frames:
-            print("  3D fusion: no logical frame is visible from >= 2 cameras; nothing fused")
+            print(
+                "  3D fusion: No logical frame is visible from at least 2 cameras. "
+                "The pipeline fused no output."
+            )
             return
         out_path = write_world3d_csv(
             _resolve_session_output(session, output_dir) / WORLD3D_FILENAME,
@@ -661,10 +667,10 @@ def _fuse_and_report(session: Session, output_dir: str | pathlib.Path | None) ->
     finite = np.isfinite(errs)
     mean_err = float(np.mean(errs[finite])) if finite.any() else float("nan")
     print(
-        f"  3D fusion: {len(fusion.frames)} frame(s), mean reprojection {mean_err:.2f}px, "
-        f"mean views/keypoint {float(np.mean(views)):.2f}"
+        f"  3D fusion: {len(fusion.frames)} frame(s); mean reprojection error "
+        f"{mean_err:.2f} px; mean views per keypoint {float(np.mean(views)):.2f}."
     )
-    print(f"    3D:   {out_path}")
+    print(f"    Wrote 3D CSV: {out_path}")
 
 
 __all__ = [

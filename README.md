@@ -1,9 +1,10 @@
 # Pose Estimation
 
-Real-time human pose estimation for movement analysis. It tracks hands, arms, or the
-whole body from a webcam or video, exports per-frame landmark CSVs, and (with
-multi-camera calibration) fuses synchronized views into metric 3D. The output feeds a
-clinical/rehabilitation kinematics pipeline (the R scripts under `analysis/`).
+Real-time human pose estimation for movement analysis. It tracks the hands, the arms,
+or the whole body from a webcam or a video file, and it exports per-frame landmark CSV
+files. With a multi-camera calibration, it fuses the synchronized views into metric 3D.
+The output feeds a clinical/rehabilitation kinematics pipeline (the R scripts under
+`analysis/`).
 
 Two inference paths share one pipeline:
 
@@ -18,10 +19,11 @@ Both apply temporal smoothing, biomechanical constraints, and a skeleton overlay
 
 ## Requirements
 
-- **Python 3.10+** (3.10-3.13 are tested).
+- **Python 3.10+.** The tests cover 3.10 to 3.13.
 - **[`uv`](https://docs.astral.sh/uv/)** for dependency and virtualenv management.
-- An **OpenVINO device.** NPU is the default but optional; CPU and GPU also work
-  (`--det-device CPU --pose-device CPU`), so no special hardware is needed to contribute.
+- An **OpenVINO device.** The NPU is the default, and it is optional. CPU and GPU also
+  work (`--det-device CPU --pose-device CPU`), so you can contribute without special
+  hardware.
 - **R + [`renv`](https://rstudio.github.io/renv/)** for the `analysis/` scripts only.
 
 ## Quick start
@@ -31,21 +33,21 @@ uv sync                                          # runtime + dev tooling (tests,
 uv run python -m pose_estimation.run                # live webcam overlay; ESC or close window to quit
 ```
 
-Models download to `model/` on first run. The `videos/`, `output/`, and `model/`
-directories are git-ignored; they hold input recordings and derived data, which stay out
+The first run downloads the models to `model/`. Git ignores the `videos/`, `output/`
+and `model/` directories. They hold input recordings and derived data, which stay out
 of commits.
 
 ## Entry points
 
-Six console scripts are defined in `pyproject.toml` (`[project.scripts]`); each is also
-runnable as `python -m pose_estimation.<module>`.
+`pyproject.toml` defines six console scripts (`[project.scripts]`). You can also run
+each one as `python -m pose_estimation.<module>`.
 
 | Script | Module | Purpose |
 |--------|--------|---------|
 | `pose-estimation` | `pose_estimation.main` | MediaPipe pipeline (default). |
 | `pose-estimation-run` | `pose_estimation.run` | Multi-backend: rtmlib (RTMW, DWPose, RTMPose) + MediaPipe. |
 | `pose-estimation-benchmark` | `pose_estimation.benchmark` | Parameter sweep harness. |
-| `pose-estimation-postprocess` | `pose_estimation.postprocess` | Savitzky-Golay smoothing for existing CSVs. |
+| `pose-estimation-postprocess` | `pose_estimation.postprocess` | Savitzky-Golay smoothing for existing CSV files. |
 | `pose-estimation-calibrate` | `pose_estimation.calibration_cli` | Multi-camera calibration (ChArUco). |
 | `pose-estimation-validate` | `pose_estimation.validation` | Capture QA + end-to-end validation reports. |
 
@@ -89,8 +91,9 @@ inference without `mmcv`/`mmpose`.
 ### Multi-camera & calibration
 
 A *session* is one recording from N synchronized cameras
-(`videos/<session_id>/cam*.mp4`). With camera calibration present, per-camera 2D keypoints
-are triangulated into a fused 3D track (`world3d.csv`, in metres).
+(`videos/<session_id>/cam*.mp4`). If a camera calibration exists, the pipeline
+triangulates the per-camera 2D keypoints into one fused 3D track (`world3d.csv`, in
+metres).
 
 ```bash
 # Calibrate a rig (ChArUco): print board → capture → solve → verify
@@ -105,9 +108,9 @@ python -m pose_estimation.run  --sessions-dir videos/           --calibration ca
 ```
 
 `--session-dir`, `--sessions-dir`, and `--calibration` are mutually exclusive with
-`--source`/`--batch-dir`. Session layout, manifest schema, and the 3D-fusion model are
-documented in [`docs/technical/multicam.md`](docs/technical/multicam.md) and
-[`docs/technical/calibration.md`](docs/technical/calibration.md).
+`--source`/`--batch-dir`. [`docs/technical/multicam.md`](docs/technical/multicam.md) and
+[`docs/technical/calibration.md`](docs/technical/calibration.md) document the session
+layout, the manifest schema and the 3D-fusion model.
 
 ### Benchmarking & post-processing
 
@@ -124,7 +127,7 @@ Sweep parameters and YAML config format: [`docs/technical/optimization.md`](docs
 
 ## Tracking modes
 
-`--tracking {hands|hands-arms|body}` selects which body parts are tracked.
+`--tracking {hands|hands-arms|body}` selects the tracked body parts.
 
 | Mode | Body keypoints | Hand keypoints | Pose detection |
 |------|----------------|----------------|----------------|
@@ -132,15 +135,17 @@ Sweep parameters and YAML config format: [`docs/technical/optimization.md`](docs
 | `hands-arms` (default) | 12 (shoulders → finger bases) | 2 × 21 | Yes. |
 | `body` | 33 (face, torso, arms, legs) | 2 × 21 | Yes. |
 
-In `hands` mode, confident model handedness assigns anatomical left/right (with
-wrist x-coordinate only as the ambiguity fallback). In `hands-arms`/`body`,
-hands are matched to arms via Hungarian (optimal) assignment with a distality
-reject.
+In `hands` mode, confident model handedness assigns the anatomical left and right sides.
+The wrist x-coordinate is the ambiguity fallback. In `hands-arms` and `body` modes, a
+Hungarian (optimal) assignment matches the hands to the arms, with a distality reject.
 
-Single-subject mode (`--single-subject`) is resilient in three layers: (1) keep the
-largest detected body each frame; (2) carry forward the last body for up to ~0.5 s when
-detection drops; (3) hand-only fallback (model handedness with x-coordinate ambiguity
-fallback) once carry-forward expires.
+Single-subject mode (`--single-subject`) tracks one subject through three fallback
+layers:
+
+1. It keeps the largest detected body in each frame.
+2. If detection drops, it carries the last body forward for approximately 0.5 s.
+3. When the carry-forward expires, it falls back to the hands alone. Model handedness
+   assigns the sides, with the x-coordinate as the ambiguity fallback.
 
 ## CSV output
 
@@ -152,18 +157,18 @@ One row per person per frame; normalised (0-1) landmark coordinates.
 | `hands-arms` | 12 × 4 = 48 | 168 | 4 | 220 |
 | `body` | 33 × 4 = 132 | 168 | 4 | 304 |
 
-Body columns use prefix `arm_` in hands-arms mode and `body_` in body mode. Each
-body keypoint exports `x, y, z, visibility`; hand keypoints export `x, y, z,
-confidence`. Missing hand coordinates are blank with confidence zero; under
-`--single-subject`, body columns may also be blank on hand-only fallback frames.
-The multi-camera path additionally writes `world3d.csv` (metric 3D + per-keypoint
-fusion diagnostics). Legacy three-column hand CSVs remain readable with
+Body columns use the prefix `arm_` in hands-arms mode, and `body_` in body mode. Each
+body keypoint exports `x, y, z, visibility`, and each hand keypoint exports `x, y, z,
+confidence`. Missing hand coordinates stay blank, with confidence zero. Under
+`--single-subject`, the body columns stay blank on hand-only fallback frames.
+The multi-camera path also writes `world3d.csv` (metric 3D + per-keypoint
+fusion diagnostics). Legacy three-column hand CSV files stay readable, with
 coordinate-presence confidence.
 
 ## Analysis (R)
 
-The R scripts in `analysis/` consume the CSVs to produce diagnostics and clinical
-kinematic features. A few common entry points:
+The R scripts in `analysis/` read the CSV files, and produce diagnostics and clinical
+kinematic features. The most common entry points follow:
 
 ```bash
 Rscript analysis/summary.R output/                          # text report + JSON
@@ -225,12 +230,13 @@ and types) alongside the runtime dependencies.
 | Format | `uv run ruff format` |
 | Type-check | `uv run ty check` |
 
-A few conventions worth knowing before you open a PR:
+Learn these conventions before you open a pull request:
 
 - **Strict tests.** Warnings are errors (`filterwarnings = ["error", …]`). For new
-  behaviour, prefer writing the failing test first (red-green-refactor).
+  behaviour, write the failing test first (red-green-refactor).
 - **Public API guard.** The package surface is whatever `src/pose_estimation/__init__.py`
-  re-exports; `tests/test_public_api.py` fails if it drifts, so update both together.
+  re-exports. If that surface drifts, `tests/test_public_api.py` fails, so update both
+  files together.
 - **Commit style.** [Scoped Commits](https://scopedcommits.com/):
   `<scope>: <imperative subject>` (≤50 chars), where scope is a subsystem (`tracking`,
   `calibration`, `multicam`) or a cross-cutting label (`Tooling`, `Docs`, `Refactor`).
@@ -240,27 +246,29 @@ optimization, tests, environment) lives under [`docs/technical/`](docs/technical
 
 ## Technical notes
 
-- **Display:** `pygame-ce` (SDL2), because OpenCV's bundled Qt backend does not render on
-  Wayland. Image processing uses `opencv-python-headless`.
-- **Inference:** OpenVINO (NPU, CPU, GPU). `main` converts MediaPipe TFLite to IR; the
-  rtmlib path (`run`) supports ONNX Runtime or OpenVINO via `--backend`.
+- **Display:** `pygame-ce` (SDL2), because the Qt backend bundled with OpenCV does not
+  render on Wayland. Image processing uses `opencv-python-headless`.
+- **Inference:** OpenVINO (NPU, CPU, GPU). `main` converts MediaPipe TFLite to IR. The
+  rtmlib path (`run`) supports ONNX Runtime or OpenVINO through `--backend`.
 - **Detector and pose model take separate devices** (`--det-device` / `--pose-device`),
-  because their device compatibility differs. rtmlib's YOLOX detector exports NMS into
-  the graph, so its output shape is dynamic; a static-shape-only device (the NPU)
-  returns a fixed-size buffer whose unused rows hold uninitialised scores, and every
-  frame then saturates at the padded row count with scores outside `[0, 1]`. `run`
-  therefore defaults to `--det-device CPU --pose-device NPU`. The pose models are
-  static-shaped and agree with CPU to ~0.5 px median while running ~19× faster on NPU.
-  MediaPipe decodes anchors and runs NMS in Python, so both of its roles default to NPU.
-- **Single cv2 wheel:** `[tool.uv] override-dependencies` excludes rtmlib's
-  `opencv-python`/`opencv-contrib-python` so only `opencv-python-headless` is installed
-  (all cv2 wheels unpack the same tree and would otherwise file-stomp).
+  because their device compatibility differs. The YOLOX detector in rtmlib exports NMS
+  into the graph, so its output shape is dynamic. A static-shape-only device such as the
+  NPU returns a fixed-size buffer, and the unused rows hold uninitialised scores. Every
+  frame then saturates at the padded row count, with scores outside `[0, 1]`. Therefore
+  `run` defaults to `--det-device CPU --pose-device NPU`. The pose models are
+  static-shaped. They agree with CPU to approximately 0.5 px median, and they run
+  approximately 19× faster on the NPU. MediaPipe decodes the anchors and runs NMS in
+  Python, so both of its roles default to the NPU.
+- **Single cv2 wheel:** `[tool.uv] override-dependencies` excludes the
+  `opencv-python`/`opencv-contrib-python` requirements of rtmlib, so the environment
+  holds `opencv-python-headless` alone. All cv2 wheels unpack the same tree, and they
+  would otherwise file-stomp.
 - **Frame pipeline:** capture (BGR) → flip → resize → detect → arm-guided hand ROI
   fallback → landmark → smooth → bone-length → joint-angle → match → optional
   single-subject filter → draw → RGB → pygame surface.
 
-Core dependencies are declared in `pyproject.toml`; exact versions are pinned in `uv.lock`
-(Python) and `renv.lock` (R).
+`pyproject.toml` declares the core dependencies. `uv.lock` (Python) and `renv.lock` (R)
+pin the exact versions.
 
 ## License
 

@@ -238,74 +238,80 @@ def _reset_if_supported(component):
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Pose estimation")
-    p.add_argument("--source", default="0", help="Camera index or video path (default: 0)")
+    p = argparse.ArgumentParser(description="Run pose estimation.")
+    p.add_argument(
+        "--source",
+        default="0",
+        help="Select a camera index or video-file path (default: 0).",
+    )
     p.add_argument(
         "--batch-dir",
         default=None,
-        help="Process all video files in a directory (overrides --source)",
+        help="Process all video files in this directory (overrides --source).",
     )
     p.add_argument(
         "--session-dir",
         default=None,
         help=(
-            "Multi-camera session directory (cam*.{mp4,avi,mov,mkv,webm} + "
-            "optional session.json + optional calibration.json). "
-            "Processes each view and fuses to 3D when calibration is present."
+            "Select a multi-camera session directory with cam*.{mp4,avi,mov,mkv,webm}. "
+            "The directory can include session.json and calibration.json. "
+            "The pipeline processes each view and fuses to 3D when calibration is present."
         ),
     )
     p.add_argument(
         "--sessions-dir",
         default=None,
-        help="Parent directory holding multiple session subdirectories (batch mode).",
+        help="Select a parent directory that contains multiple session subdirectories (batch mode).",
     )
     p.add_argument(
         "--list-sessions",
         action="store_true",
         help=(
-            "Read-only probe: discover session(s) from filenames + "
-            "session.json/calibration.json (no frame decoding), print per-session "
-            "camera count + calibration presence, then exit. Defaults to the "
-            "videos/ sessions root when neither --session-dir nor --sessions-dir "
-            "is given."
+            "Run a read-only session probe. "
+            "The probe discovers session(s) from filenames, session.json, and calibration.json "
+            "without frame decoding. It prints the camera count and calibration presence for "
+            "each session, then exits. If you omit both --session-dir and --sessions-dir, "
+            "the probe uses the videos/ sessions root."
         ),
     )
     p.add_argument(
         "--calibration",
         default=None,
         help=(
-            "Override path to calibration.json for the selected session(s); "
-            "defaults to <session_dir>/calibration.json when present."
+            "Set an override path to calibration.json for the selected session(s). "
+            "The default is <session_dir>/calibration.json when that file is present."
         ),
     )
     p.add_argument(
-        "--single-subject", action="store_true", help="Track only the highest-confidence person"
+        "--single-subject",
+        action="store_true",
+        help="Track only the highest-confidence person.",
     )
     p.add_argument(
         "--backend",
         default="openvino",
         choices=["onnxruntime", "openvino", "opencv"],
-        help="Inference backend (default: openvino)",
+        help="Select the inference backend (default: openvino).",
     )
     p.add_argument(
         "--det-device",
         default="CPU",
         help=(
-            "Device for the person detector: NPU, CPU, GPU (default: CPU).  YOLOX exports "
-            "in-graph NMS, whose dynamic output shape the NPU cannot honour — see "
-            "SplitDeviceSolution."
+            "Select the person-detector device: NPU, CPU, or GPU (default: CPU). "
+            "YOLOX exports in-graph NMS with a dynamic output shape. "
+            "The NPU cannot honor this shape; see SplitDeviceSolution."
         ),
     )
     p.add_argument(
         "--pose-device",
         default="NPU",
-        help="Device for the pose model: NPU, CPU, GPU (default: NPU)",
+        help="Select the pose-model device: NPU, CPU, or GPU (default: NPU).",
     )
     p.add_argument(
         "--mode",
         default="balanced",
         choices=["performance", "balanced", "lightweight"],
-        help="Model quality/speed tier (default: balanced)",
+        help="Select the model quality/speed tier (default: balanced).",
     )
     model_names = [*list(MODEL_REGISTRY.keys()), "mediapipe"]
     p.add_argument(
@@ -313,7 +319,7 @@ def parse_args():
         default=DEFAULT_MODEL,
         choices=model_names,
         help=(
-            f"Pose model (default: {DEFAULT_MODEL}).  "
+            f"Select the pose model (default: {DEFAULT_MODEL}). Available models: "
             + ", ".join(f"{k}: {v['label']}" for k, v in MODEL_REGISTRY.items())
             + ", mediapipe: MediaPipe pose + hand (TFLite)"
         ),
@@ -324,20 +330,35 @@ def parse_args():
         "--tracking",
         default="hands-arms",
         choices=["hands", "hands-arms", "body"],
-        help="Keypoint scope (default: hands-arms). hands/hands-arms require Wholebody.",
+        help=(
+            "Select the keypoint scope (default: hands-arms). "
+            "'hands' and 'hands-arms' require a Wholebody model."
+        ),
     )
     p.add_argument(
-        "--det-frequency", type=int, default=7, help="Run detector every N frames (default: 7)"
+        "--det-frequency",
+        type=int,
+        default=7,
+        help="Run the detector every N frames (default: 7).",
     )
-    p.add_argument("--headless", action="store_true", help="No display — just print latency stats")
+    p.add_argument(
+        "--headless",
+        action="store_true",
+        help="Skip the display. Print only latency statistics.",
+    )
     p.add_argument(
         "--output-dir",
         default=None,
-        help="Directory for CSV output. Per-source CSVs are written here.",
+        help="Write per-source CSVs to this directory.",
     )
-    p.add_argument("--max-frames", type=int, default=0, help="Stop after N frames (0 = unlimited)")
-    p.add_argument("--no-smooth", action="store_true", help="Disable temporal smoothing")
-    p.add_argument("--no-constraints", action="store_true", help="Disable bone-length constraints")
+    p.add_argument(
+        "--max-frames",
+        type=int,
+        default=0,
+        help="Stop after N frames (0 = unlimited).",
+    )
+    p.add_argument("--no-smooth", action="store_true", help="Disable temporal smoothing.")
+    p.add_argument("--no-constraints", action="store_true", help="Disable bone-length constraints.")
     return p.parse_args()
 
 
@@ -422,7 +443,7 @@ def process_source(
             source_frame_idx += 1
             timestamp = source_clock.timestamp(decoded_frame_idx)
             if frame is None or frame.size == 0:
-                print(f"WARNING: skipping malformed source frame {decoded_frame_idx}")
+                print(f"WARNING: The pipeline skips malformed source frame {decoded_frame_idx}.")
                 continue
             frame_idx += 1
             if args.max_frames and frame_idx > args.max_frames:
@@ -502,8 +523,8 @@ def process_source(
                 print(
                     f"Frame {frame_idx:5d} | "
                     f"{dt * 1000:6.1f} ms | "
-                    f"avg {mean_lat:6.1f} ms | "
-                    f"{n_persons} person(s), {n_kps} kps"
+                    f"average {mean_lat:6.1f} ms | "
+                    f"people {n_persons} | keypoints {n_kps}"
                 )
 
             if not args.headless:
@@ -549,12 +570,12 @@ def process_source(
                     pygame.display.flip()
 
     except KeyboardInterrupt:
-        print("\nInterrupted.")
+        print("\nThe run stopped after an interruption.")
     finally:
         cap.release()
         if csv_fh is not None:
             csv_fh.close()
-            print(f"  CSV written: {output_csv}")
+            print(f"  Wrote CSV: {output_csv}")
 
     return latencies
 
@@ -569,10 +590,10 @@ def print_latency_summary(latencies):
     print()
     print("─── Latency summary ───")
     print(f"  Frames processed: {len(arr)}")
-    print(f"  Warmup (first 3):  {np.mean(arr[:3]):.1f} ms avg")
+    print(f"  Warmup (first 3):  {np.mean(arr[:3]):.1f} ms average")
     if len(warm) > 0:
         print(
-            f"  Steady-state:      {np.mean(warm):.1f} ms avg, "
+            f"  Steady-state:      {np.mean(warm):.1f} ms average, "
             f"{np.median(warm):.1f} ms median, "
             f"{np.percentile(warm, 95):.1f} ms p95"
         )
@@ -608,8 +629,11 @@ def _run_mediapipe(args):
         cmd.append("--headless")
     for flag, val in (("--no-smooth", args.no_smooth), ("--max-frames", args.max_frames)):
         if val:
-            print(f"WARNING: {flag} is not supported by the MediaPipe pipeline; ignoring.")
-    print(f"Delegating to MediaPipe pipeline: {' '.join(cmd)}")
+            print(
+                f"WARNING: The MediaPipe pipeline does not support {flag}. "
+                "The runner ignores this flag."
+            )
+    print(f"The runner delegates to the MediaPipe pipeline: {' '.join(cmd)}")
     return subprocess.call(cmd)
 
 
@@ -679,7 +703,8 @@ def main():
 
     if args.calibration is not None and not (args.session_dir or args.sessions_dir):
         print(
-            "WARNING: --calibration has no effect without --session-dir/--sessions-dir; ignoring."
+            "WARNING: --calibration has no effect without --session-dir/--sessions-dir. "
+            "The runner ignores it."
         )
 
     # ── Resolve model — legacy --body-only maps to rtmpose-m ────────
@@ -692,8 +717,8 @@ def main():
     # --tracking hands/hands-arms needs wholebody (133 kps)
     if args.tracking != "body" and model["n_kps"] == 17:
         print(
-            f"NOTE: --tracking {args.tracking} requires wholebody; "
-            f"switching from {model_name} to {DEFAULT_MODEL}."
+            f"NOTE: --tracking {args.tracking} requires a Wholebody model. "
+            f"The runner switches from {model_name} to {DEFAULT_MODEL}."
         )
         model_name = DEFAULT_MODEL
         model = MODEL_REGISTRY[model_name]

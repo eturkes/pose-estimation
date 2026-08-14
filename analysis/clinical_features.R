@@ -418,7 +418,7 @@ trajectory_grid <- function(t, fs) {
   if (!is.finite(fs) || fs <= 0) {
     stop("trajectory_grid(): fs must be finite and positive")
   }
-  if (length(t) < 2) stop("trajectory_grid(): need at least two timestamps")
+  if (length(t) < 2) stop("trajectory_grid(): t must contain at least two timestamps")
   if (any(!is.finite(t))) stop("trajectory_grid(): timestamps must be finite")
   if (any(diff(t) <= 0)) {
     stop("trajectory_grid(): timestamps must be strictly increasing")
@@ -429,7 +429,7 @@ trajectory_grid <- function(t, fs) {
   residual <- max(abs(raw - slot))
   if (residual > GRID_SLOT_TOLERANCE) {
     stop(sprintf(
-      "trajectory_grid(): timestamps are not on a %g Hz grid (residual %.3f)",
+      "trajectory_grid(): timestamps do not follow a %g Hz grid (residual %.3f)",
       fs, residual
     ))
   }
@@ -1438,7 +1438,7 @@ if (dir.exists(path)) {
     paste0("(metrics|kp_detail|diag|summary|smooth|feature_rank|",
            "clinical[_a-z0-9]*|movement_phases[_a-z0-9]*)\\.csv$")
   )]
-  if (length(files) == 0) stop("No landmark CSVs found in ", path)
+  if (length(files) == 0) stop("The directory contains no landmark CSVs: ", path)
 } else {
   files <- path
 }
@@ -1451,14 +1451,14 @@ for (f in files) {
   df <- read_csv(f, show_col_types = FALSE)
   is_3d <- is_world3d(names(df))
   if (is_3d) {
-    cat("  3D input (world3d) — gating on fusion diagnostics; units: m, m/s\n")
+    cat("  The script gates 3D input (world3d) with fusion diagnostics; units: m, m/s.\n")
     # `video` is the capture identity, so an ambiguous or blank one is
     # unusable and fails closed.  A row-less input carries no value at all;
     # that case publishes typed empties and is rejected downstream instead.
     captures <- unique(df$video)
     if (nrow(df) > 0 && (length(captures) != 1L || is.na(captures[1]) ||
                          !nzchar(trimws(captures[1])))) {
-      stop("3D input needs exactly one non-blank 'video' value; found ",
+      stop("3D input must contain exactly one non-blank 'video' value; found ",
            length(captures), " distinct in ", basename(f))
     }
     df <- adapt_world3d(df)
@@ -1469,7 +1469,7 @@ for (f in files) {
   cat(sprintf("  Tracking mode: %s\n", tracking))
 
   if (tracking == "hands") {
-    cat("  Hands-only mode has no arm keypoints — skipping.\n")
+    cat("  Hands-only mode has no arm keypoints. The script skips it.\n")
     next
   }
 
@@ -1480,7 +1480,7 @@ for (f in files) {
   source_sha256 <- if (is_3d) file_sha256(f) else NA_character_
 
   # Per-frame features.
-  cat("  Computing per-frame features...\n")
+  cat("  The script computes per-frame features.\n")
   clinical <- compute_frame_features(df, tracking, is_3d = is_3d)
 
   # Tags go on the published copy only; the window and phase passes keep
@@ -1494,13 +1494,13 @@ for (f in files) {
 
   out_frame <- paste0(stem, "_clinical", suffix, ".csv")
   write_csv(frame_out, out_frame)
-  cat(sprintf("  Wrote %d rows → %s\n", nrow(frame_out), basename(out_frame)))
+  cat(sprintf("  The script wrote %d rows to %s.\n", nrow(frame_out), basename(out_frame)))
 
   # Window-level smoothness features.  A 3D window artifact is always
   # published, empty or not, so a reader can tell a genuine zero-window
   # result from a run that never happened, and a stale file from an earlier
   # run cannot survive.  2D keeps its skip-if-empty behaviour untouched.
-  cat("  Computing window-level smoothness features...\n")
+  cat("  The script computes window-level smoothness features.\n")
   windows <- compute_window_features(df, clinical, tracking)
 
   if (is_3d) {
@@ -1510,15 +1510,15 @@ for (f in files) {
   if (is_3d || nrow(windows) > 0) {
     out_win <- paste0(stem, "_clinical", suffix, "_windows.csv")
     write_csv(windows, out_win)
-    cat(sprintf("  Wrote %d windows → %s\n", nrow(windows), basename(out_win)))
+    cat(sprintf("  The script wrote %d windows to %s.\n", nrow(windows), basename(out_win)))
   } else {
-    cat("  No windows produced (video may be too short).\n")
+    cat("  The script produced no windows. The video may be too short.\n")
   }
 
   # Movement phase segmentation.  Phase metrics still differentiate across
   # tracking holes, so the artifact says so in metric_qualification rather
   # than leaving the caveat to the docs.
-  cat("  Segmenting movements...\n")
+  cat("  The script segments movements.\n")
   phases <- segment_movements(df, clinical, tracking)
 
   if (is_3d) {
@@ -1528,11 +1528,11 @@ for (f in files) {
   if (is_3d || nrow(phases) > 0) {
     out_phases <- paste0(stem, "_movement_phases", suffix, ".csv")
     write_csv(phases, out_phases)
-    cat(sprintf("  Wrote %d phases → %s\n", nrow(phases),
+    cat(sprintf("  The script wrote %d phases to %s.\n", nrow(phases),
                 basename(out_phases)))
   } else {
-    cat("  No movements detected.\n")
+    cat("  The script detected no movements.\n")
   }
 
-  cat("  Done.\n")
+  cat("  The script finished.\n")
 }

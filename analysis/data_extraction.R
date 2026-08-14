@@ -23,7 +23,7 @@ if (length(args) < 1) {
   stop("Usage: Rscript analysis/data_extraction.R <keypoints_csv> [out_dir]")
 }
 in_csv <- args[1]
-if (!file.exists(in_csv)) stop("Input CSV not found: ", in_csv)
+if (!file.exists(in_csv)) stop("The input CSV does not exist: ", in_csv)
 out_dir <- if (length(args) >= 2) args[2] else dirname(in_csv)
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 stem <- tools::file_path_sans_ext(basename(in_csv))
@@ -115,5 +115,5 @@ for (n in names(angle_data)) {
 
 write_csv(angle_data, file.path(out_dir, paste0(stem, "_angle_data.csv")))
 write_csv(mobility, file.path(out_dir, paste0(stem, "_mobility_analysis.csv")))
-cat(sprintf("Wrote %s_angle_data.csv and %s_mobility_analysis.csv to %s/\n",
+cat(sprintf("The script wrote %s_angle_data.csv and %s_mobility_analysis.csv to %s.\n",
             stem, stem, out_dir))

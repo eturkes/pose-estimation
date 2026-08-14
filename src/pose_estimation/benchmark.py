@@ -83,7 +83,7 @@ def _load_sweep_config(config_path, parser):
     """
     path = pathlib.Path(config_path)
     if not path.is_file():
-        parser.error(f"--config: file not found: {path}")
+        parser.error(f"The --config file does not exist: {path}")
 
     text = path.read_text()
     spec = None
@@ -100,13 +100,13 @@ def _load_sweep_config(config_path, parser):
             spec = json.loads(text)
         except json.JSONDecodeError as exc:
             parser.error(
-                f"--config: pyyaml is not installed and JSON fallback failed for {path}: {exc}"
+                f"The pyyaml package is not installed. The JSON fallback failed for {path}: {exc}"
             )
 
     if yaml_err is not None:
-        parser.error(f"--config: invalid YAML in {path}: {yaml_err}")
+        parser.error(f"The YAML in {path} is invalid: {yaml_err}")
     if not isinstance(spec, dict):
-        parser.error(f"--config: top-level must be a mapping (got {type(spec).__name__}) in {path}")
+        parser.error(f"The top-level value in {path} must be a mapping; got {type(spec).__name__}.")
 
     out = {}
     # ``parser.error`` calls sys.exit, so the type checker can't see that
@@ -115,8 +115,8 @@ def _load_sweep_config(config_path, parser):
     for key, value in spec.items():
         if key not in TUNEABLE_PARAMS:
             print(
-                f"  WARNING: --config: unknown parameter '{key}' ignored. "
-                f"Known: {', '.join(sorted(TUNEABLE_PARAMS))}"
+                f"  WARNING: The benchmark ignores the unknown parameter '{key}' from --config. "
+                f"Available parameters: {', '.join(sorted(TUNEABLE_PARAMS))}"
             )
             continue
         values = value if isinstance(value, list) else [value]
@@ -125,7 +125,8 @@ def _load_sweep_config(config_path, parser):
             out[key] = [coerce(v) for v in values]
         except (TypeError, ValueError) as exc:
             parser.error(
-                f"--config: cannot coerce {key} values to {coerce.__name__} ({values!r}): {exc}"
+                f"The --config parameter {key} has values {values!r} that do not convert "
+                f"to {coerce.__name__}: {exc}"
             )
 
     return out
@@ -188,19 +189,21 @@ def run_single(
     for key, value in overrides.items():
         env[f"POSE_BENCH_{key.upper()}"] = str(value)
 
-    print(f"  [{run_label}] Starting: {' '.join(f'{k}={v}' for k, v in overrides.items())}")
+    print(
+        f"  [{run_label}] The run starts with: {' '.join(f'{k}={v}' for k, v in overrides.items())}"
+    )
     t0 = time.time()
 
     result = subprocess.run(cmd, env=env, capture_output=True, text=True)
     elapsed = time.time() - t0
 
     if result.returncode != 0:
-        print(f"  [{run_label}] FAILED (exit {result.returncode})")
+        print(f"  [{run_label}] FAILED (exit code {result.returncode})")
         if result.stderr:
             print(result.stderr[:500])
         return None
 
-    print(f"  [{run_label}] Done in {elapsed:.1f}s")
+    print(f"  [{run_label}] The run completed in {elapsed:.1f}s.")
 
     # Find the metrics CSV
     metrics_files = list(run_dir.glob("*_metrics.csv"))
@@ -240,22 +243,28 @@ def generate_grid(sweep_spec):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Parameter sweep benchmark for pose estimation")
+    parser = argparse.ArgumentParser(
+        description="Run parameter-sweep benchmarks for pose estimation."
+    )
 
     source_group = parser.add_mutually_exclusive_group(required=True)
-    source_group.add_argument("--source", help="Single video file")
-    source_group.add_argument("--batch-dir", help="Directory of videos")
+    source_group.add_argument("--source", help="Select one video file.")
+    source_group.add_argument("--batch-dir", help="Select a directory of videos.")
 
     parser.add_argument(
-        "--output-dir", default="benchmark_output", help="Base directory for benchmark results"
+        "--output-dir",
+        default="benchmark_output",
+        help="Write benchmark results to this base directory.",
     )
     parser.add_argument(
-        "--det-device", default="NPU", help="OpenVINO device for the detectors (default: NPU)"
+        "--det-device",
+        default="NPU",
+        help="Select the OpenVINO device for the detectors (default: NPU).",
     )
     parser.add_argument(
         "--pose-device",
         default="NPU",
-        help="OpenVINO device for the landmark models (default: NPU)",
+        help="Select the OpenVINO device for the landmark models (default: NPU).",
     )
     parser.add_argument("--tracking", default="hands-arms", choices=["hands", "hands-arms", "body"])
     parser.add_argument("--single-subject", action="store_true")
@@ -266,11 +275,13 @@ def main():
         nargs="+",
         action="append",
         metavar="PARAM_OR_VALUE",
-        help="Sweep a parameter: --sweep body_min_cutoff 0.1 0.3 0.5",
+        help="Sweep one parameter: --sweep body_min_cutoff 0.1 0.3 0.5.",
     )
 
     # YAML config
-    parser.add_argument("--config", help="YAML file with parameter grid spec")
+    parser.add_argument(
+        "--config", help="Read the parameter-grid specification from this YAML file."
+    )
 
     args = parser.parse_args()
 
@@ -280,12 +291,12 @@ def main():
     if args.sweep:
         for sweep_args in args.sweep:
             if len(sweep_args) < 2:
-                parser.error("--sweep needs at least param_name and one value")
+                parser.error("--sweep requires at least param_name and one value")
             param_name = sweep_args[0]
             if param_name not in TUNEABLE_PARAMS:
                 parser.error(
-                    f"Unknown parameter: {param_name}\n"
-                    f"Available: {', '.join(sorted(TUNEABLE_PARAMS))}"
+                    f"The parameter is unknown: {param_name}\n"
+                    f"Available parameters: {', '.join(sorted(TUNEABLE_PARAMS))}"
                 )
             coerce = type(TUNEABLE_PARAMS[param_name])
             sweep_spec[param_name] = [coerce(v) for v in sweep_args[1:]]
@@ -309,7 +320,7 @@ def main():
             p for p in batch_path.iterdir() if p.is_file() and p.suffix.lower() in VIDEO_EXTENSIONS
         )
         if not sources:
-            print(f"No video files found in {args.batch_dir}")
+            print(f"No video files exist in {args.batch_dir}.")
             return
     else:
         sources = [pathlib.Path(args.source)]
@@ -363,13 +374,16 @@ def main():
         print(f"\n{'=' * 60}")
         print("  Benchmark Summary")
         print(f"{'=' * 60}")
-        print(f"  {'Run':<40} {'Time(s)':>8} {'Metrics CSV'}")
+        print(f"  {'Run':<40} {'Time (s)':>8} {'Metrics CSV'}")
         print(f"  {'-' * 40} {'-' * 8} {'-' * 30}")
         for r in all_results:
             csv_str = pathlib.Path(r["metrics_csv"]).name if r["metrics_csv"] else "MISSING"
             print(f"  {r['run']:<40} {r['elapsed_s']:>8.1f} {csv_str}")
 
-    print(f"\nDone. Run `Rscript analysis/summary.R {out_base}/` to generate reports.")
+    print(
+        f"\nThe benchmark is complete. "
+        f"Run `Rscript analysis/summary.R {out_base}/` to generate reports."
+    )
 
 
 if __name__ == "__main__":

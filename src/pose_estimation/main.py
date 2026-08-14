@@ -199,7 +199,7 @@ def process_video(
             source_frame_idx += 1
             timestamp_sec = source_clock.timestamp(decoded_frame_idx)
             if frame is None or frame.size == 0:
-                print(f"  WARNING: skipping malformed source frame {decoded_frame_idx}")
+                print(f"  WARNING: The pipeline skips malformed source frame {decoded_frame_idx}.")
                 continue
 
             if flip:
@@ -208,7 +208,7 @@ def process_video(
             # Cap resolution for performance
             max_dim = max(frame.shape[:2])
             if max_dim <= 0:
-                print(f"  WARNING: skipping zero-size source frame {decoded_frame_idx}")
+                print(f"  WARNING: The pipeline skips zero-size source frame {decoded_frame_idx}.")
                 continue
             scale = 1280 / max_dim
             if scale < 1:
@@ -572,92 +572,106 @@ def _dispatch_sessions(args, *, tracking, headless, models, palm_anchors, pose_a
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Pose estimation")
+    parser = argparse.ArgumentParser(description="Run pose estimation.")
     source_group = parser.add_mutually_exclusive_group()
     source_group.add_argument(
-        "--source", default=None, help="Video source: camera index (int) or file path (default: 0)"
+        "--source",
+        default=None,
+        help="Select a camera index (int) or video-file path (default: 0).",
     )
     source_group.add_argument(
-        "--batch-dir", default=None, help="Directory of video files to process sequentially"
+        "--batch-dir",
+        default=None,
+        help="Process video files from this directory sequentially.",
     )
     source_group.add_argument(
         "--session-dir",
         default=None,
         help=(
-            "Multi-camera session directory (cam*.{mp4,avi,mov,mkv,webm} + "
-            "optional session.json + optional calibration.json). "
-            "Processes each view and fuses to 3D when calibration is present."
+            "Select a multi-camera session directory with cam*.{mp4,avi,mov,mkv,webm}. "
+            "The directory can include session.json and calibration.json. "
+            "The pipeline processes each view and fuses to 3D when calibration is present."
         ),
     )
     source_group.add_argument(
         "--sessions-dir",
         default=None,
-        help="Parent directory holding multiple session subdirectories (batch mode).",
+        help="Select a parent directory that contains multiple session subdirectories (batch mode).",
     )
     parser.add_argument(
         "--calibration",
         default=None,
         help=(
-            "Override path to calibration.json for the selected session(s); "
-            "defaults to <session_dir>/calibration.json when present."
+            "Set an override path to calibration.json for the selected session(s). "
+            "The default is <session_dir>/calibration.json when that file is present."
         ),
     )
     parser.add_argument(
-        "--output-dir", default="output", help="Directory for CSV output (default: output/)"
+        "--output-dir",
+        default="output",
+        help="Write CSV output to this directory (default: output/).",
     )
     parser.add_argument(
         "--det-device",
         default="NPU",
-        help="OpenVINO device for the pose/palm detectors (default: NPU)",
+        help="Select the OpenVINO device for the pose/palm detectors (default: NPU).",
     )
     parser.add_argument(
         "--pose-device",
         default="NPU",
-        help="OpenVINO device for the pose/hand landmark models (default: NPU)",
+        help="Select the OpenVINO device for the pose/hand landmark models (default: NPU).",
     )
     parser.add_argument(
-        "--no-flip", action="store_true", help="Disable horizontal flip (useful for rear cameras)"
+        "--no-flip",
+        action="store_true",
+        help="Disable the horizontal flip (useful for rear cameras).",
     )
     parser.add_argument(
-        "--model-dir", default="model", help="Directory for downloaded/converted models"
+        "--model-dir",
+        default="model",
+        help="Store downloaded and converted models in this directory.",
     )
     parser.add_argument(
-        "--single-subject", action="store_true", help="Keep only the most prominent body per frame"
+        "--single-subject",
+        action="store_true",
+        help="Keep only the most prominent body per frame.",
     )
     parser.add_argument(
         "--tracking",
         default="hands-arms",
         choices=["hands", "hands-arms", "body"],
         help=(
-            "Tracking scope: 'hands' (hands only), "
-            "'hands-arms' (arms + hands, default), "
-            "'body' (whole body + hands)"
+            "Select the tracking scope. 'hands' tracks hands only. "
+            "'hands-arms' tracks arms and hands (default). "
+            "'body' tracks the whole body and hands."
         ),
     )
     parser.add_argument(
         "--postprocess",
         action="store_true",
-        help="Apply Savitzky-Golay smoothing to CSVs after processing",
+        help="Apply Savitzky-Golay smoothing to the CSVs after processing.",
     )
     parser.add_argument(
         "--savgol-window",
         type=_odd_int,
         default=11,
-        help="Savitzky-Golay window length, must be odd (default: 11)",
+        help="Set the Savitzky-Golay window length (default: 11). The value must be odd.",
     )
     parser.add_argument(
         "--savgol-polyorder",
         type=int,
         default=3,
-        help="Savitzky-Golay polynomial order (default: 3)",
+        help="Set the Savitzky-Golay polynomial order (default: 3).",
     )
     parser.add_argument(
         "--headless",
         action="store_true",
-        help="Skip display; only run detection + export + metrics",
+        help="Skip the display. Run only detection, export, and metrics.",
     )
     parser.add_argument(
-        "--metrics-detail", action="store_true", help="Write per-keypoint detail CSV (large)"
+        "--metrics-detail",
+        action="store_true",
+        help="Write a large per-keypoint detail CSV.",
     )
     args = parser.parse_args()
 
@@ -697,16 +711,16 @@ def main():
 
         if args.calibration is not None:
             print(
-                "WARNING: --calibration has no effect without --session-dir/--sessions-dir; "
-                "ignoring."
+                "WARNING: --calibration has no effect without --session-dir/--sessions-dir. "
+                "The pipeline ignores it."
             )
 
         if args.batch_dir:
             video_files = collect_video_files(args.batch_dir)
-            print(f"Found {len(video_files)} video(s) in {args.batch_dir}")
+            print(f"The batch contains {len(video_files)} video(s) in {args.batch_dir}.")
 
             for i, vpath in enumerate(video_files, 1):
-                print(f"\nProcessing {i}/{len(video_files)}: {vpath.name}")
+                print(f"\nVideo {i}/{len(video_files)}: {vpath.name}")
                 csv_path = pathlib.Path(args.output_dir) / f"{vpath.stem}.csv"
                 fh, writer = open_csv_writer(csv_path, tracking=tracking)
                 diag_path = pathlib.Path(args.output_dir) / f"{vpath.stem}_diag.csv"
@@ -734,14 +748,14 @@ def main():
                     fh.close()
                     diag_fh.close()
                     mc.flush()
-                print(f"  Saved: {csv_path}")
-                print(f"  Diag:  {diag_path}")
+                print(f"  Wrote CSV: {csv_path}")
+                print(f"  Wrote diagnostics: {diag_path}")
                 csv_paths.append(csv_path)
                 if user_quit:
-                    print("User quit — stopping batch.")
+                    print("The user stopped the batch.")
                     break
 
-            print("\nBatch complete.")
+            print("\nThe batch is complete.")
 
         else:
             # Single source mode (camera or file)
@@ -800,16 +814,16 @@ def main():
             finally:
                 if fh is not None:
                     fh.close()
-                    print(f"Saved: {csv_path}")
+                    print(f"Wrote CSV: {csv_path}")
                     csv_paths.append(csv_path)
                 if diag_fh is not None:
                     diag_fh.close()
-                    print(f"Diag:  {diag_path}")
+                    print(f"Wrote diagnostics: {diag_path}")
                 if mc is not None:
                     mc.flush()
 
     except KeyboardInterrupt:
-        print("\nInterrupted.")
+        print("\nThe run stopped after an interruption.")
     finally:
         if not headless:
             import pygame as _pg
@@ -821,8 +835,8 @@ def main():
         from .postprocess import savgol_smooth_csv
 
         print(
-            f"\nPost-processing {len(csv_paths)} CSV(s) "
-            f"(window={args.savgol_window}, polyorder={args.savgol_polyorder})"
+            f"\nThe post-processing step uses {len(csv_paths)} CSV(s) "
+            f"(window={args.savgol_window}, polyorder={args.savgol_polyorder})."
         )
         for csv_path in csv_paths:
             out = csv_path.with_name(f"{csv_path.stem}_smooth.csv")
@@ -830,7 +844,7 @@ def main():
                 csv_path, out, window=args.savgol_window, polyorder=args.savgol_polyorder
             )
             print(f"  {out}")
-        print("Post-processing complete.")
+        print("The post-processing step is complete.")
 
 
 if __name__ == "__main__":

@@ -144,7 +144,7 @@ def detect_charuco_corners(
     """
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
-        raise CalibrationError(f"cannot open video: {video_path}")
+        raise CalibrationError(f"The solver cannot open video: {video_path}.")
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     detector = cv2.aruco.CharucoDetector(board)
@@ -172,7 +172,9 @@ def detect_charuco_corners(
     finally:
         cap.release()
     if width <= 0 or height <= 0:
-        raise CalibrationError(f"invalid frame size {width}x{height} for video: {video_path}")
+        raise CalibrationError(
+            f"The video has an invalid frame size of {width}x{height}: {video_path}."
+        )
     return detections, (width, height)
 
 
@@ -209,8 +211,8 @@ def _solve_intrinsics(
         img_points.append(np.asarray(img, dtype=np.float32))
     if len(obj_points) < MIN_INTRINSIC_FRAMES:
         raise CalibrationError(
-            f"only {len(obj_points)} usable frames for intrinsics "
-            f"(need ≥ {MIN_INTRINSIC_FRAMES}) — record more board views"
+            f"The camera has only {len(obj_points)} usable frames for intrinsics "
+            f"(requires at least {MIN_INTRINSIC_FRAMES}). Record more board views."
         )
     # The K/dist arguments are pure output storage here: without
     # CALIB_USE_INTRINSIC_GUESS OpenCV re-initialises both internally.
@@ -271,9 +273,9 @@ def _solve_extrinsics(
     obj_f, img_w, img_c = _shared_correspondences(world_dets, cam_dets, board)
     if len(obj_f) < min_shared_frames:
         raise CalibrationError(
-            f"only {len(obj_f)} frames share ≥ {MIN_SHARED_CORNERS} corners with the "
-            f"world-frame camera (need ≥ {min_shared_frames}) — record views where "
-            "both cameras see the board simultaneously"
+            f"Only {len(obj_f)} frames share at least {MIN_SHARED_CORNERS} corners with the "
+            f"world-frame camera (requires at least {min_shared_frames}). "
+            "Record views where both cameras see the board simultaneously."
         )
     keep = _subsample(list(range(len(obj_f))), max_frames)
     rms, *_imgK, R, T, _E, _F = cv2.stereoCalibrate(
@@ -375,7 +377,9 @@ def solve_charuco(
     names = session.camera_names()
     world = names[0] if world_frame is None else world_frame
     if world not in names:
-        raise CalibrationError(f"world_frame={world!r} is not a session camera (have {names})")
+        raise CalibrationError(
+            f"world_frame={world!r} is not a session camera. Available cameras: {names}."
+        )
 
     detections: dict[str, dict[int, CharucoDetection]] = {}
     sizes: dict[str, tuple[int, int]] = {}
@@ -387,12 +391,12 @@ def solve_charuco(
             )
             intrinsics[cam.name] = _solve_intrinsics(_subsample(dets, max_frames), board, size)
         except CalibrationError as exc:
-            raise CalibrationError(f"camera {cam.name!r}: {exc}") from exc
+            raise CalibrationError(f"Camera {cam.name!r}: {exc}") from exc
         detections[cam.name] = {d.frame_idx: d for d in dets}
         sizes[cam.name] = size
         print(
-            f"[calib] {cam.name}: {len(dets)} frames with ≥{min_corners} corners, "
-            f"intrinsics rms={intrinsics[cam.name][2]:.3f} px"
+            f"[calibration] {cam.name}: {len(dets)} frames contain at least "
+            f"{min_corners} corners; intrinsic RMS={intrinsics[cam.name][2]:.3f} px."
         )
 
     cameras: dict[str, CameraCalibration] = {}
@@ -415,14 +419,14 @@ def solve_charuco(
                     max_frames=max_frames,
                 )
             except CalibrationError as exc:
-                raise CalibrationError(f"camera {name!r}: {exc}") from exc
-            print(f"[calib] {world}↔{name}: stereo rms={pair_rms:.3f} px")
+                raise CalibrationError(f"Camera {name!r}: {exc}") from exc
+            print(f"[calibration] {world}↔{name}: stereo RMS={pair_rms:.3f} px.")
         cameras[name] = CameraCalibration(
             name=name, resolution=sizes[name], K=K, distortion=dist, rvec=rvec, tvec=tvec
         )
 
     global_rms = _global_reprojection_rms(detections, cameras, board, world)
-    print(f"[calib] global reprojection rms={global_rms:.3f} px")
+    print(f"[calibration] Global reprojection RMS={global_rms:.3f} px.")
     return SessionCalibration(
         format_version=CALIBRATION_FORMAT_VERSION,
         session_id=session.session_id,

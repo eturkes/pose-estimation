@@ -35,7 +35,10 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 
 ## Scratch validators pending port
 
-_empty_ — `.scratch/gap_bias_probe.R` ported into `tests/test_r_trajectory_kernel.py::test_gap_bias_probe_corpus_is_bounded_and_gapfree_exact` (M3.1) and deleted.
+- `.scratch/steq.py` — ASD-STE100 register scan over the human-facing surface (inventory: `docs/technical/conventions.md` → *Text register*). Drops fences/tables/headings/frontmatter, joins wrapped lines into blocks so a sentence is measured whole, splits on `.!?`, flags `LONG` (> `--max`; 20 for instructions, 25 for descriptions), `FILLER`, `CONTRACTION` (also fires on possessive `'s`), `PASSIVE` (be-verb + participle heuristic). Code-file mode samples quoted `help=`/`description=`/`title=` strings only. Measured at `--max 20`: `README.md` 14 → 2, `docs/capture_protocol.md` 20 → 7, `analysis/analysis_summary.Rmd` 13 → its wave value. Residual flags are 21-25-word descriptions, which the rule allows. Port scheduled in `.agent/polish.md`.
+- `.scratch/fidelity.sh <base-ref> <file>…` — pairs with it: diffs the multiset of format specifiers, `--flags`, backticked spans, file names and numbers between a base ref and the working tree. A register-only edit must show no delta; every delta needs an explanation. Caught the p-value reformat (`p<.05` → `p < 0.05`) and confirmed 14 R files invariant.
+
+`.scratch/gap_bias_probe.R` ported into `tests/test_r_trajectory_kernel.py::test_gap_bias_probe_corpus_is_bounded_and_gapfree_exact` (M3.1) and deleted.
 - `zoo` is gone (M3.1). `stats::filter(x, rep(1/5, 5), sides = 2)` replaced `zoo::rollmean(x, 5, fill = NA, align = "center")`: NA propagation identical at centre, both edges and interior/leading/trailing/scattered holes; values differ ~1-2 ULP (2.8e-14 absolute on ~100-magnitude input — the old "1.11e-16" note was relative, not absolute), and no golden pins that column. `dplyr` masks `stats::filter`, so the call must stay namespace-qualified.
 
 ## Worktree gate recipe (`.scratch/worktrees/<name>`)

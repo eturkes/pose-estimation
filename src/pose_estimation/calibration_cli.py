@@ -48,22 +48,22 @@ from .multicam import SessionError
 
 
 def _print_summary(calib, source: str) -> None:
-    print(f"calibration:  {source}")
-    print(f"session_id:   {calib['session_id']}")
-    print(f"world_frame:  {calib['world_frame']}")
-    print(f"solver:       {calib.get('solver', '?')}")
-    print(f"solved_at:    {calib.get('solved_at', '?')}")
-    print(f"reproj_err:   {calib.get('reprojection_error_px', float('nan')):.4f} px")
-    print(f"cameras ({len(calib['cameras'])}):")
+    print(f"Calibration:       {source}")
+    print(f"Session ID:        {calib['session_id']}")
+    print(f"World frame:       {calib['world_frame']}")
+    print(f"Solver:            {calib.get('solver', '?')}")
+    print(f"Solved at:         {calib.get('solved_at', '?')}")
+    print(f"Reprojection error: {calib.get('reprojection_error_px', float('nan')):.4f} px")
+    print(f"Cameras ({len(calib['cameras'])}):")
     for name, cam in calib["cameras"].items():
         K = np.asarray(cam["K"], dtype=np.float64)
         fx, fy = float(K[0, 0]), float(K[1, 1])
         cx, cy = float(K[0, 2]), float(K[1, 2])
         tvec = np.asarray(cam["tvec"], dtype=np.float64)
         print(
-            f"  {name:>8s}  res={cam['resolution'][0]}x{cam['resolution'][1]}  "
-            f"f=({fx:.1f}, {fy:.1f})  c=({cx:.1f}, {cy:.1f})  "
-            f"|t|={float(np.linalg.norm(tvec)):.3f} m"
+            f"  {name:>8s}  resolution={cam['resolution'][0]}x{cam['resolution'][1]}  "
+            f"focal=({fx:.1f}, {fy:.1f})  principal=({cx:.1f}, {cy:.1f})  "
+            f"|translation|={float(np.linalg.norm(tvec)):.3f} m"
         )
 
 
@@ -71,13 +71,19 @@ def _parse_squares(value: str) -> tuple[int, int]:
     """Parse a ``COLSxROWS`` board-layout string (e.g. ``6x9``)."""
     parts = value.lower().split("x")
     if len(parts) != 2:
-        raise argparse.ArgumentTypeError(f"expected COLSxROWS (e.g. 6x9), got {value!r}")
+        raise argparse.ArgumentTypeError(
+            f"The board layout must use COLSxROWS (for example, 6x9); got {value!r}."
+        )
     try:
         sx, sy = int(parts[0]), int(parts[1])
     except ValueError:
-        raise argparse.ArgumentTypeError(f"expected COLSxROWS (e.g. 6x9), got {value!r}") from None
+        raise argparse.ArgumentTypeError(
+            f"The board layout must use COLSxROWS (for example, 6x9); got {value!r}."
+        ) from None
     if sx < 3 or sy < 3:
-        raise argparse.ArgumentTypeError(f"board needs ≥ 3x3 squares, got {value!r}")
+        raise argparse.ArgumentTypeError(
+            f"The board must contain at least 3x3 squares; got {value!r}."
+        )
     return sx, sy
 
 
@@ -87,10 +93,11 @@ def _parse_devices(value: str) -> list[int]:
         devices = [int(part) for part in value.split(",")]
     except ValueError:
         raise argparse.ArgumentTypeError(
-            f"expected comma-separated integers (e.g. 0,1,2), got {value!r}"
+            f"The device list must contain comma-separated integers "
+            f"(for example, 0,1,2); got {value!r}."
         ) from None
     if len(devices) != len(set(devices)):
-        raise argparse.ArgumentTypeError(f"duplicate device index in {value!r}")
+        raise argparse.ArgumentTypeError(f"The device list contains a duplicate index: {value!r}.")
     return devices
 
 
@@ -108,19 +115,19 @@ def _add_board_args(parser: argparse.ArgumentParser) -> None:
         type=_parse_squares,
         default=CHARUCO_SQUARES_DEFAULT,
         metavar="COLSxROWS",
-        help="Board layout (default: %(default)s).",
+        help="Set the board layout (default: %(default)s).",
     )
     parser.add_argument(
         "--square-size-m",
         type=float,
         default=CHARUCO_SQUARE_SIZE_M_DEFAULT,
-        help="Chessboard square side in metres (default: %(default)s).",
+        help="Set the chessboard square side in metres (default: %(default)s).",
     )
     parser.add_argument(
         "--marker-size-m",
         type=float,
         default=CHARUCO_MARKER_SIZE_M_DEFAULT,
-        help="ArUco marker side in metres (default: %(default)s).",
+        help="Set the ArUco marker side in metres (default: %(default)s).",
     )
 
 
@@ -152,7 +159,7 @@ def _cmd_solve(args: argparse.Namespace) -> int:
     except (CalibrationError, SessionError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-    print(f"wrote: {args.output}")
+    print(f"Wrote: {args.output}")
     _print_summary(calib, args.output)
     return 0
 
@@ -167,15 +174,15 @@ def _cmd_board(args: argparse.Namespace) -> int:
     out = pathlib.Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
     if not cv2.imwrite(str(out), img):
-        print(f"ERROR: could not write {out}", file=sys.stderr)
+        print(f"ERROR: Could not write {out}.", file=sys.stderr)
         return 2
     sx, sy = args.squares
     w_mm, h_mm = sx * args.square_size_m * 1000, sy * args.square_size_m * 1000
-    print(f"wrote: {out} ({img.shape[1]}x{img.shape[0]} px)")
-    print(f"pattern size: {w_mm:.0f} x {h_mm:.0f} mm (plus white margin)")
+    print(f"Wrote: {out} ({img.shape[1]}x{img.shape[0]} px)")
+    print(f"Pattern size: {w_mm:.0f} x {h_mm:.0f} mm (plus a white margin).")
     print(
-        "print at 100% scale on rigid stock, then verify one square measures "
-        f"{args.square_size_m * 1000:.0f} mm with a ruler."
+        "Print at 100% scale on rigid stock. "
+        f"Verify that one square measures {args.square_size_m * 1000:.0f} mm with a ruler."
     )
     return 0
 
@@ -219,7 +226,10 @@ def _cmd_capture(args: argparse.Namespace) -> int:
     devices = args.devices
     names = args.names.split(",") if args.names else [f"cam{i + 1}" for i in range(len(devices))]
     if len(names) != len(devices):
-        print(f"ERROR: {len(names)} names for {len(devices)} devices", file=sys.stderr)
+        print(
+            f"ERROR: Received {len(names)} names for {len(devices)} devices.",
+            file=sys.stderr,
+        )
         return 2
     try:
         board = _board_from_args(args)
@@ -239,7 +249,7 @@ def _cmd_capture(args: argparse.Namespace) -> int:
             if args.height:
                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, args.height)
             if not cap.isOpened():
-                print(f"ERROR: cannot open device {dev} ({name})", file=sys.stderr)
+                print(f"ERROR: Could not open device {dev} ({name}).", file=sys.stderr)
                 return 2
             caps.append(cap)
         return _capture_loop(caps, names, detector, session_dir)
@@ -270,7 +280,7 @@ def _capture_loop(
             for cap, name in zip(caps, names, strict=True):
                 ok, frame = cap.read()
                 if not ok:
-                    print(f"WARNING: frame grab failed on {name}", file=sys.stderr)
+                    print(f"WARNING: The frame grab failed on {name}.", file=sys.stderr)
                     frame = np.zeros((_GRID_CELL_HEIGHT, _GRID_CELL_HEIGHT, 3), dtype=np.uint8)
                 frames.append(frame)
 
@@ -307,7 +317,8 @@ def _capture_loop(
                 screen = pygame.display.set_mode(surface.get_size())
             screen.blit(surface, (0, 0))
             pygame.display.set_caption(
-                f"calibrate capture — saved {n_saved}  [SPACE] save  [Q] quit"
+                f"Calibration capture — saved frames per camera: {n_saved} | "
+                "[SPACE] Save | [Q] Quit"
             )
             pygame.display.flip()
             clock.tick(30)
@@ -316,10 +327,13 @@ def _capture_loop(
             writer.release()
         pygame.quit()
     if n_saved:
-        print(f"captured {n_saved} synchronized frame(s) per camera into {session_dir}")
-        print(f"next: pose-estimation-calibrate solve --session-dir {session_dir} --output ...")
+        print(f"Captured {n_saved} synchronized frame(s) per camera in {session_dir}.")
+        print(
+            f"Next step: Run pose-estimation-calibrate solve --session-dir {session_dir} "
+            "--output ..."
+        )
     else:
-        print("no frames captured", file=sys.stderr)
+        print("The capture produced no frames.", file=sys.stderr)
     return 0 if n_saved else 1
 
 
@@ -331,36 +345,40 @@ def _capture_loop(
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pose-estimation-calibrate",
-        description="Camera-calibration management for multi-camera sessions.",
+        description="Manage camera calibration for multi-camera sessions.",
     )
     subs = parser.add_subparsers(dest="cmd", required=True, metavar="<cmd>")
 
-    p_verify = subs.add_parser("verify", help="Load and summarise a calibration file.")
+    p_verify = subs.add_parser("verify", help="Load and summarize a calibration file.")
     p_verify.add_argument(
-        "--calibration", required=True, help=f"Path to a {CALIBRATION_FILENAME}-format JSON file."
+        "--calibration",
+        required=True,
+        help=f"Read a {CALIBRATION_FILENAME}-format JSON file from this path.",
     )
     p_verify.set_defaults(func=_cmd_verify)
 
     p_solve = subs.add_parser(
         "solve",
-        help="Solve calibration from a ChArUco recording session.",
+        help="Solve the calibration from a ChArUco recording session.",
     )
-    p_solve.add_argument("--session-dir", required=True, help="Calibration recording session.")
+    p_solve.add_argument(
+        "--session-dir", required=True, help="Select the calibration recording session."
+    )
     p_solve.add_argument(
         "--output",
         required=True,
-        help=f"Destination path for {CALIBRATION_FILENAME}.",
+        help=f"Write {CALIBRATION_FILENAME} to this path.",
     )
     p_solve.add_argument(
         "--world-frame",
         default=None,
-        help="Camera name that defines the world origin (default: first camera).",
+        help="Set the camera that defines the world origin (default: first camera).",
     )
     p_solve.add_argument(
         "--max-frames",
         type=int,
         default=50,
-        help="Max frames per calibrateCamera/stereoCalibrate call (default: %(default)s).",
+        help="Set the maximum frames per calibrateCamera/stereoCalibrate call (default: %(default)s).",
     )
     _add_board_args(p_solve)
     p_solve.set_defaults(func=_cmd_solve)
@@ -369,36 +387,38 @@ def _build_parser() -> argparse.ArgumentParser:
         "board",
         help="Render the ChArUco board to an image for printing.",
     )
-    p_board.add_argument("--output", required=True, help="Destination image path (PNG).")
+    p_board.add_argument("--output", required=True, help="Write the PNG image to this path.")
     p_board.add_argument(
         "--px-per-square",
         type=int,
         default=240,
-        help="Render resolution (default: %(default)s; 240 ≈ 150 dpi for 40 mm squares).",
+        help="Set the render resolution (default: %(default)s; 240 ≈ 150 dpi for 40 mm squares).",
     )
     _add_board_args(p_board)
     p_board.set_defaults(func=_cmd_board)
 
     p_capture = subs.add_parser(
         "capture",
-        help="Live capture: SPACE saves one synchronized frame per camera.",
+        help="Capture live frames. Press SPACE to save one synchronized frame per camera.",
     )
     p_capture.add_argument(
-        "--session-dir", required=True, help="Destination for the calibration recording."
+        "--session-dir",
+        required=True,
+        help="Write the calibration recording to this directory.",
     )
     p_capture.add_argument(
         "--devices",
         required=True,
         type=_parse_devices,
-        help="Comma-separated cv2 device indices (e.g. 0,1,2).",
+        help="Set comma-separated cv2 device indices (for example, 0,1,2).",
     )
     p_capture.add_argument(
         "--names",
         default=None,
-        help="Comma-separated camera names matching --devices (default: cam1,cam2,...).",
+        help="Set comma-separated camera names that match --devices (default: cam1,cam2,...).",
     )
-    p_capture.add_argument("--width", type=int, default=0, help="Requested capture width.")
-    p_capture.add_argument("--height", type=int, default=0, help="Requested capture height.")
+    p_capture.add_argument("--width", type=int, default=0, help="Set the capture width.")
+    p_capture.add_argument("--height", type=int, default=0, help="Set the capture height.")
     _add_board_args(p_capture)
     p_capture.set_defaults(func=_cmd_capture)
 

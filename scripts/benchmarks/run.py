@@ -35,20 +35,20 @@ def _load_module(group: str):
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run pose_estimation micro-benchmarks")
+    parser = argparse.ArgumentParser(description="Run pose_estimation micro-benchmarks.")
     parser.add_argument(
         "groups",
         nargs="*",
         choices=[*_GROUPS, []],
         default=[],
-        help=f"Groups to run (default: all).  Options: {', '.join(_GROUPS)}",
+        help=f"Select groups (default: all). Available: {', '.join(_GROUPS)}",
     )
     parser.add_argument(
         "--output",
         default="output/benchmarks/results.json",
-        help="Where to write the aggregated JSON results",
+        help="Write the aggregated JSON results to this path.",
     )
-    parser.add_argument("--quick", action="store_true", help="Fewer iterations per case")
+    parser.add_argument("--quick", action="store_true", help="Use fewer iterations per case.")
     args = parser.parse_args()
 
     groups = args.groups or _GROUPS
@@ -73,7 +73,7 @@ def main() -> int:
 
     out_path = save_results(all_results, args.output)
     elapsed = time.time() - t0
-    print(f"\nSaved {len(all_results)} results in {elapsed:.1f}s -> {out_path}")
+    print(f"\nWrote {len(all_results)} results to {out_path} in {elapsed:.1f}s.")
     return 0
 
 

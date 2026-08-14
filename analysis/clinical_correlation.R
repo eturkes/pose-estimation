@@ -120,7 +120,7 @@ plot_correlation_matrix <- function(cor_tbl, title_prefix) {
     ) +
     labs(
       title = paste(title_prefix, "— Feature × Score Correlation"),
-      subtitle = "Spearman rho (BH-adjusted * p<.05, ** p<.01, *** p<.001)",
+      subtitle = "Spearman rho (BH-adjusted: * p < 0.05, ** p < 0.01, *** p < 0.001)",
       x = NULL, y = NULL, fill = "Spearman rho"
     ) +
     theme_minimal(base_size = 10) +
@@ -140,7 +140,7 @@ plot_scatter_top <- function(joined, cor_tbl, title_prefix, n_top = 6) {
 
   # Reshape into long format for faceting — avoids extra package deps.
   long <- pmap_dfr(top, function(feature, score, spearman_rho, p_adj_bh, ...) {
-    label <- sprintf("%s vs %s  (rho=%.2f, p_adj=%.3g)",
+    label <- sprintf("%s versus %s (rho = %.2f, p_adj = %.3g)",
                      feature, score, spearman_rho, p_adj_bh)
     tibble(
       panel = label,
@@ -183,7 +183,7 @@ scores_path <- args[2]
 
 # --- Load clinical scores ---
 if (!file.exists(scores_path)) {
-  stop("Clinical scores file not found: ", scores_path)
+  stop("The clinical scores file does not exist: ", scores_path)
 }
 scores <- read_csv(scores_path, show_col_types = FALSE)
 if (!"video" %in% names(scores)) {
@@ -192,9 +192,9 @@ if (!"video" %in% names(scores)) {
 score_cols <- setdiff(names(scores), "video")
 score_cols <- score_cols[map_lgl(score_cols, \(c) is.numeric(scores[[c]]))]
 if (length(score_cols) == 0) {
-  stop("No numeric score columns found in ", scores_path)
+  stop("The file contains no numeric score columns: ", scores_path)
 }
-cat(sprintf("Loaded %d scores for %d videos: %s\n",
+cat(sprintf("The script loaded %d scores for %d videos: %s.\n",
             length(score_cols), nrow(scores),
             paste(score_cols, collapse = ", ")))
 
@@ -216,24 +216,24 @@ if (dir.exists(clin_path)) {
 }
 
 if (length(frame_files) == 0) {
-  stop("No *_clinical.csv files found in ", clin_path)
+  stop("The input contains no *_clinical.csv files: ", clin_path)
 }
 
-cat(sprintf("Found %d frame-level and %d window-level clinical CSVs.\n",
+cat(sprintf("The script found %d frame-level and %d window-level clinical CSVs.\n",
             length(frame_files), length(win_files)))
 
 # --- Load and aggregate frame-level features ---
-cat("Aggregating per-frame clinical features per video...\n")
+cat("The script aggregates per-frame clinical features per video.\n")
 frame_agg <- map(frame_files, \(f) {
   df <- read_csv(f, show_col_types = FALSE)
   aggregate_per_video(df, METADATA_COLS)
 }) |> bind_rows()
 
-if (nrow(frame_agg) == 0) stop("No frame-level features to aggregate.")
+if (nrow(frame_agg) == 0) stop("The script has no frame-level features to aggregate.")
 
 # --- Load and aggregate window-level features ---
 if (length(win_files) > 0) {
-  cat("Aggregating per-window clinical features per video...\n")
+  cat("The script aggregates per-window clinical features per video.\n")
   win_agg <- map(win_files, \(f) {
     df <- read_csv(f, show_col_types = FALSE)
     aggregate_per_video(df, WINDOW_META)
@@ -249,7 +249,7 @@ if (length(win_files) > 0) {
 }
 
 # --- Join with clinical scores ---
-cat("Joining with clinical scores...\n")
+cat("The script joins the features with the clinical scores.\n")
 agg_videos  <- unique(frame_agg$video)
 score_videos <- unique(scores$video)
 matched   <- intersect(agg_videos, score_videos)
@@ -258,20 +258,20 @@ unmatched_score <- setdiff(score_videos, agg_videos)
 
 if (length(unmatched_feat) > 0) {
   warning(sprintf(
-    "%d feature videos have no matching score: %s",
+    "The scores do not contain these %d feature videos: %s.",
     length(unmatched_feat), paste(unmatched_feat, collapse = ", ")
   ))
 }
 if (length(unmatched_score) > 0) {
   warning(sprintf(
-    "%d score entries have no matching features: %s",
+    "The clinical features do not contain these %d score videos: %s.",
     length(unmatched_score), paste(unmatched_score, collapse = ", ")
   ))
 }
 if (length(matched) == 0) {
-  stop("No videos matched between features and scores.")
+  stop("The join matched no videos between the features and scores.")
 }
-cat(sprintf("Matched %d videos.\n", length(matched)))
+cat(sprintf("The script matched %d videos.\n", length(matched)))
 
 joined <- inner_join(frame_agg, scores, by = "video")
 
@@ -288,7 +288,7 @@ feature_cols <- feature_cols[map_lgl(feature_cols, \(c) {
 if (length(feature_cols) == 0) {
   stop("No variable features remain after filtering.")
 }
-cat(sprintf("Computing correlations: %d features × %d scores.\n",
+cat(sprintf("The script computes correlations for %d features × %d scores.\n",
             length(feature_cols), length(score_cols)))
 
 # --- Compute correlations ---
@@ -300,7 +300,7 @@ out_prefix <- file.path(out_dir, "clinical")
 # --- Write correlation table ---
 out_csv <- paste0(out_prefix, "_correlation_table.csv")
 write_csv(cor_tbl, out_csv)
-cat(sprintf("Wrote %d rows → %s\n", nrow(cor_tbl), out_csv))
+cat(sprintf("The script wrote %d rows to %s.\n", nrow(cor_tbl), out_csv))
 
 # --- Console summary ---
 cat("\n", strrep("=", 60), "\n")
@@ -316,7 +316,7 @@ if (nrow(top10) > 0) {
   for (i in seq_len(nrow(top10))) {
     r <- top10[i, ]
     star <- sig_stars(r$p_adj_bh)
-    cat(sprintf("  %2d. %-45s vs %-12s  rho=%+.3f  p_adj=%.3g %s  (n=%d)\n",
+    cat(sprintf("  %2d. %-45s versus %-12s  rho=%+.3f  p_adj=%.3g %s  (n=%d)\n",
                 i, r$feature, r$score, r$spearman_rho, r$p_adj_bh, star, r$n))
   }
 }
@@ -332,26 +332,26 @@ if (nrow(no_sig) > 0) {
 }
 
 # --- Correlation heatmap ---
-cat("\nPlotting correlation heatmap...\n")
+cat("\nThe script plots the correlation heatmap.\n")
 p_mat <- plot_correlation_matrix(cor_tbl, "Clinical")
 n_feat <- length(unique(cor_tbl$feature))
 mat_height <- max(6, n_feat * 0.18)
 ggsave(paste0(out_prefix, "_correlation_matrix.png"), p_mat,
        width = max(8, length(score_cols) * 1.2 + 4), height = mat_height,
        dpi = 150, limitsize = FALSE)
-cat(sprintf("Wrote → %s\n", paste0(out_prefix, "_correlation_matrix.png")))
+cat(sprintf("The script wrote %s.\n", paste0(out_prefix, "_correlation_matrix.png")))
 
 # --- Top scatter plots ---
-cat("Plotting top scatter plots...\n")
+cat("The script plots the top scatter plots.\n")
 p_scat <- plot_scatter_top(joined, cor_tbl, "Clinical")
 if (!is.null(p_scat)) {
   n_panels <- min(6, sum(!is.na(cor_tbl$spearman_rho)))
   scat_height <- ceiling(n_panels / 3) * 4
   ggsave(paste0(out_prefix, "_scatter_top.png"), p_scat,
          width = 12, height = scat_height, dpi = 150)
-  cat(sprintf("Wrote → %s\n", paste0(out_prefix, "_scatter_top.png")))
+  cat(sprintf("The script wrote %s.\n", paste0(out_prefix, "_scatter_top.png")))
 } else {
   cat("  No valid correlations to plot.\n")
 }
 
-cat("\nDone.\n")
+cat("\nThe script finished.\n")

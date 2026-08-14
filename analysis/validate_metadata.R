@@ -26,8 +26,8 @@ if (length(args) < 2) {
 meta_path <- args[1]
 out_dir   <- args[2]
 
-if (!file.exists(meta_path)) stop("File not found: ", meta_path)
-if (!dir.exists(out_dir))    stop("Directory not found: ", out_dir)
+if (!file.exists(meta_path)) stop("The file does not exist: ", meta_path)
+if (!dir.exists(out_dir))    stop("The directory does not exist: ", out_dir)
 
 # ------------------------------------------------------------------
 # Discover expected video names from clinical CSVs
@@ -39,7 +39,7 @@ frame_files <- frame_files[!str_detect(basename(frame_files),
                                        "_windows\\.csv$")]
 
 if (length(frame_files) == 0) {
-  stop("No *_clinical.csv files found in ", out_dir)
+  stop("The directory contains no *_clinical.csv files: ", out_dir)
 }
 
 expected_videos <- map_chr(frame_files, \(f) {
@@ -69,20 +69,20 @@ is_sessions <- "patient_id" %in% names(meta) ||
                "session_date" %in% names(meta)
 file_type <- if (is_sessions) "sessions" else "clinical_scores"
 
-cat(sprintf("Validating %s as '%s' metadata.\n", meta_path, file_type))
-cat(sprintf("Expected videos from clinical CSVs: %d\n", length(expected_videos)))
+cat(sprintf("The script validates %s as '%s' metadata.\n", meta_path, file_type))
+cat(sprintf("The script expects %d videos from the clinical CSVs.\n", length(expected_videos)))
 
 # --- Common checks ------------------------------------------------
 
 # 'video' column required
 if (!"video" %in% names(meta)) {
-  errors <- c(errors, "Missing required column: 'video'.")
+  errors <- c(errors, "The file lacks the required 'video' column.")
 } else {
   # Duplicate videos
   dup <- meta$video[duplicated(meta$video)]
   if (length(dup) > 0) {
     errors <- c(errors, sprintf(
-      "Duplicate video entries: %s",
+      "The metadata contains duplicate video entries: %s.",
       paste(unique(dup), collapse = ", ")
     ))
   }
@@ -101,13 +101,13 @@ if (!"video" %in% names(meta)) {
   extra_in_meta   <- setdiff(meta_vids, expected_videos)
   if (length(missing_in_meta) > 0) {
     warnings <- c(warnings, sprintf(
-      "Videos in clinical CSVs but not in metadata: %s",
+      "The metadata does not contain these clinical CSV videos: %s.",
       paste(missing_in_meta, collapse = ", ")
     ))
   }
   if (length(extra_in_meta) > 0) {
     warnings <- c(warnings, sprintf(
-      "Videos in metadata but not in clinical CSVs: %s",
+      "The clinical CSVs do not contain these metadata videos: %s.",
       paste(extra_in_meta, collapse = ", ")
     ))
   }
@@ -120,7 +120,7 @@ if (file_type == "sessions") {
   missing_cols <- setdiff(required_cols, names(meta))
   if (length(missing_cols) > 0) {
     errors <- c(errors, sprintf(
-      "Missing required columns: %s",
+      "The file lacks these required columns: %s.",
       paste(missing_cols, collapse = ", ")
     ))
   }
@@ -147,7 +147,7 @@ if (file_type == "sessions") {
     all_na <- all(is.na(meta$session_date))
     if (all_na) {
       errors <- c(errors,
-        "All 'session_date' values are NA — please fill in dates.")
+        "All 'session_date' values are NA. Enter the dates.")
     }
   }
 }
@@ -158,12 +158,12 @@ if (file_type == "clinical_scores") {
   score_cols <- setdiff(names(meta), "video")
   if (length(score_cols) == 0) {
     errors <- c(errors,
-      "No score columns found (expected at least one besides 'video').")
+      "The file has no score columns. It must have at least one column besides 'video'.")
   } else {
     non_numeric <- score_cols[!map_lgl(score_cols, \(c) is.numeric(meta[[c]]))]
     if (length(non_numeric) > 0) {
       errors <- c(errors, sprintf(
-        "Score columns should be numeric but are not: %s",
+        "These score columns are not numeric: %s. They must be numeric.",
         paste(non_numeric, collapse = ", ")
       ))
     }
@@ -171,7 +171,7 @@ if (file_type == "clinical_scores") {
     all_na_cols <- score_cols[map_lgl(score_cols, \(c) all(is.na(meta[[c]])))]
     if (length(all_na_cols) > 0) {
       warnings <- c(warnings, sprintf(
-        "Score columns that are entirely NA (not yet filled in?): %s",
+        "These score columns contain only NA values: %s.",
         paste(all_na_cols, collapse = ", ")
       ))
     }
@@ -201,16 +201,16 @@ if (length(warnings) > 0) {
 if (length(errors) == 0 && length(warnings) == 0) {
   cat("All checks passed. No errors or warnings.\n")
 } else if (length(errors) == 0) {
-  cat("No errors found (warnings above are non-blocking).\n")
+  cat("The validation found no errors. The warnings above are non-blocking.\n")
 }
 
 cat(sprintf("\nRows: %d | Columns: %s\n", nrow(meta),
             paste(names(meta), collapse = ", ")))
 
 if (length(errors) > 0) {
-  cat("\nValidation FAILED.\n")
+  cat("\nValidation failed.\n")
   quit(status = 1)
 } else {
-  cat("\nValidation PASSED.\n")
+  cat("\nValidation passed.\n")
   quit(status = 0)
 }

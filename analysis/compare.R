@@ -84,8 +84,8 @@ plot_jitter_comparison <- function(metrics_a, metrics_b, label_a, label_b) {
     ) |>
     mutate(part = recode(part,
       body_jitter_px = "Body",
-      hand_L_jitter_px = "Hand L",
-      hand_R_jitter_px = "Hand R"
+      hand_L_jitter_px = "Left hand",
+      hand_R_jitter_px = "Right hand"
     )) |>
     filter(!is.na(jitter))
 
@@ -122,10 +122,10 @@ plot_detection_comparison <- function(metrics_a, metrics_b, label_a, label_b) {
   combined <- bind_rows(det_a, det_b) |>
     pivot_longer(-run, names_to = "metric", values_to = "rate") |>
     mutate(metric = recode(metric,
-      body = "Body detected",
+      body = "Body detection",
       synth = "Synthetic hands",
-      recrop = "Recrop hands",
-      carry = "Body carry"
+      recrop = "Re-crop hands",
+      carry = "Body carry-forward"
     ))
 
   ggplot(combined, aes(metric, rate, fill = run)) +
@@ -161,7 +161,7 @@ s_b <- load_summary(path_b)
 comp <- compare_summaries(s_a, s_b, label_a, label_b)
 cat("\n")
 cat(strrep("=", 70), "\n")
-cat("  Comparison:", label_a, "vs", label_b, "\n")
+cat("  Comparison:", label_a, "versus", label_b, "\n")
 cat(strrep("=", 70), "\n")
 print(comp, n = Inf)
 
@@ -169,7 +169,7 @@ print(comp, n = Inf)
 out_dir <- dirname(path_a)
 comp_csv <- file.path(out_dir, "comparison.csv")
 write_csv(comp, comp_csv)
-cat("\n  Wrote:", comp_csv, "\n")
+cat("\n  The script wrote", comp_csv, "\n")
 
 # If metrics CSVs are available, generate plots
 if (str_ends(path_a, "_metrics\\.csv") && str_ends(path_b, "_metrics\\.csv")) {
@@ -179,10 +179,10 @@ if (str_ends(path_a, "_metrics\\.csv") && str_ends(path_b, "_metrics\\.csv")) {
   p1 <- plot_jitter_comparison(df_a, df_b, label_a, label_b)
   p1_path <- file.path(out_dir, "comparison_jitter.png")
   ggsave(p1_path, p1, width = 10, height = 5, dpi = 150)
-  cat("  Wrote:", p1_path, "\n")
+  cat("  The script wrote", p1_path, "\n")
 
   p2 <- plot_detection_comparison(df_a, df_b, label_a, label_b)
   p2_path <- file.path(out_dir, "comparison_detection.png")
   ggsave(p2_path, p2, width = 8, height = 5, dpi = 150)
-  cat("  Wrote:", p2_path, "\n")
+  cat("  The script wrote", p2_path, "\n")
 }

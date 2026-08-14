@@ -42,8 +42,8 @@ plot_detection_timeline <- function(df, title_prefix) {
     mutate(
       part = recode(part,
         body_status = "Body",
-        hand_L_status = "Hand L",
-        hand_R_status = "Hand R"
+        hand_L_status = "Left hand",
+        hand_R_status = "Right hand"
       ),
       status = factor(status, levels = c("detected", "carried", "missing"))
     )
@@ -67,8 +67,8 @@ plot_jitter <- function(df, title_prefix) {
     pivot_longer(-timestamp_sec, names_to = "part", values_to = "jitter") |>
     mutate(part = recode(part,
       body_jitter_px = "Body",
-      hand_L_jitter_px = "Hand L",
-      hand_R_jitter_px = "Hand R"
+      hand_L_jitter_px = "Left hand",
+      hand_R_jitter_px = "Right hand"
     )) |>
     filter(!is.na(jitter))
 
@@ -101,8 +101,8 @@ plot_confidence <- function(df, title_prefix) {
     pivot_longer(-timestamp_sec, names_to = "metric", values_to = "value") |>
     mutate(metric = recode(metric,
       body_vis_mean = "Body visibility (mean)",
-      hand_L_flag = "Hand L flag",
-      hand_R_flag = "Hand R flag"
+      hand_L_flag = "Left-hand flag",
+      hand_R_flag = "Right-hand flag"
     )) |>
     filter(!is.na(value))
 
@@ -125,8 +125,8 @@ plot_smoothing <- function(df, title_prefix) {
     pivot_longer(-timestamp_sec, names_to = "part", values_to = "delta") |>
     mutate(part = recode(part,
       body_smooth_delta_px = "Body",
-      hand_L_smooth_delta_px = "Hand L",
-      hand_R_smooth_delta_px = "Hand R"
+      hand_L_smooth_delta_px = "Left hand",
+      hand_R_smooth_delta_px = "Right hand"
     )) |>
     filter(!is.na(delta))
 
@@ -135,7 +135,7 @@ plot_smoothing <- function(df, title_prefix) {
     facet_wrap(~part, ncol = 1, scales = "free_y") +
     labs(
       title = paste(title_prefix, "— Smoothing Delta Over Time"),
-      x = "Time (s)", y = "Delta (px, raw - smooth)", color = NULL
+      x = "Time (s)", y = "Smoothing delta (px, raw − smoothed)", color = NULL
     ) +
     theme_minimal(base_size = 11) +
     theme(legend.position = "none")
@@ -174,7 +174,7 @@ if (length(args) == 0) {
 path <- args[1]
 if (dir.exists(path)) {
   files <- list.files(path, pattern = "_metrics\\.csv$", full.names = TRUE)
-  if (length(files) == 0) stop("No *_metrics.csv files found in ", path)
+  if (length(files) == 0) stop("The directory contains no *_metrics.csv files: ", path)
 } else {
   files <- path
 }
@@ -196,6 +196,6 @@ for (f in files) {
   for (name in names(plots)) {
     out <- paste0(stem, "_", name, ".png")
     ggsave(out, plots[[name]], width = 10, height = 6, dpi = 150)
-    cat("  Wrote:", out, "\n")
+    cat("  The script wrote", out, "\n")
   }
 }

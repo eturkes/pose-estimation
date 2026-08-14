@@ -47,7 +47,7 @@ if (length(args) < 1) {
   stop("Usage: Rscript analysis/compare_clinical.R <output_dir>")
 }
 out_dir <- args[1]
-if (!dir.exists(out_dir)) stop("Directory not found: ", out_dir)
+if (!dir.exists(out_dir)) stop("The directory does not exist: ", out_dir)
 
 # ------------------------------------------------------------------
 # Load per-frame files
@@ -56,9 +56,9 @@ if (!dir.exists(out_dir)) stop("Directory not found: ", out_dir)
 frame_files <- list.files(out_dir, pattern = "_clinical\\.csv$",
                           full.names = TRUE)
 frame_files <- frame_files[!str_detect(basename(frame_files), "_windows\\.csv$")]
-if (length(frame_files) == 0) stop("No *_clinical.csv files found in ", out_dir)
+if (length(frame_files) == 0) stop("The directory contains no *_clinical.csv files: ", out_dir)
 
-cat(sprintf("Loading %d per-frame clinical CSVs...\n", length(frame_files)))
+cat(sprintf("The script loads %d per-frame clinical CSVs.\n", length(frame_files)))
 frame_df <- map(frame_files, \(f) {
   d <- read_csv(f, show_col_types = FALSE)
   if (nrow(d) == 0) return(NULL)
@@ -78,7 +78,7 @@ win_files <- list.files(out_dir, pattern = "_clinical_windows\\.csv$",
 
 win_agg <- tibble()
 if (length(win_files) > 0) {
-  cat(sprintf("Loading %d per-window clinical CSVs...\n", length(win_files)))
+  cat(sprintf("The script loads %d per-window clinical CSVs.\n", length(win_files)))
   win_df <- map(win_files, \(f) {
     d <- read_csv(f, show_col_types = FALSE)
     if (nrow(d) == 0) return(NULL)
@@ -108,7 +108,7 @@ if (nrow(win_agg) > 0 && "video" %in% names(win_agg)) {
 
 out_csv <- file.path(out_dir, "all_clinical_video_summary.csv")
 write_csv(summary_df, out_csv)
-cat(sprintf("Wrote %d videos × %d columns → %s\n",
+cat(sprintf("The script wrote %d videos × %d columns to %s.\n",
             nrow(summary_df), ncol(summary_df), out_csv))
 
 # ------------------------------------------------------------------
@@ -127,8 +127,8 @@ feat_cols <- feat_cols[map_lgl(feat_cols, \(c) {
 
 if (length(feat_cols) == 0) {
   message("Warning: No variable features remain after filtering. ",
-          "Skipping radar/heatmap plots.")
-  cat("\nDone (summary CSV only — no plots).\n")
+          "The script skips the radar and heatmap plots.")
+  cat("\nThe script finished with only the summary CSV and no plots.\n")
   quit(save = "no", status = 0)
 }
 
@@ -179,7 +179,7 @@ radar_w <- max(10, n_feat * 0.4)
 out_radar <- file.path(out_dir, "all_clinical_radar.png")
 ggsave(out_radar, p_radar, width = radar_w, height = 7, dpi = 150,
        limitsize = FALSE)
-cat(sprintf("Wrote → %s\n", out_radar))
+cat(sprintf("The script wrote %s.\n", out_radar))
 
 # ------------------------------------------------------------------
 # Plot 2: Clustered heatmap (z-scored means)
@@ -226,7 +226,7 @@ p_heat <- ggplot(heat_df, aes(feature, video, fill = z)) +
   theme_minimal(base_size = 10) +
   theme(axis.text.x = element_text(angle = 55, hjust = 1, size = 6),
         axis.text.y = element_text(size = 8)) +
-  labs(title = "z-Scored Feature Means (clustered)",
+  labs(title = "Z-Scored Feature Means (clustered)",
        x = NULL, y = NULL, fill = "z-score")
 
 heat_w <- max(10, n_feat * 0.35)
@@ -234,7 +234,7 @@ heat_h <- max(5, nrow(z_mat) * 0.5)
 out_heat <- file.path(out_dir, "all_clinical_heatmap.png")
 ggsave(out_heat, p_heat, width = heat_w, height = heat_h, dpi = 150,
        limitsize = FALSE)
-cat(sprintf("Wrote → %s\n", out_heat))
+cat(sprintf("The script wrote %s.\n", out_heat))
 
 # ------------------------------------------------------------------
 # Console summary: flag outlier videos
@@ -267,4 +267,4 @@ if (!outliers_found) {
   cat("  No videos exceed |z| > 2 on any feature.\n")
 }
 
-cat("\nDone.\n")
+cat("\nThe script finished.\n")

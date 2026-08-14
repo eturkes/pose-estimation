@@ -20,13 +20,13 @@ def _odd_int(value):
     try:
         ivalue = int(value)
     except (TypeError, ValueError) as exc:
-        raise argparse.ArgumentTypeError(f"expected an integer, got {value!r}") from exc
+        raise argparse.ArgumentTypeError(f"The parser expected an integer; got {value!r}.") from exc
     if ivalue % 2 == 0:
         raise argparse.ArgumentTypeError(
-            f"window length must be odd (got {ivalue}); try {ivalue + 1} or {ivalue - 1}"
+            f"The window length must be odd; got {ivalue}. Try {ivalue + 1} or {ivalue - 1}."
         )
     if ivalue < 3:
-        raise argparse.ArgumentTypeError(f"window length must be ≥ 3, got {ivalue}")
+        raise argparse.ArgumentTypeError(f"The window length must be ≥ 3; got {ivalue}.")
     return ivalue
 
 
@@ -36,11 +36,11 @@ def _lazy_imports():
         import numpy as np
         import pandas as pd
     except ImportError as e:
-        raise ImportError("postprocess requires pandas. Install with: pip install pandas") from e
+        raise ImportError("Post-processing requires pandas. Run pip install pandas.") from e
     try:
         from scipy.signal import savgol_filter
     except ImportError as e:
-        raise ImportError("postprocess requires scipy. Install with: pip install scipy") from e
+        raise ImportError("Post-processing requires scipy. Run pip install scipy.") from e
     return np, pd, savgol_filter
 
 
@@ -347,26 +347,28 @@ def savgol_smooth_csv(input_path, output_path, window=11, polyorder=3):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Savitzky-Golay post-processing for landmark CSVs",
+        description="Apply Savitzky-Golay post-processing to landmark CSVs.",
     )
-    parser.add_argument("input", help="Input CSV path")
+    parser.add_argument("input", help="Read the input CSV from this path.")
     parser.add_argument(
         "-o",
         "--output",
         default=None,
-        help="Output CSV path (default: <stem>_smooth.csv alongside input)",
+        help=(
+            "Write the output CSV to this path (default: <stem>_smooth.csv alongside the input)."
+        ),
     )
     parser.add_argument(
         "--window",
         type=_odd_int,
         default=11,
-        help="Filter window length, must be odd (default: 11)",
+        help="Set the filter window length (default: 11). The value must be odd.",
     )
     parser.add_argument(
         "--polyorder",
         type=int,
         default=3,
-        help="Polynomial order (default: 3)",
+        help="Set the polynomial order (default: 3).",
     )
     args = parser.parse_args()
 
@@ -376,13 +378,13 @@ def main():
     else:
         out = inp.with_name(f"{inp.stem}_smooth.csv")
 
-    print(f"Input:     {inp}")
-    print(f"Output:    {out}")
-    print(f"Window:    {args.window}")
-    print(f"Polyorder: {args.polyorder}")
+    print(f"Input CSV:        {inp}")
+    print(f"Output CSV:       {out}")
+    print(f"Window length:    {args.window}")
+    print(f"Polynomial order: {args.polyorder}")
 
     savgol_smooth_csv(inp, out, window=args.window, polyorder=args.polyorder)
-    print("Done.")
+    print("The post-processing step is complete.")
 
 
 if __name__ == "__main__":

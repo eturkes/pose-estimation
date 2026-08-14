@@ -133,28 +133,28 @@ print_summary <- function(s, video_name) {
   cat("\n  --- Detection ---\n")
   cat(sprintf("  Body detection rate:       %.1f%%\n", s$detection$body_detection_rate * 100))
   cat(sprintf("  Mean real hands / frame:   %.2f\n", s$detection$mean_real_hands_per_frame))
-  cat(sprintf("  Frames with synth hands:   %.1f%%\n", s$detection$pct_frames_synthetic_hands * 100))
-  cat(sprintf("  Frames with recrop hands:  %.1f%%\n", s$detection$pct_frames_recrop_hands * 100))
+  cat(sprintf("  Frames with synthetic hands:   %.1f%%\n", s$detection$pct_frames_synthetic_hands * 100))
+  cat(sprintf("  Frames with re-crop hands:  %.1f%%\n", s$detection$pct_frames_recrop_hands * 100))
 
   cat("\n  --- Confidence ---\n")
   cat(sprintf("  Body visibility (median):  %.3f  (IQR %.3f)\n",
               s$confidence$body_vis_median, s$confidence$body_vis_iqr))
-  cat(sprintf("  Hand L flag (median):      %.3f\n", s$confidence$hand_L_flag_median))
-  cat(sprintf("  Hand R flag (median):      %.3f\n", s$confidence$hand_R_flag_median))
+  cat(sprintf("  Left-hand flag (median):      %.3f\n", s$confidence$hand_L_flag_median))
+  cat(sprintf("  Right-hand flag (median):      %.3f\n", s$confidence$hand_R_flag_median))
 
   cat("\n  --- Jitter (px, sum over keypoints) ---\n")
   cat(sprintf("  Body:   median %.1f   p95 %.1f\n", s$jitter_px$body_median, s$jitter_px$body_p95))
-  cat(sprintf("  Hand L: median %.1f   p95 %.1f\n", s$jitter_px$hand_L_median, s$jitter_px$hand_L_p95))
-  cat(sprintf("  Hand R: median %.1f   p95 %.1f\n", s$jitter_px$hand_R_median, s$jitter_px$hand_R_p95))
+  cat(sprintf("  Left hand: median %.1f   p95 %.1f\n", s$jitter_px$hand_L_median, s$jitter_px$hand_L_p95))
+  cat(sprintf("  Right hand: median %.1f   p95 %.1f\n", s$jitter_px$hand_R_median, s$jitter_px$hand_R_p95))
 
-  cat("\n  --- Smoothing delta (px, raw vs smoothed) ---\n")
+  cat("\n  --- Smoothing delta (px, raw versus smoothed) ---\n")
   cat(sprintf("  Body median:   %.1f\n", s$smoothing_delta_px$body_median))
-  cat(sprintf("  Hand L median: %.1f\n", s$smoothing_delta_px$hand_L_median))
-  cat(sprintf("  Hand R median: %.1f\n", s$smoothing_delta_px$hand_R_median))
+  cat(sprintf("  Left-hand median: %.1f\n", s$smoothing_delta_px$hand_L_median))
+  cat(sprintf("  Right-hand median: %.1f\n", s$smoothing_delta_px$hand_R_median))
 
   cat("\n  --- Carry-forward ---\n")
-  cat(sprintf("  Body carry %%:         %.1f%%\n", s$carry_forward$body_carry_pct * 100))
-  cat(sprintf("  Mean carry streak:    %.1f frames\n", s$carry_forward$mean_carry_streak))
+  cat(sprintf("  Body carry-forward rate:         %.1f%%\n", s$carry_forward$body_carry_pct * 100))
+  cat(sprintf("  Mean carry-forward streak:    %.1f frames\n", s$carry_forward$mean_carry_streak))
 
   cat("\n  --- Constraints ---\n")
   cat(sprintf("  Bone correction (mean px): %.2f\n", s$constraints$bone_correction_mean_px))
@@ -185,7 +185,7 @@ if (sys.nframe() == 0) {
   path <- args[1]
   if (dir.exists(path)) {
     files <- list.files(path, pattern = "_metrics\\.csv$", full.names = TRUE)
-    if (length(files) == 0) stop("No *_metrics.csv files found in ", path)
+    if (length(files) == 0) stop("The directory contains no *_metrics.csv files: ", path)
   } else {
     files <- path
   }
@@ -200,6 +200,6 @@ if (sys.nframe() == 0) {
 
     json_path <- str_replace(f, "_metrics\\.csv$", "_summary.json")
     write_json(s, json_path, pretty = TRUE, auto_unbox = TRUE)
-    cat("  Wrote:", json_path, "\n")
+    cat("  The script wrote", json_path, "\n")
   }
 }

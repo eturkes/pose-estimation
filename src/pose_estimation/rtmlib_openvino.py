@@ -61,7 +61,7 @@ def _patch_rtmlib_openvino():
                             static.append(1)
                         else:
                             static.append(dim.get_length())
-                    print(f"  Reshaping to static {static} for NPU")
+                    print(f"  The runner reshapes the model to {static} for the NPU.")
                     model_onnx.reshape(static)
 
             try:
@@ -71,7 +71,8 @@ def _patch_rtmlib_openvino():
             except RuntimeError as exc:
                 if ov_device != "CPU":
                     print(
-                        f"WARNING: Failed to compile on {ov_device} ({exc}), falling back to CPU."
+                        f"WARNING: Compilation failed on {ov_device} ({exc}). "
+                        "The runner uses CPU instead."
                     )
                     model_onnx = core.read_model(model=onnx_model)
                     self.compiled_model = core.compile_model(
@@ -88,7 +89,10 @@ def _patch_rtmlib_openvino():
             self.output_layer0 = self._ov_output_layers[0]
             self.output_layer1 = self._ov_output_layers[1]
 
-            print(f"load {onnx_model} with openvino/{ov_device} backend ({n_outputs} outputs)")
+            print(
+                f"The runner loaded {onnx_model} with the openvino/{ov_device} backend "
+                f"({n_outputs} outputs)."
+            )
 
             self.onnx_model = onnx_model
             self.model_input_size = model_input_size

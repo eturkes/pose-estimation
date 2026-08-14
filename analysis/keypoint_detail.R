@@ -138,7 +138,7 @@ if (length(args) == 0) {
 path <- args[1]
 if (dir.exists(path)) {
   files <- list.files(path, pattern = "_kp_detail\\.csv$", full.names = TRUE)
-  if (length(files) == 0) stop("No *_kp_detail.csv files found in ", path)
+  if (length(files) == 0) stop("The directory contains no *_kp_detail.csv files: ", path)
 } else {
   files <- path
 }
@@ -158,6 +158,6 @@ for (f in files) {
   for (name in names(plots)) {
     out <- paste0(stem, "_", name, ".png")
     ggsave(out, plots[[name]], width = 12, height = 8, dpi = 150)
-    cat("  Wrote:", out, "\n")
+    cat("  The script wrote", out, "\n")
   }
 }

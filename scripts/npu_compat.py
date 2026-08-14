@@ -105,10 +105,10 @@ def test_compile(onnx_path: Path, static_shape: tuple, device: str):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--device", default="NPU", help="OpenVINO device (default: NPU)")
+    p.add_argument("--device", default="NPU", help="Select the OpenVINO device (default: NPU).")
     args = p.parse_args()
 
-    print(f"Testing model compilation on {args.device}")
+    print(f"Model compilation test: {args.device}")
     print(f"{'=' * 65}")
     print()
 
@@ -119,7 +119,7 @@ def main():
         try:
             onnx_path = download_onnx(url)
             dt, out_shapes = test_compile(onnx_path, shape, args.device)
-            status = f"OK ({dt:.1f}s compile, outputs: {out_shapes})"
+            status = f"OK (compilation: {dt:.1f}s; outputs: {out_shapes})"
             results.append((name, True, status))
         except Exception as exc:
             # Truncate long error messages
@@ -135,7 +135,7 @@ def main():
     print(f"{'=' * 65}")
     print(f"Summary for {args.device}:")
     ok = sum(1 for _, s, _ in results if s)
-    print(f"  {ok}/{len(results)} models compiled successfully")
+    print(f"  Successful compilations: {ok}/{len(results)} models")
     print()
     for name, success, _ in results:
         mark = "OK  " if success else "FAIL"

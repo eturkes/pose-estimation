@@ -66,10 +66,10 @@ list_files_safe <- function(dir, pattern) {
 
 # Overview
 
-This report consolidates the outputs of the R analysis scripts in
-`analysis/` that consume the CSVs produced by the pose-estimation
-pipeline (`pose_estimation.main` / `pose_estimation.run`). It is
-organised in the order the scripts are typically run:
+This report consolidates outputs from the R analysis scripts in
+`analysis/`. These scripts consume CSVs from the pose-estimation pipeline
+(`pose_estimation.main` / `pose_estimation.run`). The report follows the
+typical script run order:
 
 1. **Pipeline quality** — `summary.R`, `timeseries.R`, `keypoint_detail.R`
 2. **Landmark feature exploration** — `features.R`
@@ -83,9 +83,8 @@ organised in the order the scripts are typically run:
 10. **Longitudinal recovery** — `longitudinal.R`
 11. **Metadata templates & validation** — `make_templates.R`, `validate_metadata.R`
 
-The report reads whatever outputs already exist under
-`r out_dir` and silently skips sections whose inputs have not been
-produced yet.
+The report reads all existing outputs under `r out_dir`. It silently
+skips sections when their inputs do not exist yet.
 
 ```{r inventory}
 count_landmark_csvs <- function(dir) {
@@ -212,7 +211,7 @@ if (length(timeseries_pngs) == 0) {
 } else {
   # Show the first example per plot type
   example <- str_remove(basename(timeseries_pngs[1]), "_detection_timeline\\.png$")
-  cat(sprintf("Showing diagnostic plots for **%s** (one of %d videos):\n\n",
+  cat(sprintf("The report shows diagnostic plots for **%s** (%d videos total):\n\n",
               example, length(timeseries_pngs)))
   for (suffix in c("_detection_timeline", "_jitter", "_confidence",
                    "_smoothing", "_constraints")) {
@@ -227,8 +226,8 @@ if (length(timeseries_pngs) == 0) {
 
 ## Per-keypoint analysis — `keypoint_detail.R`
 
-Runs when `*_kp_detail.csv` files are exported
-(`--metrics-detail` flag). Produces:
+`keypoint_detail.R` runs after the pipeline exports `*_kp_detail.csv`
+files with the `--metrics-detail` flag. It produces:
 
 - `_jitter_heatmap.png` — keypoint × time jitter heatmap
 - `_worst_keypoints.png` — top-20 keypoints by median jitter
@@ -242,7 +241,7 @@ if (length(kp_pngs) == 0) {
       "`Rscript analysis/keypoint_detail.R output/`\n")
 } else {
   example <- str_remove(basename(kp_pngs[1]), "_jitter_heatmap\\.png$")
-  cat(sprintf("Showing per-keypoint plots for **%s** (one of %d videos):\n\n",
+  cat(sprintf("The report shows per-keypoint plots for **%s** (%d videos total):\n\n",
               example, length(kp_pngs)))
   for (suffix in c("_worst_keypoints", "_jitter_heatmap", "_trajectory")) {
     p <- file.path(out_dir, paste0(example, suffix, ".png"))
@@ -257,9 +256,8 @@ if (length(kp_pngs) == 0) {
 
 # Landmark Feature Exploration — `features.R`
 
-`features.R` loads landmark CSVs (`hands-arms` or `body` tracking
-mode), drops rows that are entirely NA, median-imputes sporadic NAs,
-and produces:
+`features.R` loads landmark CSVs from `hands-arms` or `body` tracking
+mode. It drops fully NA rows and median-imputes sporadic NAs. It produces:
 
 - `_variance.png` — per-feature variance (log scale), coloured by part
 - `_correlation.png` — clustered Pearson correlation heatmap
@@ -277,7 +275,7 @@ if (length(rank_csvs) == 0) {
 } else {
   rank <- read_csv_safe(rank_csvs[1])
   if (!is.null(rank)) {
-    cat(sprintf("Top 10 features by variance (from `%s`):\n\n",
+    cat(sprintf("The table shows the top 10 features by variance from `%s`:\n\n",
                 basename(rank_csvs[1])))
     knitr::kable(
       rank |> arrange(desc(variance)) |> head(10) |>
@@ -293,7 +291,7 @@ if (length(rank_csvs) == 0) {
 var_pngs <- list_files_safe(out_dir, "_variance\\.png$")
 if (length(var_pngs) > 0) {
   example <- str_remove(basename(var_pngs[1]), "_variance\\.png$")
-  cat(sprintf("Plots for **%s**:\n\n", example))
+  cat(sprintf("The report shows plots for **%s**:\n\n", example))
   for (suffix in c("_variance", "_correlation", "_pca_scree",
                    "_pca_biplot", "_umap")) {
     p <- file.path(out_dir, paste0(example, suffix, ".png"))
@@ -308,10 +306,10 @@ if (length(var_pngs) > 0) {
 
 # Run Comparison — `compare.R`
 
-`compare.R` diffs two pipeline runs (`*_summary.json` or
-`*_metrics.csv`), writing `comparison.csv` plus — when metrics CSVs
-are provided — `comparison_jitter.png` and
-`comparison_detection.png` (overlaid distributions and bar chart).
+`compare.R` compares two pipeline runs from `*_summary.json` or
+`*_metrics.csv`. It writes `comparison.csv`. If you provide metrics CSVs,
+it also writes `comparison_jitter.png` and `comparison_detection.png`.
+These plots contain overlaid distributions and a bar chart.
 
 ```{r compare-table}
 comp_csv <- file.path(out_dir, "comparison.csv")
@@ -337,11 +335,11 @@ for (f in c("comparison_jitter.png", "comparison_detection.png")) {
 
 # Clinical Kinematic Features — `clinical_features.R`
 
-Per-frame features (joint angles, reach, grasp aperture, wrist /
-fingertip displacement) and per-window (1 s, 50 % overlap)
-smoothness features (spectral arc length, wrist velocity
-mean / peak) are derived from the landmark CSVs. Two files are
-written per input:
+`clinical_features.R` derives per-frame features from the landmark
+CSVs: joint angles, reach, grasp aperture, and wrist / fingertip
+displacement. It also derives smoothness features for 1 s windows with
+50 % overlap. These features include spectral arc length and wrist
+velocity mean / peak. `clinical_features.R` writes two files per input:
 
 - `<stem>_clinical.csv` — per-frame features
 - `<stem>_clinical_windows.csv` — per-window features
@@ -379,10 +377,10 @@ if (length(frame_files) == 0) {
 
 # Clinical Exploration — `explore_clinical.R`
 
-Loads all per-frame and per-window clinical CSVs and writes four
-diagnostic plots plus a console summary of row counts, per-column
-NA rates, and data-quality warnings (features > 50 % NA,
-zero-variance columns, empty videos).
+`explore_clinical.R` loads all per-frame and per-window clinical CSVs.
+It writes four diagnostic plots and a console summary. The summary includes
+row counts, per-column NA rates, and data-quality warnings. The warnings
+cover features > 50 % NA, zero-variance columns, and empty videos.
 
 ```{r explore-plots, results = "asis"}
 for (f in c("all_clinical_distributions.png",
@@ -401,10 +399,10 @@ for (f in c("all_clinical_distributions.png",
 # Temporal Clinical Analysis — `temporal_clinical.R`
 
 For every video with ≥ 10 per-frame rows, `temporal_clinical.R`
-produces a multi-panel time-series plot with left and right sides
-overlaid, plus a window-level SAL / velocity panel where
-available. A cross-video overview plot compares normalised reach
-across all qualifying videos.
+produces a multi-panel time-series plot. The plot overlays the left and
+right sides. When available, it includes a window-level SAL / velocity
+panel. A cross-video overview plot compares normalised reach across all
+qualifying videos.
 
 ```{r temporal-plots, results = "asis"}
 ts_pngs <- list_files_safe(out_dir, "_clinical_timeseries\\.png$")
@@ -431,16 +429,17 @@ if (length(ts_pngs) == 0 && !file.exists(overview)) {
 
 # Between-Video Comparison — `compare_clinical.R`
 
-Aggregates per-frame clinical features per video (mean / median /
-SD / min / max) and window features (mean / SD), producing a wide
-summary table (`all_clinical_video_summary.csv`) and two plots:
+`compare_clinical.R` aggregates per-frame clinical features for each
+video. It uses mean / median / SD / min / max. It aggregates window
+features using mean / SD. It produces a wide summary table
+(`all_clinical_video_summary.csv`) and two plots:
 
 - `all_clinical_radar.png` — parallel-coordinate plot of
   z-scored feature means
 - `all_clinical_heatmap.png` — clustered z-score heatmap
 
-Outlier videos (|z| > 2 on any feature mean) are printed to the
-console.
+`compare_clinical.R` prints outlier videos (|z| > 2 on any feature
+mean) to the console.
 
 ```{r compare-clinical-summary}
 video_summary <- read_csv_safe(file.path(out_dir, "all_clinical_video_summary.csv"))
@@ -449,7 +448,7 @@ if (is.null(video_summary)) {
   cat("_No `all_clinical_video_summary.csv` found. Run:_ ",
       "`Rscript analysis/compare_clinical.R output/`\n")
 } else {
-  cat(sprintf("**%d videos × %d aggregated feature columns.**\n\n",
+  cat(sprintf("**The summary contains %d videos × %d aggregated feature columns.**\n\n",
               nrow(video_summary), ncol(video_summary) - 1))
 
   mean_cols <- names(video_summary)[str_ends(names(video_summary), "__mean")]
@@ -492,8 +491,8 @@ for (f in c("all_clinical_radar.png", "all_clinical_heatmap.png")) {
 
 # Dimensionality Reduction — `clinical_dimreduce.R`
 
-PCA and UMAP on the per-video aggregated clinical features.
-Writes:
+`clinical_dimreduce.R` applies PCA and UMAP to the per-video aggregated
+clinical features. It writes:
 
 - `all_clinical_pca_scree.png` — variance explained per PC
 - `all_clinical_pca_biplot.png` — PC1/PC2 scatter with top loading arrows
@@ -531,10 +530,10 @@ for (f in c("all_clinical_pca_scree.png",
 
 # External-Score Correlation — `clinical_correlation.R`
 
-Joins aggregated clinical features (mean / median / SD / min / max
-per video) with an external `clinical_scores.csv` on `video` and
-computes pairwise Pearson and Spearman correlations with
-Benjamini–Hochberg FDR correction. Outputs:
+`clinical_correlation.R` joins aggregated clinical features with an
+external `clinical_scores.csv` on `video`. The features use mean / median /
+SD / min / max per video. It computes pairwise Pearson and Spearman
+correlations with Benjamini–Hochberg FDR correction. It writes:
 
 - `clinical_correlation_table.csv` — tidy correlation results
 - `clinical_correlation_matrix.png` — Spearman heatmap with
@@ -570,13 +569,13 @@ for (f in c("clinical_correlation_matrix.png", "clinical_scatter_top.png")) {
 
 # Longitudinal Recovery — `longitudinal.R`
 
-Joins aggregated clinical features with a `sessions.csv`
-(video → patient_id + session_date), computes session-to-session
-deltas and percentage changes from baseline, and flags changes
-exceeding 1 SD of the baseline session. Optionally overlays
-external clinical scores on a secondary axis.
+`longitudinal.R` joins aggregated clinical features with `sessions.csv`.
+`sessions.csv` maps video → patient_id + session_date. The script computes
+session-to-session deltas and percentage changes from baseline. It flags
+changes that exceed 1 SD of the baseline session. It can overlay external
+clinical scores on a secondary axis.
 
-Outputs:
+It writes:
 
 - `clinical_longitudinal_summary.csv` — values, deltas, flags
 - `clinical_longitudinal_<patient_id>.png` — per-patient line plots
@@ -624,9 +623,8 @@ placeholder CSVs:
 - `clinical_scores_template.csv` — `video`, `GRASSP`, `UEMS`, `SCIM`
 - `sessions_template.csv` — `video`, `patient_id`, `session_date`
 
-Fill these in and save as `clinical_scores.csv` /
-`sessions.csv` for use with `clinical_correlation.R` and
-`longitudinal.R`.
+Fill these templates. Save them as `clinical_scores.csv` /
+`sessions.csv`. Use them with `clinical_correlation.R` and `longitudinal.R`.
 
 ```{r templates}
 for (f in c("clinical_scores_template.csv", "sessions_template.csv")) {
@@ -641,11 +639,12 @@ for (f in c("clinical_scores_template.csv", "sessions_template.csv")) {
 
 ## `validate_metadata.R`
 
-Validates a completed `clinical_scores.csv` or `sessions.csv`
-against the clinical feature CSVs. Checks that required columns are
-present, videos match and are unique, dates parse to ISO 8601, and
-scores are numeric. Exits 0 on success, 1 on errors. It writes no
-files — run it from the shell:
+`validate_metadata.R` validates a completed `clinical_scores.csv` or
+`sessions.csv` against the clinical feature CSVs. It checks that files
+contain the required columns. It checks that videos match and are unique.
+It checks that dates parse to ISO 8601 and that scores are numeric.
+`validate_metadata.R` exits 0 on success and 1 on errors. It writes no
+files. Run it from the shell:
 
 ```bash
 Rscript analysis/validate_metadata.R clinical_scores.csv output/

@@ -243,8 +243,8 @@ def render_markdown(manifest: dict) -> str:
     lines = [
         "# Pose batch QA report",
         "",
-        "Source stems are replaced by ordinals; `manifest.json` beside this file "
-        "carries the stem mapping.",
+        "This report replaces source stems with ordinals. The adjacent `manifest.json` "
+        "maps each ordinal to its source stem.",
         "",
         "## Run",
         "",
@@ -288,9 +288,11 @@ def render_markdown(manifest: dict) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("csv_dir", help="Directory holding the produced per-video CSVs")
-    p.add_argument("--videos-dir", default="videos", help="Directory holding the source videos")
+    p = argparse.ArgumentParser(
+        description="Generate a provenance manifest and coverage QA for a produced pose-CSV batch."
+    )
+    p.add_argument("csv_dir", help="Read the produced per-video CSVs from this directory.")
+    p.add_argument("--videos-dir", default="videos", help="Read source videos from this directory.")
     p.add_argument("--tracking", default="body", choices=["hands", "hands-arms", "body"])
     p.add_argument("--model", default="rtmw-l")
     p.add_argument("--backend", default="openvino")
@@ -298,7 +300,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--pose-device", default="NPU")
     p.add_argument("--det-frequency", type=int, default=7)
     p.add_argument("--single-subject", action="store_true")
-    p.add_argument("--out-dir", default=None, help="Where to write artifacts (default: csv_dir)")
+    p.add_argument(
+        "--out-dir",
+        default=None,
+        help="Write artifacts to this directory (default: csv_dir).",
+    )
     args = p.parse_args(argv)
 
     manifest = build_manifest(args)

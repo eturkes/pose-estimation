@@ -21,7 +21,7 @@ if (length(args) < 1) {
   stop("Usage: Rscript analysis/arthrose_diag.R <keypoints_csv> [out_dir]")
 }
 in_csv <- args[1]
-if (!file.exists(in_csv)) stop("Input CSV not found: ", in_csv)
+if (!file.exists(in_csv)) stop("The input CSV does not exist: ", in_csv)
 out_dir <- if (length(args) >= 2) args[2] else dirname(in_csv)
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 stem <- tools::file_path_sans_ext(basename(in_csv))
@@ -111,7 +111,7 @@ if (nrow(clean) < 2) {
   movement_amplitude <- max(clean$angle_index) - min(clean$angle_index)
   mean_speed <- mean(abs(clean$variation_speed_angle))
   diagnostic <- if (movement_amplitude < amplitude_min || mean_speed < speed_min) {
-    "problem with finger mobility"
+    "finger mobility problem"
   } else {
     "good mobility"
   }
@@ -135,11 +135,11 @@ p <- ggplot(df_dist, aes(x = timestamp_sec, y = dist_thumb_index)) +
   geom_line() +
   theme_classic() +
   labs(
-    title = "Evolution of closed hand",
+    title = "Closed-Hand Motion Over Time",
     x = "Time (s)",
-    y = "Distance index - thumb"
+    y = "Index–Thumb Distance"
   )
 
 out_png <- file.path(out_dir, paste0(stem, "_closed_hand.png"))
 ggsave(out_png, plot = p, width = 8, height = 5, dpi = 300)
-cat(sprintf("Wrote %s\n", out_png))
+cat(sprintf("The script wrote %s.\n", out_png))

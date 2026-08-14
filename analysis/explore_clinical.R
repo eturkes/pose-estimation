@@ -39,7 +39,7 @@ if (length(args) < 1) {
   stop("Usage: Rscript analysis/explore_clinical.R <output_dir>")
 }
 out_dir <- args[1]
-if (!dir.exists(out_dir)) stop("Directory not found: ", out_dir)
+if (!dir.exists(out_dir)) stop("The directory does not exist: ", out_dir)
 
 # ------------------------------------------------------------------
 # Load per-frame files
@@ -49,7 +49,7 @@ frame_files <- list.files(out_dir, pattern = "_clinical\\.csv$",
                           full.names = TRUE)
 frame_files <- frame_files[!str_detect(basename(frame_files), "_windows\\.csv$")]
 
-if (length(frame_files) == 0) stop("No *_clinical.csv files found in ", out_dir)
+if (length(frame_files) == 0) stop("The directory contains no *_clinical.csv files: ", out_dir)
 
 df <- map(frame_files, \(f) {
   d <- read_csv(f, show_col_types = FALSE)
@@ -83,7 +83,7 @@ cat("\n", strrep("=", 60), "\n")
 cat("  Clinical Features — Exploratory Summary\n")
 cat(strrep("=", 60), "\n\n")
 
-cat(sprintf("Per-frame files loaded : %d\n", length(frame_files)))
+cat(sprintf("Per-frame files        : %d\n", length(frame_files)))
 cat(sprintf("Videos with data       : %d\n", n_distinct(df$video)))
 cat(sprintf("Total per-frame rows   : %d\n", nrow(df)))
 
@@ -158,7 +158,7 @@ p_dist <- ggplot(long, aes(value, fill = video)) +
 out_dist <- file.path(out_dir, "all_clinical_distributions.png")
 ggsave(out_dist, p_dist, width = 12, height = dist_h, dpi = 150,
        limitsize = FALSE)
-cat(sprintf("\nWrote → %s\n", out_dist))
+cat(sprintf("\nThe script wrote %s.\n", out_dist))
 
 # ------------------------------------------------------------------
 # Plot 2: NA heatmap
@@ -191,7 +191,7 @@ p_na <- ggplot(na_by_video, aes(feature, video, fill = na_prop)) +
 
 out_na <- file.path(out_dir, "all_clinical_na_heatmap.png")
 ggsave(out_na, p_na, width = 12, height = 6, dpi = 150)
-cat(sprintf("Wrote → %s\n", out_na))
+cat(sprintf("The script wrote %s.\n", out_na))
 
 # ------------------------------------------------------------------
 # Plot 3: Box plots by video
@@ -209,7 +209,7 @@ p_box <- ggplot(long, aes(video, value)) +
 out_box <- file.path(out_dir, "all_clinical_boxplots.png")
 ggsave(out_box, p_box, width = 14, height = box_h, dpi = 150,
        limitsize = FALSE)
-cat(sprintf("Wrote → %s\n", out_box))
+cat(sprintf("The script wrote %s.\n", out_box))
 
 # ------------------------------------------------------------------
 # Plot 4: Window feature distributions
@@ -239,9 +239,9 @@ if (nrow(win) > 0) {
   out_wdist <- file.path(out_dir, "all_clinical_window_distributions.png")
   ggsave(out_wdist, p_wdist, width = 12, height = wdist_h, dpi = 150,
          limitsize = FALSE)
-  cat(sprintf("Wrote → %s\n", out_wdist))
+  cat(sprintf("The script wrote %s.\n", out_wdist))
 } else {
-  cat("No window data found — skipping window distribution plot.\n")
+  cat("The script found no window data. It skips the window-distribution plot.\n")
 }
 
 # ------------------------------------------------------------------
@@ -287,4 +287,4 @@ if (nrow(const_feats) > 0) {
 
 if (!warnings_found) cat("No data-quality warnings.\n")
 
-cat("\nDone.\n")
+cat("\nThe script finished.\n")

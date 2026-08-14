@@ -345,7 +345,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--output-dir",
         type=pathlib.Path,
         default=_DEFAULT_OUTPUT_DIR,
-        help="destination directory (default: committed golden directory)",
+        help="Write files to this directory (default: committed golden directory).",
     )
     return parser.parse_args(argv)
 

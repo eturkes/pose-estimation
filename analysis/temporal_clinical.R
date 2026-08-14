@@ -58,7 +58,7 @@ if (length(args) < 1) {
   stop("Usage: Rscript analysis/temporal_clinical.R <output_dir>")
 }
 out_dir <- args[1]
-if (!dir.exists(out_dir)) stop("Directory not found: ", out_dir)
+if (!dir.exists(out_dir)) stop("The directory does not exist: ", out_dir)
 
 # ------------------------------------------------------------------
 # Load per-frame files
@@ -68,7 +68,7 @@ frame_files <- list.files(out_dir, pattern = "_clinical\\.csv$",
                           full.names = TRUE)
 frame_files <- frame_files[!str_detect(basename(frame_files), "_windows\\.csv$")]
 
-if (length(frame_files) == 0) stop("No *_clinical.csv files found in ", out_dir)
+if (length(frame_files) == 0) stop("The directory contains no *_clinical.csv files: ", out_dir)
 
 frames_by_video <- map(frame_files, \(f) {
   d <- read_csv(f, show_col_types = FALSE)
@@ -162,7 +162,7 @@ for (f in names(frames_by_video)) {
   vid <- unique(df$video)[1]
 
   if (nrow(df) < MIN_ROWS) {
-    cat(sprintf("  %-30s  %3d rows — skipped (<%d)\n", vid, nrow(df), MIN_ROWS))
+    cat(sprintf("  %-30s  %3d rows — the script skips it (<%d).\n", vid, nrow(df), MIN_ROWS))
     skip_count <- skip_count + 1
     next
   }
@@ -225,7 +225,7 @@ for (f in names(frames_by_video)) {
   plot_count <- plot_count + 1
 }
 
-cat(sprintf("\nPlots written: %d  |  Skipped (<%d rows): %d\n",
+cat(sprintf("\nThe script wrote %d plots. It skipped videos with <%d rows: %d.\n",
             plot_count, MIN_ROWS, skip_count))
 
 # ------------------------------------------------------------------
@@ -261,9 +261,9 @@ if (length(all_long) > 0) {
   out_ov <- file.path(out_dir, "all_clinical_timeseries_overview.png")
   ggsave(out_ov, p_ov, width = 12, height = ov_h, dpi = 150,
          limitsize = FALSE)
-  cat(sprintf("Wrote → %s\n", out_ov))
+  cat(sprintf("The script wrote %s.\n", out_ov))
 } else {
-  cat("No videos with ≥", MIN_ROWS, " rows — skipping overview plot.\n")
+  cat("No videos have ≥", MIN_ROWS, " rows. The script skips the overview plot.\n")
 }
 
-cat("\nDone.\n")
+cat("\nThe script finished.\n")

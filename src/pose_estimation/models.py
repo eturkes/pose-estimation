@@ -51,8 +51,9 @@ def _verify_checksum(path, expected, *, redownload):
         return True
     if redownload:
         print(
-            f"  WARNING: checksum mismatch for {Path(path).name} "
-            f"(expected {expected[:12]}…, got {actual[:12]}…). Removing for re-download."
+            f"  WARNING: The checksum mismatch for {Path(path).name}: "
+            f"expected {expected[:12]}…, got {actual[:12]}…. "
+            "The downloader removes the file and downloads it again."
         )
         Path(path).unlink(missing_ok=True)
         return False
@@ -120,7 +121,7 @@ def download_and_compile_models(model_dir="model", det_device="NPU", pose_device
 
         ir_path = tflite_path.with_suffix(".xml")
         if not ir_path.exists():
-            print(f"Converting {tflite_name} to OpenVINO IR...")
+            print(f"The converter processes {tflite_name} into OpenVINO IR.")
             ov_model = ov.convert_model(tflite_path)
             ov.save_model(ov_model, ir_path)
         ir_files[name] = ir_path
@@ -138,7 +139,10 @@ def download_and_compile_models(model_dir="model", det_device="NPU", pose_device
         )
 
     if det_device == pose_device:
-        print(f"All models compiled for {det_device}.")
+        print(f"Compilation succeeded for all models on {det_device}.")
     else:
-        print(f"Detectors compiled for {det_device}, landmark models for {pose_device}.")
+        print(
+            f"Compilation succeeded for the detectors on {det_device} and the landmark models "
+            f"on {pose_device}."
+        )
     return compiled
