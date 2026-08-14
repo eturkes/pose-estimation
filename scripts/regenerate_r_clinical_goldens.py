@@ -310,9 +310,13 @@ def _run_clinical(input_path: pathlib.Path) -> None:
         )
 
 
-def _expected_outputs(stem: str) -> tuple[str, str]:
+def _expected_outputs(stem: str) -> tuple[str, ...]:
     if stem == "world3d":
-        return "world3d_clinical_3d.csv", "world3d_clinical_3d_windows.csv"
+        return (
+            "world3d_clinical_3d.csv",
+            "world3d_clinical_3d_windows.csv",
+            "world3d_clinical_3d_window_qc.csv",
+        )
     return f"{stem}_clinical.csv", f"{stem}_clinical_windows.csv"
 
 

@@ -23,7 +23,7 @@ Live long-horizon state only; completed trajectory belongs in git.
 
 ## M3 — analysis-ready 3D aggregation
 
-**Status: IN-PROGRESS** — M3.1-M3.2 DONE, M3.3a next with its contract frozen. No precondition: develops + gates entirely on synthetic fixtures, no patient-data clearance needed.
+**Status: IN-PROGRESS** — M3.1-M3.3a DONE, M3.3b next under the same frozen contract. No precondition: develops + gates entirely on synthetic fixtures, no patient-data clearance needed.
 
 **Goal:** carry trusted metric-3D producer output to one analysis-ready per-video aggregate that the repo's own analysis layer surfaces, with 2D/3D pooling unrepresentable by construction.
 
@@ -48,13 +48,17 @@ The 3D quality gate creates NA holes by design, so 3D is where this bites hardes
 | M3.5 | Video-level reducer | Long-form reduction, immutable base key, attempted/all-failed strata, exact reducers → `clinical_3d_video_aggregate.csv`. |
 | M3.6 | Aggregate CLI + consumability path | Exact discovery, atomic idempotent output; `analysis_summary.Rmd` 3D inventory/QC section with `m` / `m/s` / `deg` / `1` labels; `docs/technical/analysis.md` current. |
 
-**Unit status.** M3.1 DONE (`0fa2079` kernel + R-gate closure, `c93382d` goldens, red suite). M3.2 DONE. **M3.3a OPEN** — contract frozen, kernel prep landed (`45cd690`), emission open. **M3.3b OPEN**, depends on M3.3a. M3.4-M3.6 OPEN.
+**Unit status.** M3.1 DONE (`0fa2079` kernel + R-gate closure, `c93382d` goldens, red suite). M3.2 DONE. M3.3a DONE (`45cd690` kernel prep, emission + suite + goldens + docs this session). **M3.3b OPEN** — the shipped artifact widens to `bilateral_wrist`, `bilateral_fingertip`, `trunk`, `shoulders`, `cpi`. M3.4-M3.6 OPEN.
 
 **Split rationale.** M3.3 was one unit and did not fit one MAIN window, confirming planrev `F01`. The boundary is the evidence-group set, not implementation-versus-tests: each half ships a complete gated artifact slice with its own red cases, so TDD holds within each unit. M3.3a establishes the artifact contract end to end on the simplest complete slice; M3.3b widens coverage to the derived and body groups, where `bilateral_*` status is a function of its two contributing side groups and `trunk`/`shoulders`/`cpi` need per-frame validity rather than trajectory evidence. Both `kernel`. The delivered suite on `wt/test-m3u3` splits the same way — trajectory cases to M3.3a, the rest to M3.3b.
 
 **M3.3 state.** Acceptance contract = `.scratch/agents/contract-m3u3.md`, frozen: decision record D, rulings R-1…R-13, predicates P01…P15, verdicts V01…V30, gate identity, corpus P1…P15. Carrier ruled = **long companion artifact `<stem>_clinical_3d_window_qc.csv`, keyed `video × person_idx × window_start_sec × window_end_sec × metric_id`**, 3D-only, estimates never duplicated. Both spikes measured 7/8 fault detectability; wide costs 55 → 125 columns and still cannot express per-metric status, so long wins on the roadmap requirement.
 
-Landed this session: the trajectory kernel now returns the frame + interval evidence it already computed internally (`GRID_EVIDENCE_FIELDS`, `grid_evidence()`), additive-only, no estimate moves, gate green. Open: the metric registry, evidence assembly, artifact writer, version bumps to `producer_version=v2`/`qc_policy_version=v2`, golden regeneration, docs, and the delivered red suite.
+M3.3a close: gate 607 passed / 0 skipped (559 baseline + 45 QC suite + 3 golden cases); `main=` 91% 219K/240K, `mate=` 51% 122K/240K. The artifact ships end to end on the four trajectory groups — 12 metric rows per window, 22 fields + the nine tags, sorted by `video`/`person_idx`/`window_start_sec`/canonical metric order under radix collation. **P08 is proven by regeneration: the only cells that moved in the two existing 3D artifacts are `producer_version` and `qc_policy_version`; the six 2D goldens are byte-identical.** `WINDOW_SIDE_METRICS` now derives from `WINDOW_SIDE_METRIC_SOURCES`, so a side metric cannot ship without declaring the trajectory it reads. `trajectory_grid_status()` states the grid preconditions once: `trajectory_grid()` raises on a fault, the window pass records `invalid_timebase` and keeps running, so a malformed clip no longer aborts the producer.
+
+Two measured rulings. **R-12's gap tolerance is load-bearing** — at 100 Hz a ten-frame hole divides out to `0.10000000000000009`, which a bare `<=` rejects; `test_gap_threshold_tolerance_is_load_bearing` pins it. **R-12's coverage tolerance is unreachable** — any rational exactly 4/5 rounds to the same double as the `0.80` literal, so no input can distinguish `>= min * (1 - 1e-9)` from `>=`. It stays as documented defensive symmetry, and a mutant removing it survives by construction rather than through a gate hole.
+
+Open for M3.3b: the five derived and body groups, whose evidence is not one kernel call each — `bilateral_*` status is a function of its two contributing side groups, `trunk`/`shoulders`/`cpi` need per-frame validity masks, and `cpi` carries the V05 alternation asymmetry. The delivered suite's remaining cases (`compensatory_pattern_index`, `trunk_*`, `posture_symmetry_*`, the 18 bilateral ids) are the red set.
 
 Unmerged deliverables live on branches, not in the tree: `wt/test-m3u3` carries `tests/test_r_qc_evidence.py` (diff-blind, red against `cc8a939`); `wt/spike-m3u3-wide` and `wt/spike-m3u3-long` carry the two measured probe implementations. Reports: `.scratch/agents/{map,res,test,spike-m3u3-wide,spike-m3u3-long}-m3u3.md`.
 

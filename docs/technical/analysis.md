@@ -66,6 +66,134 @@ CSVs without `_conf` keep finite-coordinate presence semantics.
 - Input discovery excludes its own outputs via regex `clinical[_a-z0-9]*|movement_phases[_a-z0-9]*` (digit class covers `_3d`).
 - Window stats use `safe_mean`/`safe_sd` (all-NA → NA, warning-free); CPI now reuses per-frame `trunk_lean_deg` instead of recomputing 2D lean, so it is mode-appropriate automatically.
 
+## Window QC evidence artifact
+
+**Artifact.** `clinical_features.R` writes `<stem>_clinical_3d_window_qc.csv` beside the three existing 3D artifacts. It never writes this artifact for 2D input.
+
+The producer writes the file for every processed 3D input. When no window qualifies, it writes the complete header with zero rows. A rerun therefore clears stale content.
+
+Each row describes one attempted metric in one emitted window. Rows remain when the matching estimate is `NA`.
+
+The unique key is `video × person_idx × window_start_sec × window_end_sec × metric_id`. The artifact never duplicates estimate values. Read estimates from `<stem>_clinical_3d_windows.csv` by using the shared window key and `metric_id`.
+
+**Fields.** The first 22 fields form the QC record. The nine `ARTIFACT_TAG_COLS` follow them as the final block.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `video` | string | Capture identity from the input |
+| `person_idx` | int | Tracked person index |
+| `window_start_sec` | float | Inclusive window start time, in seconds |
+| `window_end_sec` | float | Exclusive window end time, in seconds |
+| `metric_id` | string | Canonical window-estimate column name |
+| `source_group` | string | Required-keypoint group that supplies the metric |
+| `n_expected_frames` | int | Nominal slots in the half-open window |
+| `n_valid_frames` | int | Slots where every required coordinate passes the gate |
+| `frame_coverage` | float | `n_valid_frames / n_expected_frames` |
+| `n_expected_intervals` | int | Adjacent intervals available on the nominal grid |
+| `n_valid_intervals` | int | Adjacent expected-slot pairs with two valid endpoints |
+| `interval_coverage` | float | `n_valid_intervals / n_expected_intervals` |
+| `valid_duration_sec` | float | Valid interval count divided by `fs` |
+| `longest_gap_frames` | int | Largest run of consecutive missing nominal slots |
+| `longest_gap_sec` | float | `longest_gap_frames / fs` |
+| `n_gaps` | int | Number of missing-slot runs, including edge runs |
+| `required_keypoints` | string | Comma-separated canonical keypoint prefixes, in dependency order and without spaces |
+| `n_required_keypoints_present` | int | Required keypoints with at least one gate-passed sample in the window |
+| `min_coverage` | float | Literal minimum frame-coverage threshold |
+| `max_gap_sec` | float | Literal maximum gap threshold, in seconds |
+| `qc_status` | string | `pass` or `fail` |
+| `qc_reason` | string | Precedence-selected primary usability cause |
+| `artifact_kind` | string | Fixed value `window_qc` |
+| `source_sha256` | string | SHA-256 of the input CSV bytes, shared with the other 3D artifacts |
+| `coord_space` | string | Fixed value `world-metric-3d` |
+| `distance_unit` | string | Fixed value `m` |
+| `producer_version` | string | Producer layout identifier; `v2` for this artifact set |
+| `metric_method_version` | string | Metric computation identifier; unchanged at `v1` |
+| `qc_policy_version` | string | QC policy identifier; `v2` for this policy |
+| `metric_qualification` | string | Fixed value `gap-aware` |
+| `provenance_class` | string | Fixed value `unverified` |
+
+**Arithmetic.** Each window uses the half-open interval `[window_start_sec, window_end_sec)`. Nominal slots include missing samples, so missing input rows still count as expected.
+
+Let `N` be the nominal-slot count. Let `valid[i]` mean that every metric-required coordinate passes the gate at slot `i`.
+
+| Field | Exact definition |
+|-------|------------------|
+| `n_expected_frames` | `N`: nominal slots in `[window_start_sec, window_end_sec)` |
+| `n_valid_frames` | `sum(valid)`: slots where every metric-required coordinate passes the gate |
+| `n_expected_intervals` | `max(n_expected_frames - 1, 0)` |
+| `n_valid_intervals` | Count of adjacent expected-slot pairs where `valid[i] && valid[i + 1]` |
+| `frame_coverage` | `n_valid_frames / n_expected_frames` |
+| `interval_coverage` | `n_valid_intervals / n_expected_intervals` |
+| `valid_duration_sec` | `n_valid_intervals / fs` |
+| `longest_gap_sec` | `longest_gap_frames / fs` |
+
+`interval_coverage` is `NA` when `n_expected_intervals` is zero. Its count and `valid_duration_sec` are then zero.
+
+Coverage denominators always use nominal-slot counts. They never use the observed row count.
+
+**Status and reason precedence.** `qc_status` is `pass` or `fail`. A pass requires every policy condition and a finite matching estimate. A passing row uses `qc_reason = none`.
+
+For a failing row, the producer selects the first applicable reason in this precedence order:
+
+| Precedence | `qc_reason` | Trigger |
+|------------|-------------|---------|
+| 1 | `invalid_timebase` | The producer cannot build the nominal grid for the window |
+| 2 | `missing_required_keypoints` | A required coordinate column is absent, or `n_valid_frames == 0` |
+| 3 | `insufficient_observations` | `n_valid_frames < 2` or `n_valid_intervals < 1` |
+| 4 | `gap_too_long` | `longest_gap_sec` exceeds the tolerance-adjusted maximum |
+| 5 | `insufficient_coverage` | `frame_coverage` is below the tolerance-adjusted minimum |
+| 6 | `estimator_undefined` | Earlier conditions pass, but the matching estimate is not finite |
+
+An `invalid_timebase` row keeps its key, dependency, thresholds, and tags. Its count, coverage, duration, and gap fields are `NA`.
+
+The artifact records only the highest-precedence cause. Concurrent support causes remain reconstructable from the independent evidence fields.
+
+**Gap definition.** A gap is a run of consecutive missing nominal slots. Leading and trailing runs also count.
+
+`longest_gap_frames` is the largest run length. `longest_gap_sec` equals that count divided by `fs`.
+
+If observed samples flank `k` missing slots, their unobserved span covers `k + 1` intervals. The field reports the missing-slot duration, not that larger span.
+
+The producer estimates `fs` as `1 / median(diff(t))`. Rounded timestamps can make a nominal 30 fps capture read as about 30.03 Hz.
+
+A three-slot gap then measures about 0.0999 seconds. The policy can therefore decide a nominal 0.10-second boundary inside this cadence drift.
+
+**Policy and tolerance.** The shipped thresholds are engineering-provisional. They are not clinically validated.
+
+Each row carries `min_coverage = 0.80` and `max_gap_sec = 0.10`. These literal values make the support-policy result re-derivable without a registry.
+
+The producer compares unrounded values with these relative tolerances:
+
+- `longest_gap_sec <= max_gap_sec * (1 + 1e-9)`
+- `frame_coverage >= min_coverage * (1 - 1e-9)`
+
+The first comparison is inclusive. `interval_coverage` remains evidence and does not gate status.
+
+A policy change must update `qc_policy_version`. This artifact ships with `qc_policy_version = v2`.
+
+**Limitations.** `qc_reason` reports metric-usability causes only. It never attributes upstream fusion failures to reprojection, cheirality, triangulation angle, absent source views, or confidence.
+
+That attribution requires new diagnostic fields from `src/pose_estimation/export.py`. The current adapter exposes only the resulting validity mask.
+
+QC evidence is advisory. It never suppresses or overwrites an estimate. A failed QC row can therefore accompany a finite estimate.
+
+An estimate is `NA` only when the metric kernel cannot compute it. Estimate values remain exclusively in `<stem>_clinical_3d_windows.csv`.
+
+SAL reconstructs missing interior speed intervals linearly. Therefore, the artifact makes no zero-interpolation claim and emits no interpolation-count field.
+
+The `n_valid_intervals` field records observed interval support for SAL. A leading or trailing speed gap still makes SAL undefined.
+
+**Current scope.** The artifact currently emits 12 trajectory metrics across four source groups:
+
+| `source_group` | `required_keypoints` | `metric_id` values |
+|----------------|----------------------|--------------------|
+| `left_wrist` | `body_left_wrist` | `left_wrist_sal`, `left_wrist_velocity_mean`, `left_wrist_velocity_peak`, `left_wrist_normalized_jerk`, `left_wrist_movement_efficiency` |
+| `right_wrist` | `body_right_wrist` | `right_wrist_sal`, `right_wrist_velocity_mean`, `right_wrist_velocity_peak`, `right_wrist_normalized_jerk`, `right_wrist_movement_efficiency` |
+| `left_fingertip` | `left_hand_8` | `left_fingertip_normalized_jerk` |
+| `right_fingertip` | `right_hand_8` | `right_fingertip_normalized_jerk` |
+
+M3.3b adds `bilateral_wrist`, `bilateral_fingertip`, `trunk`, `shoulders`, and `cpi`. The producer does not emit rows for these five groups yet.
+
 ## Clinical comparison / longitudinal
 
 | Script | Inputs | Outputs |

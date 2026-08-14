@@ -32,18 +32,20 @@ _KIND_VALUES = {
     "frame": ("clinical-frame-3d", "frame-instantaneous"),
     "window": ("clinical-window-3d", "gap-aware"),
     "phase": ("movement-phase-3d", "gap-unsafe"),
+    "window_qc": ("window_qc", "gap-aware"),
 }
 _OUTPUT_SUFFIXES = {
     "frame": "_clinical_3d.csv",
     "window": "_clinical_3d_windows.csv",
     "phase": "_movement_phases_3d.csv",
+    "window_qc": "_clinical_3d_window_qc.csv",
 }
 _SHARED_VALUES = {
     "coord_space": "world-metric-3d",
     "distance_unit": "m",
-    "producer_version": "v1",
+    "producer_version": "v2",
     "metric_method_version": "v1",
-    "qc_policy_version": "v1",
+    "qc_policy_version": "v2",
     "provenance_class": "unverified",
 }
 _FRAME_BASE_COLUMNS = (
@@ -171,10 +173,35 @@ _PHASE_BASE_COLUMNS = (
     "movement_path_length",
     "movement_efficiency",
 )
+_WINDOW_QC_BASE_COLUMNS = (
+    "video",
+    "person_idx",
+    "window_start_sec",
+    "window_end_sec",
+    "metric_id",
+    "source_group",
+    "n_expected_frames",
+    "n_valid_frames",
+    "frame_coverage",
+    "n_expected_intervals",
+    "n_valid_intervals",
+    "interval_coverage",
+    "valid_duration_sec",
+    "longest_gap_frames",
+    "longest_gap_sec",
+    "n_gaps",
+    "required_keypoints",
+    "n_required_keypoints_present",
+    "min_coverage",
+    "max_gap_sec",
+    "qc_status",
+    "qc_reason",
+)
 _BASE_COLUMNS = {
     "frame": _FRAME_BASE_COLUMNS,
     "window": _WINDOW_BASE_COLUMNS,
     "phase": _PHASE_BASE_COLUMNS,
+    "window_qc": _WINDOW_QC_BASE_COLUMNS,
 }
 
 
@@ -347,6 +374,7 @@ def test_empty_and_nonempty_headers_match_for_each_derived_kind(tmp_path: pathli
     pairs = {
         "window": (nonempty, short),
         "phase": (nonempty, static),
+        "window_qc": (nonempty, short),
     }
     for kind, (full_source, empty_source) in pairs.items():
         full_header, full_rows = _read_csv(_output_path(full_source, kind))
@@ -357,7 +385,7 @@ def test_empty_and_nonempty_headers_match_for_each_derived_kind(tmp_path: pathli
 
 
 @requires_r
-def test_empty_rerun_overwrites_stale_window_and_phase_rows(tmp_path: pathlib.Path) -> None:
+def test_empty_rerun_overwrites_stale_derived_rows(tmp_path: pathlib.Path) -> None:
     short = _make_world3d(tmp_path / "short.csv", n_frames=3)
     static = _make_world3d(tmp_path / "static.csv")
     with static.open(newline="") as handle:
@@ -375,10 +403,11 @@ def test_empty_rerun_overwrites_stale_window_and_phase_rows(tmp_path: pathlib.Pa
     targets = {
         _output_path(short, "window"): "window",
         _output_path(static, "phase"): "phase",
+        _output_path(short, "window_qc"): "window_qc",
     }
     for target, kind in targets.items():
         target.write_text("sentinel\nSURVIVED\n")
-        _run_producer(short if kind == "window" else static)
+        _run_producer(short if kind in {"window", "window_qc"} else static)
         header, rows = _read_csv(target)
         assert header == _expected_header(kind)
         assert rows == [], f"stale rows survived in {target.name}"

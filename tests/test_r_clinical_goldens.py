@@ -16,16 +16,27 @@ _CLINICAL_R = _PROJECT_ROOT / "analysis" / "clinical_features.R"
 _GENERATOR_PATH = _PROJECT_ROOT / "scripts" / "regenerate_r_clinical_goldens.py"
 _GOLDEN_DIR = pathlib.Path(__file__).resolve().parent / "goldens" / "r_clinical"
 _DATASETS = {
-    "2d_idx": ("2d_idx_clinical.csv", "2d_idx_clinical_windows.csv"),
-    "2d_cumsum": ("2d_cumsum_clinical.csv", "2d_cumsum_clinical_windows.csv"),
-    "2d_csv4dp": ("2d_csv4dp_clinical.csv", "2d_csv4dp_clinical_windows.csv"),
-    "world3d": ("world3d_clinical_3d.csv", "world3d_clinical_3d_windows.csv"),
+    "2d_idx": (("2d_idx_clinical.csv", "frame"), ("2d_idx_clinical_windows.csv", "window")),
+    "2d_cumsum": (
+        ("2d_cumsum_clinical.csv", "frame"),
+        ("2d_cumsum_clinical_windows.csv", "window"),
+    ),
+    "2d_csv4dp": (
+        ("2d_csv4dp_clinical.csv", "frame"),
+        ("2d_csv4dp_clinical_windows.csv", "window"),
+    ),
+    "world3d": (
+        ("world3d_clinical_3d.csv", "frame"),
+        ("world3d_clinical_3d_windows.csv", "window"),
+        ("world3d_clinical_3d_window_qc.csv", "window_qc"),
+    ),
 }
 _OUTPUT_CASES = tuple(
     (dataset, filename, kind)
-    for dataset, filenames in _DATASETS.items()
-    for filename, kind in zip(filenames, ("frame", "window"), strict=True)
+    for dataset, entries in _DATASETS.items()
+    for filename, kind in entries
 )
+_BASE_WIDTHS = {"frame": 54, "window": 46, "window_qc": 22}
 _TAG_COLUMNS = (
     "artifact_kind",
     "source_sha256",
@@ -44,6 +55,12 @@ _METADATA_COLUMNS = {
     "person_idx",
     "window_start_sec",
     "window_end_sec",
+    # QC evidence keys and labels: identity and verdict, never measurements.
+    "metric_id",
+    "source_group",
+    "required_keypoints",
+    "qc_status",
+    "qc_reason",
     *_TAG_COLUMNS,
 }
 _REQUIRED_WINDOW_METRICS = {
@@ -187,7 +204,7 @@ def test_clinical_golden_schema_exact(dataset, filename, kind, regenerated_outpu
         assert tuple(actual_fields[-len(_TAG_COLUMNS) :]) == _TAG_COLUMNS
     else:
         assert not set(actual_fields) & set(_TAG_COLUMNS)
-    base_width = 54 if kind == "frame" else 46
+    base_width = _BASE_WIDTHS[kind]
     assert len(actual_fields) == base_width + (len(_TAG_COLUMNS) if is_3d else 0)
     assert set(actual_fields) - _METADATA_COLUMNS
     if kind == "window":

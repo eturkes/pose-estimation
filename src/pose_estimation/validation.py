@@ -1330,7 +1330,10 @@ def _aggregate_clinical(session_out: pathlib.Path, clinical_outputs: list[str]) 
     sums: dict[str, float] = {}
     counts: dict[str, int] = {}
     for name in clinical_outputs:
-        if "windows" in name or "movement_phases" in name:
+        # Select the per-frame artifacts positively.  The producer also emits
+        # window, movement-phase and window-QC companions, and a QC evidence
+        # column averaged into a clinical aggregate would read as a metric.
+        if not name.endswith(("_clinical.csv", "_clinical_3d.csv")):
             continue
         with (session_out / name).open("r", newline="") as fh:
             for row in csv.DictReader(fh):

@@ -25,6 +25,8 @@
 #   <stem>_clinical.csv          — per-frame clinical features
 #   <stem>_clinical_windows.csv  — per-window smoothness features
 #   <stem>_movement_phases.csv   — segmented movement phases
+# 3D input additionally gets a per-metric QC companion to the window file:
+#   <stem>_clinical_3d_window_qc.csv — window metric usability evidence
 
 library(dplyr)
 library(tidyr)
@@ -73,7 +75,7 @@ OBSERVATION_CONFIDENCE_GATE <- 0
 # ------------------------------------------------------------------
 
 # Producer layout version — bump when the emitted column set changes.
-PRODUCER_VERSION <- "v1"
+PRODUCER_VERSION <- "v2"
 
 # Metric-definition version — bump when a metric's computation changes.
 # QC evidence is advisory: it never overwrites a computed estimate, so
@@ -81,8 +83,9 @@ PRODUCER_VERSION <- "v1"
 METRIC_METHOD_VERSION <- "v1"
 
 # QC-policy version — bump when REPROJ_GATE_PX,
-# TRIANGULATION_ANGLE_GATE_DEG or OBSERVATION_CONFIDENCE_GATE change value.
-QC_POLICY_VERSION <- "v1"
+# TRIANGULATION_ANGLE_GATE_DEG, OBSERVATION_CONFIDENCE_GATE, a window QC
+# threshold or the reason vocabulary change value.
+QC_POLICY_VERSION <- "v2"
 
 # Coordinate space and distance unit of the metric-3D outputs.  Per-metric
 # units (m, m/s, deg, dimensionless) are a registry concern, not an
@@ -103,6 +106,31 @@ PROVENANCE_CLASS <- "unverified"
 QUALIFICATION_FRAME  <- "frame-instantaneous"
 QUALIFICATION_WINDOW <- "gap-aware"
 QUALIFICATION_PHASE  <- "gap-unsafe"
+
+# ------------------------------------------------------------------
+# Window QC policy
+# ------------------------------------------------------------------
+
+# Engineering-provisional usability thresholds, not validated clinical
+# standards: a window needs this share of its nominal frames observed, and
+# no tracking hole longer than this, before its metrics are called usable.
+# M2 calibrates them against real capture; a change bumps QC_POLICY_VERSION.
+QC_MIN_COVERAGE <- 0.80
+QC_MAX_GAP_SEC  <- 0.10
+
+# Relative slack on both threshold comparisons.  A gap that divides out to
+# 0.10000000000000009 sits on the 0.10 s boundary rather than beyond it, and
+# a bare comparison would fail it on representation alone.
+QC_POLICY_TOLERANCE <- 1e-9
+
+# Primary QC cause, highest precedence first.  One row records one cause;
+# concurrent causes stay reconstructable from the evidence fields, so the
+# vocabulary needs no joined-string grammar.
+QC_REASON_PRECEDENCE <- c(
+  "invalid_timebase", "missing_required_keypoints",
+  "insufficient_observations", "gap_too_long", "insufficient_coverage",
+  "estimator_undefined"
+)
 
 # Ordered artifact-level tag columns appended to every 3D output.
 ARTIFACT_TAG_COLS <- c(
@@ -156,6 +184,19 @@ body_col <- function(tracking, side, keypoint, coord) {
 
 hand_col <- function(side, idx, coord) {
   paste0(side, "_hand_", idx, "_", coord)
+}
+
+#' Keypoint identity behind a coordinate column.
+#'
+#' QC evidence names the dependency a metric reads rather than reading it, so
+#' the name is derived from the same helper that builds the column.  A renamed
+#' column therefore cannot leave the evidence pointing at a keypoint that no
+#' longer exists.
+#'
+#' @param column Character — a coordinate column name ending in _x, _y or _z.
+#' @return Character — the column name without its coordinate suffix.
+keypoint_id <- function(column) {
+  str_remove(column, "_[xyz]$")
 }
 
 #' Mask 2D coordinates that are not backed by a current observation.
@@ -417,29 +458,45 @@ nominal_fs <- function(t) {
 #' @return List of \code{slot} (0-based grid index per sample), \code{n_grid}
 #'   (grid length) and \code{residual} (largest sub-slot deviation).
 trajectory_grid <- function(t, fs) {
-  if (!is.finite(fs) || fs <= 0) {
-    stop("trajectory_grid(): fs must be finite and positive")
+  status <- trajectory_grid_status(t, fs)
+  if (!is.null(status$fault)) stop("trajectory_grid(): ", status$fault)
+  status[c("slot", "n_grid", "residual")]
+}
+
+#' Whether a nominal grid can be built, without raising.
+#'
+#' The single place the grid preconditions are stated.  \code{trajectory_grid()}
+#' turns a fault into an error; the window QC pass turns the same fault into an
+#' \code{invalid_timebase} row, so one malformed clip records its defect rather
+#' than aborting the producer.
+#'
+#' @param t Numeric vector — timestamps in seconds.
+#' @param fs Scalar — nominal sampling frequency in Hz.
+#' @return List of \code{fault} (NULL when buildable, else the diagnostic),
+#'   \code{slot}, \code{n_grid} and \code{residual}.
+trajectory_grid_status <- function(t, fs) {
+  fault <- function(message) {
+    list(fault = message, slot = NULL, n_grid = NA_integer_, residual = NA_real_)
   }
-  if (length(t) < 2) stop("trajectory_grid(): t must contain at least two timestamps")
-  if (any(!is.finite(t))) stop("trajectory_grid(): timestamps must be finite")
-  if (any(diff(t) <= 0)) {
-    stop("trajectory_grid(): timestamps must be strictly increasing")
-  }
+  if (!is.finite(fs) || fs <= 0) return(fault("fs must be finite and positive"))
+  if (length(t) < 2) return(fault("t must contain at least two timestamps"))
+  if (any(!is.finite(t))) return(fault("timestamps must be finite"))
+  if (any(diff(t) <= 0)) return(fault("timestamps must be strictly increasing"))
 
   raw <- (t - t[1]) * fs
   slot <- round(raw)
   residual <- max(abs(raw - slot))
   if (residual > GRID_SLOT_TOLERANCE) {
-    stop(sprintf(
-      "trajectory_grid(): timestamps do not follow a %g Hz grid (residual %.3f)",
-      fs, residual
-    ))
+    return(fault(sprintf(
+      "timestamps do not follow a %g Hz grid (residual %.3f)", fs, residual
+    )))
   }
-  if (anyDuplicated(slot)) {
-    stop("trajectory_grid(): two samples map onto one grid slot")
-  }
+  if (anyDuplicated(slot)) return(fault("two samples map onto one grid slot"))
 
-  list(slot = slot, n_grid = slot[length(slot)] + 1, residual = residual)
+  list(
+    fault = NULL, slot = slot, n_grid = slot[length(slot)] + 1,
+    residual = residual
+  )
 }
 
 #' Gap-aware trajectory metrics over the nominal frame grid.
@@ -487,6 +544,23 @@ GRID_EVIDENCE_FIELDS <- list(
   n_gaps = NA_integer_
 )
 
+#' Typed template for a trajectory the kernel could not evaluate.
+#'
+#' Estimates and evidence share one shape, so a caller that never reached the
+#' kernel — an unusable timebase, for instance — reports the same fields with
+#' no branch of its own.
+#'
+#' @return Named list of estimate fields followed by \code{GRID_EVIDENCE_FIELDS}.
+empty_trajectory_metrics <- function() {
+  c(
+    list(
+      sal = NA_real_, nj = NA_real_, v_mean = NA_real_, v_peak = NA_real_,
+      efficiency = NA_real_, dropout = NA_real_, longest_gap_sec = NA_real_
+    ),
+    GRID_EVIDENCE_FIELDS
+  )
+}
+
 #' Frame- and interval-grain evidence for one nominal-grid validity mask.
 #'
 #' The denominator is the grid, never the observed row count, so a row the
@@ -518,11 +592,7 @@ grid_evidence <- function(valid, fs) {
 }
 
 trajectory_metrics <- function(t, x, y, z, fs = NULL, fc = SAL_FREQ_CUTOFF) {
-  empty <- list(
-    sal = NA_real_, nj = NA_real_, v_mean = NA_real_, v_peak = NA_real_,
-    efficiency = NA_real_, dropout = NA_real_, longest_gap_sec = NA_real_
-  )
-  empty <- c(empty, GRID_EVIDENCE_FIELDS)
+  empty <- empty_trajectory_metrics()
   if (length(t) < 2) return(empty)
 
   if (is.null(fs)) fs <- nominal_fs(t)
@@ -922,12 +992,21 @@ compute_frame_features <- function(df, tracking, is_3d = FALSE) {
 # Window-level smoothness features
 # ------------------------------------------------------------------
 
-# Per-side window metrics, in emission order.
-WINDOW_SIDE_METRICS <- c(
-  "wrist_sal", "wrist_velocity_mean", "wrist_velocity_peak",
-  "wrist_normalized_jerk", "wrist_movement_efficiency",
-  "fingertip_normalized_jerk"
+# Per-side window metric -> the trajectory whose observed support decides
+# whether that metric is usable.  Declaring the dependency here is what lets
+# QC evidence and the estimate it explains come from one mask: a new side
+# metric cannot ship without naming the trajectory it reads.
+WINDOW_SIDE_METRIC_SOURCES <- c(
+  wrist_sal                 = "wrist",
+  wrist_velocity_mean       = "wrist",
+  wrist_velocity_peak       = "wrist",
+  wrist_normalized_jerk     = "wrist",
+  wrist_movement_efficiency = "wrist",
+  fingertip_normalized_jerk = "fingertip"
 )
+
+# Per-side window metrics, in emission order.
+WINDOW_SIDE_METRICS <- names(WINDOW_SIDE_METRIC_SOURCES)
 
 # Window metrics that also get left/right comparison columns.
 WINDOW_BILATERAL_METRICS <- WINDOW_SIDE_METRICS
@@ -969,8 +1048,172 @@ window_schema <- function() {
   out
 }
 
+#' Zero-row window QC table carrying the full ordered evidence schema.
+#'
+#' Written whenever a 3D input yields no window, so a reader can tell a
+#' genuine zero-window result from a run that never happened.  The populated
+#' path builds the same columns in the same order.
+window_qc_schema <- function() {
+  tibble(
+    video                        = character(),
+    person_idx                   = integer(),
+    window_start_sec             = double(),
+    window_end_sec               = double(),
+    metric_id                    = character(),
+    source_group                 = character(),
+    n_expected_frames            = integer(),
+    n_valid_frames               = integer(),
+    frame_coverage               = double(),
+    n_expected_intervals         = integer(),
+    n_valid_intervals            = integer(),
+    interval_coverage            = double(),
+    valid_duration_sec           = double(),
+    longest_gap_frames           = integer(),
+    longest_gap_sec              = double(),
+    n_gaps                       = integer(),
+    required_keypoints           = character(),
+    n_required_keypoints_present = integer(),
+    min_coverage                 = double(),
+    max_gap_sec                  = double(),
+    qc_status                    = character(),
+    qc_reason                    = character()
+  )
+}
+
+#' Keypoints a source group requires, in dependency order.
+#'
+#' Resolved against the active tracking mode, so the evidence names the
+#' columns the estimator actually read.  Each trajectory group depends on one
+#' keypoint; the derived and body groups arrive with their own dependencies.
+#'
+#' @param tracking Character — detected tracking mode.
+#' @param side Character — \code{"left"} or \code{"right"}.
+#' @param group Character — \code{"wrist"} or \code{"fingertip"}.
+#' @return Character vector of keypoint identities.
+qc_source_keypoints <- function(tracking, side, group) {
+  switch(group,
+    wrist     = keypoint_id(body_col(tracking, side, "wrist", "x")),
+    fingertip = keypoint_id(hand_col(side, 8, "x")),
+    stop("qc_source_keypoints(): unknown source group ", group)
+  )
+}
+
+#' Primary QC cause for one metric over one window.
+#'
+#' Every cause that fires is collected, then \code{QC_REASON_PRECEDENCE}
+#' selects the one recorded.  Concurrent causes stay reconstructable from the
+#' evidence fields, so the row never carries a joined reason string.
+#'
+#' Policy gates \code{frame_coverage} alone, uniformly, for every metric.
+#' \code{interval_coverage} ships as evidence and gates nothing, which keeps
+#' one rule under one version rather than a per-family selection.
+#'
+#' @param timebase_ok Logical — whether a nominal grid could be built.
+#' @param n_valid_frames,n_valid_intervals Integer — observed support.
+#' @param longest_gap_sec,frame_coverage Numeric — measured evidence.
+#' @param estimate Numeric — the value the estimator produced.
+#' @return Character — the primary cause, or \code{"none"}.
+qc_reason_for <- function(timebase_ok, n_valid_frames, n_valid_intervals,
+                          longest_gap_sec, frame_coverage, estimate) {
+  if (!timebase_ok) return("invalid_timebase")
+
+  fired <- character(0)
+  if (n_valid_frames == 0L) fired <- c(fired, "missing_required_keypoints")
+  if (n_valid_frames < 2L || n_valid_intervals < 1L) {
+    fired <- c(fired, "insufficient_observations")
+  }
+  if (longest_gap_sec > QC_MAX_GAP_SEC * (1 + QC_POLICY_TOLERANCE)) {
+    fired <- c(fired, "gap_too_long")
+  }
+  if (frame_coverage < QC_MIN_COVERAGE * (1 - QC_POLICY_TOLERANCE)) {
+    fired <- c(fired, "insufficient_coverage")
+  }
+  if (!is.finite(estimate)) fired <- c(fired, "estimator_undefined")
+
+  primary <- QC_REASON_PRECEDENCE[QC_REASON_PRECEDENCE %in% fired]
+  if (length(primary) == 0L) "none" else primary[1]
+}
+
+#' Per-metric QC evidence rows for one window.
+#'
+#' One row per attempted metric, carrying the support its own trajectory had.
+#' Sibling metrics over one trajectory therefore share every count and differ
+#' only where their estimators diverge.  Estimates are never copied in: the
+#' estimate artifact remains their single channel.
+#'
+#' @param vid,pid,ws,we Window key parts.
+#' @param tracking Character — detected tracking mode.
+#' @param traj Nested list — \code{traj[[side]][[group]]} kernel results.
+#' @param estimates One-row tibble of the window's metric values.
+#' @param timebase_ok Logical — whether a nominal grid could be built.
+#' @return Tibble matching \code{window_qc_schema()}.
+window_qc_rows <- function(vid, pid, ws, we, tracking, traj, estimates,
+                           timebase_ok) {
+  sides      <- rep(c("left", "right"), each = length(WINDOW_SIDE_METRICS))
+  metrics    <- rep(WINDOW_SIDE_METRICS, times = 2L)
+  groups     <- unname(WINDOW_SIDE_METRIC_SOURCES[metrics])
+  metric_ids <- paste0(sides, "_", metrics)
+
+  evidence <- lapply(
+    seq_along(metric_ids), function(i) traj[[sides[i]]][[groups[i]]]
+  )
+  field <- function(name, template) {
+    vapply(evidence, function(block) block[[name]], template)
+  }
+
+  n_expected_frames    <- field("n_expected_frames", NA_integer_)
+  n_valid_frames       <- field("n_valid_frames", NA_integer_)
+  n_expected_intervals <- field("n_expected_intervals", NA_integer_)
+  n_valid_intervals    <- field("n_valid_intervals", NA_integer_)
+  longest_gap_sec      <- field("longest_gap_sec", NA_real_)
+  frame_coverage       <- n_valid_frames / n_expected_frames
+
+  reasons <- vapply(seq_along(metric_ids), function(i) {
+    qc_reason_for(
+      timebase_ok, n_valid_frames[i], n_valid_intervals[i],
+      longest_gap_sec[i], frame_coverage[i], estimates[[metric_ids[i]]]
+    )
+  }, character(1))
+
+  tibble(
+    video            = vid,
+    person_idx       = pid,
+    window_start_sec = round(ws, 4),
+    window_end_sec   = round(we, 4),
+    metric_id        = metric_ids,
+    source_group     = paste0(sides, "_", groups),
+    n_expected_frames    = n_expected_frames,
+    n_valid_frames       = n_valid_frames,
+    frame_coverage       = frame_coverage,
+    n_expected_intervals = n_expected_intervals,
+    n_valid_intervals    = n_valid_intervals,
+    interval_coverage    = ifelse(
+      !is.na(n_expected_intervals) & n_expected_intervals > 0L,
+      n_valid_intervals / n_expected_intervals, NA_real_
+    ),
+    valid_duration_sec = field("valid_duration_sec", NA_real_),
+    longest_gap_frames = field("longest_gap_frames", NA_integer_),
+    longest_gap_sec    = longest_gap_sec,
+    n_gaps             = field("n_gaps", NA_integer_),
+    required_keypoints = vapply(
+      seq_along(metric_ids),
+      function(i) {
+        paste(qc_source_keypoints(tracking, sides[i], groups[i]), collapse = ",")
+      },
+      character(1)
+    ),
+    # Each trajectory group requires one keypoint, so the group's own support
+    # decides presence: one gate-passed frame in the window makes it present.
+    n_required_keypoints_present = as.integer(n_valid_frames > 0L),
+    min_coverage = QC_MIN_COVERAGE,
+    max_gap_sec  = QC_MAX_GAP_SEC,
+    qc_status    = ifelse(reasons == "none", "pass", "fail"),
+    qc_reason    = reasons
+  )
+}
+
 compute_window_features <- function(df, frame_features, tracking,
-                                    window_sec = WINDOW_SEC) {
+                                    window_sec = WINDOW_SEC, is_3d = FALSE) {
   bcol <- function(side, kp, coord) body_col(tracking, side, kp, coord)
   hcol <- hand_col
 
@@ -980,6 +1223,8 @@ compute_window_features <- function(df, frame_features, tracking,
 
   results <- vector("list", nrow(groups) * 100L)
   ri <- 0L
+  qc_results <- vector("list", nrow(groups) * 100L)
+  qi <- 0L
 
   for (g in seq_len(nrow(groups))) {
     vid <- groups$video[g]
@@ -1022,12 +1267,35 @@ compute_window_features <- function(df, frame_features, tracking,
 
       win_ts <- ts[win_mask]
 
+      # A timestamp series that cannot be placed on its nominal grid gives
+      # the kernel nothing to measure.  The window is still keyed and still
+      # published; every trajectory reports the empty template, which the QC
+      # pass records as invalid_timebase rather than aborting the run.
+      timebase_ok <- is.null(trajectory_grid_status(win_ts, fs)$fault)
+
+      traj <- list()
       for (side in c("left", "right")) {
         wr_x <- as.numeric(sub_df[[bcol(side, "wrist", "x")]])[win_mask]
         wr_y <- as.numeric(sub_df[[bcol(side, "wrist", "y")]])[win_mask]
         wr_z <- as.numeric(sub_df[[bcol(side, "wrist", "z")]])[win_mask]
 
-        wrist <- trajectory_metrics(win_ts, wr_x, wr_y, wr_z, fs)
+        # Fingertip (index tip, hand landmark 8) normalized jerk.
+        ft_x <- as.numeric(sub_df[[hcol(side, 8, "x")]])[win_mask]
+        ft_y <- as.numeric(sub_df[[hcol(side, 8, "y")]])[win_mask]
+        ft_z <- as.numeric(sub_df[[hcol(side, 8, "z")]])[win_mask]
+
+        traj[[side]] <- if (timebase_ok) {
+          list(
+            wrist     = trajectory_metrics(win_ts, wr_x, wr_y, wr_z, fs),
+            fingertip = trajectory_metrics(win_ts, ft_x, ft_y, ft_z, fs)
+          )
+        } else {
+          list(
+            wrist     = empty_trajectory_metrics(),
+            fingertip = empty_trajectory_metrics()
+          )
+        }
+        wrist <- traj[[side]]$wrist
 
         row[[paste0(side, "_wrist_sal")]]                 <- wrist$sal
         row[[paste0(side, "_wrist_velocity_mean")]]       <- wrist$v_mean
@@ -1035,13 +1303,8 @@ compute_window_features <- function(df, frame_features, tracking,
         row[[paste0(side, "_wrist_normalized_jerk")]]     <- wrist$nj
         row[[paste0(side, "_wrist_movement_efficiency")]] <- wrist$efficiency
 
-        # Fingertip (index tip, hand landmark 8) normalized jerk.
-        ft_x <- as.numeric(sub_df[[hcol(side, 8, "x")]])[win_mask]
-        ft_y <- as.numeric(sub_df[[hcol(side, 8, "y")]])[win_mask]
-        ft_z <- as.numeric(sub_df[[hcol(side, 8, "z")]])[win_mask]
-
         row[[paste0(side, "_fingertip_normalized_jerk")]] <-
-          trajectory_metrics(win_ts, ft_x, ft_y, ft_z, fs)$nj
+          traj[[side]]$fingertip$nj
       }
 
       # Body-mode-only metrics (CPI + trunk/torso — require hip keypoints).
@@ -1108,11 +1371,39 @@ compute_window_features <- function(df, frame_features, tracking,
 
       ri <- ri + 1L
       results[[ri]] <- row
+
+      # QC evidence is 3D-only.  A 2D output gaining a numeric column would
+      # enter aggregate_per_video() as a feature unnoticed, so the guard sits
+      # on emission rather than on the caller.
+      if (is_3d) {
+        qi <- qi + 1L
+        qc_results[[qi]] <- window_qc_rows(
+          vid, pid, ws, we, tracking, traj, row, timebase_ok
+        )
+      }
     }
   }
 
-  if (ri == 0L) return(window_schema())
-  bind_rows(results[seq_len(ri)])
+  windows <- if (ri == 0L) window_schema() else bind_rows(results[seq_len(ri)])
+  qc <- if (qi == 0L) window_qc_schema() else bind_rows(qc_results[seq_len(qi)])
+
+  # Deterministic order regardless of the order the input presented its
+  # people: radix sorting keeps the result independent of collation locale.
+  if (nrow(qc) > 0L) {
+    metric_rank <- match(
+      qc$metric_id,
+      paste0(
+        rep(c("left", "right"), each = length(WINDOW_SIDE_METRICS)),
+        "_", rep(WINDOW_SIDE_METRICS, times = 2L)
+      )
+    )
+    qc <- qc[order(
+      qc$video, qc$person_idx, qc$window_start_sec, metric_rank,
+      method = "radix"
+    ), ]
+  }
+
+  list(windows = windows, qc = qc)
 }
 
 # ------------------------------------------------------------------
@@ -1550,7 +1841,8 @@ for (f in files) {
   # result from a run that never happened, and a stale file from an earlier
   # run cannot survive.  2D keeps its skip-if-empty behaviour untouched.
   cat("  The script computes window-level smoothness features.\n")
-  windows <- compute_window_features(df, clinical, tracking)
+  window_out <- compute_window_features(df, clinical, tracking, is_3d = is_3d)
+  windows <- window_out$windows
 
   if (is_3d) {
     windows <- attach_artifact_tags(windows, "clinical-window-3d",
@@ -1562,6 +1854,19 @@ for (f in files) {
     cat(sprintf("  The script wrote %d windows to %s.\n", nrow(windows), basename(out_win)))
   } else {
     cat("  The script produced no windows. The video may be too short.\n")
+  }
+
+  # Per-metric QC evidence for the window metrics.  It is a companion to the
+  # window artifact rather than columns on it, because one trajectory can
+  # leave one metric usable and its sibling not.  Estimates stay in the
+  # window artifact alone; this file explains them and never restates them.
+  if (is_3d) {
+    window_qc <- attach_artifact_tags(window_out$qc, "window_qc",
+                                      QUALIFICATION_WINDOW, source_sha256)
+    out_qc <- paste0(stem, "_clinical", suffix, "_window_qc.csv")
+    write_csv(window_qc, out_qc)
+    cat(sprintf("  The script wrote %d QC rows to %s.\n", nrow(window_qc),
+                basename(out_qc)))
   }
 
   # Movement phase segmentation.  Phase metrics still differentiate across

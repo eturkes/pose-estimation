@@ -1147,6 +1147,7 @@ class TestWorld3DClinical:
         assert produced == [
             "world3d.csv",
             "world3d_clinical_3d.csv",
+            "world3d_clinical_3d_window_qc.csv",
             "world3d_clinical_3d_windows.csv",
             "world3d_movement_phases_3d.csv",
         ]
