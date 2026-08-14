@@ -69,6 +69,75 @@ TRIANGULATION_ANGLE_GATE_DEG <- 1
 OBSERVATION_CONFIDENCE_GATE <- 0
 
 # ------------------------------------------------------------------
+# 3D artifact identity
+# ------------------------------------------------------------------
+
+# Producer layout version — bump when the emitted column set changes.
+PRODUCER_VERSION <- "v1"
+
+# Metric-definition version — bump when a metric's computation changes.
+METRIC_METHOD_VERSION <- "v1"
+
+# QC-policy version — bump when REPROJ_GATE_PX,
+# TRIANGULATION_ANGLE_GATE_DEG or OBSERVATION_CONFIDENCE_GATE change value.
+QC_POLICY_VERSION <- "v1"
+
+# Coordinate space and distance unit of the metric-3D outputs.  Per-metric
+# units (m, m/s, deg, dimensionless) are a registry concern, not an
+# artifact-level tag: these outputs are wide and mix all four.
+COORD_SPACE_3D   <- "world-metric-3d"
+DISTANCE_UNIT_3D <- "m"
+
+# Rig, model and filter identity are absent from world3d.csv, so provenance
+# is declared unverified rather than guessed.  A reader refuses to pool
+# across unverified artifacts instead of assuming they are equivalent.
+PROVENANCE_CLASS <- "unverified"
+
+# Gap semantics per artifact kind, stated in the artifact rather than only
+# in the docs.  Window trajectory metrics run on the timestamp-aware kernel;
+# movement-phase metrics still differentiate across holes; per-frame values
+# are instantaneous, their displacements being row-adjacent steps that go NA
+# on a masked sample without checking the interval.
+QUALIFICATION_FRAME  <- "frame-instantaneous"
+QUALIFICATION_WINDOW <- "gap-aware"
+QUALIFICATION_PHASE  <- "gap-unsafe"
+
+# Ordered artifact-level tag columns appended to every 3D output.
+ARTIFACT_TAG_COLS <- c(
+  "artifact_kind", "source_sha256", "coord_space", "distance_unit",
+  "producer_version", "metric_method_version", "qc_policy_version",
+  "metric_qualification", "provenance_class"
+)
+
+#' SHA-256 of a file's bytes.
+#'
+#' Deterministic artifact identity: the same bytes always hash the same,
+#' independent of filename, path or run time, so goldens stay byte-stable
+#' and a rerun over changed input is distinguishable from a copy.
+file_sha256 <- function(path) {
+  con <- file(path, "rb")
+  on.exit(close(con))
+  as.character(openssl::sha256(con))
+}
+
+#' Append the artifact-level identity tags to a 3D output table.
+#'
+#' Values are constant within a file and always character, so they can
+#' never be picked up as numeric features by the generic per-video
+#' summariser in utils.R.  Tags go last, leaving row keys first and the
+#' metric block contiguous.  A zero-row table gains the columns typed and
+#' empty, keeping its header identical to the populated case.
+attach_artifact_tags <- function(df, kind, qualification, source_sha256) {
+  values <- c(kind, source_sha256, COORD_SPACE_3D, DISTANCE_UNIT_3D,
+              PRODUCER_VERSION, METRIC_METHOD_VERSION, QC_POLICY_VERSION,
+              qualification, PROVENANCE_CLASS)
+  for (i in seq_along(ARTIFACT_TAG_COLS)) {
+    df[[ARTIFACT_TAG_COLS[i]]] <- rep(values[i], nrow(df))
+  }
+  df
+}
+
+# ------------------------------------------------------------------
 # Column-name helpers (mode-aware)
 # ------------------------------------------------------------------
 
@@ -804,6 +873,53 @@ compute_frame_features <- function(df, tracking, is_3d = FALSE) {
 # Window-level smoothness features
 # ------------------------------------------------------------------
 
+# Per-side window metrics, in emission order.
+WINDOW_SIDE_METRICS <- c(
+  "wrist_sal", "wrist_velocity_mean", "wrist_velocity_peak",
+  "wrist_normalized_jerk", "wrist_movement_efficiency",
+  "fingertip_normalized_jerk"
+)
+
+# Window metrics that also get left/right comparison columns.
+WINDOW_BILATERAL_METRICS <- WINDOW_SIDE_METRICS
+
+# Body-mode window summaries, in emission order.  Hands-arms mode emits the
+# same names filled with NA, so the column set does not depend on tracking.
+WINDOW_BODY_METRICS <- c(
+  "compensatory_pattern_index", "trunk_lean_mean", "trunk_lean_sd",
+  "trunk_lean_range", "trunk_lean_sagittal_mean", "trunk_lean_sagittal_sd",
+  "trunk_lean_lateral_mean", "trunk_lean_lateral_sd", "trunk_rotation_mean",
+  "trunk_rotation_sd", "posture_symmetry_mean", "posture_symmetry_sd"
+)
+
+#' Zero-row window table carrying the full ordered schema.
+#'
+#' Returned when no window qualifies, so an empty result is publishable
+#' rather than shapeless.  A test pins this header against the populated
+#' one, which is what keeps the two construction paths from drifting.
+window_schema <- function() {
+  out <- tibble(
+    video            = character(),
+    person_idx       = integer(),
+    window_start_sec = double(),
+    window_end_sec   = double()
+  )
+  bilateral_cols <- character(0)
+  for (metric in WINDOW_BILATERAL_METRICS) {
+    bilateral_cols <- c(bilateral_cols, paste0(
+      metric, c("_symmetry_ratio", "_dominance_index", "_abs_diff")
+    ))
+  }
+  numeric_cols <- c(
+    paste0("left_", WINDOW_SIDE_METRICS),
+    paste0("right_", WINDOW_SIDE_METRICS),
+    WINDOW_BODY_METRICS,
+    bilateral_cols
+  )
+  for (col in numeric_cols) out[[col]] <- double()
+  out
+}
+
 compute_window_features <- function(df, frame_features, tracking,
                                     window_sec = WINDOW_SEC) {
   bcol <- function(side, kp, coord) body_col(tracking, side, kp, coord)
@@ -931,12 +1047,7 @@ compute_window_features <- function(df, frame_features, tracking,
       }
 
       # Bilateral comparison for window metrics.
-      window_bilateral <- c("wrist_sal", "wrist_velocity_mean",
-                            "wrist_velocity_peak",
-                            "wrist_normalized_jerk",
-                            "wrist_movement_efficiency",
-                            "fingertip_normalized_jerk")
-      for (metric in window_bilateral) {
+      for (metric in WINDOW_BILATERAL_METRICS) {
         bl <- compute_bilateral(
           row[[paste0("left_", metric)]],
           row[[paste0("right_", metric)]]
@@ -951,7 +1062,7 @@ compute_window_features <- function(df, frame_features, tracking,
     }
   }
 
-  if (ri == 0L) return(tibble())
+  if (ri == 0L) return(window_schema())
   bind_rows(results[seq_len(ri)])
 }
 
@@ -1090,7 +1201,36 @@ classify_movement_phases <- function(speed_seg, aperture_seg,
 #' @param min_gap_frames Maximum gap between segments before merging (3).
 #' @param median_k Running-median filter width for speed smoothing (5).
 #' @param min_phase_frames Minimum frames for a sub-phase (3).
-#' @return Tibble with one row per phase. Empty tibble if no movements.
+#' Zero-row phase table carrying the full ordered schema.
+#'
+#' Returned when no movement is detected, so a static capture publishes a
+#' shaped empty result instead of nothing.  A test pins this header against
+#' the populated one to keep the two paths from drifting.
+phase_schema <- function() {
+  tibble(
+    video                  = character(),
+    person_idx             = integer(),
+    side                   = character(),
+    movement_idx           = integer(),
+    phase                  = character(),
+    start_frame            = integer(),
+    end_frame              = integer(),
+    duration_sec           = double(),
+    peak_velocity          = double(),
+    mean_velocity          = double(),
+    path_length            = double(),
+    smoothness_nj          = double(),
+    smoothness_sal         = double(),
+    mean_reach_symmetry    = double(),
+    movement_duration_sec  = double(),
+    movement_n_phases      = integer(),
+    movement_peak_velocity = double(),
+    movement_path_length   = double(),
+    movement_efficiency    = double()
+  )
+}
+
+#' @return Tibble with one row per phase. Zero-row schema if no movements.
 segment_movements <- function(df, frame_features, tracking,
                               speed_thresh_pct = 0.05,
                               min_movement_frames = 5L,
@@ -1277,7 +1417,7 @@ segment_movements <- function(df, frame_features, tracking,
     }
   }
 
-  if (ri == 0L) return(tibble())
+  if (ri == 0L) return(phase_schema())
   bind_rows(all_rows[seq_len(ri)])
 }
 
@@ -1312,6 +1452,15 @@ for (f in files) {
   is_3d <- is_world3d(names(df))
   if (is_3d) {
     cat("  3D input (world3d) — gating on fusion diagnostics; units: m, m/s\n")
+    # `video` is the capture identity, so an ambiguous or blank one is
+    # unusable and fails closed.  A row-less input carries no value at all;
+    # that case publishes typed empties and is rejected downstream instead.
+    captures <- unique(df$video)
+    if (nrow(df) > 0 && (length(captures) != 1L || is.na(captures[1]) ||
+                         !nzchar(trimws(captures[1])))) {
+      stop("3D input needs exactly one non-blank 'video' value; found ",
+           length(captures), " distinct in ", basename(f))
+    }
     df <- adapt_world3d(df)
   } else {
     df <- adapt_2d_confidence(df)
@@ -1328,20 +1477,37 @@ for (f in files) {
 
   stem <- str_remove(f, "\\.csv$")
   suffix <- if (is_3d) "_3d" else ""
+  source_sha256 <- if (is_3d) file_sha256(f) else NA_character_
 
   # Per-frame features.
   cat("  Computing per-frame features...\n")
   clinical <- compute_frame_features(df, tracking, is_3d = is_3d)
 
-  out_frame <- paste0(stem, "_clinical", suffix, ".csv")
-  write_csv(clinical, out_frame)
-  cat(sprintf("  Wrote %d rows → %s\n", nrow(clinical), basename(out_frame)))
+  # Tags go on the published copy only; the window and phase passes keep
+  # reading the untagged frame features they were written against.
+  frame_out <- if (is_3d) {
+    attach_artifact_tags(clinical, "clinical-frame-3d",
+                         QUALIFICATION_FRAME, source_sha256)
+  } else {
+    clinical
+  }
 
-  # Window-level smoothness features.
+  out_frame <- paste0(stem, "_clinical", suffix, ".csv")
+  write_csv(frame_out, out_frame)
+  cat(sprintf("  Wrote %d rows → %s\n", nrow(frame_out), basename(out_frame)))
+
+  # Window-level smoothness features.  A 3D window artifact is always
+  # published, empty or not, so a reader can tell a genuine zero-window
+  # result from a run that never happened, and a stale file from an earlier
+  # run cannot survive.  2D keeps its skip-if-empty behaviour untouched.
   cat("  Computing window-level smoothness features...\n")
   windows <- compute_window_features(df, clinical, tracking)
 
-  if (nrow(windows) > 0) {
+  if (is_3d) {
+    windows <- attach_artifact_tags(windows, "clinical-window-3d",
+                                    QUALIFICATION_WINDOW, source_sha256)
+  }
+  if (is_3d || nrow(windows) > 0) {
     out_win <- paste0(stem, "_clinical", suffix, "_windows.csv")
     write_csv(windows, out_win)
     cat(sprintf("  Wrote %d windows → %s\n", nrow(windows), basename(out_win)))
@@ -1349,11 +1515,17 @@ for (f in files) {
     cat("  No windows produced (video may be too short).\n")
   }
 
-  # Movement phase segmentation.
+  # Movement phase segmentation.  Phase metrics still differentiate across
+  # tracking holes, so the artifact says so in metric_qualification rather
+  # than leaving the caveat to the docs.
   cat("  Segmenting movements...\n")
   phases <- segment_movements(df, clinical, tracking)
 
-  if (nrow(phases) > 0) {
+  if (is_3d) {
+    phases <- attach_artifact_tags(phases, "movement-phase-3d",
+                                   QUALIFICATION_PHASE, source_sha256)
+  }
+  if (is_3d || nrow(phases) > 0) {
     out_phases <- paste0(stem, "_movement_phases", suffix, ".csv")
     write_csv(phases, out_phases)
     cat(sprintf("  Wrote %d phases → %s\n", nrow(phases),

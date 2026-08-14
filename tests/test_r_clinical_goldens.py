@@ -26,6 +26,17 @@ _OUTPUT_CASES = tuple(
     for dataset, filenames in _DATASETS.items()
     for filename, kind in zip(filenames, ("frame", "window"), strict=True)
 )
+_TAG_COLUMNS = (
+    "artifact_kind",
+    "source_sha256",
+    "coord_space",
+    "distance_unit",
+    "producer_version",
+    "metric_method_version",
+    "qc_policy_version",
+    "metric_qualification",
+    "provenance_class",
+)
 _METADATA_COLUMNS = {
     "video",
     "frame_idx",
@@ -33,6 +44,7 @@ _METADATA_COLUMNS = {
     "person_idx",
     "window_start_sec",
     "window_end_sec",
+    *_TAG_COLUMNS,
 }
 _REQUIRED_WINDOW_METRICS = {
     f"{side}_{metric}"
@@ -164,12 +176,19 @@ def test_clinical_golden_numeric_values_exact(dataset, filename, kind, regenerat
 @pytest.mark.parametrize(("dataset", "filename", "kind"), _OUTPUT_CASES)
 def test_clinical_golden_schema_exact(dataset, filename, kind, regenerated_outputs):
     """Rows, ordered columns, and every metric column remain structurally exact."""
-    del dataset
     expected_fields, expected_rows = _read_csv(_GOLDEN_DIR / filename)
     actual_fields, actual_rows = _read_csv(regenerated_outputs / filename)
     assert actual_fields == expected_fields
     assert len(actual_rows) == len(expected_rows)
-    assert len(actual_fields) == (54 if kind == "frame" else 46)
+    # 3D outputs carry the artifact identity tags last; 2D outputs carry none
+    # of them, which is what keeps metric-3D rows out of the 2D globs.
+    is_3d = dataset == "world3d"
+    if is_3d:
+        assert tuple(actual_fields[-len(_TAG_COLUMNS) :]) == _TAG_COLUMNS
+    else:
+        assert not set(actual_fields) & set(_TAG_COLUMNS)
+    base_width = 54 if kind == "frame" else 46
+    assert len(actual_fields) == base_width + (len(_TAG_COLUMNS) if is_3d else 0)
     assert set(actual_fields) - _METADATA_COLUMNS
     if kind == "window":
         assert set(actual_fields) >= _REQUIRED_WINDOW_METRICS

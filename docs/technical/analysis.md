@@ -55,6 +55,14 @@ CSVs without `_conf` keep finite-coordinate presence semantics.
 - **Trunk metrics use true plane decomposition** (z available): `trunk_lean_angle_3d` (total, vs −y vertical), `trunk_lean_sagittal_3d` → new column `trunk_lean_sagittal_deg` (positive = leaning away from camera; NA in 2D mode — out-of-plane is unmeasurable), `trunk_rotation_3d` (shoulder vs hip line in x–z plane), `posture_symmetry_3d` (3D shoulder width). Lateral lean formula is shared (x–y, identical in both modes). Windowed `trunk_lean_sagittal_mean/sd` added in both branches (NA in 2D).
 - **Vertical assumption**: world −y = up holds only if the `world_frame` camera is level (documented in `multicam.md`).
 - **Output suffix partition**: `*_clinical_3d.csv`, `*_clinical_3d_windows.csv`, `*_movement_phases_3d.csv`. Downstream aggregation scripts glob `_clinical.csv`/`_clinical_windows.csv` and therefore skip `_3d` outputs by construction — metre-unit rows must stay out of normalised-unit aggregations. Downstream 3D aggregation is deliberately not built yet.
+- **Artifact identity tags (3D outputs only)**: each 3D output carries nine character columns, appended last and constant within the file — `artifact_kind`, `source_sha256`, `coord_space`, `distance_unit`, `producer_version`, `metric_method_version`, `qc_policy_version`, `metric_qualification`, `provenance_class`. 2D outputs carry none of them, so the partition above stays intact and metre-unit provenance can never reach a normalised-unit aggregation. Values are character precisely so `utils.R::aggregate_per_video()`, which promotes every numeric non-metadata column to a feature, cannot pick them up: one numeric tag would become five feature columns.
+  - `artifact_kind` ∈ `clinical-frame-3d` / `clinical-window-3d` / `movement-phase-3d`. Artifact identity is the pair (`source_sha256`, `artifact_kind`); capture identity stays `video`, which a 3D input must carry exactly once and non-blank or the run fails closed.
+  - `source_sha256` is the SHA-256 of the input CSV's bytes (`openssl::sha256`). It is a pure function of content, so reruns are byte-stable and goldens hold, a copy under a new name is recognisably the same artifact, and changed input bytes are recognisably a different one.
+  - `coord_space` = `world-metric-3d`, `distance_unit` = `m`. Per-metric units (m, m/s, deg, dimensionless) are a registry concern — these outputs are wide and mix all four, so no per-row `unit` column is representable here.
+  - `metric_qualification` states gap semantics in the artifact rather than only here: `gap-aware` on windows (timestamp-aware kernel), `gap-unsafe` on movement phases (still differentiates across holes), `frame-instantaneous` on per-frame values, whose displacements are row-adjacent steps that go NA on a masked sample without checking the interval.
+  - `provenance_class` = `unverified`: rig, model and filter identity are absent from `world3d.csv`, so provenance is declared unknown rather than guessed, and a reader refuses to pool across unverified artifacts instead of assuming equivalence.
+  - The three version tags are independent. `producer_version` tracks the emitted column set, `metric_method_version` a metric's computation, `qc_policy_version` the gate values (`REPROJ_GATE_PX`, `TRIANGULATION_ANGLE_GATE_DEG`, `OBSERVATION_CONFIDENCE_GATE`). Values are `v<n>`, never bare digits — a bare `1` is guessed `double` by a default `read_csv`, which would re-open the numeric-feature hazard.
+- **Typed empty outputs (3D only)**: all three 3D artifacts are always written, carrying the full ordered header with zero data rows when nothing qualifies, which also overwrites any stale file from an earlier run. 2D keeps its skip-if-empty behaviour. CSV carries no type channel — a default `read_csv` of a header-only file returns every column as character — so a reader recovers types by supplying explicit `readr::cols()` collectors, and `window_schema()`/`phase_schema()` are the ordered column owners it builds them from. A zero-row artifact cannot carry tag values; identity binds by stem to the frame artifact, which is non-empty whenever the input has at least one row.
 - Input discovery excludes its own outputs via regex `clinical[_a-z0-9]*|movement_phases[_a-z0-9]*` (digit class covers `_3d`).
 - Window stats use `safe_mean`/`safe_sd` (all-NA → NA, warning-free); CPI now reuses per-frame `trunk_lean_deg` instead of recomputing 2D lean, so it is mode-appropriate automatically.
 
@@ -84,7 +92,7 @@ CSVs without `_conf` keep finite-coordinate presence semantics.
 
 All scripts handle degenerate inputs gracefully:
 
-- **Short videos** (<10 frames): `clinical_features.R` emits per-frame features, skips windowed features. `temporal_clinical.R` skips videos <10 rows with a message.
+- **Short videos** (<10 frames): `clinical_features.R` emits per-frame features and no windows — 2D writes no windows file, 3D writes a typed empty one. `temporal_clinical.R` skips videos <10 rows with a message.
 - **Zero-variance features**: `compare_clinical.R`, `clinical_dimreduce.R`, `features.R` warn and skip heatmap/PCA/UMAP plots when insufficient variable features remain.
 - **Missing hand data**: columns filled with NA/blank; R scripts use safe column extraction (`ex()` returns NA vector for absent columns).
 - **Single video/patient**: correlation/longitudinal scripts produce output but flag insufficient data.
@@ -220,6 +228,8 @@ Added by `segment_movements()` in `clinical_features.R`. Produces `*_movement_ph
 4. **Per-movement summary** (denormalized across phase rows): total duration, number of phases, peak velocity, total path length, movement efficiency.
 
 ### Output schema (`*_movement_phases.csv`)
+
+Phase metrics are **not** gap-qualified: they still drop or bridge tracking holes, unlike the window kernel above. The 3D artifact says so in its own `metric_qualification = gap-unsafe` column, so a copied file carries the caveat with it; the `_3d` variant also carries the other eight identity tags after the columns below.
 
 | Column | Type | Description |
 |--------|------|-------------|
