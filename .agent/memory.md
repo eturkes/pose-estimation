@@ -41,6 +41,11 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 `.scratch/gap_bias_probe.R` ported into `tests/test_r_trajectory_kernel.py::test_gap_bias_probe_corpus_is_bounded_and_gapfree_exact` (M3.1) and deleted.
 - `zoo` is gone (M3.1). `stats::filter(x, rep(1/5, 5), sides = 2)` replaced `zoo::rollmean(x, 5, fill = NA, align = "center")`: NA propagation identical at centre, both edges and interior/leading/trailing/scattered holes; values differ ~1-2 ULP (2.8e-14 absolute on ~100-magnitude input — the old "1.11e-16" note was relative, not absolute), and no golden pins that column. `dplyr` masks `stats::filter`, so the call must stay namespace-qualified.
 
+- `grid_evidence()` is the single masking path for QC counts (M3.3). Every frame/interval count, coverage, duration and gap figure must flow through it, so a group's evidence and the metric it explains can never disagree about which samples were usable. Adding a count elsewhere reintroduces exactly the producer/reader disagreement the unit exists to prevent.
+- **The 3D path deliberately skips `adapt_2d_confidence()`** (`analysis/clinical_features.R:1452-1466`). This looks like a missing gate and is not: `world3d.csv` confidence is a fused mean over already-accepted points, and fusion applied `min_confidence` upstream (`src/pose_estimation/triangulation.py:538,559-572`). Adding a 3D confidence predicate creates a new gate and moves every shipped 3D estimate. An M3.3 spike "repaired" this seam and was reverted.
+- `sum(win_mask) < 4` skips a window entirely (`analysis/clinical_features.R`), so no row exists for it. Any per-window artifact covers emitted windows only, and changing the skip moves the shipped window row set.
+- The `fs` cadence drift interacts with the provisional 0.10 s gap threshold: at 30 fps `fs` reads 30.03 Hz, so a three-frame gap computes 0.0999 s and passes a threshold it should sit exactly on. Two independent M3.3 spikes disagreed on that case for this reason. Boundary fixtures must use cadences where the comparison is unambiguous until the `nominal_fs()` item in `.agent/polish.md` `spine?` is ruled.
+
 ## Worktree gate recipe (`.scratch/worktrees/<name>`)
 
 Every teammate worktree runs the full Python gate concurrently off the one primary environment, read-only:

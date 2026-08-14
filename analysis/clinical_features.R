@@ -76,6 +76,8 @@ OBSERVATION_CONFIDENCE_GATE <- 0
 PRODUCER_VERSION <- "v1"
 
 # Metric-definition version — bump when a metric's computation changes.
+# QC evidence is advisory: it never overwrites a computed estimate, so
+# adding it leaves every shipped metric value where it was.
 METRIC_METHOD_VERSION <- "v1"
 
 # QC-policy version — bump when REPROJ_GATE_PX,
@@ -470,12 +472,57 @@ trajectory_grid <- function(t, fs) {
 #'   \code{NULL}.
 #' @param fc Scalar — spectral arc length frequency cutoff in Hz.
 #' @return Named list of \code{sal}, \code{nj}, \code{v_mean}, \code{v_peak},
-#'   \code{efficiency}, \code{dropout} and \code{longest_gap_sec}.
+#'   \code{efficiency}, \code{dropout} and \code{longest_gap_sec}, followed by
+#'   the \code{GRID_EVIDENCE_FIELDS} block describing the support the
+#'   estimates were computed over.
+#' Typed template for the evidence block, in emission order.
+#'
+#' Every QC count in the producer flows through \code{grid_evidence()}, so a
+#' group's evidence and the metric it explains can never disagree about which
+#' samples were usable.
+GRID_EVIDENCE_FIELDS <- list(
+  n_expected_frames = NA_integer_, n_valid_frames = NA_integer_,
+  n_expected_intervals = NA_integer_, n_valid_intervals = NA_integer_,
+  valid_duration_sec = NA_real_, longest_gap_frames = NA_integer_,
+  n_gaps = NA_integer_
+)
+
+#' Frame- and interval-grain evidence for one nominal-grid validity mask.
+#'
+#' The denominator is the grid, never the observed row count, so a row the
+#' reference camera never wrote still counts as expected.  Interval evidence
+#' is separate because one interior hole costs one frame but invalidates the
+#' two adjacent intervals.
+#'
+#' @param valid Logical — per-slot validity over the nominal grid.
+#' @param fs Scalar — nominal frame rate in Hz.
+#' @return Named list matching \code{GRID_EVIDENCE_FIELDS}.
+grid_evidence <- function(valid, fs) {
+  n_grid <- length(valid)
+  runs <- rle(valid)
+  gap_runs <- runs$lengths[!runs$values]
+  n_valid_intervals <- if (n_grid >= 2) {
+    as.integer(sum(valid[-n_grid] & valid[-1]))
+  } else {
+    0L
+  }
+  list(
+    n_expected_frames    = as.integer(n_grid),
+    n_valid_frames       = as.integer(sum(valid)),
+    n_expected_intervals = as.integer(max(n_grid - 1L, 0L)),
+    n_valid_intervals    = n_valid_intervals,
+    valid_duration_sec   = n_valid_intervals / fs,
+    longest_gap_frames   = as.integer(if (length(gap_runs)) max(gap_runs) else 0L),
+    n_gaps               = as.integer(length(gap_runs))
+  )
+}
+
 trajectory_metrics <- function(t, x, y, z, fs = NULL, fc = SAL_FREQ_CUTOFF) {
   empty <- list(
     sal = NA_real_, nj = NA_real_, v_mean = NA_real_, v_peak = NA_real_,
     efficiency = NA_real_, dropout = NA_real_, longest_gap_sec = NA_real_
   )
+  empty <- c(empty, GRID_EVIDENCE_FIELDS)
   if (length(t) < 2) return(empty)
 
   if (is.null(fs)) fs <- nominal_fs(t)
@@ -498,6 +545,8 @@ trajectory_metrics <- function(t, x, y, z, fs = NULL, fc = SAL_FREQ_CUTOFF) {
   out <- empty
   out$dropout <- (n_grid - sum(valid)) / n_grid
   out$longest_gap_sec <- if (length(gap_runs)) max(gap_runs) * dt else 0
+
+  out[names(GRID_EVIDENCE_FIELDS)] <- grid_evidence(valid, fs)
 
   # Interval quantities.  diff() propagates NA outward one slot per derivative
   # order, so a hole invalidates exactly the stencils that span it.

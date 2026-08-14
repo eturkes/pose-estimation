@@ -23,7 +23,7 @@ Live long-horizon state only; completed trajectory belongs in git.
 
 ## M3 — analysis-ready 3D aggregation
 
-**Status: IN-PROGRESS** — units enumerated, none started. No precondition: develops + gates entirely on synthetic fixtures, no patient-data clearance needed.
+**Status: IN-PROGRESS** — M3.1-M3.2 DONE, M3.3 open with its contract frozen. No precondition: develops + gates entirely on synthetic fixtures, no patient-data clearance needed.
 
 **Goal:** carry trusted metric-3D producer output to one analysis-ready per-video aggregate that the repo's own analysis layer surfaces, with 2D/3D pooling unrepresentable by construction.
 
@@ -47,7 +47,15 @@ The 3D quality gate creates NA holes by design, so 3D is where this bites hardes
 | M3.5 | Video-level reducer | Long-form reduction, immutable base key, attempted/all-failed strata, exact reducers → `clinical_3d_video_aggregate.csv`. |
 | M3.6 | Aggregate CLI + consumability path | Exact discovery, atomic idempotent output; `analysis_summary.Rmd` 3D inventory/QC section with `m` / `m/s` / `deg` / `1` labels; `docs/technical/analysis.md` current. |
 
-**Unit status.** M3.1 DONE (`0fa2079` kernel + R-gate closure, `c93382d` goldens, red suite). M3.2 DONE. M3.3-M3.6 OPEN.
+**Unit status.** M3.1 DONE (`0fa2079` kernel + R-gate closure, `c93382d` goldens, red suite). M3.2 DONE. **M3.3 IN-PROGRESS** — contract frozen, kernel prep landed, emission open. M3.4-M3.6 OPEN.
+
+**M3.3 state.** Acceptance contract = `.scratch/agents/contract-m3u3.md`, frozen: decision record D, rulings R-1…R-13, predicates P01…P15, verdicts V01…V30, gate identity, corpus P1…P15. Carrier ruled = **long companion artifact `<stem>_clinical_3d_window_qc.csv`, keyed `video × person_idx × window_start_sec × window_end_sec × metric_id`**, 3D-only, estimates never duplicated. Both spikes measured 7/8 fault detectability; wide costs 55 → 125 columns and still cannot express per-metric status, so long wins on the roadmap requirement.
+
+Landed this session: the trajectory kernel now returns the frame + interval evidence it already computed internally (`GRID_EVIDENCE_FIELDS`, `grid_evidence()`), additive-only, no estimate moves, gate green. Open: the metric registry, evidence assembly, artifact writer, version bumps to `producer_version=v2`/`qc_policy_version=v2`, golden regeneration, docs, and the delivered red suite.
+
+Unmerged deliverables live on branches, not in the tree: `wt/test-m3u3` carries `tests/test_r_qc_evidence.py` (diff-blind, red against `cc8a939`); `wt/spike-m3u3-wide` and `wt/spike-m3u3-long` carry the two measured probe implementations. Reports: `.scratch/agents/{map,res,test,spike-m3u3-wide,spike-m3u3-long}-m3u3.md`.
+
+**Sizing finding.** M3.3 does not fit one MAIN window, confirming planrev `F01`. Evidence: map `S4` projects R `+300…420` / tests `+380…560`; `spike-m3u3-long`'s working implementation of a *narrower* group-keyed design measured `+479/-48`. The judgment-bearing half (contract + rulings) and the mechanical half (emission + suite) are a natural section boundary. Splitting M3.3 into `M3.3a` producer emission and `M3.3b` suite + review is a roadmap change awaiting the user's call; until then M3.3 stays one unit continued across sessions.
 
 M3.2 close: gate 559 passed / 0 skipped (541 baseline + 18 items from a diff-blind suite); `main=` 95% 227K/240K, `mate=` 93% 222K/240K. Nine character tags — `artifact_kind`, `source_sha256`, `coord_space`, `distance_unit`, three independent versions, `metric_qualification`, `provenance_class` — appended last on the three 3D artifacts only; artifact identity = (`source_sha256`, `artifact_kind`), capture identity stays `video` under a singleton + non-blank fail-closed check. Row-tag columns beat a sidecar on measured fault detectability (5/6 vs 4/6: a sidecar sees neither a blank tag cell nor an absent tag column), so identity has exactly one channel and cannot self-contradict. 3D artifacts are always written, typed-empty when nothing qualifies, which also clears stale files from an earlier run; 2D keeps skip-if-empty. **The six 2D goldens returned byte-identical from a full regeneration run**, so the partition is proven by rerun rather than by exclusion. Tags are character because one numeric tag becomes five feature columns in `aggregate_per_video()`, and version values are `v<n>` because a bare `1` is guessed `double` by a default `read_csv`.
 
