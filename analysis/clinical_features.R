@@ -550,14 +550,18 @@ GRID_EVIDENCE_FIELDS <- list(
 #' kernel — an unusable timebase, for instance — reports the same fields with
 #' no branch of its own.
 #'
-#' @return Named list of estimate fields followed by \code{GRID_EVIDENCE_FIELDS}.
+#' @return Named list of estimate fields, \code{GRID_EVIDENCE_FIELDS}, then the
+#'   per-slot mask the evidence was counted from.
 empty_trajectory_metrics <- function() {
   c(
     list(
       sal = NA_real_, nj = NA_real_, v_mean = NA_real_, v_peak = NA_real_,
       efficiency = NA_real_, dropout = NA_real_, longest_gap_sec = NA_real_
     ),
-    GRID_EVIDENCE_FIELDS
+    GRID_EVIDENCE_FIELDS,
+    # The mask travels with its counts so a caller that has to widen the grid
+    # recounts from it rather than inventing a second notion of validity.
+    list(valid = logical(0))
   )
 }
 
@@ -616,6 +620,7 @@ trajectory_metrics <- function(t, x, y, z, fs = NULL, fc = SAL_FREQ_CUTOFF) {
   out$dropout <- (n_grid - sum(valid)) / n_grid
   out$longest_gap_sec <- if (length(gap_runs)) max(gap_runs) * dt else 0
 
+  out$valid <- valid
   out[names(GRID_EVIDENCE_FIELDS)] <- grid_evidence(valid, fs)
 
   # Interval quantities.  diff() propagates NA outward one slot per derivative
@@ -1238,7 +1243,11 @@ compute_window_features <- function(df, frame_features, tracking,
     n  <- length(ts)
     if (n < 4) next
 
-    dt_median <- median(diff(ts), na.rm = TRUE)
+    # Cadence is a magnitude: an out-of-order clip still has a nominal rate,
+    # and the kernel's grid check is what rules on ordering.  Inferring a
+    # signed rate here would drop the clip before any window was keyed, hiding
+    # the defect the QC pass exists to publish as invalid_timebase.
+    dt_median <- median(abs(diff(ts)), na.rm = TRUE)
     if (is.na(dt_median) || dt_median <= 0) next
     fs <- 1 / dt_median
 
@@ -1273,6 +1282,14 @@ compute_window_features <- function(df, frame_features, tracking,
       # pass records as invalid_timebase rather than aborting the run.
       timebase_ok <- is.null(trajectory_grid_status(win_ts, fs)$fault)
 
+      # Nominal slots the window covers that the input never delivered a row
+      # for, counted at each edge.  Rounding absorbs timestamp jitter exactly
+      # as the kernel's own slot mapping does.
+      lead_absent <- max(0L, as.integer(round((win_ts[1] - ws) * fs)))
+      trail_absent <- max(
+        0L, as.integer(round((we - win_ts[length(win_ts)]) * fs)) - 1L
+      )
+
       traj <- list()
       for (side in c("left", "right")) {
         wr_x <- as.numeric(sub_df[[bcol(side, "wrist", "x")]])[win_mask]
@@ -1295,6 +1312,21 @@ compute_window_features <- function(df, frame_features, tracking,
             fingertip = empty_trajectory_metrics()
           )
         }
+        # The kernel anchors its grid on the first observed sample, so a row
+        # the input never delivered at a window edge sits outside it.  Pad the
+        # mask out to the slots the window covers before counting, or an
+        # edge-truncated window reports the loss as full coverage.  Estimates
+        # keep the kernel's own grid: widening that would move nj through its
+        # duration term.
+        traj[[side]] <- lapply(traj[[side]], function(block) {
+          if (!length(block$valid)) return(block)
+          padded <- c(
+            rep(FALSE, lead_absent), block$valid, rep(FALSE, trail_absent)
+          )
+          block[names(GRID_EVIDENCE_FIELDS)] <- grid_evidence(padded, fs)
+          block$longest_gap_sec <- block$longest_gap_frames / fs
+          block
+        })
         wrist <- traj[[side]]$wrist
 
         row[[paste0(side, "_wrist_sal")]]                 <- wrist$sal

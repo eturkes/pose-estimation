@@ -129,7 +129,9 @@ Let `N` be the nominal-slot count. Let `valid[i]` mean that every metric-require
 
 `interval_coverage` is `NA` when `n_expected_intervals` is zero. Its count and `valid_duration_sec` are then zero.
 
-Coverage denominators always use nominal-slot counts. They never use the observed row count.
+Coverage denominators always use nominal-slot counts. They never use the observed row count. A row absent at a window edge counts as an expected slot, the same as an absent interior row.
+
+The estimators keep a narrower grid that starts at the first observed sample. Evidence therefore describes the whole window, while an estimate describes the observed span inside it. This keeps the jerk duration term stable when a clip loses its edge rows.
 
 **Status and reason precedence.** `qc_status` is `pass` or `fail`. A pass requires every policy condition and a finite matching estimate. A passing row uses `qc_reason = none`.
 
@@ -154,7 +156,9 @@ The artifact records only the highest-precedence cause. Concurrent support cause
 
 If observed samples flank `k` missing slots, their unobserved span covers `k + 1` intervals. The field reports the missing-slot duration, not that larger span.
 
-The producer estimates `fs` as `1 / median(diff(t))`. Rounded timestamps can make a nominal 30 fps capture read as about 30.03 Hz.
+The producer estimates `fs` as `1 / median(abs(diff(t)))`. Rounded timestamps can make a nominal 30 fps capture read as about 30.03 Hz.
+
+The magnitude keeps a cadence for an out-of-order clip. The window is then keyed and reported as `invalid_timebase`. A signed estimate would drop the clip before any window existed.
 
 A three-slot gap then measures about 0.0999 seconds. The policy can therefore decide a nominal 0.10-second boundary inside this cadence drift.
 

@@ -20,6 +20,7 @@ import pytest
 
 from test_r_clinical_goldens import _load_generator
 from test_r_pipeline import _r_available, _write_world3d_fixture
+from test_r_trajectory_kernel import _run_r
 
 _PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 _CLINICAL_R = _PROJECT_ROOT / "analysis" / "clinical_features.R"
@@ -92,6 +93,7 @@ _EVIDENCE_FIELDS = (
     "longest_gap_frames",
     "longest_gap_sec",
     "n_gaps",
+    "n_required_keypoints_present",
 )
 _MIN_COVERAGE = 0.80
 _MAX_GAP_SEC = 0.10
@@ -788,6 +790,31 @@ def test_invalid_timebase_rows_retain_keys_and_na_evidence(
         _assert_numeric(row["max_gap_sec"], _MAX_GAP_SEC)
 
 
+def test_fully_reversed_timebase_keeps_the_window(tmp_path: pathlib.Path) -> None:
+    """A descending clip is published as invalid_timebase, never dropped.
+
+    Its timestamp extent still forms a window, so V21-V24 retain the row.
+    Inferring the cadence from a signed difference would skip the whole clip
+    before any window was keyed, and the artifact would report nothing at all
+    for a defect it exists to report.
+    """
+    source = tmp_path / "reversed_timebase.csv"
+    header, rows = _prepare_case_input(source, CorpusCase("reversed_timebase", 30, 31))
+    for row, timestamp in zip(rows, reversed([row["timestamp_sec"] for row in rows]), strict=True):
+        row["timestamp_sec"] = timestamp
+    _write_csv(source, header, rows)
+
+    _, qc_rows = _qc_rows(_run_producer(source))
+    assert len(qc_rows) == len(_METRIC_IDS)
+    for row in qc_rows:
+        assert row["qc_status"] == "fail"
+        assert row["qc_reason"] == "invalid_timebase"
+        assert all(math.isnan(_as_float(row[field])) for field in _EVIDENCE_FIELDS)
+        assert row["source_group"]
+        assert row["required_keypoints"]
+        assert all(row[column] for column in _TAG_COLUMNS)
+
+
 @pytest.mark.parametrize("kind", ["short", "zero"])
 def test_typed_empty_qc(empty_runs: dict[str, ProducerRun], kind: str) -> None:
     run = empty_runs[kind]
@@ -910,8 +937,26 @@ def test_2d_goldens_are_frozen_and_emit_no_qc(
         for name in _BASELINE_2D_SHA256
     }
     assert actual == _BASELINE_2D_SHA256
+
+
+def test_2d_inputs_write_no_qc_artifact(tmp_path: pathlib.Path) -> None:
+    """The 2D partition is read where the producer writes, not where goldens land.
+
+    regenerate() lifts a filename whitelist out of a staging directory it then
+    deletes, so an unexpected 2D artifact could never reach the golden
+    directory to be missed there. Run the producer in place instead and list
+    the directory it actually wrote.
+    """
+    generator = _load_generator()
     for stem in ("2d_idx", "2d_cumsum", "2d_csv4dp"):
-        assert not (regenerated_goldens / f"{stem}{_QC_SUFFIX}").exists()
+        source = tmp_path / f"{stem}.csv"
+        generator._write_2d_input(source, stem.removeprefix("2d_"))
+        generator._run_clinical(source)
+
+    assert not list(tmp_path.glob(f"*{_QC_SUFFIX}"))
+    assert not list(tmp_path.glob("*_window_qc.csv"))
+    # Positive control: an empty glob has to mean the producer ran and declined.
+    assert len(list(tmp_path.glob("*_clinical_windows.csv"))) == 3
 
 
 def test_absent_rows_still_count_as_expected_frames(tmp_path: pathlib.Path) -> None:
@@ -939,6 +984,49 @@ def test_absent_rows_still_count_as_expected_frames(tmp_path: pathlib.Path) -> N
     assert row["qc_status"] == "pass"
 
 
+@pytest.mark.parametrize(
+    ("absent", "valid_frames", "valid_intervals", "longest_gap", "n_gaps", "reason"),
+    [
+        ({30}, 29, 28, 1, 1, "none"),
+        ({59}, 29, 28, 1, 1, "none"),
+        ({30, 59}, 28, 27, 1, 2, "none"),
+        (set(range(30, 37)), 23, 22, 7, 1, "gap_too_long"),
+    ],
+    ids=("first-slot", "last-slot", "both-edge-slots", "seven-leading-slots"),
+)
+def test_window_edge_absence_keeps_the_nominal_slot_count(
+    tmp_path: pathlib.Path,
+    absent: set[int],
+    valid_frames: int,
+    valid_intervals: int,
+    longest_gap: int,
+    n_gaps: int,
+    reason: str,
+) -> None:
+    """Loss at a window edge is measured, not anchored away.
+
+    The kernel's grid starts at the first observed sample, so a row absent at
+    an edge falls outside it and its slot would never be counted. Interior
+    loss is exact either way, which is why only an edge case shows it.
+    """
+    source = tmp_path / "window_edge_loss.csv"
+    header, rows = _prepare_case_input(source, CorpusCase("window_edge_loss", 30, 91))
+    _write_csv(source, header, [row for index, row in enumerate(rows) if index not in absent])
+
+    _, qc_rows = _qc_rows(_run_producer(source))
+    row = _row(qc_rows, "window_edge_loss", "left_wrist_velocity_mean", window_start=1.0)
+
+    assert _as_int(row["n_expected_frames"]) == 30
+    assert _as_int(row["n_valid_frames"]) == valid_frames
+    assert _as_float(row["frame_coverage"]) == pytest.approx(valid_frames / 30)
+    assert _as_int(row["n_expected_intervals"]) == 29
+    assert _as_int(row["n_valid_intervals"]) == valid_intervals
+    assert _as_int(row["longest_gap_frames"]) == longest_gap
+    assert _as_int(row["n_gaps"]) == n_gaps
+    assert row["qc_reason"] == reason
+    assert row["qc_status"] == ("pass" if reason == "none" else "fail")
+
+
 def test_gap_threshold_tolerance_is_load_bearing(corpus_run: ProducerRun) -> None:
     """A gap on the 0.10 s boundary passes, and needs the relative tolerance.
 
@@ -954,6 +1042,38 @@ def test_gap_threshold_tolerance_is_load_bearing(corpus_run: ProducerRun) -> Non
     assert boundary["qc_reason"] != "gap_too_long"
     beyond = _row(rows, "gap11_100", "left_wrist_velocity_mean", window_start=0.0)
     assert beyond["qc_reason"] == "gap_too_long"
+
+
+def test_coverage_tolerance_is_pinned_at_the_policy_boundary() -> None:
+    """No input can reach the coverage band, so the rule is probed directly.
+
+    Coverage is k/n over the window's nominal slots, and the widest ratio
+    below 0.80 that the tolerance still admits needs n >= 250 million slots,
+    which is 96 days at 30 Hz. The band is real arithmetic all the same, and
+    a bare comparison here would change what a caller is told.
+    """
+    result = _run_r(
+        """
+        result <- list(
+          inside  = qc_reason_for(TRUE, 30L, 29L, 0, 0.80 * (1 - 5e-10), 1),
+          outside = qc_reason_for(TRUE, 30L, 29L, 0, 0.80 * (1 - 5e-9), 1)
+        )
+        """
+    )
+    assert result["inside"] == "none"
+    assert result["outside"] == "insufficient_coverage"
+
+
+def test_qc_artifact_is_byte_identical_on_a_second_run(corpus_run: ProducerRun) -> None:
+    """Rerunning over one unchanged input reproduces the artifact exactly.
+
+    Numeric assertions read a parsed value, so they accept a moved decimal or
+    a rewritten lexeme. Byte equality across two R processes is what covers
+    serialization drift and an output that appends rather than replaces.
+    """
+    first = corpus_run.qc_path.read_bytes()
+    _assert_run_succeeded(_run_producer(corpus_run.source))
+    assert corpus_run.qc_path.read_bytes() == first
 
 
 def test_docs_define_the_qc_contract_and_limitations() -> None:

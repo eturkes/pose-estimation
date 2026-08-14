@@ -40,6 +40,7 @@ from pose_estimation.validation import (
     Tracking2DSection,
     ValidationError,
     ValidationReport,
+    _aggregate_clinical,
     _bone_length_cv,
     _camera_tracking,
     _expected_fusion_frames,
@@ -303,6 +304,17 @@ def test_run_validation_runs_clinical_pipeline(rendered_session, tmp_path: pathl
     assert any("clinical_3d" in name for name in agr.clinical_outputs)
     # R writes its outputs next to world3d.csv.
     assert list((out / work.name).glob("*_clinical_3d*.csv"))
+
+
+def test_clinical_aggregate_accepts_only_frame_artifacts(tmp_path: pathlib.Path) -> None:
+    frame = tmp_path / "capture_clinical_3d.csv"
+    frame.write_text("metric,label\n2,a\n4,b\n")
+    qc = tmp_path / "capture_clinical_3d_window_qc.csv"
+    qc.write_text("n_expected_frames,frame_coverage\n30,0.8\n")
+
+    actual = _aggregate_clinical(tmp_path, [frame.name, qc.name])
+
+    assert actual == {"metric": 3.0}
 
 
 def test_self_consistency_runs_without_r(rendered_session, tmp_path: pathlib.Path):

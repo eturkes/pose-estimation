@@ -304,6 +304,178 @@ def test_grid_mapping_rejects_malformed_timestamps(mutation: str) -> None:
     assert result["message"] != "NA"
 
 
+def test_qc_reason_precedence_constant_is_exact() -> None:
+    result = _run_r("result <- list(reasons=unname(QC_REASON_PRECEDENCE))")
+    assert result["reasons"] == [
+        "invalid_timebase",
+        "missing_required_keypoints",
+        "insufficient_observations",
+        "gap_too_long",
+        "insufficient_coverage",
+        "estimator_undefined",
+    ]
+
+
+def test_grid_slot_collision_reaches_raising_and_qc_paths() -> None:
+    result = _run_r(
+        textwrap.dedent(
+            """
+            n <- 31L
+            fs <- 30
+            t <- (0:(n - 1L)) / fs
+            t[10] <- t[9] + 0.001
+            df <- tibble(
+              video=rep("collision", n), person_idx=rep(0L, n), timestamp_sec=t
+            )
+            for (side in c("left", "right")) {
+              prefixes <- c(paste0("arm_", side, "_wrist"), paste0(side, "_hand_8"))
+              for (prefix in prefixes) {
+                df[[paste0(prefix, "_x")]] <- seq_len(n) / n
+                df[[paste0(prefix, "_y")]] <- seq_len(n) / (2 * n)
+                df[[paste0(prefix, "_z")]] <- seq_len(n) / (3 * n)
+              }
+            }
+            frame_features <- tibble(video=df$video, person_idx=df$person_idx)
+            raises <- tryCatch({ trajectory_grid(t, fs); FALSE }, error=function(e) TRUE)
+            qc <- compute_window_features(
+              df, frame_features, "hands-arms", is_3d=TRUE
+            )$qc
+            evidence <- c(
+              "n_expected_frames", "n_valid_frames", "frame_coverage",
+              "n_expected_intervals", "n_valid_intervals", "interval_coverage",
+              "valid_duration_sec", "longest_gap_frames", "longest_gap_sec", "n_gaps"
+            )
+            result <- list(
+              raises=raises,
+              reasons=unname(unique(qc$qc_reason)),
+              evidence_na=all(vapply(qc[evidence], function(x) all(is.na(x)), logical(1)))
+            )
+            """
+        )
+    )
+    assert result == {
+        "raises": True,
+        "reasons": "invalid_timebase",
+        "evidence_na": True,
+    }
+
+
+def test_qc_sort_uses_radix_and_metric_rank() -> None:
+    result = _run_r(
+        textwrap.dedent(
+            """
+            n <- 31L
+            t <- (0:(n - 1L)) / 30
+            df <- tibble(
+              video=rep("sort", n), person_idx=rep(0L, n), timestamp_sec=t
+            )
+            for (side in c("left", "right")) {
+              prefixes <- c(paste0("arm_", side, "_wrist"), paste0(side, "_hand_8"))
+              for (prefix in prefixes) {
+                df[[paste0(prefix, "_x")]] <- seq_len(n) / n
+                df[[paste0(prefix, "_y")]] <- seq_len(n) / (2 * n)
+                df[[paste0(prefix, "_z")]] <- seq_len(n) / (3 * n)
+              }
+            }
+            frame_features <- tibble(video=df$video, person_idx=df$person_idx)
+            base_order <- base::order
+            seen_method <- NA_character_
+            order <- function(..., method="auto") {
+              seen_method <<- method
+              base_order(..., method=method)
+            }
+            original_rows <- window_qc_rows
+            window_qc_rows <- function(...) {
+              out <- original_rows(...)
+              out[rev(seq_len(nrow(out))), , drop=FALSE]
+            }
+            qc <- compute_window_features(
+              df, frame_features, "hands-arms", is_3d=TRUE
+            )$qc
+            result <- list(method=seen_method, metric_ids=unname(qc$metric_id))
+            """
+        )
+    )
+    expected = [
+        f"{side}_{metric}"
+        for side in ("left", "right")
+        for metric in (
+            "wrist_sal",
+            "wrist_velocity_mean",
+            "wrist_velocity_peak",
+            "wrist_normalized_jerk",
+            "wrist_movement_efficiency",
+            "fingertip_normalized_jerk",
+        )
+    ]
+    assert result == {"method": "radix", "metric_ids": expected}
+
+
+def test_empty_trajectory_metrics_keeps_the_shared_shape() -> None:
+    result = _run_r(
+        textwrap.dedent(
+            """
+            empty <- empty_trajectory_metrics()
+            short <- trajectory_metrics(0, 1, 1, 1, fs=30)
+            result <- list(empty=names(empty), short=names(short))
+            """
+        )
+    )
+    expected = [
+        "sal",
+        "nj",
+        "v_mean",
+        "v_peak",
+        "efficiency",
+        "dropout",
+        "longest_gap_sec",
+        "n_expected_frames",
+        "n_valid_frames",
+        "n_expected_intervals",
+        "n_valid_intervals",
+        "valid_duration_sec",
+        "longest_gap_frames",
+        "n_gaps",
+        "valid",
+    ]
+    assert result == {"empty": expected, "short": expected}
+
+
+def test_zero_interval_coverage_is_na_not_nan() -> None:
+    result = _run_r(
+        textwrap.dedent(
+            """
+            block <- empty_trajectory_metrics()
+            block$n_expected_frames <- 1L
+            block$n_valid_frames <- 1L
+            block$n_expected_intervals <- 0L
+            block$n_valid_intervals <- 0L
+            block$valid_duration_sec <- 0
+            block$longest_gap_frames <- 0L
+            block$longest_gap_sec <- 0
+            block$n_gaps <- 0L
+            traj <- list(
+              left=list(wrist=block, fingertip=block),
+              right=list(wrist=block, fingertip=block)
+            )
+            metric_ids <- paste0(
+              rep(c("left", "right"), each=length(WINDOW_SIDE_METRICS)),
+              "_", rep(WINDOW_SIDE_METRICS, times=2L)
+            )
+            estimates <- as_tibble(as.list(setNames(rep(1, length(metric_ids)), metric_ids)))
+            qc <- window_qc_rows(
+              "zero", 0L, 0, 1, "hands-arms", traj, estimates, TRUE
+            )
+            result <- list(
+              all_na=all(is.na(qc$interval_coverage)),
+              any_nan=any(is.nan(qc$interval_coverage))
+            )
+            """
+        )
+    )
+    assert result == {"all_na": True, "any_nan": False}
+
+
 def test_skipped_timestamp_becomes_one_missing_nominal_slot() -> None:
     result = _run_r(
         _trajectory_setup()
