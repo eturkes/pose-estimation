@@ -27,13 +27,17 @@ uv run ruff check && uv run ruff format --check && uv run ty check && uv run pyt
 
 ## Text register
 
-Rule lives in `CLAUDE.md` `Authoring`; this section owns only the inventory of what counts as human-facing here. Agent register (dense, telegraphic, human-sparse) is the default for every artifact. ASD-STE100 register (≤20 words/sentence in instructions, ≤25 in descriptions; imperative, active, one instruction per sentence, condition before command, full forms, fixed terminology) applies to this surface alone:
+Both registers + the human-facing/code-surface rule live in `CLAUDE.md` `Authoring`; this section owns the repo inventory alone. ASD-STE100 applies to this surface:
 
-- `README.md`, `docs/capture_protocol.md`.
-- `analysis/analysis_summary.Rmd` prose outside chunks + the plot/table labels it renders; operator-visible `cat`/`message`/`warning`/`stop` text in `analysis/*.R`.
-- `argparse` `help=`/`description=`/`epilog=` under `src/pose_estimation/` + `scripts/`; `_render_markdown` + `_render_qa_markdown` in `validation.py`; error text that reaches the terminal.
+- `README.md`, `docs/capture_protocol.md` — the shipped docs. `docs/technical/` is internal → agent register, as is every artifact left unlisted here.
+- `analysis/analysis_summary.Rmd` prose outside chunks; operator-visible `cat`/`message`/`warning`/`stop` text + rendered plot/table labels in `analysis/*.R`.
+- `argparse` `help=`/`description=`/`epilog=` and console `print()` text under `src/pose_estimation/` + `scripts/`; every Markdown renderer — `validation.py` `_render_markdown`/`_render_qa_markdown`, `scripts/run_report.py`, `scripts/benchmarks/aggregate.py`.
 
-Agent register everywhere else: `docs/technical/`, `.agent/`, `CLAUDE.md`, `.claude/`, code comments, docstrings, tests. Identifiers, flag names, units, defaults, and paths stay verbatim in both registers — a register change never moves a claim.
+Payload stays code surface wherever a person also reads it: the `to_json` half of `ValidationReport`/`QAReport` beside their Markdown renderers, `manifest.json` beside the run report, CSV + JSON field names, `ARTIFACT_TAG_COLS` values (`coord_space`, `distance_unit`, `metric_qualification` ⊇ `gap-aware`/`gap-unsafe`), and the artifact-name suffixes consumers glob (`_clinical.csv`, `_clinical_windows.csv`, `_clinical_3d.csv`).
+
+The `notes` lists on `Verdict`, `ValidationReport` + `QAReport` cross the boundary: both Markdown renderers list them under `## Notes`, so they take the human register, while `tests/test_validation.py` matches tokens inside them (`legacy schema`, `candidate-view`, `UNVALIDATED`, `reach_raw`, `RMS unassessed`) — retain those tokens when rewording.
+
+Identifiers, flag names, units, defaults, and paths stay verbatim in both registers — a register change never moves a claim.
 
 ## Python style — `ruff`
 
