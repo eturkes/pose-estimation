@@ -24,6 +24,7 @@ TEST_COMMAND = (
     "-q",
     "tests/test_inventory.py",
     "tests/test_inventory_review.py",
+    "tests/test_inventory_predicates.py",
 )
 
 
@@ -823,7 +824,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload = {
             "schema_version": 1,
             "tested_head": tested_head,
-            "test_command": "python -m pytest -q tests/test_inventory.py tests/test_inventory_review.py",
+            "test_command": (
+                "python -m pytest -q tests/test_inventory.py tests/test_inventory_review.py "
+                "tests/test_inventory_predicates.py"
+            ),
             "target_sha256": target_hashes,
             "initial": [],
             "closure": [],
