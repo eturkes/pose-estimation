@@ -67,9 +67,11 @@ uv run --no-sync ruff check && uv run --no-sync ruff format --check \
   && uv run --no-sync ty check && uv run --no-sync pytest
 ```
 
-- `PYTHONPATH=<worktree>/src` is mandatory: the hatchling editable install resolves `pose_estimation` to the **primary** tree's `src/`, so a worktree gate without it silently tests the primary code and reports green for untested changes.
+- **Two resolution paths with opposite defaults — the most expensive trap in this project.** `pyproject.toml` sets `pythonpath = ["src", "tests"]`, which pytest resolves against **rootdir** and inserts at `sys.path[0]`. So `pytest` launched from a worktree imports **that worktree's** `pose_estimation`, with or without `PYTHONPATH`. Everything else — `python -c`, `python -m pose_estimation.<mod>`, `ty check` — resolves through the hatchling editable install to the **primary** tree's `src/`. `PYTHONPATH="$PWD/src"` is therefore mandatory for the non-pytest half of the gate and redundant for the pytest half. The review consequence is sharp: a reviewer running its red suite from its own worktree tests its own copy, so every primary-tree fix reads as still-broken. **Print `<module>.__file__` before believing a red**, and copy a test file into the primary `tests/` to exercise primary code.
+- `UV_PROJECT_ENVIRONMENT` must be exported on **every** call: `uv run` inside a worktree otherwise creates and selects a worktree-local `.venv`, which `--no-sync` leaves empty, and the gate dies at `No module named pytest`.
 - `--no-sync` keeps the shared environment unmutated, which is what makes concurrent worktree gating safe.
 - Tool caches (`.ruff_cache`, `.pytest_cache`, `.ty_cache`, `.coverage`) are cwd-relative → already private per worktree; no extra state paths needed.
+- `videos` is gitignored too, so a fresh worktree cannot see the corpus and every real-data command fails at a missing path rather than at a wrong answer. Link it read-only alongside the R library: `ln -sfn <primary>/videos <worktree>/videos`. Never write through either link.
 - `renv/library/` is gitignored, so a fresh worktree has no R library and every R case SKIPs. Symlink it read-only and the worktree gate becomes fully equivalent: `ln -sfn <primary>/renv/library <worktree>/renv/library` → 469 passed/0 skipped, `tests/test_r_pipeline.py` 25 passed/0 skipped, same as primary. Concurrent worktrees share it safely because R only reads packages; never `renv::install`/`renv::snapshot` through the link.
 
 ## Session launch cost

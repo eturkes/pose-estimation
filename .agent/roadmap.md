@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1 OPEN. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1 DONE, M2.2 OPEN. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Goal:** turn 382 uncontrolled clips into an addressable, measured corpus; establish by evidence whether 3D reconstruction is recoverable from it; then execute that ruling under a claim boundary the data can carry.
 
@@ -41,15 +41,25 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.6 | Calibration recovery | Per-recording-event extrinsics by the route M2.3 rules, with held-out reprojection acceptance and explicit scale provenance. |
 | M2.7 | Gated fusion + corpus study | Fusion over qualified recording events, reprojection/gap/throughput/stability/repeatability evidence, claim-bounded report, prospective-capture specification, de-identified regression fixtures. |
 
-**Unit status.** M2.1-M2.4 OPEN. M2.3 is the milestone's decision point; M2.1, M2.2 and M2.4 stand independent of its ruling, so dispatch order is simply lowest-open. M2.5, M2.6, M2.7 **BLOCKED on M2.3's ruling** — their shape, and whether M2.6 exists at all, is what that ruling decides.
+**Unit status.** M2.1 DONE. M2.2-M2.4 OPEN. M2.3 is the milestone's decision point; M2.2 and M2.4 stand independent of its ruling, so dispatch order is simply lowest-open. M2.5, M2.6, M2.7 **BLOCKED on M2.3's ruling** — their shape, and whether M2.6 exists at all, is what that ruling decides.
 
 | unit | close | gate (passed / skipped) | `main=` | `mate=` |
 | ---- | ----- | ----------------------- | ------- | ------- |
 | — | baseline at M2 plan | 621 / 0 | — | — |
+| M2.1 | `30280c3` | 717 / 0 | 98% 236K/240K, 2 windows | 100% 240K/240K |
 
 **Sizing analogs** (unique files touched, summed churn; gauges where recorded). M3.2 `16e6fab` = 9 files, +891/−117, `main=95%` — the schema/identity analog for M2.1. M3.3a `a6218e5` = 13 files, +1694/−152, `main=58%` — a full artifact slice. Multi-camera fusion `62685e0` = 14 files, +1040/−164, and calibration `4d4df80` = 18 files, +1472/−156 — the integration band for M2.5/M2.6. Uncalibrated QA `20c36a0` = 14 files, +1225/−152 and adversarial failure modes `36f28a2` = 11 files, +981/−392 — the analogs for M2.7. **M3.3 was planned as one unit and did not fit one MAIN window**; M2.1/M2.2 are split at the same kind of boundary for the same reason.
 
-**Load-bearing facts for M2.1/M2.2, probe-verified.**
+**M2.1 actual, `30280c3` = 14 files, +4960/−22, `main=98%` across two windows.** It overran the one-window aim, and the overrun was not implementation churn — `inventory.py` is 1225 lines and the two suites are 3262 — it was the review loop: `rev-m2u1` returned 30 findings in phase 1 and 12 more in phase 2, each one costing a ruling, a fix, a contract amendment and a corpus rerun. **Size a `kernel` unit by its adversarial surface, not its line count.** A unit that publishes a durable artifact with a frozen digest pays for every predicate twice. M2.2 is the same shape and should be planned to close in one window only if its contract surface is materially smaller than M2.1's 31 amendments.
+
+**M2.1 → M2.2 handoff.** The census tool writes three artifacts to `inventory/`, self-verifying through `validate_generation()`: `assets.csv` (one row per discovered file — canonical corpus-relative path, disposition, reason code, SHA-256, container facts), `captures.csv` (one row per task-side family), `census.json` (redaction-safe aggregates plus a `generation` block digesting all three, the census entry being a digest of the census minus its own key). M2.2 reads `assets.csv`; it does not walk the corpus again.
+
+- **`capture_id` names a task-side family, never a recording event** — `(subject, task, side)`, no take component. The 2 view-conflict families each hold more than one take, so M2.2 must resolve an **instance grain below `capture_id`** and key the session tree on it. That resolution is M2.2's first ruling and it propagates to M2.5 and M2.6.
+- Path text is re-decoded strictly as UTF-8 once at discovery, so classification, parsing, ordering and published text are a function of corpus bytes rather than of filesystem locale; a non-UTF-8 name keeps its surrogate form. M2.2's symlink names must come from that canonical column, never from a fresh directory walk.
+- 379 canonical / 3 quarantined / 0 excluded. Quarantine is a **stem-grammar** verdict, not a readability one — all three files open and probe. Whether a quarantined file reaches the session tree is M2.2's call.
+- `census.json` is the one redaction-safe artifact: no filename, no path, no subject directory name, recognized extensions only. `assets.csv` and `captures.csv` are patient-adjacent; `inventory/` is gitignored, as `sessions/` will be.
+
+**Load-bearing facts for M2.2, probe-verified.**
 
 - A session directory of **symlinks resolves correctly under glob discovery and under a manifest that omits `file`**; a manifest naming `file:` explicitly **fails**, because `_safe_resolve()` resolves through the link and the containment check then rejects it (`src/pose_estimation/multicam.py:56-62`). Materialization therefore needs no change to `multicam.py`, and it must not use `file:` refs.
 - Glob discovery needs a **lowercase** extension from `VIDEO_EXTENSIONS`; 380 of 382 sources end `.MOV`. Symlink names are ours to choose, so this constrains the generator, not the sources.

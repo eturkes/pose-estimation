@@ -2813,3 +2813,14 @@ def test_utf8_filename_classification_is_locale_independent(
     assert assets[0]["source_path"] == source
     assert assets[0]["reason_code"] == "probe_unreadable"
     assert census["reason_codes"]["path_not_utf8"] == 0
+
+
+def test_duplicate_capture_identifiers_are_rejected_directly() -> None:
+    """A29: the invariant rejects two capture rows carrying one identifier."""
+    captures = [
+        inventory.CaptureRecord("s03-peg-l", 3, "peg", "l", ()),
+        inventory.CaptureRecord("s03-peg-l", 3, "peg", "l", ()),
+    ]
+
+    with pytest.raises(inventory.InventoryError, match=r"share one identifier"):
+        inventory.check_invariants([], captures, [])

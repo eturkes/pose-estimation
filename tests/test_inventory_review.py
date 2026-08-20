@@ -48,6 +48,7 @@ print(sys.getfilesystemencoding(), _exclusion_reason(entry, root.resolve(), rela
             "LC_ALL": "C",
             "PYTHONCOERCECLOCALE": "0",
             "PYTHONUTF8": "0",
+            "PYTHONUNBUFFERED": "1",
             "PYTHONPATH": str(pathlib.Path(inventory.__file__).parents[1]),
         }
     )
@@ -87,6 +88,7 @@ print(_printable_path(relative).encode('utf-8').hex())
                 "LC_ALL": locale,
                 "PYTHONCOERCECLOCALE": "0",
                 "PYTHONUTF8": utf8_mode,
+                "PYTHONUNBUFFERED": "1",
                 "PYTHONPATH": str(pathlib.Path(inventory.__file__).parents[1]),
             }
         )
@@ -132,6 +134,7 @@ print(sys.getfilesystemencoding(), reason, parsed.reason_code, '|'.join(parsed.a
             "LC_ALL": "C",
             "PYTHONCOERCECLOCALE": "0",
             "PYTHONUTF8": "0",
+            "PYTHONUNBUFFERED": "1",
             "PYTHONPATH": str(pathlib.Path(inventory.__file__).parents[1]),
         }
     )
@@ -170,6 +173,7 @@ print(sys.getfilesystemencoding(), _exclusion_reason(entry, root.resolve(), rela
             "LC_ALL": "C",
             "PYTHONCOERCECLOCALE": "0",
             "PYTHONUTF8": "0",
+            "PYTHONUNBUFFERED": "1",
             "PYTHONPATH": str(pathlib.Path(inventory.__file__).parents[1]),
         }
     )
