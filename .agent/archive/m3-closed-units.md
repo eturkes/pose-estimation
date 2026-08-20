@@ -42,3 +42,18 @@ The artifact ships end to end on the four trajectory groups — 12 metric rows p
 Both spikes measured 7/8 fault detectability. Wide costs 55 → 125 columns and still cannot express per-metric status, so long wins on the roadmap requirement: **long companion artifact `<stem>_clinical_3d_window_qc.csv`, keyed `video × person_idx × window_start_sec × window_end_sec × metric_id`**, 3D-only, estimates never duplicated. Full decision record, rulings R-1…R-13, predicates P01…P15, verdicts V01…V30, gate identity, and corpus P1…P15 live in `.agent/archive/contract-m3u3.md`.
 
 M3.3 was planned as one unit and did not fit one MAIN window, confirming planrev `F01`. The split boundary is the evidence-group set, not implementation-versus-tests: each half ships a complete gated artifact slice with its own red cases, so TDD holds within each unit.
+
+## M3 descope — what was cut, and what the cut changed
+
+M3 ended after M3.3a. `videos/3-cam/` replaced synthetic fixtures as the development surface, and no remaining M3 unit is forced by that data, so the rest was cut rather than carried as stale plan.
+
+**Retained in the tree:** M3.1 kernel, M3.2 identity schema, M3.3a `<stem>_clinical_3d_window_qc.csv` over the four trajectory groups. Every gate they shipped still runs.
+
+**Cut:**
+
+- **M3.3b** — QC evidence for `bilateral_wrist`, `bilateral_fingertip`, `trunk`, `shoulders`, `cpi`. Consequence: the QC artifact explains the 12 trajectory metrics and stays silent on the derived and body metrics. `docs/technical/analysis.md` *Current scope* now states that boundary as standing rather than pending. `n_required_keypoints_present` keeps M3.3a's `n_valid_frames > 0` reading — every emitted group requires exactly one keypoint, so no shipped group can contradict it, and the semantics question the split deferred is moot until a multi-keypoint group ships.
+- **M3.4** declarative metric registry + fail-closed central reader; **M3.5** video-level reducer; **M3.6** aggregate CLI + `analysis_summary.Rmd` 3D inventory section. `clinical_3d_video_aggregate.csv` was never built, and no committed file names it, so the cut falsifies no shipped claim.
+
+**Cut consequences that became work elsewhere.** M3's acceptance required 2D goldens byte-identical, which is the sole reason `nominal_fs()` shipped unadopted in M3.1. That bar died with the milestone, and re-deriving `output/rtmw-l_body_single/` stopped mattering when `videos/initial/` was retired, so cadence-truth adoption became an M2 unit. Two `.agent/polish.md` rows lost their M3.4 dependency and now own the reader they were going to borrow.
+
+**Unmerged branches, retained on disk, unscheduled:** `wt/test-m3u3` (`7026e2c`, `tests/test_r_qc_evidence.py`, diff-blind, red against `cc8a939`; its remaining cases are exactly the five cut groups), `wt/spike-m3u3-wide` (`d4ad6c3`), `wt/spike-m3u3-long` (`1097a4b`). Reviving M3.3b starts from `wt/test-m3u3` against the frozen contract in `.agent/archive/contract-m3u3.md`.

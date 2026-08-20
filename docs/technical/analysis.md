@@ -196,7 +196,7 @@ The `n_valid_intervals` field records observed interval support for SAL. A leadi
 | `left_fingertip` | `left_hand_8` | `left_fingertip_normalized_jerk` |
 | `right_fingertip` | `right_hand_8` | `right_fingertip_normalized_jerk` |
 
-M3.3b adds `bilateral_wrist`, `bilateral_fingertip`, `trunk`, `shoulders`, and `cpi`. The producer does not emit rows for these five groups yet.
+The producer emits no rows for `bilateral_wrist`, `bilateral_fingertip`, `trunk`, `shoulders` and `cpi`. Their estimates in `<stem>_clinical_3d_windows.csv` carry no usability evidence. A bilateral estimate reads its two side groups, so the rows for those groups bound it. The trunk, shoulder and CPI estimates have no evidence source in this artifact.
 
 ## Clinical comparison / longitudinal
 

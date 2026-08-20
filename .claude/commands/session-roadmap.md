@@ -1,6 +1,6 @@
 # Session roadmap
 
-Continue project along the roadmap; run bare. Route a user-supplied task through `/session-prompt`. State arrives attached: @.agent/roadmap.md @.agent/memory.md. An unexpanded path ⇒ `ls .agent/`: stub the missing file (roadmap: goal + first UNPLANNED milestone from available context; memory: empty), read the present one. Run MODE for the active milestone = first awaiting DONE/REVIEWED. A PARKED milestone re-enters dispatch when its named precondition is met and its marker cleared.
+Continue project along the roadmap; run bare. Route a user-supplied task through `/session-prompt`. State arrives attached: @.agent/roadmap.md @.agent/memory.md. An unexpanded path ⇒ `ls .agent/`: stub the missing file (roadmap: goal + first UNPLANNED milestone from available context; memory: empty), read the present one. Run MODE for the active milestone = first lacking a terminal status (DONE / REVIEWED / DESCOPED). A PARKED milestone re-enters dispatch when its named precondition is met and its marker cleared. A DESCOPED milestone is closed by decision rather than by completion: its retained detail lives in `.agent/archive/`, and reviving any part of it is a PLANNING ruling, never a dispatch outcome.
 
 MODE ← active-milestone status (state change ⇒ scoped commit; stable BLOCKED recheck ⇒ read-only close; convention below):
 - UNPLANNED (incl. a still-unsplit future milestone) → PLANNING
