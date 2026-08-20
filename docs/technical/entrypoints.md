@@ -1,6 +1,6 @@
 # Command-line entry points
 
-Six console scripts (see `pyproject.toml:[project.scripts]`):
+Seven console scripts (see `pyproject.toml:[project.scripts]`):
 
 | Script | Module | Purpose |
 |--------|--------|---------|
@@ -9,6 +9,7 @@ Six console scripts (see `pyproject.toml:[project.scripts]`):
 | `pose-estimation-benchmark` | `pose_estimation.benchmark` | Parameter sweep harness. |
 | `pose-estimation-postprocess` | `pose_estimation.postprocess` | Savitzky-Golay smoothing on existing CSVs. |
 | `pose-estimation-calibrate` | `pose_estimation.calibration_cli` | Multi-camera calibration management. |
+| `pose-estimation-inventory` | `pose_estimation.inventory` | Task-side family registry and aggregate container census. |
 | `pose-estimation-validate` | `pose_estimation.validation` | End-to-end pipeline validation report. |
 
 ## `main.py` — MediaPipe path
@@ -80,6 +81,52 @@ pose-estimation-calibrate capture --session-dir videos/calib_session/ --devices 
 ```
 
 `verify` prints a summary; `solve` runs the ChArUco solver (`charuco.py`); `board` renders the printable pattern; `capture` records synchronized per-camera AVIs via a pygame grid (SPACE = save one frame per camera). Full flags + workflow: `calibration.md`.
+
+## `inventory.py` — task-side family registry and census
+
+```bash
+pose-estimation-inventory --corpus synthetic-corpus --out inventory
+pose-estimation-inventory --corpus synthetic-corpus --out inventory --no-checksums
+pose-estimation-inventory --corpus synthetic-corpus --out inventory --strict
+python -m pose_estimation.inventory --corpus synthetic-corpus --out inventory
+```
+
+`--corpus` selects the required directory and searches every subdirectory.
+`--out` selects the artifact directory and defaults to `inventory`.
+The output directory must resolve outside the corpus.
+`--no-checksums` skips each full-file SHA-256 scan, but it keeps header probing.
+`--strict` returns status 1 when at least one asset is not canonical.
+
+The default run probes headers and reads every source byte for fixity.
+The tool never calls `VideoCapture.read` or `VideoCapture.grab`.
+`--out` follows the operating umask because the tool sets no file mode.
+`assets.csv` carries corpus-relative paths, so the output is as sensitive as the corpus.
+
+The module defaults `OPENCV_FFMPEG_LOGLEVEL` to `-8` before the first probe.
+If you need native FFmpeg diagnostics, set the variable before the command.
+Native FFmpeg output bypasses Python and can contain the source URL.
+
+Exit status 0 means that the run completed.
+Exit status 1 means that `--strict` found at least one non-canonical asset.
+Exit status 2 means that a usage, domain, or registry I/O error occurred.
+Argparse usage errors keep argparse's text.
+
+Handled domain and registry I/O errors start with `ERROR:` on stderr.
+The common operator messages are path-free:
+
+- `ERROR: The corpus path is not a directory.`
+- `ERROR: The output directory must sit outside the corpus.`
+- `ERROR: A directory under the corpus cannot be read. Correct its permissions.`
+- `ERROR: The registry could not be written. Check the output directory.`
+
+The console summarizes files, bytes, dispositions, reasons, family coverage, header totals, and probe metadata.
+Its `Captures:` label refers to task-side families, not physical takes.
+It ends with `Wrote: assets.csv, captures.csv, census.json`.
+No success or handled-error line contains a filesystem path.
+
+The tool writes `assets.csv`, `captures.csv`, and `census.json`.
+Every consumer must call `validate_generation(out_dir)` before reading a row.
+See `inventory.md` for identities, schemas, claim limits, and generation validation.
 
 ## `validation.py` — end-to-end validation report
 

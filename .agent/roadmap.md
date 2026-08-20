@@ -10,17 +10,20 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 **Goal:** turn 382 uncontrolled clips into an addressable, measured corpus; establish by evidence whether 3D reconstruction is recoverable from it; then execute that ruling under a claim boundary the data can carry.
 
-**Corpus, measured.** Header-only census over all 382 files (cv2 container properties, no pixel decode; `.scratch/census_3cam.py` + `.scratch/census_rig.py`, 4.5 s, ported by M2.1):
+**Corpus, measured.** Header-only census over all 382 files, from the committed tool (`pose-estimation-inventory`; cv2 container properties, no pixel decode; ~11 s including a SHA-256 of every file). Every number below reruns from `inventory/census.json`:
 
-- 382 files, 339 743 frames, 186.8 min, 16 subject directories, all readable. Trial duration median 19.3 s (p25 13.9, p75 33.1, max 274.8).
-- Stems `<n>_<view>_<task>_<side>` → 188 trials, 94 per side, tasks 30-32 each. View coverage **49 three-view / 87 two-view / 52 one-view**, so 136 trials are multi-view; 7 stems fail this normalizer. A plan assuming 188 three-camera sessions overstates by 3.8×.
-- **Two normalizers disagree on the split** — 49/87/52 here against 52/85/51 from an independent pass, on identical files. Both agree on 188 trials and 16 subjects, so the disagreement is entirely in typo and repeat-marker handling. M2.1 settles the grammar mechanically and owns the true numbers; treat both splits as provisional.
-- Resolution 1920×1080, or 1080×1920 for the 28 portrait clips. **38 clips carry non-zero rotation metadata** — 28 at 90/270°, 10 at 180°. Codecs h264 + hevc, and **all 16 subjects mix both** across their own clips.
-- **Nominal 30 fps, but every file differs**: 29.963-29.987 Hz, plus one 119.97 fps 720p outlier. Within-trial fps agreement to 3 dp: **7 of 136** multi-view trials.
-- **The views of one trial are not one recording.** Frame-count parity within 5%: 41 of 136; within 20%: 73 of 136. Within-trial duration spread median **3.99 s**, p75 13.2 s, p95 25.7 s, max 210 s.
-- **Orientation varies inside a single view label**: `above` = 124 rot0 / 15 rot90 / 10 rot180 / 1 rot270; 5 of 16 subjects show more than one frame orientation for the same label.
+- 382 files, 339 743 frames, 186.8 min, 18.28 GB, 16 subject directories, all readable, all 382 SHA-256 distinct. Per-file nominal duration median 19.3 s (p25 13.9, p75 33.1, p95 62.7, max 274.8).
+- Stems `<n>_<view>_<task>_<side>` → **188 task-side families** over 379 canonical files. `<n>` is the **subject** ordinal — 16 values, one per subject directory, bijective — so family identity is `(subject, task, side)` with no take component. View coverage **52 three-view / 85 two-view / 51 one-view**, so 137 families are multi-view. **3 files quarantine** (2 empty side token, 1 unknown side token), 0 excluded. A plan assuming 188 three-camera sessions overstates by 3.6×.
+- **The 49/87/52 versus 52/85/51 disagreement is settled: doubled media suffixes.** 4 files are named `x.mov.MOV`; stripping one suffix leaves `.mov` occupying the side slot. Typo and repeat-marker handling moved 0 of 188 families. Both earlier splits are dead.
+- Name repair is small and now measured: 379 case folds, 15 task-token repairs over 4 misspellings, 4 doubled suffixes, 2 whitespace collapses, 1 repeat marker.
+- Resolution 1920×1080, or 1080×1920 for the 28 portrait clips, plus one 1280×720 outlier. **38 clips carry non-zero rotation metadata** — 28 at 90/270°, 10 at 180°. Codecs h264 + hevc, and **all 16 subject directories mix both**.
+- **Nominal 30 fps, but every file differs**: 29.963-29.987 Hz, plus one 119.97 fps 720p outlier. Within-family fps agreement to 3 dp: **7 of 137** multi-view families.
+- **The views of one family are not one recording.** Frame-count parity within 5%: 40 of 137; within 20%: 74 of 137. Equal resolution across views: 122 of 137. Within-family duration spread median **3.92 s**, p75 13.0 s, p95 25.7 s, max 210.2 s.
+- **Orientation varies inside a single view label**: `above` = 129 rot0 / 15 rot90 / 10 rot180 / 1 rot270; `left` = 88/5; `right` = 124/7.
+- **2 families carry a view conflict** — two files claiming one view of one family. Both pairs are distinct recordings rather than copies: one is repeat-marked, one merges under underscore collapse. The registry flags them; it does not choose between them.
+- **Header facts are the demuxer's claims.** A 10-clip full decode spanning both codecs and all four rotation values matched the header frame count exactly, 7 061 of 7 061 frames, so counts are trustworthy on that sample. The same decode found inter-frame presentation timestamps non-uniform on 10 of 10 clips, so cv2 alone supports no constant-frame-rate claim.
 
-**No fixed rig ever existed** — the camera harness was designed and never built, which is what the orientation, codec, parity and duration spread independently measure. Three cameras were started and stopped by hand and re-oriented between takes. Two consequences bind the whole milestone: a single rig calibration reused across trials is incoherent, so calibration is **per trial** at best; and the repo's alignment model, one non-negative integer `sync_offset` per camera, cannot express unequal frame rates, so cross-view drift is unrepresentable today.
+**No fixed rig ever existed** — the camera harness was designed and never built, which is what the orientation, codec, parity and duration spread independently measure. Three cameras were started and stopped by hand and re-oriented between takes. Two consequences bind the whole milestone: a single rig calibration reused across the corpus is incoherent, so calibration is **per recording event** at best — a grain M2.2 still has to resolve, since a `view_conflict` family holds more than one take; and the repo's alignment model, one non-negative integer `sync_offset` per camera, cannot express unequal frame rates, so cross-view drift is unrepresentable today.
 
 **Claim boundary, set by evidence, not by ambition.** Published upper-limb validation puts three RGB cameras at 5-9 cm joint-position error with no clinical angle validation; the credible functional-task protocols use 8-10 synchronized cameras at 60-85 Hz and still report 3-20°+ angle RMSD. One frame at 30 Hz is 33 ms, which is 33 mm of hand travel at 1 m/s, so even exact integer alignment caps timing contribution near ±17 mm. **M2 may claim retrospective 3D recovery feasibility with internal geometric and QC evidence — reprojection, triangulation angle, visibility, offset confidence, scale provenance, sensitivity. It may not claim clinical validity, absolute metric accuracy, or marker-based equivalence.** Crossing that floor needs a prospective calibrated capture, which M2.7 specifies rather than performs.
 
@@ -30,13 +33,13 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 | id | unit | spine result |
 | -- | ---- | ------------ |
-| M2.1 | Canonical trial record + corpus census | Stem grammar, normalization, quarantine, deterministic `capture_id`; per-file container facts; one committed inventory tool replacing the two scratch censuses. |
+| M2.1 | Canonical capture record + corpus census | Stem grammar, normalization, quarantine, deterministic `capture_id`; per-file container facts; one committed inventory tool replacing the two scratch censuses. |
 | M2.2 | Session materialization + discovery | Idempotent generator emitting a discoverable session tree; partial-view policy; `--list-sessions` enumerates the real corpus. |
 | M2.3 | Capture qualification + 3D-route ruling | Decode-sampled evidence on scale reference, background rigidity, view↔geometry stability, detectability, recoverable offset/drift, intrinsics metadata → MAIN's ruling, which shapes M2.5-M2.7. |
 | M2.4 | Timebase truth | Adopt `nominal_fs()` at the call sites; regenerate goldens; per-file cadence replaces the `1/median(diff(ts))` estimate. |
-| M2.5 | Cross-view alignment | Offset + drift model beyond integer `sync_offset`, per-trial `sync_qc` evidence. Shape set by M2.3. |
-| M2.6 | Calibration recovery | Per-trial extrinsics by the route M2.3 rules, with held-out reprojection acceptance and explicit scale provenance. |
-| M2.7 | Gated fusion + corpus study | Fusion over qualified trials, reprojection/gap/throughput/stability/repeatability evidence, claim-bounded report, prospective-capture specification, de-identified regression fixtures. |
+| M2.5 | Cross-view alignment | Offset + drift model beyond integer `sync_offset`, per-recording-event `sync_qc` evidence. Shape set by M2.3. |
+| M2.6 | Calibration recovery | Per-recording-event extrinsics by the route M2.3 rules, with held-out reprojection acceptance and explicit scale provenance. |
+| M2.7 | Gated fusion + corpus study | Fusion over qualified recording events, reprojection/gap/throughput/stability/repeatability evidence, claim-bounded report, prospective-capture specification, de-identified regression fixtures. |
 
 **Unit status.** M2.1-M2.4 OPEN. M2.3 is the milestone's decision point; M2.1, M2.2 and M2.4 stand independent of its ruling, so dispatch order is simply lowest-open. M2.5, M2.6, M2.7 **BLOCKED on M2.3's ruling** — their shape, and whether M2.6 exists at all, is what that ruling decides.
 
@@ -50,22 +53,22 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 - A session directory of **symlinks resolves correctly under glob discovery and under a manifest that omits `file`**; a manifest naming `file:` explicitly **fails**, because `_safe_resolve()` resolves through the link and the containment check then rejects it (`src/pose_estimation/multicam.py:56-62`). Materialization therefore needs no change to `multicam.py`, and it must not use `file:` refs.
 - Glob discovery needs a **lowercase** extension from `VIDEO_EXTENSIONS`; 380 of 382 sources end `.MOV`. Symlink names are ours to choose, so this constrains the generator, not the sources.
-- `discover_sessions()` is **one level deep**, so the tree must be flat: one directory per trial, not `subject/trial`.
-- `session.json` without `file` refs carries `session_id`, arbitrary camera names, and `sync_offset` — enough for trial identity and alignment, with no schema change.
+- `discover_sessions()` is **one level deep**, so the tree must be flat: one directory per recording event, not `subject/event`.
+- `session.json` without `file` refs carries `session_id`, arbitrary camera names, and `sync_offset` — enough for recording-event identity and alignment, with no schema change.
 - cv2 applies rotation metadata on decode by default, and `CAP_PROP_FRAME_WIDTH/HEIGHT` already report the rotated size, so frames arrive upright. Nothing in `src/`, `scripts/` or `tests/` reads `CAP_PROP_ORIENTATION_*`; the hazard is that a rotated view has different image geometry from its siblings, not that frames are sideways.
 - The generated tree is patient-adjacent (manifests carry subject ordinal, task, side) → repo-local `sessions/`, added to `.gitignore` by M2.2.
 - The environment has **cv2 only** — no ffprobe, ffmpeg, exiftool, PyAV. True PTS, creation timestamps, audio tracks and Apple intrinsics metadata all need tooling M2.3 installs.
 
 **Standing constraints.**
 
-- **Trial identity has no schema home.** Producer keys are `video`/`person_idx`/`window`; `session.json` carries no task, side, or trial field; `world3d.csv` reduces `video` to `session_id`. M2.1's registry is the single source of trial identity, bound by `capture_id`. Legacy 2D and 3D producer schemas stay unwidened — `analysis/utils.R:59-87` treats every numeric non-metadata column as a feature.
-- **Calibration identity is unbound.** Discovery accepts any calibration whose camera names match; nothing compares rig or session identity (`src/pose_estimation/multicam.py:364-383,579-588`). Per-trial calibration makes this a live hazard, so M2.6 must bind calibration to `capture_id`.
+- **Capture identity has no schema home.** Producer keys are `video`/`person_idx`/`window`; `session.json` carries no task, side, or family field; `world3d.csv` reduces `video` to `session_id`. M2.1's registry is the single source of family identity, bound by `capture_id`. Legacy 2D and 3D producer schemas stay unwidened — `analysis/utils.R:59-87` treats every numeric non-metadata column as a feature.
+- **Calibration identity is unbound.** Discovery accepts any calibration whose camera names match; nothing compares rig or session identity (`src/pose_estimation/multicam.py:364-383,579-588`). Per-recording-event calibration makes this a live hazard, so M2.6 must bind calibration to the instance grain M2.2 resolves. It may **never** bind calibration to `capture_id`: a `view_conflict` family holds more than one take, so that key does not name a recording event.
 - **View labels are lexical, not geometric.** `above`/`left`/`right` are filename tokens. M2.3 verifies them against measured geometry before any calibration reuse; a mismatch projects pixels through the wrong camera.
 - **Provisional QC thresholds.** `coverage ≥ 0.80`, `max_gap ≤ 0.10 s` are engineering defaults carried under `qc_policy_version`, not validated standards. M2.7 is where evidence replaces them.
 - **One subject only.** Fusion reads `person_idx == 0`; cross-camera identity matching does not exist.
 - **Decisive gate is primary-tree.** `renv/library/` is gitignored, so worktrees skip R cases unless symlinked; a green worktree run is no evidence for `analysis/*.R`.
 
-**Acceptance:** every one of the 382 files reaches exactly one explicit outcome — canonical trial, quarantined stem, or recorded exclusion — with nothing silently dropped; the session tree regenerates byte-identical from a clean base and `--list-sessions` enumerates it; every corpus claim traces to a committed rerunnable command rather than a scratch script; the claim boundary above is honored in every artifact and document; full suite passes in the primary tree with 0 skips.
+**Acceptance:** every one of the 382 files reaches exactly one explicit outcome — canonical family member, quarantined stem, or recorded exclusion — with nothing silently dropped; the session tree regenerates byte-identical from a clean base and `--list-sessions` enumerates it; every corpus claim traces to a committed rerunnable command rather than a scratch script; the claim boundary above is honored in every artifact and document; full suite passes in the primary tree with 0 skips.
 
 ## M3 — analysis-ready 3D aggregation
 

@@ -47,6 +47,10 @@ videos
 output
 benchmark_output
 
+# Corpus registry (patient-adjacent: carries source paths — never commit).
+# census.json inside it holds aggregates only and is safe to quote.
+inventory/
+
 # Camera calibration (patient-adjacent: identifying lab/rig geometry — never commit)
 calibration/
 calibration.json
@@ -74,6 +78,7 @@ mediapipe/
 CLAUDE.local.md
 .claude/settings.local.json
 .claude/.headroom_wrap_marker.json
+.claude/worktrees/
 
 # Per-session teammate reports, rosters + per-teammate git worktrees
 # (.scratch/worktrees/<name>; see .claude/commands/session-roadmap.md)

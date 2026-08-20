@@ -39,7 +39,7 @@ of commits.
 
 ## Entry points
 
-`pyproject.toml` defines six console scripts (`[project.scripts]`). You can also run
+`pyproject.toml` defines seven console scripts (`[project.scripts]`). You can also run
 each one as `python -m pose_estimation.<module>`.
 
 | Script | Module | Purpose |
@@ -49,6 +49,7 @@ each one as `python -m pose_estimation.<module>`.
 | `pose-estimation-benchmark` | `pose_estimation.benchmark` | Parameter sweep harness. |
 | `pose-estimation-postprocess` | `pose_estimation.postprocess` | Savitzky-Golay smoothing for existing CSV files. |
 | `pose-estimation-calibrate` | `pose_estimation.calibration_cli` | Multi-camera calibration (ChArUco). |
+| `pose-estimation-inventory` | `pose_estimation.inventory` | Task-side family registry and aggregate corpus census. |
 | `pose-estimation-validate` | `pose_estimation.validation` | Capture QA + end-to-end validation reports. |
 
 ### MediaPipe pipeline (`main`)
