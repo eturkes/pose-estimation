@@ -1,0 +1,258 @@
+{
+  "baseline_sha256": {
+    "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+    "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+    "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+  },
+  "schema_version": 1,
+  "sweeps": [
+    {
+      "id": "B01",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "repeat, identical invocation",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B02:0",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "PYTHONHASHSEED=0",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B02:1",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "PYTHONHASHSEED=1",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B02:12345",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "PYTHONHASHSEED=12345",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B02:random",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "PYTHONHASHSEED=random",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B03:C",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "LC_ALL=C",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B03:C.UTF-8",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "LC_ALL=C.UTF-8",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B03:en_US.UTF-8",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "LC_ALL=en_US.UTF-8",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B03:unset",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "LANG and LC_ALL unset",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B05:absolute",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "absolute corpus path",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B05:dotdot",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "corpus path with a .. detour",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B05:cwd",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "run from a different working directory",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B06",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "--out directory name",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B07:UTC",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "TZ=UTC",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B07:Pacific/Kiritimati",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "TZ=Pacific/Kiritimati",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B09",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "umask 077",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B10",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "interpreter -O",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B04",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "shuffled directory iteration order",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "id": "B08",
+      "observed_sha256": {
+        "assets.csv": "329334d2b37ec781d583df87efa342dc2b590cf8fce93b99133f4c2cc7b380e7",
+        "captures.csv": "d00cd8c35debf3e5f22e88b6d9d50adb09d8e8ca70d4252599c7debc6f148775",
+        "census.json": "af548478ad380119857c93f2c0cdaedcb4ea5a6fbcadeecb14a8cbb0d886c1d2"
+      },
+      "variation": "second run after every other sweep",
+      "verdict_assets.csv": "PASS",
+      "verdict_captures.csv": "PASS",
+      "verdict_census.json": "PASS"
+    },
+    {
+      "assets.csv absent": "rejected",
+      "assets.csv line endings": "rejected",
+      "assets.csv value": "rejected",
+      "captures.csv absent": "rejected",
+      "captures.csv line endings": "rejected",
+      "census.json absent": "rejected",
+      "census.json added key": "rejected",
+      "census.json invalid UTF-8": "rejected",
+      "census.json not JSON": "rejected",
+      "census.json not an object": "rejected",
+      "census.json removed key": "rejected",
+      "census.json trailing whitespace": "accepted",
+      "census.json truncated": "rejected",
+      "census.json value": "rejected",
+      "clean": "accepted",
+      "id": "B11",
+      "variation": "validate_generation tamper classes"
+    }
+  ],
+  "tested_head": "57ee9e297366102f5101d749bbf61520806310a8"
+}
