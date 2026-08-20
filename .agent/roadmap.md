@@ -46,7 +46,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | unit | close | gate (passed / skipped) | `main=` | `mate=` |
 | ---- | ----- | ----------------------- | ------- | ------- |
 | — | baseline at M2 plan | 621 / 0 | — | — |
-| M2.1 | `30280c3` | 717 / 0 | 98% 236K/240K, 2 windows | 100% 240K/240K |
+| M2.1 | `30280c3`..`9bccfe2` | 734 / 0 | 98% 236K/240K, 3 windows | 100% 240K/240K |
 
 **Sizing analogs** (unique files touched, summed churn; gauges where recorded). M3.2 `16e6fab` = 9 files, +891/−117, `main=95%` — the schema/identity analog for M2.1. M3.3a `a6218e5` = 13 files, +1694/−152, `main=58%` — a full artifact slice. Multi-camera fusion `62685e0` = 14 files, +1040/−164, and calibration `4d4df80` = 18 files, +1472/−156 — the integration band for M2.5/M2.6. Uncalibrated QA `20c36a0` = 14 files, +1225/−152 and adversarial failure modes `36f28a2` = 11 files, +981/−392 — the analogs for M2.7. **M3.3 was planned as one unit and did not fit one MAIN window**; M2.1/M2.2 are split at the same kind of boundary for the same reason.
 
@@ -58,6 +58,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 - Path text is re-decoded strictly as UTF-8 once at discovery, so classification, parsing, ordering and published text are a function of corpus bytes rather than of filesystem locale; a non-UTF-8 name keeps its surrogate form. M2.2's symlink names must come from that canonical column, never from a fresh directory walk.
 - 379 canonical / 3 quarantined / 0 excluded. Quarantine is a **stem-grammar** verdict, not a readability one — all three files open and probe. Whether a quarantined file reaches the session tree is M2.2's call.
 - `census.json` is the one redaction-safe artifact: no filename, no path, no subject directory name, recognized extensions only. `assets.csv` and `captures.csv` are patient-adjacent; `inventory/` is gitignored, as `sessions/` will be.
+- **Two committed gates back every claim above and both rerun from committed state** — `scripts/run_inventory_mutations.py` (72 mutants, 71 killed, `M028` alone surviving as a ruled equivalent) and `scripts/check_inventory_determinism.py` (20 sweeps, 0 failures, plus 13 tamper classes the consumer boundary rejects by exception class). A predicate M2.2 adds to the registry earns a mutant in the same commit.
 
 **Load-bearing facts for M2.2, probe-verified.**
 

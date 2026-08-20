@@ -1,0 +1,836 @@
+{
+  "closure": [],
+  "initial": [
+    {
+      "file_line": "src/pose_estimation/inventory.py:701",
+      "id": "M001",
+      "killing_tests": [
+        "tests/test_inventory.py::test_path_rendering_is_injective_and_non_utf8_names_are_excluded",
+        "tests/test_inventory_review.py::test_printable_path_distinguishes_valid_c1_from_raw_byte"
+      ],
+      "mutation": "control escapes use code points instead of each UTF-8 byte",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:703",
+      "id": "M002",
+      "killing_tests": [
+        "tests/test_inventory.py::test_path_rendering_is_injective_and_non_utf8_names_are_excluded",
+        "tests/test_inventory_review.py::test_printable_path_distinguishes_escape_text_from_escaped_byte",
+        "tests/test_inventory_predicates.py::test_printable_path_doubles_every_escape_introducer"
+      ],
+      "mutation": "escape-introducer backslashes are not doubled",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:700",
+      "id": "M003",
+      "killing_tests": [
+        "tests/test_inventory.py::test_path_rendering_is_injective_and_non_utf8_names_are_excluded"
+      ],
+      "mutation": "surrogate escape renders its code point instead of its carried byte",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:701",
+      "id": "M004",
+      "killing_tests": [
+        "tests/test_inventory.py::test_path_rendering_is_injective_and_non_utf8_names_are_excluded"
+      ],
+      "mutation": "control-byte escapes use uppercase hexadecimal",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:703",
+      "id": "M005",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_printable_path_doubles_every_escape_introducer"
+      ],
+      "mutation": "only the first escape-introducer backslash is doubled",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:701",
+      "id": "M006",
+      "killing_tests": [
+        "tests/test_inventory.py::test_control_character_path_is_escaped_and_excluded_without_aborting",
+        "tests/test_inventory.py::test_path_rendering_is_injective_and_non_utf8_names_are_excluded"
+      ],
+      "mutation": "control bytes render as Unicode escapes instead of byte escapes",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:558",
+      "id": "M007",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_build_assets_parses_canonical_relative_text"
+      ],
+      "mutation": "the parse path reads entry.name instead of canonical relative text",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:482",
+      "id": "M008",
+      "killing_tests": [
+        "tests/test_inventory_review.py::test_valid_utf8_path_survives_ascii_filesystem_locale",
+        "tests/test_inventory_review.py::test_valid_utf8_path_rendering_is_filesystem_locale_independent",
+        "tests/test_inventory_review.py::test_valid_utf8_unicode_whitespace_parses_in_ascii_locale",
+        "tests/test_inventory_review.py::test_valid_utf8_c1_keeps_control_precedence_in_ascii_locale",
+        "tests/test_inventory_predicates.py::test_build_assets_parses_canonical_relative_text",
+        "tests/test_inventory_predicates.py::test_discover_paths_returns_canonical_relative_text",
+        "tests/test_inventory_predicates.py::test_build_assets_classifies_canonical_relative_text"
+      ],
+      "mutation": "relative path canonicalization returns locale-decoded text unchanged",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:528",
+      "id": "M009",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_discover_paths_returns_canonical_relative_text"
+      ],
+      "mutation": "the independent discovery walk returns locale-decoded paths",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:537",
+      "id": "M010",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_build_assets_parses_canonical_relative_text",
+        "tests/test_inventory_predicates.py::test_build_assets_classifies_canonical_relative_text"
+      ],
+      "mutation": "classification runs before canonical relative-path decoding",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:498",
+      "id": "M011",
+      "killing_tests": [
+        "tests/test_inventory.py::test_path_rendering_is_injective_and_non_utf8_names_are_excluded",
+        "tests/test_inventory.py::test_exclusion_first_match_precedence_is_pinned",
+        "tests/test_inventory_review.py::test_valid_utf8_path_survives_ascii_filesystem_locale",
+        "tests/test_inventory_review.py::test_valid_utf8_unicode_whitespace_parses_in_ascii_locale",
+        "tests/test_inventory_review.py::test_valid_utf8_c1_keeps_control_precedence_in_ascii_locale",
+        "tests/test_inventory_predicates.py::test_build_assets_parses_canonical_relative_text",
+        "tests/test_inventory_predicates.py::test_build_assets_classifies_canonical_relative_text"
+      ],
+      "mutation": "classification strictly decodes canonical text a second time",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:945",
+      "id": "M012",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_extension_case_redacts_unrecognized_suffixes",
+        "tests/test_inventory_review.py::test_census_redacts_unsupported_extension_text"
+      ],
+      "mutation": "extension_case publishes every raw suffix",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:944",
+      "id": "M013",
+      "killing_tests": [
+        "tests/test_inventory.py::test_extension_case_redacts_unrecognized_suffixes"
+      ],
+      "mutation": "extension_case maps an absent suffix to unsupported",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:945",
+      "id": "M014",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes",
+        "tests/test_inventory.py::test_extension_case_redacts_unrecognized_suffixes"
+      ],
+      "mutation": "extension_case folds recognized suffix case",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:945",
+      "id": "M015",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_extension_case_redacts_unrecognized_suffixes",
+        "tests/test_inventory_review.py::test_census_redacts_unsupported_extension_text"
+      ],
+      "mutation": "extension_case merges unsupported and absent suffixes",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:770",
+      "id": "M016",
+      "killing_tests": [
+        "tests/test_inventory_review.py::test_capture_fps_aggregates_are_member_order_independent",
+        "tests/test_inventory_predicates.py::test_capture_fps_is_unknown_when_any_member_is_nonfinite"
+      ],
+      "mutation": "capture FPS min/max aggregate raw values including non-finite members",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:770",
+      "id": "M017",
+      "killing_tests": [
+        "tests/test_inventory_review.py::test_capture_fps_aggregates_are_member_order_independent",
+        "tests/test_inventory_predicates.py::test_capture_fps_is_unknown_when_any_member_is_nonfinite"
+      ],
+      "mutation": "capture FPS is considered known when any member is finite",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:770",
+      "id": "M018",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_capture_fps_is_unknown_when_any_member_is_nonfinite"
+      ],
+      "mutation": "capture FPS silently drops non-finite members",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:771",
+      "id": "M019",
+      "killing_tests": [
+        "tests/test_inventory.py::test_degenerate_container_facts_flag_without_changing_disposition[fps-nonfinite]",
+        "tests/test_inventory.py::test_fact_flags_are_closed_deduplicated_and_lexicographically_sorted",
+        "tests/test_inventory.py::test_shape_histogram_counts_rendered_nan_keys",
+        "tests/test_inventory_review.py::test_capture_fps_aggregates_are_member_order_independent",
+        "tests/test_inventory_predicates.py::test_capture_fps_is_unknown_when_any_member_is_nonfinite"
+      ],
+      "mutation": "capture FPS minimum uses raw values while other fields blank",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:772",
+      "id": "M020",
+      "killing_tests": [
+        "tests/test_inventory_review.py::test_capture_fps_aggregates_are_member_order_independent",
+        "tests/test_inventory_predicates.py::test_capture_fps_is_unknown_when_any_member_is_nonfinite"
+      ],
+      "mutation": "capture FPS maximum uses raw values while other fields blank",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:789",
+      "id": "M021",
+      "killing_tests": [
+        "tests/test_inventory_review.py::test_capture_fps_aggregates_are_member_order_independent",
+        "tests/test_inventory_predicates.py::test_capture_fps_is_unknown_when_any_member_is_nonfinite"
+      ],
+      "mutation": "capture FPS spread uses raw values even when extrema are unknown",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1087",
+      "id": "M022",
+      "killing_tests": [
+        "tests/test_inventory_review.py::test_generation_validation_hashes_exact_table_bytes"
+      ],
+      "mutation": "generation validation hashes newline-normalized table text",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1075",
+      "id": "M023",
+      "killing_tests": [
+        "tests/test_inventory.py::test_validate_generation_detects_every_artifact_tamper"
+      ],
+      "mutation": "generation validation leaks malformed-JSON exceptions",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1075",
+      "id": "M024",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_validate_generation_wraps_invalid_utf8_census"
+      ],
+      "mutation": "generation validation leaks invalid-UTF-8 census exceptions",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1075",
+      "id": "M025",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_validate_generation_wraps_missing_census"
+      ],
+      "mutation": "generation validation leaks a missing-census OSError",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1088",
+      "id": "M026",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_validate_generation_wraps_table_read_oserror"
+      ],
+      "mutation": "table validation catches only FileNotFoundError",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1079",
+      "id": "M027",
+      "killing_tests": [
+        "tests/test_inventory.py::test_validate_generation_detects_every_artifact_tamper"
+      ],
+      "mutation": "generation validation accepts a non-object census",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1082",
+      "id": "M028",
+      "killing_tests": [],
+      "mutation": "generation validation checks captures before assets",
+      "pytest_returncode": 0,
+      "verdict": "SURVIVED"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1007",
+      "id": "M029",
+      "killing_tests": [
+        "tests/test_inventory_review.py::test_capture_membership_rejects_duplicate_and_omitted_assets"
+      ],
+      "mutation": "capture membership compares total sizes instead of multisets",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1007",
+      "id": "M030",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_capture_membership_rejects_an_extra_duplicate_member"
+      ],
+      "mutation": "capture membership compares sets instead of multisets",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1011",
+      "id": "M031",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_each_capture_contains_only_its_own_members"
+      ],
+      "mutation": "the per-capture member identifier check is removed",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:999",
+      "id": "M032",
+      "killing_tests": [
+        "tests/test_inventory.py::test_duplicate_capture_identifiers_are_rejected_directly"
+      ],
+      "mutation": "duplicate capture identifiers are not rejected",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1002",
+      "id": "M033",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_capture_coverage_rejects_an_extra_empty_row"
+      ],
+      "mutation": "capture coverage permits extra capture rows",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:972",
+      "id": "M034",
+      "killing_tests": [
+        "tests/test_inventory.py::test_invariant_failure_preserves_all_previous_artifact_bytes"
+      ],
+      "mutation": "asset identifier uniqueness is not checked",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:834",
+      "id": "M035",
+      "killing_tests": [
+        "tests/test_inventory.py::test_shape_histogram_counts_rendered_nan_keys",
+        "tests/test_inventory_review.py::test_shape_histogram_counts_every_nan_fps_asset"
+      ],
+      "mutation": "shape histogram counts raw tuples before rendering keys",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:950",
+      "id": "M036",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes",
+        "tests/test_inventory.py::test_shape_histogram_counts_rendered_nan_keys",
+        "tests/test_inventory.py::test_reported_fourcc_preserves_a_trailing_space",
+        "tests/test_inventory_review.py::test_shape_histogram_counts_every_nan_fps_asset"
+      ],
+      "mutation": "shape histogram keys omit rotation",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:950",
+      "id": "M037",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes",
+        "tests/test_inventory.py::test_shape_histogram_counts_rendered_nan_keys",
+        "tests/test_inventory.py::test_reported_fourcc_preserves_a_trailing_space",
+        "tests/test_inventory_review.py::test_shape_histogram_counts_every_nan_fps_asset"
+      ],
+      "mutation": "shape histogram keys omit FOURCC",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:950",
+      "id": "M038",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes",
+        "tests/test_inventory.py::test_reported_fourcc_preserves_a_trailing_space"
+      ],
+      "mutation": "shape histogram FPS keys round to one decimal",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:950",
+      "id": "M039",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes",
+        "tests/test_inventory.py::test_shape_histogram_counts_rendered_nan_keys",
+        "tests/test_inventory.py::test_reported_fourcc_preserves_a_trailing_space",
+        "tests/test_inventory_review.py::test_shape_histogram_counts_every_nan_fps_asset"
+      ],
+      "mutation": "shape histogram keys use raw tuple repr",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/video_io.py:236",
+      "id": "M040",
+      "killing_tests": [
+        "tests/test_inventory.py::test_probe_exceptions_become_open_failed_rows"
+      ],
+      "mutation": "probe constructor exceptions escape",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/video_io.py:254",
+      "id": "M041",
+      "killing_tests": [
+        "tests/test_inventory.py::test_probe_acquisition_exceptions_become_open_failed[is_opened]",
+        "tests/test_inventory.py::test_probe_acquisition_exceptions_become_open_failed[get]",
+        "tests/test_inventory_review.py::test_probe_container_contains_backend_lifecycle_exceptions[is_opened-open_failed]"
+      ],
+      "mutation": "probe property and isOpened exceptions escape",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/video_io.py:261",
+      "id": "M042",
+      "killing_tests": [
+        "tests/test_inventory.py::test_probe_release_exception_keeps_opened_facts",
+        "tests/test_inventory_review.py::test_probe_container_contains_backend_lifecycle_exceptions[is_opened-open_failed]",
+        "tests/test_inventory_review.py::test_probe_container_contains_backend_lifecycle_exceptions[closed_release-open_failed]",
+        "tests/test_inventory_review.py::test_probe_container_contains_backend_lifecycle_exceptions[opened_release-opened]"
+      ],
+      "mutation": "probe release exceptions escape",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/video_io.py:241",
+      "id": "M043",
+      "killing_tests": [
+        "tests/test_inventory.py::test_probe_and_parse_run_independently_for_every_file",
+        "tests/test_inventory.py::test_normalization_row_trace_and_census_aggregates_are_identical",
+        "tests/test_inventory.py::test_census_uses_orientation_readback_from_the_first_opened_asset",
+        "tests/test_inventory.py::test_backend_name_is_the_sorted_observed_opened_set",
+        "tests/test_inventory.py::test_excluded_parses_cannot_change_canonical_identity_or_conflicts",
+        "tests/test_inventory_review.py::test_probe_container_contains_backend_lifecycle_exceptions[closed_release-open_failed]"
+      ],
+      "mutation": "probe ignores a false isOpened result",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/video_io.py:236",
+      "id": "M044",
+      "killing_tests": [
+        "tests/test_inventory.py::test_probe_exceptions_become_open_failed_rows"
+      ],
+      "mutation": "probe constructor catches only OSError",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:608",
+      "id": "M045",
+      "killing_tests": [
+        "tests/test_inventory.py::test_symlinks_are_excluded_without_duplicate_fixity_or_membership",
+        "tests/test_inventory_review.py::test_symlink_exclusions_do_not_read_or_count_target_bytes"
+      ],
+      "mutation": "size accounting follows symlinks",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:608",
+      "id": "M046",
+      "killing_tests": [
+        "tests/test_inventory.py::test_symlinks_are_excluded_without_duplicate_fixity_or_membership",
+        "tests/test_inventory_review.py::test_symlink_exclusions_do_not_read_or_count_target_bytes"
+      ],
+      "mutation": "size accounting publishes a symlink inode size",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:610",
+      "id": "M047",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_size_lookup_oserror_does_not_escape",
+        "tests/test_inventory_predicates.py::test_failed_size_lookup_publishes_a_blank_cell_not_zero"
+      ],
+      "mutation": "size lookup OSError escapes",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:610",
+      "id": "M048",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_failed_size_lookup_publishes_a_blank_cell_not_zero"
+      ],
+      "mutation": "size lookup OSError becomes a zero byte fact",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/video_io.py:202",
+      "id": "M049",
+      "killing_tests": [
+        "tests/test_inventory.py::test_reported_fourcc_preserves_a_trailing_space",
+        "tests/test_inventory_review.py::test_fourcc_preserves_printable_space_bytes",
+        "tests/test_inventory_predicates.py::test_fourcc_keeps_printable_spaces_but_rejects_controls"
+      ],
+      "mutation": "FOURCC text strips both ends",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/video_io.py:202",
+      "id": "M050",
+      "killing_tests": [
+        "tests/test_inventory.py::test_reported_fourcc_preserves_a_trailing_space",
+        "tests/test_inventory_review.py::test_fourcc_preserves_printable_space_bytes",
+        "tests/test_inventory_predicates.py::test_fourcc_keeps_printable_spaces_but_rejects_controls"
+      ],
+      "mutation": "FOURCC text strips its right edge",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/video_io.py:201",
+      "id": "M051",
+      "killing_tests": [
+        "tests/test_inventory.py::test_exact_artifact_schema_identity_and_order",
+        "tests/test_inventory.py::test_header_probe_sets_orientation_reads_raw_facts_and_never_decodes",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes",
+        "tests/test_inventory.py::test_shape_histogram_counts_rendered_nan_keys",
+        "tests/test_inventory.py::test_reported_fourcc_preserves_a_trailing_space",
+        "tests/test_inventory_review.py::test_fourcc_preserves_printable_space_bytes",
+        "tests/test_inventory_predicates.py::test_fourcc_keeps_printable_spaces_but_rejects_controls"
+      ],
+      "mutation": "FOURCC bytes decode in reverse order",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/video_io.py:202",
+      "id": "M052",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_fourcc_keeps_printable_spaces_but_rejects_controls"
+      ],
+      "mutation": "FOURCC publishes unprintable bytes",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/video_io.py:202",
+      "id": "M053",
+      "killing_tests": [
+        "tests/test_inventory.py::test_exact_artifact_schema_identity_and_order",
+        "tests/test_inventory.py::test_header_probe_sets_orientation_reads_raw_facts_and_never_decodes",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes",
+        "tests/test_inventory.py::test_shape_histogram_counts_rendered_nan_keys",
+        "tests/test_inventory.py::test_reported_fourcc_preserves_a_trailing_space",
+        "tests/test_inventory_review.py::test_fourcc_preserves_printable_space_bytes",
+        "tests/test_inventory_predicates.py::test_fourcc_keeps_printable_spaces_but_rejects_controls"
+      ],
+      "mutation": "FOURCC truncates to three characters",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1060",
+      "id": "M054",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_digest_round_trip_uses_string_key_order"
+      ],
+      "mutation": "census self-digest uses one render instead of a JSON round trip",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1055",
+      "id": "M055",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes",
+        "tests/test_inventory.py::test_census_digest_round_trip_uses_string_key_order"
+      ],
+      "mutation": "census self-digest empties generation in its body",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1055",
+      "id": "M056",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes",
+        "tests/test_inventory.py::test_census_digest_round_trip_uses_string_key_order"
+      ],
+      "mutation": "census self-digest omits generation from its body",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1055",
+      "id": "M057",
+      "killing_tests": [
+        "tests/test_inventory.py::test_validate_generation_detects_every_artifact_tamper",
+        "tests/test_inventory.py::test_publication_uses_pid_staging_and_replaces_census_last",
+        "tests/test_inventory.py::test_census_digest_round_trip_uses_string_key_order",
+        "tests/test_inventory_review.py::test_generation_validation_hashes_exact_table_bytes"
+      ],
+      "mutation": "census self-digest includes its own generation key",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1028",
+      "id": "M058",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes",
+        "tests/test_inventory.py::test_census_digest_round_trip_uses_string_key_order"
+      ],
+      "mutation": "JSON rendering drops key sorting",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1028",
+      "id": "M059",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes",
+        "tests/test_inventory.py::test_census_digest_round_trip_uses_string_key_order"
+      ],
+      "mutation": "JSON rendering drops the trailing newline",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1161",
+      "id": "M060",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_validate_generation_detects_every_artifact_tamper",
+        "tests/test_inventory.py::test_publication_uses_pid_staging_and_replaces_census_last",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes"
+      ],
+      "mutation": "publication omits the census self-digest key",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:1060",
+      "id": "M061",
+      "killing_tests": [
+        "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes",
+        "tests/test_inventory.py::test_census_digest_round_trip_uses_string_key_order"
+      ],
+      "mutation": "census self-digest hashes compact normalized JSON",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:996",
+      "id": "M062",
+      "killing_tests": [
+        "tests/test_inventory.py::test_mixed_orientation_readbacks_abort_before_publication"
+      ],
+      "mutation": "mixed orientation-auto readbacks are accepted",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:566",
+      "id": "M063",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_unreadable_probe_outranks_grammar_quarantine"
+      ],
+      "mutation": "grammar quarantine outranks an unreadable probe",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:567",
+      "id": "M064",
+      "killing_tests": [
+        "tests/test_inventory.py::test_disposition_partition_and_closed_reason_vocabulary",
+        "tests/test_inventory.py::test_probe_and_parse_run_independently_for_every_file",
+        "tests/test_inventory.py::test_normalization_row_trace_and_census_aggregates_are_identical",
+        "tests/test_inventory.py::test_excluded_parses_cannot_change_canonical_identity_or_conflicts",
+        "tests/test_inventory.py::test_probe_exceptions_become_open_failed_rows",
+        "tests/test_inventory.py::test_probe_acquisition_exceptions_become_open_failed[is_opened]",
+        "tests/test_inventory.py::test_probe_acquisition_exceptions_become_open_failed[get]",
+        "tests/test_inventory_predicates.py::test_unreadable_probe_outranks_grammar_quarantine"
+      ],
+      "mutation": "an unreadable probe is classified as a read error",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:370",
+      "id": "M065",
+      "killing_tests": [
+        "tests/test_inventory.py::test_disposition_partition_and_closed_reason_vocabulary",
+        "tests/test_inventory.py::test_repeat_marker_edge_cases_preserve_the_marker_integer",
+        "tests/test_inventory.py::test_adversarial_filename_surfaces_follow_the_closed_grammar"
+      ],
+      "mutation": "tokenization uses maxsplit and accepts an extra token as side text",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:635",
+      "id": "M066",
+      "killing_tests": [
+        "tests/test_inventory.py::test_subject_directory_conflicts_quarantine_every_parsed_asset"
+      ],
+      "mutation": "subject conflicts quarantine only one directory",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:260",
+      "id": "M067",
+      "killing_tests": [
+        "tests/test_inventory.py::test_excluded_parses_cannot_change_canonical_identity_or_conflicts",
+        "tests/test_inventory.py::test_tiny_corpus_artifacts_match_exact_contract_bytes"
+      ],
+      "mutation": "every capture is marked as a view conflict",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:922",
+      "id": "M068",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_view_coverage_counts_distinct_views_not_assets"
+      ],
+      "mutation": "view coverage counts assets instead of distinct views",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:585",
+      "id": "M069",
+      "killing_tests": [
+        "tests/test_inventory.py::test_adversarial_filename_surfaces_follow_the_closed_grammar"
+      ],
+      "mutation": "asset rows sort case-insensitively instead of by code point",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:67",
+      "id": "M070",
+      "killing_tests": [
+        "tests/test_inventory.py::test_normalization_steps_are_individually_observable[N9-grass]",
+        "tests/test_inventory.py::test_normalization_steps_compose_in_the_fixed_order",
+        "tests/test_inventory.py::test_normalization_row_trace_and_census_aggregates_are_identical",
+        "tests/test_inventory.py::test_parse_result_depends_only_on_filename_and_subject_crosscheck",
+        "tests/test_inventory.py::test_read_error_is_post_parse_and_keeps_its_normalization_trace",
+        "tests/test_inventory.py::test_exclusion_first_match_precedence_is_pinned"
+      ],
+      "mutation": "the observed grass-to-glass repair is removed",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:305",
+      "id": "M071",
+      "killing_tests": [
+        "tests/test_inventory_predicates.py::test_n2_lowercases_without_compatibility_folding"
+      ],
+      "mutation": "normalization uses casefold instead of lower",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "file_line": "src/pose_estimation/inventory.py:334",
+      "id": "M072",
+      "killing_tests": [
+        "tests/test_inventory.py::test_repeat_marker_edge_cases_preserve_the_marker_integer"
+      ],
+      "mutation": "repeat marker zero is accepted as a consumed marker",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    }
+  ],
+  "schema_version": 1,
+  "target_sha256": {
+    "src/pose_estimation/inventory.py": "96a6d0c928f4574ada4999473e27298cc3a7a59f82e7d758d035b2dc506e87ef",
+    "src/pose_estimation/video_io.py": "fa3572b4bf6e7ba5412771f9aecf2c2629ee56da835169eb9be705ff7fa9c28d"
+  },
+  "test_command": "python -m pytest -q tests/test_inventory.py tests/test_inventory_review.py tests/test_inventory_predicates.py",
+  "tested_head": "9bccfe29c075753c0d315b62eae55393981b4871"
+}
