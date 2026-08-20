@@ -191,9 +191,22 @@ def _measure_csv(csv_path: pathlib.Path, tracking: str, decoded_frames: int) -> 
 def build_manifest(args: argparse.Namespace) -> dict:
     csv_dir = pathlib.Path(args.csv_dir)
     videos_dir = pathlib.Path(args.videos_dir)
+    if not videos_dir.is_dir():
+        raise SystemExit(
+            f"No directory is at {videos_dir}. Set --videos-dir to the directory that holds "
+            "the source videos."
+        )
     sources = {
         p.stem: p for p in sorted(videos_dir.iterdir()) if p.suffix.lower() in VIDEO_SUFFIXES
     }
+    # Every per-video record would read source_present=false and decoded_frames=0, so the
+    # manifest would render as a provenance record of nothing.  A source tree reorganised
+    # under the given root is the likely cause, so fail before writing that.
+    if not sources:
+        raise SystemExit(
+            f"No video files are in {videos_dir}. Set --videos-dir to the directory that holds "
+            "the source videos."
+        )
 
     records = []
     for ordinal, csv_path in enumerate(sorted(csv_dir.glob("*.csv")), 1):
@@ -292,7 +305,11 @@ def main(argv: list[str] | None = None) -> int:
         description="Generate a provenance manifest and coverage QA for a produced pose-CSV batch."
     )
     p.add_argument("csv_dir", help="Read the produced per-video CSVs from this directory.")
-    p.add_argument("--videos-dir", default="videos", help="Read source videos from this directory.")
+    p.add_argument(
+        "--videos-dir",
+        default="videos",
+        help="Read source videos from this directory. The search is not recursive.",
+    )
     p.add_argument("--tracking", default="body", choices=["hands", "hands-arms", "body"])
     p.add_argument("--model", default="rtmw-l")
     p.add_argument("--backend", default="openvino")
