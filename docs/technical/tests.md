@@ -54,6 +54,7 @@ All tests live in `tests/`. Run with `uv run pytest`. Pytest is configured stric
 | File | Covers |
 |------|--------|
 | `tests/test_inventory.py` | Covers the grammar, eight normalization traces, dispositions, exclusion precedence, family identities, all three artifact schemas, determinism, and hostile inputs. It also covers no-decode probes, full-byte fixity, backend provenance, path redaction, and three-artifact generation validation. |
+| `tests/test_sessions.py` | Covers the 18 acceptance predicates of the session generator: placement conservation over every registry row, event-identity type safety and its two-digit grammar, take resolution for view-conflict families, discovery and `--list-sessions` agreement, byte-identical regeneration across locale, hash seed, time zone and output name, idempotency with stale removal, every generation tamper class, the closed marker schema, registry-first validation, synthetic escaped-path decoding, symlink extension and containment, console and manifest redaction, the two-rename publication swap, the instrumented no-corpus-listing proof, and marker-shaped output ownership. |
 | `tests/test_public_api.py` | Stability of the package-level re-exports in `pose_estimation/__init__.py`. |
 | `tests/test_models_checksum.py` | Model download URLs + checksums (guards against silent registry drift). |
 | `tests/test_benchmark_config.py` | YAML sweep config parsing. |

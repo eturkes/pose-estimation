@@ -422,7 +422,7 @@ def _placement_rows(placements: list[Placement]) -> list[dict[str, str]]:
     return [dataclasses.asdict(p) for p in placements]
 
 
-def tree_digest(out_dir: pathlib.Path) -> str:
+def tree_digest(out_dir: str | os.PathLike[str]) -> str:
     """Digest every entry under *out_dir* except the marker that will carry it.
 
     Covers each relative name, each entry's kind, each symbolic link's exact
@@ -450,7 +450,7 @@ def tree_digest(out_dir: pathlib.Path) -> str:
         else:
             lines.append(f"{label}\tfile\t{hashlib.sha256(entry.read_bytes()).hexdigest()}\n")
 
-    for entry in sorted(out_dir.iterdir()):
+    for entry in sorted(pathlib.Path(out_dir).iterdir()):
         # A document cannot digest itself; everything else in the tree is fair
         # game, including a file nobody explained.
         if entry.name != GENERATION_FILENAME:
