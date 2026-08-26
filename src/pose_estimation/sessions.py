@@ -298,6 +298,11 @@ def plan(
                 "A family holds two assets in one view without a registry view conflict."
             )
         groups = [[c] for c in cameras] if conflict else [sorted(cameras, key=lambda c: c.view)]
+        if len(groups) > 99:
+            # The published grammar is exactly two digits, so a wider index
+            # would emit an id the consumer's own pattern rejects.  Refusing
+            # beats printing a key that fails the check this module advertises.
+            raise SessionsError("A family needs more run indices than the two-digit grammar holds.")
         for run_index, group in enumerate(groups, start=1):
             row = by_asset[group[0].asset_id]
             event_id = f"{capture_id}_run-{run_index:02d}"
@@ -463,18 +468,28 @@ def _build(
 
 
 def _assert_owned(out_dir: pathlib.Path) -> None:
-    """Refuse a non-empty destination this tool did not publish."""
+    """Refuse a non-empty destination this tool did not publish.
+
+    Ownership is the marker's *shape*, never its digests: a tree whose
+    digests went stale must stay regenerable, while a foreign or corrupt
+    marker must not license deleting someone else's directory.
+    """
     if not out_dir.exists():
         return
     if not out_dir.is_dir():
         raise SessionsError("The output path exists and is not a directory.")
     if not any(out_dir.iterdir()):
         return
-    if not (out_dir / GENERATION_FILENAME).is_file():
-        raise SessionsError(
-            "The output directory is not empty and carries no generation marker. "
-            "Publishing would delete a directory this tool does not own."
-        )
+    refusal = SessionsError(
+        "The output directory is not empty and carries no generation marker this tool wrote. "
+        "Publishing would delete a directory this tool does not own."
+    )
+    try:
+        marker = json.loads((out_dir / GENERATION_FILENAME).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise refusal from error
+    if not isinstance(marker, dict) or "generator_version" not in marker:
+        raise refusal
 
 
 def run(

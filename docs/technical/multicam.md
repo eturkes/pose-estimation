@@ -24,6 +24,8 @@ output/<session_id>/
 
 Per-camera CSV columns are unchanged from the single-source schema (`tracking-modes.md`).
 
+A hand-authored directory is one way to reach this layout. The corpus reaches it through `pose-estimation-sessions`, which publishes `sessions/<event_id>/` with one `cam-<view>` symbolic link per camera and one generated manifest. Discovery treats both trees identically. See `sessions.md`.
+
 ### `world3d.csv` schema
 
 Written by `export.write_world3d_csv` (header from
@@ -156,4 +158,5 @@ footage were opened or used to establish accuracy.
 - R consumption of `world3d.csv` (gating, 3D features): `analysis.md`
 - Per-camera tracking modes: `tracking-modes.md`
 - CLI surface: `entrypoints.md`
+- Generated session trees (event grain, take resolution, placement ledger): `sessions.md`
 - Tests: `tests.md` (`test_multicam.py`, `test_calibration.py`, `test_charuco.py`, `test_calibration_cli.py`)
