@@ -40,6 +40,7 @@
 - A gate backing a durable claim must rerun from committed state; scratch-local validator = temporary encoding → record its regeneration path in `.agent/memory.md` + schedule the port.
 - Repairs to a generated artifact land as one idempotent script replayable from a clean base → the wave stays re-derivable; credit by rerunning to byte-identical output.
 - Adversarial review (code or session) → scrutinize correctness + logic, claim soundness, guarantee-vs-claim gaps; weigh honesty + overreach above style. Report every issue, incl. uncertain/low-severity; I filter findings.
+- Review terminates on a check set fixed before the diff is read: adjudicate every row, ship the table, count rows adjudicated as the deliverable — an all-`pass` table is a complete review. Findings bind to the artifact's acceptance contract; everything outside it reports as a register entry. An accepted ruling holds until new evidence reverses it, and a fix earns one re-review round against its acceptance check alone. Model opinion drifts run to run, so an open-ended review→fix loop flip-flops, creeps scope + injects defects — the fixed set + evidence bar are what make it converge.
 - Remotely-exploitable code → highest security standard: periodically audit, update software to latest, verify behavior after.
 
 ## Claude Code

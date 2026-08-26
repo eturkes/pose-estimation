@@ -1,10 +1,10 @@
 # Polish register
 
-Deferred off-spine improvements + data-tier remediation. Rows are born at deferral time in whatever session finds them (acceptance check written there, while the evidence is fresh); `/session-polish` is the sole consumer — stateless, any order, no milestone coupling.
+Deferred off-spine improvements + data-tier remediation. Rows are born at deferral time in whatever session finds them (acceptance check written there, while the evidence is fresh). A review's out-of-contract register entries + rows left unadjudicated when MAIN closes at context reserve enter the same way, `why` prefixed `unruled:` — MAIN sized those rows without judging the finding. `/session-polish` is the sole consumer — stateless, any order, no milestone coupling.
 
 Row schema — `pri` 1 (highest) … 3 · `size` S ≤15% window | M ≤35% | L = session · `where` = `file:line` or artifact · `why` = evidence pointer (SHA, run output, finding id) · `acceptance` = the check that must run green under MAIN's own rerun.
 
-Lifecycle — done ⇒ prune the row in the same `<scope> (polish): …` commit · dead evidence pointer or acceptance check ⇒ append `stale(<why>)` in place, next `/session-roadmap` session re-rules it · item implying spine work ⇒ move it to `spine?` below + report to the user.
+Lifecycle — done ⇒ prune the row in the same `<scope> (polish): …` commit · dead evidence pointer or acceptance check ⇒ append `stale(<why>)` in place, next `/session-roadmap` session re-rules it · `unruled:` row ⇒ test the finding against its evidence pointer before any edit, and a finding that fails is pruned with its disproof in the commit body rather than implemented · item implying spine work ⇒ move it to `spine?` below + report to the user.
 
 Items run inside the artifact's existing assurance tier; tier raises, new units + scope-source changes belong to `/session-roadmap`.
 
