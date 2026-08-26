@@ -43,6 +43,7 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 
 - The container + host share the checkout through different absolute paths, so uv environments are layer-specific. Container work uses `.venv`; host work uses `.venv-host`. Recreate the matching environment after a move; repair text shebang/activation/editable-path metadata only when offline, and regenerate binary/cache artifacts.
 - **Source the accelerator env before any in-container OpenVINO run** (`CLAUDE.local.md` → `~/agents/docs/openvino.md`). The inherited `PYTHONPATH` selects the *host* OpenVINO build, which needs glibc 2.43 and raises `ImportError: … GLIBC_2.43 not found` in the container — a loud failure, not a CPU fallback. Sourcing prepends the container build. Stripping the env entirely (`env -u PYTHONPATH -u LD_LIBRARY_PATH`) falls back to the `.venv` pip wheel at `['CPU']`, which is what a generic checkout gets. Confirm with `openvino.Core().available_devices` in the correct uv environment.
+- **The same leak kills a PRIMARY-tree gate run, not just a worktree one.** `tests/conftest.py` imports `pose_estimation` → `openvino`, so a bare `uv run --no-sync pytest` in the primary tree dies at `ImportError … GLIBC_2.43 not found` before collecting a single test. `PYTHONPATH="$PWD/src"` belongs in front of **every** gate invocation in both trees — the worktree recipe's `PYTHONPATH` export was doing double duty and hid this.
 
 ## Device placement — detector vs pose
 

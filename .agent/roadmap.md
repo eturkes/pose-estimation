@@ -42,7 +42,27 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.6 | Calibration recovery | Per-recording-event extrinsics by the route M2.3 rules, with held-out reprojection acceptance and explicit scale provenance. |
 | M2.7 | Gated fusion + corpus study | Fusion over qualified recording events, reprojection/gap/throughput/stability/repeatability evidence, claim-bounded report, prospective-capture specification, de-identified regression fixtures. |
 
-**Unit status.** M2.1 and M2.2 DONE. M2.3-M2.4 OPEN. M2.3 is the milestone's decision point; M2.4 stands independent of its ruling, so dispatch order is simply lowest-open. M2.5, M2.6, M2.7 **BLOCKED on M2.3's ruling** — their shape, and whether M2.6 exists at all, is what that ruling decides.
+**Unit status.** M2.1 and M2.2 DONE. **M2.3 OPEN, one window spent on evidence, nothing shipped yet** (see *M2.3 in flight* below). M2.4 OPEN and independent of M2.3's ruling. M2.5, M2.6, M2.7 **BLOCKED on M2.3's ruling** — their shape, and whether M2.6 exists at all, is what that ruling decides.
+
+### M2.3 in flight
+
+Contract frozen at `.agent/archive/contract-m2u3.md` — 29 predicates, 4 invariant surfaces, gate identity, an 8-class probe-corpus seed, and 5 open rulings R1-R5. Live state, roster and successor pointers: `.scratch/agents/main-checkpoint-m2u3.md`, `.scratch/agents/roster.md`.
+
+**Sizing overrun, recorded for PLANNING.** One full MAIN window (`main=` 87% 209K/240K at close of window 1) bought tooling, the whole metadata axis, two competing offset spikes, the cross-modality cross-check and the contract — and shipped one commit, `1ae599c`, which adds a dependency. The tool, its suite, the remaining four evidence axes and the ruling are all still ahead. M2.3 as planned is a **multi-window unit like M2.1 and M2.2**, and the reason is visible in the contract: 29 predicates over six independent evidence axes, four of which need their own measurement pipeline.
+
+**Settled by measurement** (redaction-safe aggregates, `.scratch/m2u3/*_agg.json`, from committed PyAV):
+
+- **No camera intrinsics metadata exists anywhere in the corpus.** Every `mebx` key over all 1010 timed-metadata tracks: `video-orientation` (376 files), `live-photo-info` (376), `detected-face` + sub-keys (135), `segment-identifier` (123). Intrinsics can only come from a per-model prior — `iPad (5th generation)` fx ≈ 1873.3 px, `iPad Air 11-inch (M2)` fx ≈ 1553.2 px, 4:3→16:9 crop 1.08947×, readout/stabilisation factor unreported — or from self-calibration.
+- **The cameras are 2 iPad models over 4 (model, OS) configurations, about 3 tablets, and the `above` and `left` labels were served by different tablets in two eras.** `right` = iPad(5)/16.7 on all 131 assets. Every 3-view family draws from 3 distinct configurations; every subject used exactly 3. Codec tracks device: h264 = iPad(5), hevc = iPad Air. 48 kHz audio = iPad Air/26.5 exactly, so 55 of 137 multi-view families mix audio sample rates.
+- **Every canonical asset carries mono AAC audio**, so the audio route covers the whole corpus.
+- **Cross-view offsets are recoverable.** Audio: 210/246 pairs accepted, confidence ROC AUC 0.96083, 2 false positives per 100 held-out controls, 122/137 multi-view families graph-connected, **35/35 accepted three-view triangles close under one 33.4 ms frame (median 4.451 ms)**, full-corpus cold run 8.256 s. An independent visual motion-energy estimator sharing no code and no signal accepts 67/246 and **agrees with audio to median 10.86 ms, 88.3% within one frame, on the 60 pairs both accept**. No drift term is needed: 0/132 qualified audio drifts move alignment by more than one frame.
+- **Closure is blind to acoustic-path bias** — propagation delays form an exact cocycle around a triangle — so closure certifies self-consistency, never accuracy. The cross-modality number is the only accuracy statistic this corpus yields, and its magnitude matches the 6-9 ms acoustic bias expected at these camera separations.
+- **7 assets change device orientation mid-clip**, which the single display matrix cv2 applies on decode cannot express; 3 assets carry no orientation track at all.
+- `com.apple.quicktime.creationdate` is a **coarse sanity check, not an alignment prior**: whole-second, and residuals against measured offsets show multi-second per-tablet clock biases fitting neither a recording-start nor a file-finalize hypothesis.
+- **123 assets carry GPS coordinates** (`location.ISO6709`, the iPad Air files). Values never read. Flagged to the user as a data-boundary matter.
+- Device-side face metadata on 135 assets shows **7 assets ever holding more than one face**, so the one-subject assumption is not free.
+
+**Still open:** background rigidity at gate strength, view-label↔geometry agreement across the era boundary, per-event extrinsics feasibility (decides whether M2.6 exists), detectability, and the metric-scale-reference survey (decides whether participant anthropometrics get requested). Two `prod` teammates are measuring those in worktrees.
 
 | unit | close | gate (passed / skipped) | `main=` | `mate=` |
 | ---- | ----- | ----------------------- | ------- | ------- |
