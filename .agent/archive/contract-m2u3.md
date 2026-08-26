@@ -84,8 +84,12 @@ Each is testable and each earns at least one committed test. `P##` is the stable
 
 - **P14** The offset estimator is **audio-first**: measured acceptance 210/246 pairs, confidence
   ROC AUC 0.96083, 2 false positives per 100 held-out controls, full-corpus cold run 8.256 s
-  (audio:U6). The visual estimator is retained as a **corroborator**, not a fallback: 67/246
-  acceptance, AUC 0.761 (visual:U6).
+  (audio:U6). The visual estimator is retained as a **corroborator**, not a fallback: **74/246**
+  acceptance at its corrected control-optimal gate `f82a9a9` (`corr ≥ 0.72`, `conf ≥ 4`,
+  `ratio ≥ 1.10`), 0/200 held-out controls, 26/137 families, closure on 9/52 families with |r|
+  median 8.08 ms and max 34.12 ms. **Amended** — the frozen text read 67/246 with AUC 0.761, which
+  is the superseded pre-correction gate; that AUC was never re-derived against `f82a9a9` and must
+  not be quoted for the corrected gate.
 - **P15** `confidence` separates within-family pairs from cross-family controls; the committed
   threshold is the one whose held-out control false-positive rate is ≤ 2/100.
 - **P16** `closure_residual_s` is published per three-camera event and is **labelled a
@@ -93,9 +97,17 @@ Each is testable and each earns at least one committed test. `P##` is the stable
   cocycle around a triangle, so closure is blind to it by construction (main:F8). Any document that
   cites closure as evidence of sync accuracy is in breach of this predicate.
 - **P17** The accuracy statement rests on the cross-modality agreement instead: two estimators
-  sharing no code and no signal agree to **median 10.86 ms, 88.3% within one 33.4 ms frame** on the
-  60 pairs both accept (main, `join_spikes.py`). The published claim must quote that number with its
-  n and its subset definition.
+  sharing no code and no signal agree to **median 12.89 ms, 86.2% within one 33.4 ms frame, 41.5%
+  under 10 ms** on the **65** pairs both accept (p75 23.10 ms, p95 50.72 ms, max 74.8 ms; main,
+  `join_spikes.py` against the corrected visual gate `f82a9a9`). The published claim must quote that
+  number with its n and its subset definition. **Amended** — the frozen text read 10.86 ms / 88.3% /
+  n=60, computed against the visual spike's superseded 67/246 gate; that basis is labelled
+  superseded, not deleted, and the conclusion is unchanged.
+- **P17b** The corroborator's control result does not bound its gross-error rate. Of the 9 pairs the
+  visual estimator accepts and audio rejects, one disagrees by **87.4 s**, despite the visual gate
+  scoring 0/200 on held-out controls. The artifact therefore qualifies a pair on **agreement between
+  the two estimators**, never on either alone, and any pair accepted by exactly one carries a
+  `qc_flag`.
 - **P18** No rate/drift term is modelled. Measured: 0/132 qualified audio drifts move alignment by
   more than one frame over the pair's overlap (audio:U5); visual agrees, 0/15 at the 95% lower bound
   (visual:U5). Independent prior 16–31 ppm ⇒ 4.5–8.5 ms over the 274.8 s maximum clip (res2:Q2).
