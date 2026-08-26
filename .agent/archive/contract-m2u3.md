@@ -148,12 +148,17 @@ Each is testable and each earns at least one committed test. `P##` is the stable
   with Apple-mobile 1080p line-scan evidence of 12.4–30.9 ms (37–93% of one 30 Hz frame period)
   named explicitly as a proxy, not as a measurement of these devices (res2:Q7). Rolling shutter is
   not removed by synchronisation, and no document may call it negligible.
-- **P28** AAC encoder priming is a fixed, rate-dependent bias and the artifact accounts for it:
-  2112 samples = 47.891 ms at 44 100 Hz and 44.000 ms at 48 000 Hz, so a raw untrimmed mixed-rate
-  pair carries a fixed **3.891 ms** bias and a one-sided trim carries 44.000 or 47.891 ms
-  (res2:Q1). 55 of 137 multi-view families mix the two rates (main:F3). `pairs_qc.csv` records
-  `same_audio_rate` so the bias stratum is visible, and the estimator's priming handling is stated
-  in `docs/technical/qualification.md`.
+- **P28** AAC encoder priming reaches the estimator as a **measured 0 ms residual**, not as the
+  predicted bias. The prediction was rate-dependent: 2112 samples = 47.891 ms at 44 100 Hz and
+  44.000 ms at 48 000 Hz, so a raw untrimmed mixed-rate pair would carry a fixed **3.891 ms** bias
+  (res2:Q1), and 55 of 137 multi-view families mix the two rates (main:F3). The decode path
+  cancels it: skipped samples 2112 on 379/379 and first decoded PTS 0 on 379/379, because PyAV
+  honours the edit lists (`049684a`). Two independent checks agree that no rate bias survives —
+  decoder residual priming bias 0 ms, and a mixed-vs-same-rate residual difference of 54.1 ms
+  whose capture-clustered 10k bootstrap 95% CI **[-119.4, +171.1] ms** contains 0 and is two orders
+  wider than 3.891 ms. `pairs_qc.csv` still records `same_audio_rate` so the stratum stays visible
+  and the cancellation stays falsifiable, and `docs/technical/qualification.md` states the measured
+  residual rather than a correction the estimator does not apply.
 - **P29** Sync QC is stratified by `(model, OS, sample_rate)`, because exact iPad input-to-timestamp
   latency is unbenchmarked and a per-configuration constant is the only way an unmodelled device
   latency shows up as structure rather than as noise (res2:Q1).
