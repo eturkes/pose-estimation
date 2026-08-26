@@ -31,9 +31,10 @@ import pathlib
 import re
 import shutil
 import statistics
+import struct
 import sys
 from fractions import Fraction
-from typing import Any
+from typing import Any, BinaryIO
 
 import av
 
@@ -146,7 +147,27 @@ EVENT_INPUT_COLUMNS: tuple[str, ...] = (
 INTEGER_CELL = re.compile(r"[0-9]+")
 DECIMAL_CELL = re.compile(r"-?[0-9]+\.[0-9]+")
 FLAG_CELL = re.compile(r"[a-z0-9_]+(\|[a-z0-9_]+)*")
-DEVICE_CONFIG_CELL = re.compile(r"[A-Za-z0-9 ()._-]+")
+# The separator is part of the value: device_config is spelled "model/software".
+DEVICE_CONFIG_CELL = re.compile(r"[A-Za-z0-9 ()._-]+(/[A-Za-z0-9 ()._-]+)?")
+BOOLEAN_CELL = re.compile(r"[01]")
+CODE_LIST_CELL = re.compile(r"[0-9]+(\|[0-9]+)*")
+
+# Every generated cell whose spelling this tool owns.  Registry-derived identity
+# columns are absent: the registry generation already validated them, and
+# re-deciding their alphabet here would let this tool disagree with its input.
+ASSET_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
+    "subject_ordinal": INTEGER_CELL,
+    "device_config": DEVICE_CONFIG_CELL,
+    "frames_decoded": INTEGER_CELL,
+    "frames_reported": INTEGER_CELL,
+    "pts_dt_median_s": DECIMAL_CELL,
+    "pts_dt_p95_s": DECIMAL_CELL,
+    "pts_dt_max_s": DECIMAL_CELL,
+    "pts_monotonic": BOOLEAN_CELL,
+    "orientation_values": CODE_LIST_CELL,
+    "orientation_changes": INTEGER_CELL,
+    "qc_flags": FLAG_CELL,
+}
 
 DECODE_OK = "ok"
 DECODE_OPEN_FAILED = "open_failed"
@@ -203,6 +224,20 @@ class DecodeFacts:
     dt_p95_s: float | None
     dt_max_s: float | None
     monotonic: bool | None
+
+
+@dataclasses.dataclass(frozen=True)
+class OrientationFacts:
+    """One asset's device-orientation track.
+
+    ``present`` separates the two states an empty cell cannot: a track that was
+    read and a track that does not exist.  ``values`` holds the distinct codes
+    in ascending order, so a mid-clip rotation is visible as more than one.
+    """
+
+    present: bool
+    values: tuple[int, ...]
+    changes: int | None
 
 
 def _count_mismatch(asset: AssetRef, facts: DecodeFacts) -> bool:
@@ -318,6 +353,147 @@ def _device_config(container: av.container.InputContainer) -> str:
     return f"{model}/{software}".strip("/")
 
 
+def _atoms(stream: BinaryIO, end: int) -> list[tuple[bytes, int, int]]:
+    """Return ``(kind, body_start, atom_end)`` for each atom in ``[tell, end)``.
+
+    Size 1 means the real 64-bit size follows the header; size 0 means the atom
+    runs to the end of its parent.  A size that would leave its own header or
+    overrun the parent stops the walk rather than seeking to a computed offset,
+    because a truncated file must yield fewer atoms and never a wild read.
+    """
+    atoms: list[tuple[bytes, int, int]] = []
+    while stream.tell() + 8 <= end:
+        start = stream.tell()
+        header = stream.read(8)
+        if len(header) < 8:
+            break
+        size, kind = struct.unpack(">I4s", header)
+        body = start + 8
+        if size == 1:
+            extended = stream.read(8)
+            if len(extended) != 8:
+                break
+            (size,) = struct.unpack(">Q", extended)
+            body = start + 16
+        elif size == 0:
+            size = end - start
+        if size < body - start or start + size > end:
+            break
+        atoms.append((kind, body, start + size))
+        stream.seek(start + size)
+    return atoms
+
+
+def _declared_keys(payload: bytes) -> list[str]:
+    """Return the ``keyd`` key names declared in one ``stsd`` payload, in order.
+
+    Position is the identity: a timed-metadata sample names its key by the
+    1-based index of the declaration, never by the name itself.
+    """
+    keys: list[str] = []
+    offset = payload.find(b"keyd")
+    while offset >= 0:
+        if offset >= 4:
+            (size,) = struct.unpack(">I", payload[offset - 4 : offset])
+            if 12 <= size <= len(payload) - offset + 4:
+                keys.append(payload[offset + 8 : offset - 4 + size].decode("utf-8", "replace"))
+        offset = payload.find(b"keyd", offset + 4)
+    return keys
+
+
+def _metadata_key_maps(path: pathlib.Path) -> list[dict[int, str]]:
+    """Return one key-id to key-name map per timed-metadata track.
+
+    PyAV exposes the packets of a ``mebx`` track but not its key declarations,
+    so the ``moov`` atom is walked directly.  Only tracks whose handler is
+    ``meta`` are returned, in track order, which is the order PyAV reports the
+    corresponding non-audio non-video streams.
+    """
+    containers = {b"trak", b"mdia", b"minf", b"stbl", b"udta", b"meta"}
+    tracks: list[dict[int, str]] = []
+    with path.open("rb") as stream:
+        stream.seek(0, os.SEEK_END)
+        end = stream.tell()
+        stream.seek(0)
+        moov = next(((b, e) for kind, b, e in _atoms(stream, end) if kind == b"moov"), None)
+        if moov is None:
+            return tracks
+        stream.seek(moov[0])
+        for kind, start, stop in _atoms(stream, moov[1]):
+            if kind != b"trak":
+                continue
+            handler: bytes | None = None
+            keys: list[str] = []
+            stack = [(start, stop)]
+            while stack:
+                child_start, child_stop = stack.pop()
+                stream.seek(child_start)
+                for child_kind, body, child_end in _atoms(stream, child_stop):
+                    if child_kind in containers:
+                        stack.append((body, child_end))
+                    elif child_kind == b"hdlr":
+                        stream.seek(body)
+                        raw = stream.read(min(child_end - body, 24))
+                        # 'alis' is the file-alias handler every track carries; the
+                        # component subtype that names a metadata track sits at 8:12.
+                        if len(raw) >= 12 and raw[8:12] != b"alis":
+                            handler = raw[8:12]
+                    elif child_kind == b"stsd":
+                        stream.seek(body)
+                        keys.extend(_declared_keys(stream.read(child_end - body)))
+            if handler == b"meta":
+                tracks.append({index + 1: key for index, key in enumerate(keys)})
+    return tracks
+
+
+def _sample_entries(payload: bytes) -> list[tuple[int, bytes]]:
+    """Split one ``mebx`` packet into its ``(key_id, value)`` entries."""
+    entries: list[tuple[int, bytes]] = []
+    offset = 0
+    while offset + 8 <= len(payload):
+        size, key_id = struct.unpack(">II", payload[offset : offset + 8])
+        if size < 8 or offset + size > len(payload):
+            break
+        entries.append((key_id, payload[offset + 8 : offset + size]))
+        offset += size
+    return entries
+
+
+def probe_orientation(path: pathlib.Path) -> OrientationFacts:
+    """Read the device-orientation track, in presentation order.
+
+    The orientation an asset was shot at is a *track*, not a header constant:
+    a tablet rotated mid-recording emits a new sample, and a single rotation
+    applied to the whole clip is then wrong for part of it.  Publishing the
+    distinct values and the transition count keeps that visible; an asset with
+    no such track publishes an empty cell and keeps its unmeasured flag.
+    """
+    try:
+        maps = _metadata_key_maps(path)
+        values: list[int] = []
+        with av.open(str(path)) as container:
+            streams = [s for s in container.streams if s.type not in {"video", "audio"}]
+            by_index = {
+                stream.index: maps[index] if index < len(maps) else {}
+                for index, stream in enumerate(streams)
+            }
+            if not by_index:
+                return OrientationFacts(present=False, values=(), changes=None)
+            for packet in container.demux(streams):
+                if packet.size == 0:
+                    continue
+                key_map = by_index.get(packet.stream.index, {})
+                for key_id, value in _sample_entries(bytes(packet)):
+                    if key_map.get(key_id, "").endswith("video-orientation"):
+                        values.append(int.from_bytes(value, "big"))
+    except (av.FFmpegError, OSError, ValueError, struct.error):
+        return OrientationFacts(present=False, values=(), changes=None)
+    if not values:
+        return OrientationFacts(present=False, values=(), changes=None)
+    changes = sum(left != right for left, right in itertools.pairwise(values))
+    return OrientationFacts(present=True, values=tuple(sorted(set(values))), changes=changes)
+
+
 def probe_decode(path: pathlib.Path) -> DecodeFacts:
     """Measure one asset's presentation timebase by demuxing, never decoding.
 
@@ -388,7 +564,7 @@ def _percentile(values: list[float], fraction: float) -> float:
     return ordered[index]
 
 
-def _asset_flags(asset: AssetRef, facts: DecodeFacts) -> list[str]:
+def _asset_flags(asset: AssetRef, facts: DecodeFacts, orientation: OrientationFacts) -> list[str]:
     flags: list[str] = []
     if facts.status != DECODE_OK:
         flags.append(facts.status)
@@ -396,14 +572,21 @@ def _asset_flags(asset: AssetRef, facts: DecodeFacts) -> list[str]:
         flags.append("frame_count_mismatch")
     if facts.monotonic is False:
         flags.append("pts_reordered")
+    if not orientation.present:
+        flags.append("orientation_absent")
+    elif orientation.changes:
+        # A per-asset rotation constant is wrong for part of such a clip, so
+        # every downstream consumer that rotates whole assets must see this.
+        flags.append("orientation_changed")
     # Named per axis, so a consumer can tell "this asset failed the check" from
     # "this check has not run yet".  An empty cell alone cannot say which.
-    flags.extend(("orientation_unmeasured", "rigidity_unmeasured", "detect_unmeasured"))
-    flags.append("scale_unmeasured")
+    flags.extend(("rigidity_unmeasured", "detect_unmeasured", "scale_unmeasured"))
     return flags
 
 
-def _asset_row(asset: AssetRef, facts: DecodeFacts) -> dict[str, str]:
+def _asset_row(
+    asset: AssetRef, facts: DecodeFacts, orientation: OrientationFacts
+) -> dict[str, str]:
     measured = facts.status == DECODE_OK
     return {
         "asset_id": asset.asset_id,
@@ -423,8 +606,8 @@ def _asset_row(asset: AssetRef, facts: DecodeFacts) -> dict[str, str]:
         "pts_dt_p95_s": _decimal(facts.dt_p95_s),
         "pts_dt_max_s": _decimal(facts.dt_max_s),
         "pts_monotonic": _boolean(facts.monotonic),
-        "orientation_values": UNMEASURED,
-        "orientation_changes": UNMEASURED,
+        "orientation_values": "|".join(str(value) for value in orientation.values),
+        "orientation_changes": _integer(orientation.changes),
         "rigidity_stat": UNMEASURED,
         "rigidity_flag": UNMEASURED,
         "detect_rate": UNMEASURED,
@@ -432,8 +615,26 @@ def _asset_row(asset: AssetRef, facts: DecodeFacts) -> dict[str, str]:
         "subject_px_height_median": UNMEASURED,
         "scale_ref_class": UNMEASURED,
         "scale_ref_conf": UNMEASURED,
-        "qc_flags": "|".join(_asset_flags(asset, facts)),
+        "qc_flags": "|".join(_asset_flags(asset, facts, orientation)),
     }
+
+
+def _assert_cell_alphabets(rows: list[dict[str, str]]) -> None:
+    """Refuse to publish an asset cell this tool cannot spell.
+
+    ``fullmatch``, never ``match``: ``^...$`` would accept a trailing newline,
+    which is exactly how a smuggled cell survives a pattern that looks strict.
+    An empty cell always passes, because an unmeasured axis publishes one.
+    """
+    for row in rows:
+        for column, pattern in ASSET_CELL_ALPHABETS.items():
+            cell = row[column]
+            if cell and not pattern.fullmatch(cell):
+                raise QualifyError(
+                    f"{ASSETS_QC_FILENAME}: {row['asset_id']}: {column} cell {cell!r} "
+                    f"does not match {pattern.pattern}",
+                    reason="cell_alphabet",
+                )
 
 
 def _pair_rows(assets: list[AssetRef], facts: dict[str, DecodeFacts]) -> list[dict[str, str]]:
@@ -558,8 +759,8 @@ def build_census(
             "n_cameras": _tally(row["n_cameras"] for row in event_rows),
         },
         "qc_flags": dict(sorted(flag_counts.items())),
-        "measured_axes": ["timebase"],
-        "unmeasured_axes": ["orientation", "rigidity", "detectability", "scale", "sync"],
+        "measured_axes": ["timebase", "orientation"],
+        "unmeasured_axes": ["rigidity", "detectability", "scale", "sync"],
     }
 
 
@@ -747,11 +948,16 @@ def run(
 
     assets = load_assets(inventory_path)
     events = load_events(sessions_path)
-    facts = {
-        asset.asset_id: probe_decode(sessions.resolve_source(corpus_root, asset.source_relative))
+    paths = {
+        asset.asset_id: sessions.resolve_source(corpus_root, asset.source_relative)
         for asset in assets
     }
-    asset_rows = [_asset_row(asset, facts[asset.asset_id]) for asset in assets]
+    facts = {asset_id: probe_decode(path) for asset_id, path in paths.items()}
+    orientations = {asset_id: probe_orientation(path) for asset_id, path in paths.items()}
+    asset_rows = [
+        _asset_row(asset, facts[asset.asset_id], orientations[asset.asset_id]) for asset in assets
+    ]
+    _assert_cell_alphabets(asset_rows)
     pair_rows = _pair_rows(assets, facts)
     event_rows = _event_rows(events, assets)
 

@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import pathlib
+import struct
 import subprocess
 import sys
 from fractions import Fraction
@@ -331,12 +332,16 @@ def test_every_unmeasured_axis_publishes_an_empty_cell_and_a_named_flag(
     inventory_dir, sessions_dir, corpus, out = _one_asset(tmp_path, _uniform(30))
     qualify.run(inventory_dir, sessions_dir, corpus, out)
     row = _rows(out / qualify.ASSETS_QC_FILENAME)[0]
-    for column in ("rigidity_stat", "detect_rate", "scale_ref_class", "orientation_values"):
+    for column in ("rigidity_stat", "detect_rate", "scale_ref_class"):
         assert row[column] == ""
     flags = set(row["qc_flags"].split("|"))
     assert {"rigidity_unmeasured", "detect_unmeasured", "scale_unmeasured"} <= flags
     census = json.loads((out / qualify.QUALIFICATION_FILENAME).read_text(encoding="utf-8"))
     assert "sync" in census["unmeasured_axes"]
+    # Orientation moved out of that set, so it must no longer claim to be pending.
+    assert "orientation" not in census["unmeasured_axes"]
+    assert "orientation" in census["measured_axes"]
+    assert "orientation_unmeasured" not in flags
 
 
 def test_pairs_enumerate_every_within_family_combination(tmp_path: pathlib.Path) -> None:
@@ -348,3 +353,128 @@ def test_pairs_enumerate_every_within_family_combination(tmp_path: pathlib.Path)
     assert len(rows) == 3
     assert all(row["status"] == "unmeasured" for row in rows)
     assert all(row["asset_a"] < row["asset_b"] for row in rows)
+
+
+def _atom(kind: bytes, payload: bytes) -> bytes:
+    return struct.pack(">I4s", len(payload) + 8, kind) + payload
+
+
+def _keyd(name: bytes) -> bytes:
+    """One key declaration: size, 'keyd', a namespace, then the key name."""
+    return struct.pack(">I", 12 + len(name)) + b"keyd" + b"mdta" + name
+
+
+def _metadata_file(path: pathlib.Path, handler: bytes, names: list[bytes]) -> None:
+    """Write a QuickTime skeleton carrying one track's key declarations."""
+    hdlr = _atom(b"hdlr", b"\x00" * 8 + handler + b"\x00" * 12)
+    stsd = _atom(b"stsd", b"\x00" * 8 + b"".join(_keyd(name) for name in names))
+    mdia = _atom(b"mdia", hdlr + _atom(b"minf", _atom(b"stbl", stsd)))
+    path.write_bytes(_atom(b"ftyp", b"qt  ") + _atom(b"moov", _atom(b"trak", mdia)))
+
+
+ORIENTATION_KEY = b"com.apple.quicktime.video-orientation"
+
+
+def test_orientation_key_declarations_are_read_positionally(tmp_path: pathlib.Path) -> None:
+    """A sample names its key by declaration index, so order is the identity."""
+    path = tmp_path / "meta.mov"
+    _metadata_file(path, b"meta", [b"com.apple.quicktime.location", ORIENTATION_KEY])
+    assert qualify._metadata_key_maps(path) == [
+        {1: "com.apple.quicktime.location", 2: ORIENTATION_KEY.decode()}
+    ]
+
+
+def test_orientation_ignores_a_track_that_is_not_a_metadata_track(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Only a 'meta' handler declares orientation keys; a video track must not."""
+    path = tmp_path / "video.mov"
+    _metadata_file(path, b"vide", [ORIENTATION_KEY])
+    assert qualify._metadata_key_maps(path) == []
+
+
+def test_orientation_atom_walk_reads_a_64_bit_size(tmp_path: pathlib.Path) -> None:
+    """Size 1 means the real size is the 64-bit value that follows the header."""
+    body = b"payload"
+    extended = struct.pack(">I4sQ", 1, b"free", 16 + len(body)) + body
+    path = tmp_path / "big.mov"
+    path.write_bytes(extended)
+    with path.open("rb") as stream:
+        atoms = qualify._atoms(stream, len(extended))
+    assert atoms == [(b"free", 16, len(extended))]
+
+
+def test_orientation_atom_walk_stops_at_an_overrunning_size(tmp_path: pathlib.Path) -> None:
+    """A size past the parent stops the walk; it never seeks to a computed offset."""
+    good = _atom(b"free", b"ok")
+    truncated = struct.pack(">I4s", 4096, b"moov")
+    path = tmp_path / "short.mov"
+    path.write_bytes(good + truncated)
+    with path.open("rb") as stream:
+        atoms = qualify._atoms(stream, len(good) + len(truncated))
+    assert [kind for kind, _, _ in atoms] == [b"free"]
+
+
+def test_orientation_sample_entries_stop_at_an_impossible_size() -> None:
+    """A size below its own header would not advance, so the split must stop."""
+    good = struct.pack(">II", 10, 2) + b"\x00\x06"
+    assert qualify._sample_entries(good) == [(2, b"\x00\x06")]
+    assert qualify._sample_entries(good + struct.pack(">II", 4, 9)) == [(2, b"\x00\x06")]
+
+
+def test_orientation_absent_track_is_flagged_and_publishes_empty_cells(
+    tmp_path: pathlib.Path,
+) -> None:
+    """An encoded clip carries no orientation track, and says so."""
+    inventory_dir, sessions_dir, corpus, out = _one_asset(tmp_path, _uniform(30))
+    qualify.run(inventory_dir, sessions_dir, corpus, out)
+    row = _rows(out / qualify.ASSETS_QC_FILENAME)[0]
+    assert row["orientation_values"] == ""
+    assert row["orientation_changes"] == ""
+    assert "orientation_absent" in row["qc_flags"].split("|")
+
+
+@pytest.mark.parametrize(
+    ("facts", "expected"),
+    [
+        (qualify.OrientationFacts(present=False, values=(), changes=None), "orientation_absent"),
+        (qualify.OrientationFacts(present=True, values=(1, 6), changes=3), "orientation_changed"),
+    ],
+)
+def test_orientation_flags_name_the_state(facts: qualify.OrientationFacts, expected: str) -> None:
+    """A rotation constant applied to a whole asset is wrong for both states."""
+    asset = qualify.AssetRef("a", "c", "above", "t", "s", "1", "x.mov", None)
+    decode = qualify.DecodeFacts(qualify.DECODE_OK, "h264", "m/s", 1, None, None, None, True)
+    assert expected in qualify._asset_flags(asset, decode, facts)
+
+
+def test_orientation_a_constant_track_is_not_flagged_as_changed() -> None:
+    facts = qualify.OrientationFacts(present=True, values=(1,), changes=0)
+    asset = qualify.AssetRef("a", "c", "above", "t", "s", "1", "x.mov", None)
+    decode = qualify.DecodeFacts(qualify.DECODE_OK, "h264", "m/s", 1, None, None, None, True)
+    flags = qualify._asset_flags(asset, decode, facts)
+    assert "orientation_changed" not in flags
+    assert "orientation_absent" not in flags
+
+
+def test_a_cell_that_breaks_its_alphabet_is_refused_rather_than_published() -> None:
+    """fullmatch, not match: '^...$' would admit a trailing newline."""
+    row = dict.fromkeys(qualify.ASSETS_QC_COLUMNS, "")
+    row["asset_id"] = "a-1"
+    row["orientation_values"] = "1|6"
+    qualify._assert_cell_alphabets([row])
+    row["orientation_values"] = "1|6\n"
+    with pytest.raises(qualify.QualifyError) as raised:
+        qualify._assert_cell_alphabets([row])
+    assert raised.value.reason == "cell_alphabet"
+
+
+def test_a_device_config_keeps_its_model_software_separator() -> None:
+    """The '/' is part of the value, so the alphabet must admit exactly one."""
+    row = dict.fromkeys(qualify.ASSETS_QC_COLUMNS, "")
+    row["asset_id"] = "a-1"
+    row["device_config"] = "iPad (5th generation)/16.6"
+    qualify._assert_cell_alphabets([row])
+    row["device_config"] = "iPad/16.6/extra"
+    with pytest.raises(qualify.QualifyError):
+        qualify._assert_cell_alphabets([row])

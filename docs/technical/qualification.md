@@ -74,8 +74,8 @@ found nothing. The second state is a check that has not run. The flag separates 
 
 `qualification.json` lists both `measured_axes` and `unmeasured_axes`. Read those two lists first.
 
-Current state: the timebase axis is measured. The orientation, rigidity, detectability, scale and
-sync axes are not.
+Current state: the timebase and orientation axes are measured. The rigidity, detectability, scale
+and sync axes are not.
 
 ## `assets_qc.csv`
 
@@ -90,7 +90,8 @@ sync axes are not.
 | `frames_reported` | The frame count the registry published. |
 | `pts_dt_median_s`, `pts_dt_p95_s`, `pts_dt_max_s` | Presentation intervals, in seconds. |
 | `pts_monotonic` | `1` when the packets demux in presentation order. |
-| `orientation_values`, `orientation_changes` | The device orientation track. Not yet measured. |
+| `orientation_values` | The distinct device-orientation codes, pipe-separated and ascending. |
+| `orientation_changes` | The number of orientation transitions in the track. |
 | `rigidity_stat`, `rigidity_flag` | Background stability. Not yet measured. |
 | `detect_rate`, `detect_conf_median`, `subject_px_height_median` | Detection. Not yet measured. |
 | `scale_ref_class`, `scale_ref_conf` | Metric scale reference. Not yet measured. |
@@ -101,6 +102,23 @@ out of presentation order. `pts_monotonic` records whether the sort changed the 
 
 The tool compares `frames_decoded` against `frames_reported`. A disagreement sets the
 `frame_count_mismatch` flag. The tool never truncates either number to make them agree.
+
+## Device orientation
+
+The orientation an asset was shot at is a track, not a header constant. A tablet that turns during
+a recording writes a new orientation sample. One rotation constant applied to the whole asset is
+then wrong for part of it.
+
+The tool reads the QuickTime timed-metadata track directly. It walks the `moov` atom for each
+`mebx` track, collects the `keyd` key declarations, and matches each sample against the key that
+ends in `video-orientation`. PyAV supplies the packets. PyAV does not expose the key declarations.
+
+| Flag | Meaning |
+| ---- | ------- |
+| `orientation_absent` | The asset carries no orientation track. |
+| `orientation_changed` | The orientation changes at least once during the asset. |
+
+Read `orientation_changes` before you apply a rotation to a whole asset.
 
 ## `pairs_qc.csv`
 
