@@ -50,6 +50,7 @@ each one as `python -m pose_estimation.<module>`.
 | `pose-estimation-postprocess` | `pose_estimation.postprocess` | Savitzky-Golay smoothing for existing CSV files. |
 | `pose-estimation-calibrate` | `pose_estimation.calibration_cli` | Multi-camera calibration (ChArUco). |
 | `pose-estimation-inventory` | `pose_estimation.inventory` | Task-side family registry and aggregate corpus census. |
+| `pose-estimation-sessions` | `pose_estimation.sessions` | Recording-event tree that multi-camera discovery reads. |
 | `pose-estimation-validate` | `pose_estimation.validation` | Capture QA + end-to-end validation reports. |
 
 ### MediaPipe pipeline (`main`)

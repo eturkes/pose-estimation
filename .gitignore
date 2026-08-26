@@ -52,11 +52,12 @@ benchmark_output
 inventory/
 
 # Materialized session tree (patient-adjacent: symlink targets and manifests
-# carry source paths). The bare name also covers a symlinked root; the glob
-# covers the sibling staging and retiring directories publication renames
-# through.
-sessions
-sessions.*
+# carry source paths). The second pattern covers the sibling staging and
+# retiring directories publication renames through. Both keep the trailing
+# slash: a directory-only rule cannot swallow src/pose_estimation/sessions.py
+# or docs/technical/sessions.md, which an unsuffixed `sessions.*` does.
+sessions/
+sessions.*/
 
 # Camera calibration (patient-adjacent: identifying lab/rig geometry — never commit)
 calibration/

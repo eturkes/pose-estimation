@@ -10,6 +10,7 @@ Seven console scripts (see `pyproject.toml:[project.scripts]`):
 | `pose-estimation-postprocess` | `pose_estimation.postprocess` | Savitzky-Golay smoothing on existing CSVs. |
 | `pose-estimation-calibrate` | `pose_estimation.calibration_cli` | Multi-camera calibration management. |
 | `pose-estimation-inventory` | `pose_estimation.inventory` | Task-side family registry and aggregate container census. |
+| `pose-estimation-sessions` | `pose_estimation.sessions` | Recording-event tree that multi-camera discovery reads. |
 | `pose-estimation-validate` | `pose_estimation.validation` | End-to-end pipeline validation report. |
 
 ## `main.py` — MediaPipe path
@@ -59,7 +60,7 @@ python -m pose_estimation.run --headless                               # no disp
 
 All rtmlib models share the YOLOX-m detector (640×640). Detector + pose URLs are pinned in `MODEL_REGISTRY`. Models download on first run.
 
-`--session-dir`/`--sessions-dir`/`--calibration` route through the same multi-camera dispatcher as `main.py`, using an rtmlib camera processor callback that wraps `process_source()`. Session dispatch occurs after model setup so the pose tracker, smoother, and bone smoother are available. With `--model mediapipe`, `_run_mediapipe` forwards these flags to `pose-estimation` via subprocess. `--list-sessions` short-circuits *before* model setup: it resolves `--session-dir`/`--sessions-dir`/`--calibration` (sessions root defaults to `videos/`) through `resolve_cli_sessions(..., summary_label="Discovered sessions", redact_identifiers=True)` — filesystem + `session.json`/`calibration.json` discovery, no frame decoding, no dispatch — prints `session #<i>: N cameras; calibration: present|absent` per session, then exits (`0` = ≥1 found, `1` = none/error). Read-only probe backing the roadmap M2 footage gate; `redact_identifiers` surfaces only an ordinal + camera count + calibration presence, keeping the deny-listed tree's session ids / camera names (and all frame + calibration values) out of context.
+`--session-dir`/`--sessions-dir`/`--calibration` route through the same multi-camera dispatcher as `main.py`, using an rtmlib camera processor callback that wraps `process_source()`. Session dispatch occurs after model setup so the pose tracker, smoother, and bone smoother are available. With `--model mediapipe`, `_run_mediapipe` forwards these flags to `pose-estimation` via subprocess. `--list-sessions` short-circuits *before* model setup: it resolves `--session-dir`/`--sessions-dir`/`--calibration` (sessions root defaults to `sessions/`, the tree `pose-estimation-sessions` publishes — the old `videos/` default named a non-recursive raw-media root that never held a session directory) through `resolve_cli_sessions(..., summary_label="Discovered sessions", redact_identifiers=True)` — filesystem + `session.json`/`calibration.json` discovery, no frame decoding, no dispatch — prints `session #<i>: N cameras; calibration: present|absent` per session, then exits (`0` = ≥1 found, `1` = none/error). Read-only probe backing the roadmap M2 footage gate; `redact_identifiers` surfaces only an ordinal + camera count + calibration presence, keeping the deny-listed tree's session ids / camera names (and all frame + calibration values) out of context.
 
 ## `benchmark.py` — parameter sweep
 
@@ -90,6 +91,20 @@ pose-estimation-inventory --corpus synthetic-corpus --out inventory --no-checksu
 pose-estimation-inventory --corpus synthetic-corpus --out inventory --strict
 python -m pose_estimation.inventory --corpus synthetic-corpus --out inventory
 ```
+
+## `pose-estimation-sessions`
+
+```bash
+pose-estimation-sessions --inventory inventory --corpus videos/3-cam --out sessions
+pose-estimation-sessions --strict
+python -m pose_estimation.sessions --out sessions
+```
+
+`--inventory` selects the published registry and defaults to `inventory`.
+`--corpus` selects the root that the registry's relative paths resolve against, and defaults to `videos/3-cam`.
+`--out` selects the tree directory and defaults to `sessions`.
+`--strict` returns status 1 when the tool holds any asset out.
+Status 2 reports a usage or registry error. The tool reads the registry alone and never walks the corpus. See `sessions.md`.
 
 `--corpus` selects the required directory and searches every subdirectory.
 `--out` selects the artifact directory and defaults to `inventory`.

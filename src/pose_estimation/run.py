@@ -271,7 +271,7 @@ def parse_args():
             "The probe discovers session(s) from filenames, session.json, and calibration.json "
             "without frame decoding. It prints the camera count and calibration presence for "
             "each session, then exits. If you omit both --session-dir and --sessions-dir, "
-            "the probe uses the videos/ sessions root."
+            "the probe uses the sessions/ root that pose-estimation-sessions publishes."
         ),
     )
     p.add_argument(
@@ -675,15 +675,17 @@ def main():
         # Read-only discovery probe for the M2 footage gate: resolve_cli_sessions
         # discovers sessions from filenames + session.json/calibration.json and
         # prints a summary with no frame decoding, so no video bytes enter context.
-        # Defaulting the sessions root to "videos/" in source keeps sensitive paths
-        # out of the command; redact_identifiers keeps the tree's session ids /
-        # camera names out of context too — the probe surfaces only an ordinal,
-        # camera count, and calibration presence, never frames or calibration values
-        # (.agent/roadmap.md M2 gate).
+        # Defaulting the sessions root in source keeps sensitive paths out of the
+        # command; redact_identifiers keeps the tree's session ids / camera names
+        # out of context too — the probe surfaces only an ordinal, camera count,
+        # and calibration presence, never frames or calibration values
+        # (.agent/roadmap.md M2 gate).  The default is the published session tree,
+        # not the raw media root: "videos" is non-recursive and never held a
+        # session directory, so the old default could only ever discover nothing.
         session_dir = args.session_dir
         sessions_dir = args.sessions_dir
         if session_dir is None and sessions_dir is None:
-            sessions_dir = "videos"
+            sessions_dir = "sessions"
         try:
             resolve_cli_sessions(
                 session_dir,

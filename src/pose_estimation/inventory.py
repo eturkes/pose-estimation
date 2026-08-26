@@ -1067,6 +1067,10 @@ def validate_generation(out_dir):
     detects nothing on its own: the proof only exists once something checks
     it, and a checksum each consumer reimplements is a checksum that drifts.
     """
+    # Coerced because every other path-taking entry point in this package
+    # accepts str | PathLike, and a boundary that raises TypeError on a plain
+    # string is a boundary consumers route around.
+    out_dir = pathlib.Path(out_dir)
     # Every failure leaves through InventoryError.  A consumer that must catch
     # JSONDecodeError to learn a set is unusable has no boundary at all, and a
     # truncated census is exactly the half-published case this call exists for.
