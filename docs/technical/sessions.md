@@ -28,6 +28,8 @@ event_id = f"{capture_id}_run-{run_index:02d}"        s02-cap-l_run-01
 
 `run_index` orders the events of one family. It is not a time and it asserts no provenance. The order comes from the registry's own row order, which makes it deterministic.
 
+The index field is exactly two digits. A family that needs more than 99 runs raises `SessionsError` instead of emitting an identifier that fails the pattern above.
+
 ## Take resolution
 
 Each event carries `take_resolution`.
@@ -45,17 +47,24 @@ Unequal frame counts across views stay compatible with one event after offset es
 
 ## Placement
 
-Every discovered asset reaches exactly one outcome. The generator holds an asset out for these reasons.
+Every discovered asset reaches exactly one outcome. A hold-out is a qualification verdict on an asset that the registry described correctly. The generator holds an asset out for these reasons only.
 
 | Reason | Meaning |
 | --- | --- |
 | `quarantined_stem` | The registry could not parse a family from the name. |
 | `excluded_asset` | The registry excluded the entry before parsing. |
 | `extension_not_discoverable` | The suffix is outside `multicam.VIDEO_EXTENSIONS`. |
-| `source_missing` | The listed path is not a regular file. |
-| `source_path_unsafe` | The listed path is absolute, traversing, or carries a bad escape. |
 
 `inventory` admits `.flv` and `multicam` does not, so `extension_not_discoverable` prevents an event that discovery could never read.
+
+A canonical row that this tool cannot decode or resolve is a different case. The registry disagrees with the corpus, so the run fails with status 2 and publishes nothing. These conditions raise:
+
+- The `source_path` cell is absolute, empty, traversing, or carries a NUL.
+- The `source_path` cell carries an escape that `inventory` never writes.
+- The listed path resolves outside `--corpus`.
+- The listed path is not a regular file.
+
+A hold-out here would drop one camera from an event and then publish the smaller event as if it were whole. Publish the registry again to correct any of these.
 
 Active corpus: **193 events from 382 assets** — 58 one-camera, 84 two-camera, and 51 three-camera. 186 events resolve as `family` and 7 as `unresolved`. 379 assets reach an event and 3 stay quarantined.
 
@@ -107,13 +116,19 @@ Rules that the manifest must keep:
 
 `placements.csv` sorts by `asset_id` and carries `asset_id`, `capture_id`, `disposition`, `placement`, `placement_reason`, `event_id`, and `camera_name`. It holds one row for every registry row, so no asset leaves the tree silently.
 
-`generation.json` records the digest of each table, a digest of the tree, and the upstream `inventory` generation block. The tree digest covers each entry name, each link target, and the bytes of each regular file. It excludes inode, mtime, and directory metadata, because those are not a function of the registry.
+`generation.json` records the digest of each table, a digest of the tree, and the upstream `inventory` generation block.
+
+The tree digest covers every entry under the output directory except `generation.json`, which cannot digest itself. For each entry it records the relative name, the kind, and either the exact symbolic link target text or the SHA-256 of the file bytes. It never reads a link target's contents, so corpus bytes stay outside the digest. It excludes inode, mtime, and permissions, because those are not a function of the registry.
+
+The kind of each entry is load-bearing. A directory test follows a symbolic link, so an event directory that is replaced by a link to an outside directory would otherwise digest as the directory it points at. Recording the kind also catches an injected directory and an unexplained root file.
 
 ## Publication and validation
 
 The generator builds the complete tree in a sibling staging directory. It then renames the old tree aside and renames the new tree into place. Staging and retiring directories are always siblings of `--out`. `discover_sessions` reads the children of the root, so a half-built directory under the root would become a discoverable session.
 
-The generator refuses a non-empty `--out` that holds no `generation.json`. This stops the tool from deleting a directory that it does not own.
+A kill between the two renames leaves both siblings on disk. Each carries the process identifier that made it, so the next run removes the siblings whose process is gone and leaves a concurrent generator's siblings alone.
+
+The generator refuses a non-empty `--out` unless it holds a `generation.json` that this tool wrote. The marker must read as UTF-8, parse as a JSON object, and carry `generator_version`. A missing, unreadable, malformed, or foreign marker stops the run before any write, so the tool never deletes a directory that it does not own. Ownership never depends on the digests: a tree whose digests went stale must stay regenerable, and `validate_generation` is the function that rejects staleness.
 
 ```python
 from pose_estimation.sessions import validate_generation
@@ -121,7 +136,13 @@ from pose_estimation.sessions import validate_generation
 generation = validate_generation("sessions", inventory_dir="inventory")
 ```
 
-Every consumer must call `validate_generation` before it reads a row or opens a camera. The function returns the generation block, or it raises `SessionsError`. Pass `inventory_dir` to also prove that the registry on disk is the generation that produced the tree. That check is the only one that catches a registry rebuilt under a tree which still looks internally consistent.
+Every consumer must call `validate_generation` before it reads a row or opens a camera. The function returns the generation block, or it raises `SessionsError`.
+
+`generation.json` **is** the block. The registry's equivalent is nested inside `census.json` because that file also carries aggregates; this file carries the block alone.
+
+Its schema is closed. The key set must be exactly `events.csv`, `placements.csv`, `tree`, `inventory`, and `generator_version`, and `generator_version` must match this generator. An added, renamed, or missing key means another writer or an edit, which no digest inside the document can catch.
+
+Pass `inventory_dir` to also prove that the registry on disk is the generation that produced the tree. That check is the only one that catches a registry rebuilt under a tree which still looks internally consistent. A consumer that omits the argument gets no protection against that case. The argument is optional because the tree must stay consumable after it moves away from the registry.
 
 Unchanged inputs produce a byte-identical tree. The generator verifies this against a shuffled directory order, four locales, a changed hash seed, a changed time zone, and a different `--out` name.
 

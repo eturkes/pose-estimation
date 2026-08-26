@@ -45,16 +45,25 @@ EVENTS_FILENAME = "events.csv"
 PLACEMENTS_FILENAME = "placements.csv"
 GENERATION_FILENAME = "generation.json"
 
+GENERATION_KEYS: tuple[str, ...] = (
+    EVENTS_FILENAME,
+    PLACEMENTS_FILENAME,
+    "tree",
+    "inventory",
+    "generator_version",
+)
+
 PLACED = "placed"
 HELD_OUT = "held_out"
 
 REASON_OK = "ok"
+# A hold-out is a *qualification* verdict on an asset the registry described
+# correctly.  A registry that disagrees with the corpus is not a qualification
+# verdict, so it fails the run instead of shrinking the tree by one camera.
 HOLD_OUT_REASONS: tuple[str, ...] = (
     "excluded_asset",
     "extension_not_discoverable",
     "quarantined_stem",
-    "source_missing",
-    "source_path_unsafe",
 )
 
 TAKE_FAMILY = "family"
@@ -266,14 +275,18 @@ def plan(
             if extension not in DISCOVERABLE_EXTENSIONS:
                 # inventory admits .flv; multicam's camera glob does not, so
                 # such an asset would land in a tree that cannot discover it.
-                raise SessionsError(
-                    "A listed asset has no discoverable extension.",
-                    reason="extension_not_discoverable",
-                )
+                # The registry is right about it, so this is a qualification
+                # verdict and the ledger records it.
+                held[asset_id] = "extension_not_discoverable"
+                continue
             resolve_source(corpus_root, relative)
         except SessionsError as error:
-            held[asset_id] = error.reason or "source_missing"
-            continue
+            # A canonical row this module cannot decode or resolve means the
+            # registry disagrees with the corpus.  Holding it out would drop a
+            # camera from an event and publish the smaller event as if whole.
+            raise SessionsError(
+                f"{error} Asset {asset_id}. Publish the registry again.", reason=error.reason
+            ) from error
         view = row["view"]
         members.setdefault(capture_id, []).append(
             Camera(
@@ -306,6 +319,12 @@ def plan(
         for run_index, group in enumerate(groups, start=1):
             row = by_asset[group[0].asset_id]
             event_id = f"{capture_id}_run-{run_index:02d}"
+            if not EVENT_ID_PATTERN.match(event_id):
+                # The registry's own grammar produces a conforming capture_id,
+                # so this fires only for a foreign or corrupt registry.  Emitting
+                # a key the module's published pattern rejects is worse than
+                # refusing: every consumer parses that key back apart.
+                raise SessionsError("A family yields an event id outside the published grammar.")
             events.append(
                 Event(
                     event_id=event_id,
@@ -332,7 +351,7 @@ def plan(
                 capture_id=row["capture_id"],
                 disposition=row["disposition"],
                 placement=PLACED if event_id else HELD_OUT,
-                placement_reason=REASON_OK if event_id else held.get(asset_id, "source_missing"),
+                placement_reason=REASON_OK if event_id else held[asset_id],
                 event_id=event_id,
                 camera_name=camera_name,
             )
@@ -404,21 +423,42 @@ def _placement_rows(placements: list[Placement]) -> list[dict[str, str]]:
 
 
 def tree_digest(out_dir: pathlib.Path) -> str:
-    """Digest the published tree by name, link text and file bytes.
+    """Digest every entry under *out_dir* except the marker that will carry it.
 
-    Inode, mtime and directory metadata are deliberately outside the digest:
-    they are not a function of the registry, so including them would make a
-    byte-identical regeneration read as a change.
+    Covers each relative name, each entry's kind, each symbolic link's exact
+    target text, and each regular file's bytes.  A link target's *contents*
+    stay outside, so corpus bytes never enter this digest.
+
+    Kind is load-bearing rather than decorative: ``is_dir()`` follows a link,
+    so an event directory swapped for a link to an outside directory would
+    otherwise digest as whatever it points at.  Inode, mtime and permissions
+    stay outside, because they are not a function of the registry and would
+    make a byte-identical regeneration read as a change.
     """
     lines: list[str] = []
-    for directory in sorted(p for p in out_dir.iterdir() if p.is_dir()):
-        for entry in sorted(directory.iterdir()):
-            label = f"{directory.name}/{entry.name}"
-            if entry.is_symlink():
-                lines.append(f"{label}\tlink\t{entry.readlink()}\n")
-            else:
-                lines.append(f"{label}\tfile\t{hashlib.sha256(entry.read_bytes()).hexdigest()}\n")
-    return hashlib.sha256("".join(lines).encode("utf-8")).hexdigest()
+
+    def visit(entry: pathlib.Path, label: str) -> None:
+        if entry.is_symlink():
+            # os.readlink, not Path.readlink: the latter returns a PurePath,
+            # whose constructor drops a leading "./", so two different targets
+            # digest the same and the exact-text claim quietly fails.
+            lines.append(f"{label}\tlink\t{os.readlink(entry)}\n")  # noqa: PTH115
+        elif entry.is_dir():
+            lines.append(f"{label}\tdir\n")
+            for child in sorted(entry.iterdir()):
+                visit(child, f"{label}/{child.name}")
+        else:
+            lines.append(f"{label}\tfile\t{hashlib.sha256(entry.read_bytes()).hexdigest()}\n")
+
+    for entry in sorted(out_dir.iterdir()):
+        # A document cannot digest itself; everything else in the tree is fair
+        # game, including a file nobody explained.
+        if entry.name != GENERATION_FILENAME:
+            visit(entry, entry.name)
+    # surrogateescape, because a link target reproduces a source path that need
+    # not be UTF-8: a plain encode raises on the lone surrogate carrying such a
+    # byte, and the digest must cover the target's real bytes either way.
+    return hashlib.sha256("".join(lines).encode("utf-8", "surrogateescape")).hexdigest()
 
 
 def _digest_bytes(path: pathlib.Path) -> str:
@@ -465,6 +505,27 @@ def _build(
     (staging / GENERATION_FILENAME).write_text(
         json.dumps(generation, sort_keys=True, indent=2) + "\n", encoding="utf-8", newline=""
     )
+
+
+def _sweep_orphans(out: pathlib.Path) -> None:
+    """Remove staging and retiring siblings that no live process owns.
+
+    A kill between the two renames leaves both siblings behind, and the
+    pid suffix that keeps concurrent runs apart also stops a later run from
+    recognizing them.  Sweeping by liveness collects the crash debris and
+    still leaves a concurrent generator's directories alone.
+    """
+    for sibling in out.parent.glob(f"{out.name}.*"):
+        stage, _, pid = sibling.name[len(out.name) + 1 :].rpartition(".")
+        if stage not in ("staging", "retiring"):
+            continue
+        try:
+            os.kill(int(pid), 0)
+        except (ValueError, ProcessLookupError):
+            shutil.rmtree(sibling, ignore_errors=True)
+        except PermissionError:
+            # Live and owned by another user: not ours to remove.
+            continue
 
 
 def _assert_owned(out_dir: pathlib.Path) -> None:
@@ -514,6 +575,9 @@ def run(
     # it would be a discoverable session for as long as it existed.
     staging = out.with_name(f"{out.name}.staging.{os.getpid()}")
     retiring = out.with_name(f"{out.name}.retiring.{os.getpid()}")
+    # The sweep skips live pids, and this process is live, so our own two names
+    # (a reused pid, or a crash that kept the number) still need clearing.
+    _sweep_orphans(out)
     shutil.rmtree(staging, ignore_errors=True)
     shutil.rmtree(retiring, ignore_errors=True)
     try:
@@ -550,6 +614,15 @@ def validate_generation(out_dir, inventory_dir=None):
         ) from error
     if not isinstance(generation, dict):
         raise SessionsError("The published tree is unusable: generation.json is not an object.")
+    # A closed schema, because this document's whole job is proving the tree is
+    # what it claims.  An added, missing or renamed key means a different writer
+    # or an edit, and no digest inside the document can catch either.
+    if set(generation) != set(GENERATION_KEYS) or generation["generator_version"] != (
+        GENERATOR_VERSION
+    ):
+        raise SessionsError(
+            "The published tree is unusable: generation.json is not this generator's document."
+        )
     for name in (EVENTS_FILENAME, PLACEMENTS_FILENAME):
         try:
             digest = _digest_bytes(out / name)

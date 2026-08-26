@@ -237,7 +237,7 @@ def _reset_if_supported(component):
 # ---------------------------------------------------------------------------
 
 
-def parse_args():
+def parse_args(argv=None):
     p = argparse.ArgumentParser(description="Run pose estimation.")
     p.add_argument(
         "--source",
@@ -359,7 +359,7 @@ def parse_args():
     )
     p.add_argument("--no-smooth", action="store_true", help="Disable temporal smoothing.")
     p.add_argument("--no-constraints", action="store_true", help="Disable bone-length constraints.")
-    return p.parse_args()
+    return p.parse_args(argv)
 
 
 # ---------------------------------------------------------------------------
@@ -668,8 +668,10 @@ def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoo
         )
 
 
-def main():
-    args = parse_args()
+def main(argv=None):
+    # argv rides through, matching the other console scripts, so --list-sessions
+    # is testable in-process instead of only through a subprocess.
+    args = parse_args(argv)
 
     if args.list_sessions:
         # Read-only discovery probe for the M2 footage gate: resolve_cli_sessions
