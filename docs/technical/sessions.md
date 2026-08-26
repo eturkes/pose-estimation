@@ -1,6 +1,6 @@
 # Session tree
 
-`pose-estimation-sessions` turns the corpus registry into a tree of recording events. Each event becomes one directory that `multicam.discover_session` reads. The tool never walks the corpus. It reads the registry that `pose-estimation-inventory` published, and it opens only the files those rows name.
+`pose-estimation-sessions` turns the corpus registry into a tree of recording events. Each event becomes one directory that `multicam.discover_session` reads. The tool never walks the corpus. It reads the registry that `pose-estimation-inventory` published, and it never opens a listed file. It asks the filesystem whether each listed path is a regular file inside the corpus, and it does no more than that.
 
 ## Run the generator
 
@@ -66,6 +66,21 @@ A canonical row that this tool cannot decode or resolve is a different case. The
 
 A hold-out here would drop one camera from an event and then publish the smaller event as if it were whole. Publish the registry again to correct any of these.
 
+## Registry trust
+
+The registry's digests prove its bytes, never its shape. The generator therefore checks every field that it reads. Each condition below fails the run with status 2 and publishes nothing.
+
+- A table omits a column that the generator reads. A table with no rows carries its schema in the header alone, so the header is checked on its own and an empty short table fails too.
+- A table repeats an `asset_id` or a `capture_id`.
+- An asset carries a disposition outside `canonical`, `quarantined`, and `excluded`.
+- A canonical asset carries a `subject_ordinal` outside the ASCII digits. Other scripts' digits are refused because the published ordinal would not spell the cell that produced it.
+- A canonical asset names a family that has no capture row.
+- A capture row carries a `view_conflict` outside `0` and `1`.
+- A capture row contradicts the assets that it holds. The generator derives the conflict with the registry's own rule, `n_assets != n_views`, and the published cell must agree.
+- A family mixes `grammar_version` values across the two tables.
+
+The generator proves each listed target again when it writes the link, because the corpus can change after planning. That second check narrows the window. It cannot close it: a source that disappears after the check still leaves a link to a missing file.
+
 Active corpus: **193 events from 382 assets** — 58 one-camera, 84 two-camera, and 51 three-camera. 186 events resolve as `family` and 7 as `unresolved`. 379 assets reach an event and 3 stay quarantined.
 
 ## Session directory
@@ -78,7 +93,7 @@ Each event directory holds one `session.json` and one symbolic link per camera.
   "session_id": "s02-cap-l_run-01",
   "capture_id": "s02-cap-l",
   "run_index": 1,
-  "subject_ordinal": "2",
+  "subject_ordinal": 2,
   "task": "cap",
   "side": "l",
   "take_resolution": "family",
@@ -114,7 +129,7 @@ Rules that the manifest must keep:
 
 `events.csv` sorts by `event_id` and carries `event_id`, `capture_id`, `subject_ordinal`, `task`, `side`, `run_index`, `take_resolution`, `n_cameras`, `views`, `view_conflict`, `grammar_version`, and `generator_version`.
 
-`placements.csv` sorts by `asset_id` and carries `asset_id`, `capture_id`, `disposition`, `placement`, `placement_reason`, `event_id`, and `camera_name`. It holds one row for every registry row, so no asset leaves the tree silently.
+`placements.csv` sorts by `asset_id` and carries `asset_id`, `capture_id`, `disposition`, `placement`, `placement_reason`, `event_id`, `camera_name`, and `grammar_version`. It holds one row for every registry row, so no asset leaves the tree silently. A held-out row carries an empty `event_id`, so the ledger is the only place that qualifies it without the registry.
 
 `generation.json` records the digest of each table, a digest of the tree, and the upstream `inventory` generation block.
 
@@ -126,9 +141,13 @@ The kind of each entry is load-bearing. A directory test follows a symbolic link
 
 The generator builds the complete tree in a sibling staging directory. It then renames the old tree aside and renames the new tree into place. Staging and retiring directories are always siblings of `--out`. `discover_sessions` reads the children of the root, so a half-built directory under the root would become a discoverable session.
 
-A kill between the two renames leaves both siblings on disk. Each carries the process identifier that made it, so the next run removes the siblings whose process is gone and leaves a concurrent generator's siblings alone.
+A kill between the two renames leaves both siblings on disk. Each carries the process identifier that made it, so the next run removes the siblings whose process is gone and leaves a concurrent generator's siblings alone. A suffix that names no representable process identifier counts as gone.
+
+The sweep runs only after the second rename lands. After that kill the sole complete generation is the retired sibling under a dead identifier, so a sweep before the swap destroys it whenever the swap then fails. A failed swap restores the retired tree only into an empty root, and only when this run retired one.
 
 The generator refuses a non-empty `--out` unless it holds a `generation.json` that this tool wrote. The marker must read as UTF-8, parse as a JSON object, and carry `generator_version`. A missing, unreadable, malformed, or foreign marker stops the run before any write, so the tool never deletes a directory that it does not own. Ownership never depends on the digests: a tree whose digests went stale must stay regenerable, and `validate_generation` is the function that rejects staleness.
+
+The generator also refuses an output that equals, contains, or sits inside `--corpus` or `--inventory`. Publication deletes and replaces the whole output tree, so such an output would delete the bytes it just read. A symbolic link as `--out` stays legal. The tool publishes to the path that the link resolves to, so the link survives the swap and its target is the tree that the swap replaces.
 
 ```python
 from pose_estimation.sessions import validate_generation
@@ -142,12 +161,12 @@ Every consumer must call `validate_generation` before it reads a row or opens a 
 
 Its schema is closed. The key set must be exactly `events.csv`, `placements.csv`, `tree`, `inventory`, and `generator_version`, and `generator_version` must match this generator. An added, renamed, or missing key means another writer or an edit, which no digest inside the document can catch.
 
-Pass `inventory_dir` to also prove that the registry on disk is the generation that produced the tree. That check is the only one that catches a registry rebuilt under a tree which still looks internally consistent. A consumer that omits the argument gets no protection against that case. The argument is optional because the tree must stay consumable after it moves away from the registry.
+Pass `inventory_dir` to also prove that the registry on disk is the generation that produced the tree. That check is the only one that catches a registry rebuilt under a tree which still looks internally consistent. It is also the only check that finds a rewritten `inventory` block, because such a block keeps the closed schema and every digest. A consumer that omits the argument gets no protection against either case. The argument is optional because the tree must stay consumable after it moves away from the registry.
 
-Unchanged inputs produce a byte-identical tree. The generator verifies this against a shuffled directory order, four locales, a changed hash seed, a changed time zone, and a different `--out` name.
+Unchanged inputs produce a byte-identical tree. The test suite proves this against a shuffled directory order, four locales, a changed hash seed, a changed time zone, and a different `--out` name.
 
 ## Data boundary
 
-The tree is patient-adjacent. Link targets, manifests, and both tables contain source paths. `.gitignore` covers `sessions` and `sessions.*`, and the read-exclusion list covers `sessions/`. Console output reports counts only.
+The tree is patient-adjacent. Link targets contain source paths. Manifests and both tables carry the registry's identifiers and digests alone, never a filename. Those identifiers are low-entropy pseudonyms that support linkage, so a subject directory named with an ordinal matches the published `subject_ordinal` by construction. `.gitignore` covers `sessions/` and `sessions.*/`, and the read-exclusion list covers both. Console output reports counts only.
 
 See `entrypoints.md` for exit codes, `inventory.md` for the registry schema, and `multicam.md` for the discovery contract.

@@ -674,16 +674,11 @@ def main(argv=None):
     args = parse_args(argv)
 
     if args.list_sessions:
-        # Read-only discovery probe for the M2 footage gate: resolve_cli_sessions
-        # discovers sessions from filenames + session.json/calibration.json and
-        # prints a summary with no frame decoding, so no video bytes enter context.
-        # Defaulting the sessions root in source keeps sensitive paths out of the
-        # command; redact_identifiers keeps the tree's session ids / camera names
-        # out of context too — the probe surfaces only an ordinal, camera count,
-        # and calibration presence, never frames or calibration values
-        # (.agent/roadmap.md M2 gate).  The default is the published session tree,
-        # not the raw media root: "videos" is non-recursive and never held a
-        # session directory, so the old default could only ever discover nothing.
+        # The probe reports an ordinal, a camera count and calibration presence
+        # alone: the tree is patient-adjacent, so session ids, camera names and
+        # every frame stay out of an agent's context.  Its default root is the
+        # published tree, never the raw media root, which is non-recursive and
+        # so could only ever discover nothing.
         session_dir = args.session_dir
         sessions_dir = args.sessions_dir
         if session_dir is None and sessions_dir is None:

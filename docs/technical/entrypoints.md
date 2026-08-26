@@ -1,6 +1,6 @@
 # Command-line entry points
 
-Seven console scripts (see `pyproject.toml:[project.scripts]`):
+Eight console scripts (see `pyproject.toml:[project.scripts]`):
 
 | Script | Module | Purpose |
 |--------|--------|---------|
@@ -92,20 +92,6 @@ pose-estimation-inventory --corpus synthetic-corpus --out inventory --strict
 python -m pose_estimation.inventory --corpus synthetic-corpus --out inventory
 ```
 
-## `pose-estimation-sessions`
-
-```bash
-pose-estimation-sessions --inventory inventory --corpus videos/3-cam --out sessions
-pose-estimation-sessions --strict
-python -m pose_estimation.sessions --out sessions
-```
-
-`--inventory` selects the published registry and defaults to `inventory`.
-`--corpus` selects the root that the registry's relative paths resolve against, and defaults to `videos/3-cam`.
-`--out` selects the tree directory and defaults to `sessions`.
-`--strict` returns status 1 when the tool holds any asset out.
-Status 2 reports a usage or registry error. The tool reads the registry alone and never walks the corpus. See `sessions.md`.
-
 `--corpus` selects the required directory and searches every subdirectory.
 `--out` selects the artifact directory and defaults to `inventory`.
 The output directory must resolve outside the corpus.
@@ -142,6 +128,23 @@ No success or handled-error line contains a filesystem path.
 The tool writes `assets.csv`, `captures.csv`, and `census.json`.
 Every consumer must call `validate_generation(out_dir)` before reading a row.
 See `inventory.md` for identities, schemas, claim limits, and generation validation.
+
+## `sessions.py` — recording-event tree
+
+```bash
+pose-estimation-sessions --inventory inventory --corpus videos/3-cam --out sessions
+pose-estimation-sessions --strict
+python -m pose_estimation.sessions --out sessions
+```
+
+`--inventory` selects the published registry and defaults to `inventory`.
+`--corpus` selects the root that the registry's relative paths resolve against, and defaults to `videos/3-cam`.
+`--out` selects the tree directory and defaults to `sessions`.
+`--strict` returns status 1 when the tool holds any asset out.
+Status 2 reports a usage or registry error.
+
+The output directory must not contain, equal, or sit inside `--corpus` or `--inventory`.
+The tool reads the registry alone and never walks the corpus. See `sessions.md`.
 
 ## `validation.py` — end-to-end validation report
 

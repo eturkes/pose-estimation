@@ -94,9 +94,54 @@ PLACEMENT_COLUMNS: tuple[str, ...] = (
     "placement_reason",
     "event_id",
     "camera_name",
+    # A held-out row carries no event_id, so the ledger is the only place its
+    # qualification can be read without reopening the registry.
+    "grammar_version",
 )
 
-EVENT_ID_PATTERN = re.compile(r"^(?P<capture_id>s\d{2}-[a-z]+-[lr])_run-(?P<run_index>\d{2})$")
+# The registry columns this module reads.  The first of each is its identity.
+ASSET_INPUT_COLUMNS: tuple[str, ...] = (
+    "asset_id",
+    "capture_id",
+    "content_sha256",
+    "disposition",
+    "grammar_version",
+    "side",
+    "source_path",
+    "subject_ordinal",
+    "task",
+    "view",
+)
+
+CAPTURE_INPUT_COLUMNS: tuple[str, ...] = ("capture_id", "grammar_version", "view_conflict")
+
+# Every cell that becomes a filename, a published value, or console text is
+# confined to a printable alphabet that cannot lead a spreadsheet formula or
+# carry a terminal escape.  Each alphabet is wider than the live corpus needs
+# and still excludes the classes above.  A refusal names the column and never
+# the value, so a hostile cell cannot reach the console through its own error.
+# These are applied with fullmatch, never match: `$` also matches before one
+# trailing newline, which would admit a newline into every published cell.
+_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
+    "asset_id": re.compile(r"[a-z0-9][a-z0-9._-]*"),
+    "capture_id": re.compile(r"(?:[a-z0-9][a-z0-9._-]*)?"),
+    "content_sha256": re.compile(r"[0-9a-f]*"),
+    "grammar_version": re.compile(r"[a-z0-9][a-z0-9._-]*"),
+}
+
+_CANONICAL_ALPHABETS: dict[str, re.Pattern[str]] = {
+    "side": re.compile(r"[a-z]+"),
+    # ASCII, not str.isdigit: that predicate is true for superscripts, which
+    # then raise out of int(), and for other scripts' digits, which int()
+    # silently normalizes into an ordinal the cell never spelled.
+    "subject_ordinal": re.compile(r"[0-9]+"),
+    "task": re.compile(r"[a-z0-9]+"),
+    "view": re.compile(r"[a-z0-9][a-z0-9-]*"),
+}
+
+# `\Z`, not `$`: this pattern is exported, so a consumer's own `match` call has
+# to reject a trailing newline too.
+EVENT_ID_PATTERN = re.compile(r"^(?P<capture_id>s\d{2}-[a-z]+-[lr])_run-(?P<run_index>\d{2})\Z")
 
 # Inverse of inventory._printable_path.  The introducer is matched before the
 # escape so a path holding a backslash stays distinct from one holding the
@@ -134,7 +179,7 @@ class Event:
 
     event_id: str
     capture_id: str
-    subject_ordinal: str
+    subject_ordinal: int
     task: str
     side: str
     run_index: int
@@ -159,6 +204,7 @@ class Placement:
     placement_reason: str
     event_id: str
     camera_name: str
+    grammar_version: str
 
 
 def decode_source_path(cell: str) -> str:
@@ -217,6 +263,16 @@ def absolute_lexical(path: str | os.PathLike[str]) -> pathlib.Path:
     return pathlib.Path(path).absolute()
 
 
+def _is_within(child: str, parent: str) -> bool:
+    """Return whether *child* is *parent* or sits below it. Both are real paths.
+
+    The separator is appended to the *stripped* parent because a parent of
+    ``/`` would otherwise form the prefix ``//``, which no real path carries,
+    so every file below a filesystem-root corpus would read as an escape.
+    """
+    return child == parent or child.startswith(parent.rstrip(os.sep) + os.sep)
+
+
 def resolve_source(corpus_root: str | os.PathLike[str], relative: str) -> pathlib.Path:
     """Return the absolute path of one listed asset, or raise.
 
@@ -229,7 +285,7 @@ def resolve_source(corpus_root: str | os.PathLike[str], relative: str) -> pathli
     target = root / relative
     real_root = os.path.realpath(root)
     real_target = os.path.realpath(target)
-    if real_target != real_root and not real_target.startswith(real_root + os.sep):
+    if not _is_within(real_target, real_root):
         raise SessionsError(
             "A listed asset resolves outside the corpus root.", reason="source_path_unsafe"
         )
@@ -238,9 +294,80 @@ def resolve_source(corpus_root: str | os.PathLike[str], relative: str) -> pathli
     return target
 
 
-def _read_table(path: pathlib.Path) -> list[dict[str, str]]:
+def _read_table(path: pathlib.Path, columns: tuple[str, ...]) -> list[dict[str, str]]:
+    """Read one registry table, proving the header carries every column read.
+
+    A table with no rows carries its schema in the header alone, so the
+    per-row checks below never reach it and an empty short table would
+    otherwise publish an empty tree instead of failing.
+    """
     with path.open("r", encoding="utf-8", newline="") as handle:
-        return list(csv.DictReader(handle))
+        reader = csv.DictReader(handle)
+        missing = [column for column in columns if column not in (reader.fieldnames or ())]
+        if missing:
+            raise SessionsError(f"{path.name} is missing {', '.join(missing)}.")
+        return list(reader)
+
+
+def _validate_tables(
+    assets: list[dict[str, str]], captures: list[dict[str, str]]
+) -> dict[str, tuple[bool, str]]:
+    """Return each family's view conflict and grammar version, or raise.
+
+    Upstream validation proves the registry's *bytes*, never its shape, so
+    every field this module reads is checked here instead of trusted: an
+    absent column would otherwise leak a ``KeyError`` past the documented
+    error domain, and a malformed cell would publish a differently-grained
+    tree that validates as authoritative.  The conflict flag is *derived*
+    from the canonical rows by the registry's own definition, and the
+    published cell has to agree with that derivation.
+    """
+    for rows, columns, table in (
+        (assets, ASSET_INPUT_COLUMNS, "assets"),
+        (captures, CAPTURE_INPUT_COLUMNS, "captures"),
+    ):
+        identities = set()
+        for row in rows:
+            missing = [column for column in columns if column not in row]
+            if missing:
+                raise SessionsError(f"A {table} row is missing {', '.join(missing)}.")
+            for column, alphabet in _CELL_ALPHABETS.items():
+                if column in row and not alphabet.fullmatch(row[column]):
+                    raise SessionsError(f"A {table} row carries a {column} outside its alphabet.")
+            identities.add(row[columns[0]])
+        if len(identities) != len(rows):
+            raise SessionsError(f"The {table} table repeats a {columns[0]}.")
+
+    canonical: dict[str, list[dict[str, str]]] = {}
+    dispositions = (inventory.CANONICAL, inventory.QUARANTINED, inventory.EXCLUDED)
+    for row in assets:
+        if row["disposition"] not in dispositions:
+            raise SessionsError("An assets row carries a disposition the registry never writes.")
+        if row["disposition"] != inventory.CANONICAL:
+            continue
+        for column, alphabet in _CANONICAL_ALPHABETS.items():
+            if not alphabet.fullmatch(row[column]):
+                raise SessionsError(
+                    f"A canonical assets row carries a {column} outside its alphabet."
+                )
+        canonical.setdefault(row["capture_id"], []).append(row)
+
+    families: dict[str, tuple[bool, str]] = {}
+    for row in captures:
+        capture_id, cell = row["capture_id"], row["view_conflict"]
+        if cell not in ("0", "1"):
+            raise SessionsError("A captures row carries a view_conflict outside 0 and 1.")
+        members = canonical.get(capture_id, [])
+        if (len(members) != len({member["view"] for member in members})) != (cell == "1"):
+            raise SessionsError(f"Family {capture_id} contradicts its published view_conflict.")
+        families[capture_id] = (cell == "1", row["grammar_version"])
+
+    for capture_id, members in canonical.items():
+        if capture_id not in families:
+            raise SessionsError(f"Family {capture_id} holds canonical assets and no capture row.")
+        if any(member["grammar_version"] != families[capture_id][1] for member in members):
+            raise SessionsError(f"Family {capture_id} mixes grammar versions across the tables.")
+    return families
 
 
 def plan(
@@ -254,8 +381,7 @@ def plan(
     Pure over its inputs apart from the ``stat`` that proves a listed source
     exists, so the tree is a function of the registry's bytes.
     """
-    conflicted = {row["capture_id"] for row in captures if row["view_conflict"] == "1"}
-    grammar = {row["capture_id"]: row["grammar_version"] for row in captures}
+    families = _validate_tables(assets, captures)
 
     placements: list[Placement] = []
     members: dict[str, list[Camera]] = {}
@@ -305,11 +431,7 @@ def plan(
 
     for capture_id in sorted(members):
         cameras = members[capture_id]
-        conflict = capture_id in conflicted
-        if not conflict and len({c.view for c in cameras}) != len(cameras):
-            raise SessionsError(
-                "A family holds two assets in one view without a registry view conflict."
-            )
+        conflict, grammar_version = families[capture_id]
         groups = [[c] for c in cameras] if conflict else [sorted(cameras, key=lambda c: c.view)]
         if len(groups) > 99:
             # The published grammar is exactly two digits, so a wider index
@@ -329,13 +451,13 @@ def plan(
                 Event(
                     event_id=event_id,
                     capture_id=capture_id,
-                    subject_ordinal=row["subject_ordinal"],
+                    subject_ordinal=int(row["subject_ordinal"]),
                     task=row["task"],
                     side=row["side"],
                     run_index=run_index,
                     take_resolution=TAKE_UNRESOLVED if conflict else TAKE_FAMILY,
                     view_conflict=int(conflict),
-                    grammar_version=grammar.get(capture_id, row["grammar_version"]),
+                    grammar_version=grammar_version,
                     cameras=tuple(group),
                 )
             )
@@ -354,6 +476,7 @@ def plan(
                 placement_reason=REASON_OK if event_id else held[asset_id],
                 event_id=event_id,
                 camera_name=camera_name,
+                grammar_version=row["grammar_version"],
             )
         )
     events.sort(key=lambda e: e.event_id)
@@ -403,7 +526,7 @@ def _event_rows(events: list[Event]) -> list[dict[str, str]]:
         {
             "event_id": e.event_id,
             "capture_id": e.capture_id,
-            "subject_ordinal": e.subject_ordinal,
+            "subject_ordinal": str(e.subject_ordinal),
             "task": e.task,
             "side": e.side,
             "run_index": str(e.run_index),
@@ -479,6 +602,17 @@ def _build(
         directory = staging / event.event_id
         directory.mkdir()
         for camera in event.cameras:
+            # Planning proved this target, and the corpus can change in
+            # between.  A link published over a vanished file breaks discovery
+            # while the tree still validates, so re-prove it here; the window
+            # narrows rather than closes.
+            try:
+                resolve_source(corpus_root, camera.source_relative)
+            except SessionsError as error:
+                raise SessionsError(
+                    f"{error} Asset {camera.asset_id}. Publish the registry again.",
+                    reason=error.reason,
+                ) from error
             # Relative, because the container and the host see this checkout
             # at different absolute paths and an absolute link would bake one
             # of them into the tree.
@@ -507,6 +641,33 @@ def _build(
     )
 
 
+def _remove(path: pathlib.Path) -> None:
+    """Remove a path whether it is a directory or a link to one.
+
+    ``shutil.rmtree`` refuses a symbolic link, and ``ignore_errors`` swallows
+    that refusal, so an output that was a link leaves its retiring twin behind.
+    """
+    if path.is_symlink():
+        path.unlink(missing_ok=True)
+    else:
+        shutil.rmtree(path, ignore_errors=True)
+
+
+def _assert_disjoint(out: pathlib.Path, other: str | os.PathLike[str], label: str) -> None:
+    """Refuse an output that overlaps an input, in either direction.
+
+    Publication deletes and replaces the whole output tree, so an output that
+    contains the corpus deletes the recordings it links to, and one that
+    contains the registry deletes the rows it just read.  An output *inside*
+    either is the mirror hazard: the next registry build would discover this
+    tree's links as corpus assets.
+    """
+    here = os.path.realpath(out)
+    there = os.path.realpath(other)
+    if _is_within(here, there) or _is_within(there, here):
+        raise SessionsError(f"The output directory must sit outside the {label}.")
+
+
 def _sweep_orphans(out: pathlib.Path) -> None:
     """Remove staging and retiring siblings that no live process owns.
 
@@ -517,12 +678,16 @@ def _sweep_orphans(out: pathlib.Path) -> None:
     """
     for sibling in out.parent.glob(f"{out.name}.*"):
         stage, _, pid = sibling.name[len(out.name) + 1 :].rpartition(".")
-        if stage not in ("staging", "retiring"):
+        # This run's own two names are managed around the publication and are
+        # live by construction, so liveness never has to decide them.
+        if stage not in ("staging", "retiring") or pid == str(os.getpid()):
             continue
         try:
             os.kill(int(pid), 0)
-        except (ValueError, ProcessLookupError):
-            shutil.rmtree(sibling, ignore_errors=True)
+        # OverflowError, not ValueError, is what a suffix wider than a C long
+        # raises, and it is no more a live process than a non-numeric one.
+        except (ValueError, OverflowError, ProcessLookupError):
+            _remove(sibling)
         except PermissionError:
             # Live and owned by another user: not ours to remove.
             continue
@@ -560,14 +725,17 @@ def run(
 ) -> tuple[list[Event], list[Placement]]:
     """Publish the session tree, replacing any generation this tool owns."""
     inventory_path = pathlib.Path(inventory_dir)
-    out = pathlib.Path(out_dir)
+    # The swap below replaces the name it publishes to, so a symlinked --out
+    # would become a real directory and orphan the tree it pointed at.
+    # Publishing to the real path keeps the caller's link intact.
+    out = pathlib.Path(os.path.realpath(out_dir))
     census = inventory.validate_generation(inventory_path)
-    if out.resolve() == inventory_path.resolve():
-        raise SessionsError("The output directory must differ from the registry directory.")
+    _assert_disjoint(out, inventory_path, "registry directory")
+    _assert_disjoint(out, corpus_root, "corpus")
     _assert_owned(out)
 
-    assets = _read_table(inventory_path / inventory.ASSETS_FILENAME)
-    captures = _read_table(inventory_path / inventory.CAPTURES_FILENAME)
+    assets = _read_table(inventory_path / inventory.ASSETS_FILENAME, ASSET_INPUT_COLUMNS)
+    captures = _read_table(inventory_path / inventory.CAPTURES_FILENAME, CAPTURE_INPUT_COLUMNS)
     events, placements = plan(assets, captures, corpus_root=corpus_root)
 
     # Staging and retiring are siblings, never children: discover_sessions
@@ -577,9 +745,8 @@ def run(
     retiring = out.with_name(f"{out.name}.retiring.{os.getpid()}")
     # The sweep skips live pids, and this process is live, so our own two names
     # (a reused pid, or a crash that kept the number) still need clearing.
-    _sweep_orphans(out)
-    shutil.rmtree(staging, ignore_errors=True)
-    shutil.rmtree(retiring, ignore_errors=True)
+    _remove(staging)
+    _remove(retiring)
     try:
         _build(
             staging,
@@ -590,10 +757,23 @@ def run(
         )
         if out.exists():
             out.rename(retiring)
-        staging.rename(out)
+        try:
+            staging.rename(out)
+        except OSError:
+            # The old tree is aside and the new one never landed.  A peer that
+            # published in between owns the root now, so restore only into an
+            # empty name; and an absent root leaves nothing retired, so a bare
+            # rename here would raise over the failure that caused it.
+            if retiring.exists() and not out.exists():
+                retiring.rename(out)
+            raise
+        # Swept only once the swap has landed: after a kill between the two
+        # renames the sole complete generation sits under a dead pid, so
+        # sweeping any earlier destroys it whenever this run then fails.
+        _sweep_orphans(out)
+        _remove(retiring)
     finally:
-        shutil.rmtree(staging, ignore_errors=True)
-        shutil.rmtree(retiring, ignore_errors=True)
+        _remove(staging)
     return events, placements
 
 

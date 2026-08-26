@@ -257,7 +257,6 @@ def _manifest(registry: _Registry, event_id: str) -> dict[str, Any]:
     return json.loads((registry.out / event_id / "session.json").read_text(encoding="utf-8"))
 
 
-# PREP-A04
 def test_p01_every_asset_row_has_exactly_one_placement(tmp_path: pathlib.Path) -> None:
     assets = [
         _canonical(1, "above"),
@@ -299,7 +298,6 @@ def test_p01_every_asset_row_has_exactly_one_placement(tmp_path: pathlib.Path) -
             assert row["camera_name"] == ""
 
 
-# PREP-A03
 def test_p01_empty_registry_emits_complete_empty_generation(tmp_path: pathlib.Path) -> None:
     registry = _write_registry(tmp_path, [])
     _run_main(registry)
@@ -310,7 +308,6 @@ def test_p01_empty_registry_emits_complete_empty_generation(tmp_path: pathlib.Pa
     assert multicam.discover_sessions(registry.out) == []
 
 
-# PREP-A02 PREP-A04
 def test_p01_strict_reports_held_out_after_publishing_ledger(tmp_path: pathlib.Path) -> None:
     registry = _write_registry(
         tmp_path,
@@ -331,7 +328,6 @@ def test_p01_strict_reports_held_out_after_publishing_ledger(tmp_path: pathlib.P
     assert _sessions_module().validate_generation(registry.out)
 
 
-# PREP-A05
 def test_p02_placed_assets_symlinks_and_event_camera_counts_conserve(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -397,7 +393,6 @@ def test_p03_conflict_run_index_overflow_is_rejected(tmp_path: pathlib.Path) -> 
     assert not registry.out.exists()
 
 
-# PREP-A04 PREP-A05
 def test_p04_conflict_assets_each_get_one_unresolved_single_camera_run(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -422,7 +417,6 @@ def test_p04_conflict_assets_each_get_one_unresolved_single_camera_run(
         assert len(manifest["cameras"]) == 1
 
 
-# PREP-A05
 def test_p04_non_conflict_family_stays_one_whole_run(tmp_path: pathlib.Path) -> None:
     assets = [_canonical(6, view, task="coin", side="r") for view in ("right", "above", "left")]
     registry = _write_registry(tmp_path, assets)
@@ -476,7 +470,6 @@ def _subprocess_generate(registry: _Registry, out: pathlib.Path, env: dict[str, 
     assert completed.returncode == 0, completed.stderr
 
 
-# PREP-A05
 def test_p05_discover_sessions_matches_every_emitted_event(tmp_path: pathlib.Path) -> None:
     assets = [
         _canonical(1, "above"),
@@ -660,7 +653,6 @@ def test_p07_hash_locale_timezone_and_out_matrix_is_byte_identical(
     assert all(snapshot == snapshots[0] for snapshot in snapshots[1:])
 
 
-# PREP-A09
 def test_p08_regeneration_is_idempotent_and_removes_stale_entries(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -807,7 +799,6 @@ def test_p09_tree_digest_distinguishes_link_text_and_entry_kind(
         "upstream_inventory",
     ],
 )
-# PREP-A10 PREP-A11 PREP-A12
 def test_p09_every_published_tamper_class_raises_sessions_error(
     tmp_path: pathlib.Path, tamper: str
 ) -> None:
@@ -845,7 +836,6 @@ def test_p09_every_published_tamper_class_raises_sessions_error(
             module.validate_generation(registry.out)
 
 
-# PREP-A01
 def test_p10_registry_validation_precedes_row_reads_and_error_propagates(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1102,7 +1092,7 @@ def test_p13_missing_source_fails_the_run_and_redacts_the_listed_path(
     captured = capsys.readouterr()
     assert token not in captured.out
     assert token not in captured.err
-    # The asset_id is a pseudonym, so the error stays actionable without it.
+    # The asset_id is a pseudonym, so the error names it and stays path-free.
     assert asset.asset_id in captured.err
     assert not registry.out.exists()
 
@@ -1160,7 +1150,6 @@ def test_p14_initial_publication_uses_one_exact_sibling_staging_rename(
     assert not staging.exists()
 
 
-# PREP-A13
 def test_p14_republication_builds_in_a_sibling_and_swaps_with_two_root_renames(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1436,3 +1425,442 @@ def test_p18_manifest_and_glob_discovery_accept_generated_out_of_tree_symlink(
     assert through_glob.camera_names() == through_manifest.camera_names() == ["cam-above"]
     assert through_glob.cameras[0].file == through_manifest.cameras[0].file == target
     assert target.is_file()
+
+
+# P19 — publication deletes and replaces the whole output tree, so the output
+# must overlap neither input, and the swap must not consume a symlinked --out.
+
+
+def _mark_owned(directory: pathlib.Path) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / _sessions_module().GENERATION_FILENAME).write_text(
+        json.dumps({"generator_version": _sessions_module().GENERATOR_VERSION}), encoding="utf-8"
+    )
+
+
+@pytest.mark.parametrize(
+    "shape", ["is_corpus", "is_registry", "encloses_both", "inside_corpus", "inside_registry"]
+)
+def test_p19_output_overlapping_an_input_is_refused_without_deleting_it(
+    tmp_path: pathlib.Path, shape: str
+) -> None:
+    registry = _write_registry(tmp_path, [_canonical(1, "above"), _canonical(1, "front")])
+    census = inventory.validate_generation(registry.root)
+    out = {
+        "is_corpus": registry.corpus,
+        "is_registry": registry.root,
+        "encloses_both": tmp_path,
+        "inside_corpus": registry.corpus / "nested",
+        "inside_registry": registry.root / "nested",
+    }[shape]
+    # The marker keeps ownership from being what refuses: overlap alone must.
+    _mark_owned(out)
+
+    with pytest.raises(_sessions_module().SessionsError):
+        _sessions_module().run(registry.root, registry.corpus, out)
+
+    assert inventory.validate_generation(registry.root) == census
+    for asset in registry.assets:
+        assert (registry.corpus / asset.source_path).read_bytes() == asset.content
+
+
+def test_p19_symlinked_output_publishes_through_the_link_across_republication(
+    tmp_path: pathlib.Path,
+) -> None:
+    registry = _write_registry(tmp_path, [_canonical(1, "above")])
+    target = tmp_path / "volume" / "sessions"
+    target.mkdir(parents=True)
+    registry.out.symlink_to(target, target_is_directory=True)
+
+    for _ in range(2):
+        _run_main(registry)
+        assert registry.out.is_symlink()
+        assert (target / "events.csv").is_file()
+        assert len(_events(registry)) == 1
+        assert _sessions_module().validate_generation(registry.out) == (
+            _sessions_module().validate_generation(target)
+        )
+        for parent in (tmp_path, target.parent):
+            debris = sorted(parent.glob("*.staging.*")) + sorted(parent.glob("*.retiring.*"))
+            assert debris == []
+
+
+def test_p19_dead_publication_siblings_are_swept_link_debris_included(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = _write_registry(tmp_path, [_canonical(1, "above")])
+    out = registry.out
+    dead_directory = out.with_name(f"{out.name}.staging.10101")
+    dead_link = out.with_name(f"{out.name}.retiring.10102")
+    live = out.with_name(f"{out.name}.staging.20202")
+    unrelated = out.with_name(f"{out.name}.note")
+    dead_directory.mkdir()
+    (dead_directory / "leftover").write_bytes(b"debris")
+    dead_link.symlink_to(registry.corpus, target_is_directory=True)
+    live.mkdir()
+    unrelated.mkdir()
+
+    def liveness(pid: int, signal: int) -> None:
+        assert signal == 0
+        if pid != 20202:
+            raise ProcessLookupError
+
+    monkeypatch.setattr(os, "kill", liveness)
+    _run_main(registry)
+
+    assert not dead_directory.exists()
+    assert not dead_link.is_symlink()
+    assert live.is_dir()
+    assert unrelated.is_dir()
+    for asset in registry.assets:
+        assert (registry.corpus / asset.source_path).read_bytes() == asset.content
+
+
+# P20 — upstream digests prove the registry's bytes, never its shape, so every
+# field this module reads is checked rather than trusted.
+
+
+def _tables(registry: _Registry) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    return (
+        _read_csv(registry.root / inventory.ASSETS_FILENAME),
+        _read_csv(registry.root / inventory.CAPTURES_FILENAME),
+    )
+
+
+def _drop_column(rows: list[dict[str, str]], column: str) -> None:
+    for row in rows:
+        del row[column]
+
+
+def _set_all(rows: list[dict[str, str]], **cells: str) -> None:
+    for row in rows:
+        row.update(cells)
+
+
+_SHAPE_DEFECTS: dict[str, Callable[[list[dict[str, str]], list[dict[str, str]]], None]] = {
+    "asset_column_missing": lambda assets, captures: _drop_column(assets, "source_path"),
+    "capture_column_missing": lambda assets, captures: _drop_column(captures, "view_conflict"),
+    "duplicate_asset_id": lambda assets, captures: assets.append(dict(assets[0])),
+    "duplicate_capture_id": lambda assets, captures: captures.append(dict(captures[0])),
+    "unknown_disposition": lambda assets, captures: assets[0].update(disposition="archived"),
+    "orphan_canonical_asset": lambda assets, captures: captures.clear(),
+    "non_numeric_subject": lambda assets, captures: assets[0].update(subject_ordinal="one"),
+    # str.isdigit is true for both: the first raises ValueError from int(), the
+    # second silently normalizes to a published ordinal its own cell never spells.
+    "superscript_subject": lambda assets, captures: assets[0].update(subject_ordinal="²"),
+    "arabic_indic_subject": lambda assets, captures: assets[0].update(subject_ordinal="٢"),
+    "view_conflict_out_of_domain": lambda assets, captures: captures[0].update(view_conflict="2"),
+    "view_conflict_overclaimed": lambda assets, captures: captures[0].update(view_conflict="1"),
+    "view_conflict_underclaimed": lambda assets, captures: assets.append(
+        {**assets[0], "asset_id": "duplicate-view", "source_path": "synthetic-01/copy.MOV"}
+    ),
+    "mixed_grammar_version": lambda assets, captures: assets[0].update(grammar_version="v2"),
+    "formula_in_view": lambda assets, captures: assets[0].update(view="=cmd|' /c calc'!A1"),
+    "formula_in_task": lambda assets, captures: assets[0].update(task="+2+3"),
+    "formula_in_digest": lambda assets, captures: assets[0].update(content_sha256="=1+1"),
+    "formula_in_grammar": lambda assets, captures: _set_all(
+        assets + captures, grammar_version="=v1"
+    ),
+    "escape_in_asset_id": lambda assets, captures: assets[0].update(asset_id="a-\x1b[31mred"),
+    "newline_in_capture_id": lambda assets, captures: _set_all(
+        assets + captures, capture_id="s01-cap-l\nrm -rf /"
+    ),
+    # Python `$` matches before one trailing newline, so an anchored `match`
+    # admits every cell below; only the whole-string form rejects them.
+    "trailing_newline_in_asset_id": lambda assets, captures: assets[0].update(asset_id="a-safe\n"),
+    "trailing_newline_in_capture_id": lambda assets, captures: _set_all(
+        assets + captures, capture_id="s01-cap-l\n"
+    ),
+    "trailing_newline_in_digest": lambda assets, captures: assets[0].update(
+        content_sha256="abcdef\n"
+    ),
+    "trailing_newline_in_grammar": lambda assets, captures: _set_all(
+        assets + captures, grammar_version="v1\n"
+    ),
+    "trailing_newline_in_side": lambda assets, captures: assets[0].update(side="l\n"),
+    "trailing_newline_in_task": lambda assets, captures: assets[0].update(task="cap\n"),
+    "trailing_newline_in_view": lambda assets, captures: assets[0].update(view="above\n"),
+}
+
+
+@pytest.mark.parametrize("defect", sorted(_SHAPE_DEFECTS))
+def test_p20_registry_shape_defects_raise_inside_the_error_domain(
+    tmp_path: pathlib.Path, defect: str
+) -> None:
+    registry = _write_registry(tmp_path, [_canonical(1, "above"), _canonical(1, "front")])
+    assets, captures = _tables(registry)
+    _SHAPE_DEFECTS[defect](assets, captures)
+
+    with pytest.raises(_sessions_module().SessionsError):
+        _sessions_module().plan(assets, captures, corpus_root=registry.corpus)
+
+
+def _republish_table(registry: _Registry, filename: str, text: str) -> None:
+    """Replace one table verbatim and re-digest, so only its shape is wrong."""
+    census_path = registry.root / inventory.CENSUS_FILENAME
+    census = json.loads(census_path.read_text(encoding="utf-8"))
+    census["generation"][filename] = hashlib.sha256(text.encode()).hexdigest()
+    census["generation"][inventory.CENSUS_FILENAME] = inventory.census_digest(census)
+    (registry.root / filename).write_text(text, encoding="utf-8", newline="")
+    census_path.write_text(inventory.render_json(census), encoding="utf-8", newline="")
+    assert inventory.validate_generation(registry.root) == census
+
+
+def _empty_registry(registry: _Registry, *, drop: dict[str, str]) -> None:
+    for filename, columns in (
+        (inventory.ASSETS_FILENAME, inventory.ASSET_COLUMNS),
+        (inventory.CAPTURES_FILENAME, inventory.CAPTURE_COLUMNS),
+    ):
+        kept = tuple(column for column in columns if column != drop.get(filename))
+        _republish_table(registry, filename, inventory.render_csv(kept, []))
+
+
+def test_p20_an_empty_table_still_publishes_when_its_header_is_whole(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Control for the refusal below: emptiness alone is a legal registry."""
+    registry = _write_registry(tmp_path, [_canonical(1, "above")])
+    _empty_registry(registry, drop={})
+
+    _run_main(registry)
+    assert _events(registry) == []
+
+
+@pytest.mark.parametrize(
+    "drop",
+    [
+        {inventory.ASSETS_FILENAME: "source_path"},
+        {inventory.CAPTURES_FILENAME: "view_conflict"},
+    ],
+    ids=["assets", "captures"],
+)
+def test_p20_a_short_header_is_refused_even_with_no_rows(
+    tmp_path: pathlib.Path, drop: dict[str, str]
+) -> None:
+    """Zero rows leave the per-row checks unreached, so the header carries the schema."""
+    registry = _write_registry(tmp_path, [_canonical(1, "above")])
+    _empty_registry(registry, drop=drop)
+
+    _run_main(registry, expected_status=2)
+    assert not registry.out.exists()
+
+
+def test_p20_the_published_grammar_rejects_a_trailing_newline() -> None:
+    """The exported pattern is matched by consumers, so it must anchor at the end."""
+    assert not _sessions_module().EVENT_ID_PATTERN.match("s02-cap-l_run-01\n")
+    assert _sessions_module().EVENT_ID_PATTERN.match("s02-cap-l_run-01")
+
+
+def test_p20_a_hostile_cell_never_reaches_the_error_that_rejects_it(
+    tmp_path: pathlib.Path,
+) -> None:
+    registry = _write_registry(tmp_path, [_canonical(1, "above")])
+    assets, captures = _tables(registry)
+    hostile = "a-\x1b[31m\nrm -rf /"
+    assets[0].update(asset_id=hostile)
+
+    with pytest.raises(_sessions_module().SessionsError) as raised:
+        _sessions_module().plan(assets, captures, corpus_root=registry.corpus)
+
+    message = str(raised.value)
+    assert "asset_id" in message
+    assert hostile not in message
+    assert "\x1b" not in message
+    assert "\n" not in message
+
+
+def test_p20_placements_publish_the_asset_grammar_version(tmp_path: pathlib.Path) -> None:
+    registry = _write_registry(
+        tmp_path,
+        [
+            _canonical(1, "above"),
+            _held_out(
+                "synthetic-02/2_unknown.MOV",
+                disposition=inventory.QUARANTINED,
+                reason_code="side_missing",
+            ),
+        ],
+    )
+    _run_main(registry, strict=True, expected_status=1)
+
+    rows = _placements(registry)
+    assert [row["placement"] for row in rows].count("held_out") == 1
+    assert {row["grammar_version"] for row in rows} == {inventory.GRAMMAR_VERSION}
+    header = (registry.out / "placements.csv").read_text(encoding="utf-8").splitlines()[0]
+    assert header.split(",") == list(_sessions_module().PLACEMENT_COLUMNS)
+
+
+def test_p20_manifest_subject_ordinal_is_a_json_number(tmp_path: pathlib.Path) -> None:
+    registry = _write_registry(tmp_path, [_canonical(7, "above")])
+    _run_main(registry)
+    event_id = _events(registry)[0]["event_id"]
+
+    ordinal = _manifest(registry, event_id)["subject_ordinal"]
+    assert ordinal == 7
+    assert not isinstance(ordinal, str)
+    assert _events(registry)[0]["subject_ordinal"] == "7"
+
+
+def test_p20_source_removed_after_planning_fails_before_publication(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = _write_registry(tmp_path, [_canonical(1, "above")])
+    module = _sessions_module()
+    planned = module.plan
+
+    def plan_then_remove(*args: Any, **kwargs: Any) -> Any:
+        result = planned(*args, **kwargs)
+        (registry.corpus / registry.assets[0].source_path).unlink()
+        return result
+
+    monkeypatch.setattr(module, "plan", plan_then_remove)
+    with pytest.raises(module.SessionsError) as raised:
+        module.run(registry.root, registry.corpus, registry.out)
+
+    assert raised.value.reason == "source_missing"
+    assert not registry.out.exists()
+    assert sorted(tmp_path.glob(f"{registry.out.name}.*")) == []
+
+
+def test_p20_failed_republication_leaves_the_published_tree_intact(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = _write_registry(tmp_path, [_canonical(1, "above"), _canonical(2, "front")])
+    _run_main(registry)
+    published = _tree_snapshot(registry.out)
+    module = _sessions_module()
+    planned = module.plan
+
+    def plan_then_remove(*args: Any, **kwargs: Any) -> Any:
+        result = planned(*args, **kwargs)
+        (registry.corpus / registry.assets[0].source_path).unlink()
+        return result
+
+    monkeypatch.setattr(module, "plan", plan_then_remove)
+    with pytest.raises(module.SessionsError):
+        module.run(registry.root, registry.corpus, registry.out)
+
+    assert _tree_snapshot(registry.out) == published
+    assert module.validate_generation(registry.out)
+    assert sorted(tmp_path.glob(f"{registry.out.name}.*")) == []
+
+
+_SWAP_REFUSED = "the swap is refused"
+
+
+def _fail_the_swap(
+    monkeypatch: pytest.MonkeyPatch, *, before: Callable[[], None] = lambda: None
+) -> None:
+    """Break `staging → out` alone, leaving the retirement rename working."""
+    renamed = pathlib.Path.rename
+
+    def rename(self: pathlib.Path, target: Any) -> pathlib.Path:
+        if f".staging.{os.getpid()}" in self.name:
+            before()
+            raise OSError(_SWAP_REFUSED)
+        return renamed(self, target)
+
+    monkeypatch.setattr(pathlib.Path, "rename", rename)
+
+
+def test_p20_a_failed_swap_restores_the_previous_tree(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = _write_registry(tmp_path, [_canonical(1, "above"), _canonical(2, "front")])
+    _run_main(registry)
+    published = _tree_snapshot(registry.out)
+    _fail_the_swap(monkeypatch)
+
+    with pytest.raises(OSError, match=_SWAP_REFUSED):
+        _sessions_module().run(registry.root, registry.corpus, registry.out)
+
+    assert _tree_snapshot(registry.out) == published
+    assert _sessions_module().validate_generation(registry.out)
+    assert sorted(tmp_path.glob(f"{registry.out.name}.*")) == []
+
+
+def test_p20_a_peer_owning_the_root_keeps_the_retired_tree_on_disk(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = _write_registry(tmp_path, [_canonical(1, "above")])
+    _run_main(registry)
+    published = _tree_snapshot(registry.out)
+
+    def publish_as_a_peer() -> None:
+        registry.out.mkdir()
+        (registry.out / "peer.txt").write_bytes(b"a peer owns the root now")
+
+    _fail_the_swap(monkeypatch, before=publish_as_a_peer)
+    with pytest.raises(OSError, match=_SWAP_REFUSED):
+        _sessions_module().run(registry.root, registry.corpus, registry.out)
+
+    retired = registry.out.with_name(f"{registry.out.name}.retiring.{os.getpid()}")
+    assert _tree_snapshot(retired) == published
+    assert (registry.out / "peer.txt").is_file()
+
+
+def test_p20_a_failed_build_keeps_a_dead_runs_retired_tree(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = _write_registry(tmp_path, [_canonical(1, "above")])
+    _run_main(registry)
+    abandoned = registry.out.with_name(f"{registry.out.name}.retiring.10101")
+    shutil.copytree(registry.out, abandoned, symlinks=True)
+    module = _sessions_module()
+    planned = module.plan
+
+    def plan_then_remove(*args: Any, **kwargs: Any) -> Any:
+        result = planned(*args, **kwargs)
+        (registry.corpus / registry.assets[0].source_path).unlink()
+        return result
+
+    monkeypatch.setattr(module, "plan", plan_then_remove)
+    monkeypatch.setattr(os, "kill", lambda pid, signal: (_ for _ in ()).throw(ProcessLookupError))
+    with pytest.raises(module.SessionsError):
+        module.run(registry.root, registry.corpus, registry.out)
+
+    assert module.validate_generation(abandoned)
+
+
+def test_p20_a_failed_swap_into_an_absent_root_keeps_the_dead_generation(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A kill between the two renames leaves the only generation under a dead pid.
+
+    Sweeping it before the swap and then failing the swap destroys it, and the
+    empty-root rollback raises over the real error while doing so.
+    """
+    registry = _write_registry(tmp_path, [_canonical(1, "above")])
+    _run_main(registry)
+    abandoned = registry.out.with_name(f"{registry.out.name}.retiring.10101")
+    registry.out.rename(abandoned)
+    dead_staging = registry.out.with_name(f"{registry.out.name}.staging.10101")
+    shutil.copytree(abandoned, dead_staging, symlinks=True)
+    _fail_the_swap(monkeypatch)
+    monkeypatch.setattr(os, "kill", lambda pid, signal: (_ for _ in ()).throw(ProcessLookupError))
+
+    with pytest.raises(OSError, match=_SWAP_REFUSED):
+        _sessions_module().run(registry.root, registry.corpus, registry.out)
+
+    assert _sessions_module().validate_generation(abandoned)
+
+
+def test_p20_an_unrepresentable_pid_suffix_sweeps_as_dead_debris(tmp_path: pathlib.Path) -> None:
+    """`os.kill` raises OverflowError, not ValueError, on an int wider than a C long."""
+    registry = _write_registry(tmp_path, [_canonical(1, "above")])
+    debris = registry.out.with_name(f"{registry.out.name}.staging.{'9' * 100}")
+    debris.mkdir(parents=True)
+    (debris / "leftover").write_bytes(b"debris")
+
+    _run_main(registry)
+
+    assert not debris.exists()
+    assert _sessions_module().validate_generation(registry.out)
+
+
+def test_p20_filesystem_root_corpus_contains_every_file_below_it(tmp_path: pathlib.Path) -> None:
+    source = tmp_path / "asset.mov"
+    source.write_bytes(b"synthetic")
+    relative = str(source.resolve().relative_to("/"))
+
+    assert _sessions_module().resolve_source("/", relative) == source.resolve()

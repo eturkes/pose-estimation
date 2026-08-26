@@ -39,7 +39,7 @@ of commits.
 
 ## Entry points
 
-`pyproject.toml` defines seven console scripts (`[project.scripts]`). You can also run
+`pyproject.toml` defines eight console scripts (`[project.scripts]`). You can also run
 each one as `python -m pose_estimation.<module>`.
 
 | Script | Module | Purpose |

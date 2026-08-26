@@ -20,6 +20,7 @@
       "Read(inventory/assets.csv)",
       "Read(inventory/captures.csv)",
       "Read(sessions/)",
+      "Read(sessions.*/)",
       "Read(uv.lock)",
       "Read(renv.lock)",
       "Read(LICENSE)",
