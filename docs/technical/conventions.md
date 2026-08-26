@@ -2,7 +2,7 @@
 
 ## Git
 
-- Commit messages: [Scoped Commits](https://scopedcommits.com/) — `<scope>: <description>`, scope first (the subsystem/area touched, e.g. `tracking`, `calibration`, `multicam`, or a cross-cutting label such as `Tooling`, `Maintenance`, `Refactor`, `Docs`). For multi-area commits, comma-list the scopes, generalize to one, or use `treewide`. Subject + body take the `CLAUDE.md` `Authoring` standard: subject ≤50 chars, imperative; body wrap ≤72 chars; `→` for cause→fix; measurements + SHAs kept as payload while the narration around them goes.
+- Commit messages: [Scoped Commits](https://scopedcommits.com/) — `<scope>: <description>`, scope first (the subsystem/area touched, e.g. `tracking`, `calibration`, `multicam`, or a cross-cutting label such as `Tooling`, `Maintenance`, `Refactor`, `Docs`). For multi-area commits, comma-list the scopes, generalize to one, or use `treewide`. Subject + body take the `CLAUDE.md` `Authoring` standard: subject = `<scope>: <cause> → <fix>`, imperative, one line — the cause→fix shape sets the length, and the log runs 45-95 chars, so no 50-char cap applies; body wrap ≤72 chars; measurements + SHAs kept as payload while the narration around them goes.
 - Before committing, always check whether `README.md`, `.gitignore`, `pyproject.toml`, or other housekeeping files need a matching update.
 
 ## Quality gate
@@ -17,6 +17,7 @@ uv run ruff check && uv run ruff format --check && uv run ty check && uv run pyt
 - Changed `analysis/*.R` must exit 0 under `Rscript` with the project renv active. After an R upgrade, update + snapshot `renv.lock` first.
 - Smoke-test each changed console entry point on a non-sensitive, non-interactive path.
 - Non-interactive shells (scripts, agents, fresh shells) export the layer's `UV_PROJECT_ENVIRONMENT` before `uv` runs — `.envrc` covers hooked interactive shells only. See `environment.md`.
+- Two committed campaign gates run outside the ordered stages: `scripts/run_inventory_mutations.py` (72 mutants over `inventory.py` + `video_io.py`; 71 killed, `M028` a ruled equivalent) and `scripts/check_inventory_determinism.py` (20 sweeps + 13 tamper classes at the consumer boundary). Rerun both before quoting a corpus-registry claim; a new registry predicate earns a mutant in the same commit.
 
 ## Maintenance
 
@@ -85,4 +86,4 @@ Strict config: `-ra --strict-config --strict-markers --import-mode=importlib`. W
 - Public API: only what's re-exported from `src/pose_estimation/__init__.py`. Internal helpers may move freely.
 - TypedDicts in `_types.py` document dict-passed pipeline state. Treat them as the contract.
 - Prefer editing existing modules to introducing new ones; the surface is small on purpose.
-- Comments: keep sparse — explain WHY when non-obvious; don't restate WHAT the code does.
+- Comment policy + the agent-legibility bounds live in `CLAUDE.md` `Engineering`.

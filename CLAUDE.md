@@ -28,9 +28,12 @@
 ## Engineering
 
 - Elegant, tightly-scoped modular components; deduplicate; KISS + UNIX where apt; refactor proactively.
+- Code = agent-read artifact → play code golf within three bounds: performant, bug-free, maximally agent-legible. Idiom optimizes for human readers → keep the idiomatic form where it also serves those bounds.
+- Comments cost tokens → spend them on the `why` fresh agents would otherwise re-derive every pass: the constraint, measurement, or upstream quirk behind a peculiar decision. Code states the `what` on its own.
 - Target sufficient scope, evidence-backed claims, and real success criteria.
 - Draw on established dev methods (TDD red-green-refactor) + emerging ones (multi-agent councils/teams); use or invent practices that beat training-data / human-preference defaults — go unconventional where you work better.
 - Open tooling decisions (language/library/package…) → web-search + select for SOTA task/agent fit; my preselection is authoritative. Training overweights human-popular convenience. Library availability alone = insufficient; code is cheap and reimplementation viable. Consider agent-oriented languages (agentlanguages.dev) + AI-targeted tooling. Build on mature work when it is genuinely SOTA.
+- Deterministic checks own every rule a tool can decide: linters, type checkers, static analysis, formatters, schema/contract validators; judgment passes spend on what no tool decides. Configure + extend proven checkers first; uncovered invariant → purpose-built check wired into the gate.
 - Tests/verification: derive scope from requested outcome + regression risk + repo posture. Add coverage that accelerates delivery or protects behavior. Fuzzing/property/formal methods require a task-specific advantage.
 - Assurance tier, declared per unit at planning: `kernel` (judgment-bearing code/spec) = full adversarial battery; `data` (consumer re-validates at use) = one structural validator + live spot-check, defects fix forward; `docs` = consistency pass. Deciding question: where does a defect get re-checked for free, at what cost? Rigor concentrates where no downstream re-check exists.
 - Milestone = MVP spine — the shortest unit path to a consumable artifact; units carry spine work alone. Off-spine improvements are born as `.agent/polish.md` entries, acceptance check written at deferral time while evidence is fresh.
