@@ -59,6 +59,13 @@ inventory/
 sessions/
 sessions.*/
 
+# Qualification evidence set (patient-adjacent: per-asset rows keyed by
+# capture_id pseudonyms). qualification.json inside it holds aggregates only
+# and is safe to quote. Same two-pattern shape as sessions, for the same
+# staging/retiring siblings and the same collision with the module and doc.
+qualification/
+qualification.*/
+
 # Camera calibration (patient-adjacent: identifying lab/rig geometry — never commit)
 calibration/
 calibration.json

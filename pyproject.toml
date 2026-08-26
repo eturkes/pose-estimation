@@ -53,6 +53,7 @@ pose-estimation-postprocess = "pose_estimation.postprocess:main"
 pose-estimation-calibrate = "pose_estimation.calibration_cli:main"
 pose-estimation-inventory = "pose_estimation.inventory:main"
 pose-estimation-sessions = "pose_estimation.sessions:main"
+pose-estimation-qualify = "pose_estimation.qualify:main"
 pose-estimation-validate = "pose_estimation.validation:main"
 
 [build-system]
