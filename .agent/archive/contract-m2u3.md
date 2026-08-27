@@ -120,13 +120,25 @@ Each is testable and each earns at least one committed test. `P##` is the stable
 
 ### Geometry, rigidity, detectability, scale — wave-2 evidence
 
-- **P21** `rigidity_stat` is an image-space background-drift statistic in pixels with a stated
-  sampling rule. The accept gate is `median drift ≤ 2 px` and `p95 ≤ 4 px` over the clip
-  (res1:U6); an asset outside it is flagged, not dropped. The visual spike's provisional scalar
-  flags 28/379 (visual:U6) and is a candidate implementation, not the definition.
-- **P22** `view_label_agrees_with_geometry` is measured, not assumed. View tokens are lexical
-  (roadmap standing constraint) and main:F3 shows the `above` and `left` labels were served by
-  **different physical tablets in two eras**, so agreement must be established per era.
+- **P21** `rigidity_stat` is an image-space background-drift statistic in **native pixels** with a
+  stated sampling rule. The accept gate is `drift_p95_px ≤ 20`, the reprojection tolerance the 3D
+  pipeline already applies (`src/pose_estimation/triangulation.py:423-424`); an asset outside it is
+  flagged `camera_motion`, not dropped. Measured: **278/286 eligible assets pass, 71/137 multi-asset
+  families keep every member rigid**. **Amended** — the frozen text read `median ≤ 2 px` and
+  `p95 ≤ 4 px` (res1:U6), which flagged 210/286 and was **unadjudicable**: the 4 px accept threshold
+  also served as the MAGSAC inlier threshold (`geometry_qualification.py:326`), so `residual_p95`
+  could never exceed the gate it was judged against. A threshold sweep over 8× shows `residual_p95`
+  tracking the threshold monotonically while inliers grow 6%, so **no gate may be built on
+  `residual_p95`**, ratio gates included; `drift_median` moves 5.0% over that range and is the robust
+  statistic. `RANSAC_THRESHOLD_PX = 8.0` is now an independent constant and `residual_p95` leaves the
+  published schema. Ruling + evidence → `.agent/archive/rulings-m2u3.md` R2.
+- **P22** `view_label_agrees_with_geometry` is measured, not assumed. **Measured, and the answer is
+  no**: within one configuration the label carries geometry (iPad(5)/16.6 `above` 85% unmeasurable
+  against the same tablet's `left` at 6%), but within one label the configuration changes it
+  (`above` 85% unmeasurable on iPad(5)/16.6, 3% on Air-M2/26.5). The label named two different
+  setups in two eras. `(device_config, view)` is the coarsest key naming a stable geometry, and
+  `left`-versus-`right` handedness stays unresolved by anything in this corpus. No per-view prior,
+  rotation constant or calibration may cross the era boundary. → rulings R1.
 - **P23** `detect_rate` and `detect_conf_median` come from the repo's own pose pipeline on a stated
   frame sample, with the detector on a device whose output is not padded with uninitialised memory
   (`CLAUDE.local.md`; NPU-YOLOX is excluded by measurement).
@@ -197,12 +209,13 @@ a file measured against different source digests.
 - The 55 multi-view families that mix 44 100 and 48 000 Hz audio.
 - Both eras of the `above` and `left` view labels (main:F3).
 
-## 7. Open rulings — MAIN decides on wave-2 evidence
+## 7. Rulings — verdict table at `.agent/archive/rulings-m2u3.md`
 
-- **R1** Does the `above`/`left` label track a position or a device across the era boundary?
-- **R2** Is background rigidity sufficient for per-event extrinsics, and on what fraction of events?
-- **R3** Does any metric scale reference exist in frame? If none, the user is asked for participant
-  anthropometrics — the roadmap requires the survey to precede the request.
-- **R4** Does M2.6 exist? Feasible extrinsics on a usable fraction of events is the condition.
-- **R5** What sub-frame offset representation replaces the integer `sync_offset`, given that this
-  corpus needs no drift term but M2.5 must still express a non-integer offset (res2:Q4)?
+| id | question | ruling |
+| -- | -------- | ------ |
+| R1 | Does `above`/`left` track a position or a device across the era boundary? | **Neither.** The label named two setups in two eras; no per-view prior crosses that boundary. |
+| R2 | Is background rigidity sufficient for per-event extrinsics, and on what fraction? | **Yes on the measurable population.** P21's gate replaced by `drift_p95 ≤ 20 px`; 278/286 assets, 71/137 families. 93/379 assets carry no verdict under any gate. |
+| R3 | Does any metric scale reference exist in frame? | **Open — the scale axis has not run.** |
+| R4 | Does M2.6 exist? | **Yes, route re-specified.** Scene-feature extrinsics eliminated by measurement (0/246 pairs recoverable); subject-keypoint calibration is the route. |
+| R5 | What replaces the integer `sync_offset`? | One float `offset_s` per camera against the event reference. No rate or drift term. |
+| A1 | How do the expensive axes reach `assets_qc.csv`? | A validated **sidecar generation**, ingested by `qualify.py` as a third upstream. |
