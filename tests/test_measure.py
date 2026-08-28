@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import pathlib
 
 import pytest
@@ -48,7 +49,8 @@ def _sidecar(
     rows: list[dict[str, str]],
     *,
     declared_rows: int | None = None,
-    version: str = measure.GENERATOR_VERSION,
+    version: object = measure.GENERATOR_VERSION,
+    provenance: object | None = None,
 ) -> pathlib.Path:
     out = tmp_path / "measurements"
     out.mkdir(parents=True, exist_ok=True)
@@ -61,7 +63,7 @@ def _sidecar(
                 "sha256": hashlib.sha256(table.read_bytes()).hexdigest(),
                 "rows": len(rows) if declared_rows is None else declared_rows,
                 "generator_version": version,
-                "provenance": {},
+                "provenance": {} if provenance is None else provenance,
             }
         }
     }
@@ -199,3 +201,54 @@ def test_manifest_json_stays_parseable_after_every_refusal(tmp_path: pathlib.Pat
         _load(out)
     assert (out / measure.MANIFEST_FILENAME).read_bytes() == before
     assert json.loads(before.decode("utf-8"))["axes"]["sync"]["rows"] == 1
+
+
+@pytest.mark.parametrize("column", ["peak_rms_audio", "offset_audio_s", "drift_ppm"])
+def test_ingestion_refuses_a_decimal_that_overflows_to_infinity(
+    tmp_path: pathlib.Path, column: str
+) -> None:
+    """Spelling is not finiteness.
+
+    The bounded columns admit `inf` because their upper bound is `inf`; the
+    unbounded ones admit it because nothing compares them at all.  Both routes
+    put a non-number in a table whose whole purpose is to carry instrument
+    readings, so the refusal belongs to the alphabet, not to the domains.
+    """
+    out = _sidecar(tmp_path, [_row(**{column: "9" * 400 + ".0"})])
+    with pytest.raises(measure.MeasureError) as error:
+        _load(out)
+    assert error.value.reason == "cell_overflow"
+
+
+def test_ingestion_refuses_an_axis_version_that_is_not_a_string(tmp_path: pathlib.Path) -> None:
+    """The version check hashes its operand, so an unhashable one must not escape the domain."""
+    out = _sidecar(tmp_path, [_row()], version=[])
+    with pytest.raises(measure.MeasureError) as error:
+        _load(out)
+    assert error.value.reason == "generator_version"
+
+
+def test_ingestion_refuses_provenance_that_is_not_an_object(tmp_path: pathlib.Path) -> None:
+    """A02 opens the provenance key set; it does not drop the object that holds the keys."""
+    out = _sidecar(tmp_path, [_row()], provenance=[])
+    with pytest.raises(measure.MeasureError) as error:
+        _load(out)
+    assert error.value.reason == "provenance_shape"
+
+
+def test_ingestion_refuses_a_sidecar_directory_it_cannot_list(tmp_path: pathlib.Path) -> None:
+    """Executable but unreadable: every named file still opens, the listing does not.
+
+    The unnamed-table check is the one read that needs the directory itself, so
+    it is the read that escapes the error domain when nothing wraps it.
+    """
+    out = _sidecar(tmp_path, [_row()])
+    out.chmod(0o111)
+    try:
+        if os.access(out, os.R_OK):
+            pytest.skip("this user can list a directory without read permission")
+        with pytest.raises(measure.MeasureError) as error:
+            _load(out)
+        assert error.value.reason == "sidecar_unreadable"
+    finally:
+        out.chmod(0o755)

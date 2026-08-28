@@ -311,7 +311,7 @@ def _assert_domains(axis: Axis, rows: list[dict[str, str]]) -> None:
     """Refuse a cell that spells correctly and means nothing.
 
     Runs after ``_assert_cells``, so every cell reaching ``float`` already
-    matches its alphabet and cannot raise.
+    matches its alphabet, is finite, and cannot raise.
     """
     for row in rows:
         for column, (low, high) in DOMAINS.items():
@@ -340,6 +340,16 @@ def _assert_cells(axis: Axis, rows: list[dict[str, str]]) -> None:
                 raise MeasureError(
                     f"{axis.table}: {column} cell {cell!r} does not match {pattern.pattern}",
                     reason="cell_alphabet",
+                )
+            # The decimal alphabet caps no digit count, so a spelling it accepts
+            # can still overflow to infinity.  Checked here rather than beside
+            # the bounds because the columns DOMAINS leaves unbounded --
+            # offset_audio_s, drift_ppm -- are exactly the ones no later check
+            # would ever compare against anything.
+            if cell and pattern is DECIMAL_CELL and not math.isfinite(float(cell)):
+                raise MeasureError(
+                    f"{axis.table}: {column} carries {cell!r}, which is not a finite number.",
+                    reason="cell_overflow",
                 )
             allowed = axis.enums.get(column)
             if allowed is None:
@@ -555,11 +565,22 @@ def validate(
                 f"non-negative integer: {declared!r}.",
                 reason="row_count_type",
             )
-        if entry["generator_version"] not in SUPPORTED_VERSIONS:
+        # `in` on a frozenset hashes its left operand, so an unhashable JSON
+        # value would leave this domain as a raw TypeError rather than exit 2.
+        version = entry["generator_version"]
+        if not isinstance(version, str) or version not in SUPPORTED_VERSIONS:
             raise MeasureError(
                 f"The sidecar's {name!r} axis was written by a generator this build "
-                f"does not ingest: {entry['generator_version']!r}.",
+                f"does not ingest: {version!r}.",
                 reason="generator_version",
+            )
+        # A02 leaves the provenance keys open; P31 still requires a payload that
+        # can name constants, which no non-object value can ever carry.
+        if not isinstance(entry["provenance"], dict):
+            raise MeasureError(
+                f"The sidecar's {name!r} axis carries provenance that is not an object: "
+                f"{entry['provenance']!r}.",
+                reason="provenance_shape",
             )
         axis = AXES[name]
         if entry["table"] != axis.table:
@@ -593,7 +614,15 @@ def validate(
 
     # A table the manifest does not name is the staleness case the digests
     # cannot see: it is internally whole, it is simply from another run.
-    for entry in sorted(out.iterdir()):
+    try:
+        entries = sorted(out.iterdir())
+    except OSError as error:
+        # A29 puts every read failure in this domain: the manifest and the
+        # tables can all be readable while the directory itself is not.
+        raise MeasureError(
+            "The sidecar directory cannot be listed.", reason="sidecar_unreadable"
+        ) from error
+    for entry in entries:
         if entry.name == MANIFEST_FILENAME:
             continue
         if entry.name in TABLE_NAMES and entry.name not in named:

@@ -30,6 +30,7 @@ import os
 import pathlib
 import re
 import shutil
+import stat
 import statistics
 import struct
 import sys
@@ -1054,13 +1055,63 @@ def _digest_bytes(path: pathlib.Path) -> str:
 def census_digest(census: dict[str, Any]) -> str:
     """Digest the census exactly as it is published, minus its own marker.
 
-    The marker lives inside the document it certifies, so the digest has to be
-    taken over the document without that key.  Rendering through the same
-    serializer the file uses keeps the digest a function of published bytes
-    rather than of an in-memory object.
+    The digest lives inside the document it certifies, so it is taken over the
+    document without that one self-referential key -- and over everything else,
+    the generation block included.  Excluding the whole block instead would
+    leave the upstream provenance the consumers trust most as the only claim in
+    the set nothing covers.  Rendering through the same serializer the file uses
+    keeps the digest a function of published bytes rather than of an in-memory
+    object.
+
+    Detection, not authentication: a set carries no key, so an edit that also
+    recomputes this digest is indistinguishable from a publication.  What the
+    digest rules out is corruption and every edit that stops at the claim.
     """
-    body = {key: value for key, value in census.items() if key != "generation"}
+    body = dict(census)
+    if isinstance(body.get("generation"), dict):
+        body["generation"] = {
+            key: value for key, value in body["generation"].items() if key != "census"
+        }
     return hashlib.sha256(inventory.render_json(body).encode("utf-8")).hexdigest()
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    names = [name for name, _ in pairs]
+    if len(set(names)) != len(names):
+        raise ValueError("qualification.json carries a duplicate key.")
+    return dict(pairs)
+
+
+def _is_own_generation(generation: Any) -> bool:
+    """Whether this block is one of the two key sets this generator publishes.
+
+    Shape and version only, never a digest: a set whose upstreams have since
+    moved is stale but still this tool's to replace, and requiring freshness
+    here would strand it behind a manual delete.
+    """
+    if not isinstance(generation, dict) or generation.get("generator_version") != GENERATOR_VERSION:
+        return False
+    base = set(GENERATION_KEYS)
+    return set(generation) in (base, base | {"measurements"})
+
+
+def _read_marker(out: pathlib.Path) -> dict[str, Any]:
+    """Read the marker as the kind of file this tool would itself have written.
+
+    The marker is the set's trust root and the one entry ``tree_digest`` cannot
+    cover, so its own identity is all that stands behind it.  A symlink puts
+    that root outside the set it certifies, and through ``_assert_owned`` lets a
+    foreign directory license its own deletion.  A duplicate key puts two claims
+    in one document, of which ``json.loads`` silently keeps the last.
+
+    Raises ``OSError`` for a missing or non-regular path and ``ValueError`` for
+    text that is not a single unambiguous JSON document; both callers render
+    those as one refusal.
+    """
+    path = out / QUALIFICATION_FILENAME
+    if not stat.S_ISREG(path.lstat().st_mode):
+        raise OSError(f"{QUALIFICATION_FILENAME} is not a regular file.")
+    return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_reject_duplicate_keys)
 
 
 def _build(
@@ -1089,7 +1140,6 @@ def _build(
         ASSETS_QC_FILENAME: _digest_bytes(staging / ASSETS_QC_FILENAME),
         PAIRS_QC_FILENAME: _digest_bytes(staging / PAIRS_QC_FILENAME),
         EVENTS_QC_FILENAME: _digest_bytes(staging / EVENTS_QC_FILENAME),
-        "census": census_digest(census),
         # Catches what the per-file digests cannot: a file added to the set.
         "tree": tree_digest(staging),
         "inventory": dict(upstream_inventory),
@@ -1101,6 +1151,8 @@ def _build(
         # nullable key would change the published bytes for every consumer that
         # never asked for a sidecar, which is what P34 and P08 forbid.
         census["generation"]["measurements"] = upstream_measurements
+    # Last, because it digests every other key including this block's own.
+    census["generation"]["census"] = census_digest(census)
     (staging / QUALIFICATION_FILENAME).write_text(
         inventory.render_json(census), encoding="utf-8", newline=""
     )
@@ -1164,15 +1216,12 @@ def _assert_owned(out_dir: pathlib.Path) -> None:
         "Publishing would delete a directory this tool does not own."
     )
     try:
-        marker = json.loads((out_dir / QUALIFICATION_FILENAME).read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        marker = _read_marker(out_dir)
+    except (OSError, ValueError) as error:
         raise refusal from error
-    if not isinstance(marker, dict) or "generation" not in marker:
-        raise refusal
-    if (
-        not isinstance(marker["generation"], dict)
-        or "generator_version" not in marker["generation"]
-    ):
+    # This generator's shape and version, not merely some tool's marker: the
+    # next statement after this one deletes the whole tree.
+    if not isinstance(marker, dict) or not _is_own_generation(marker.get("generation")):
         raise refusal
 
 
@@ -1287,7 +1336,7 @@ def run(
         _remove(retiring)
     finally:
         _remove(staging)
-    return json.loads((out / QUALIFICATION_FILENAME).read_text(encoding="utf-8"))
+    return _read_marker(out)
 
 
 def validate_generation(
@@ -1305,17 +1354,20 @@ def validate_generation(
     """
     out = pathlib.Path(out_dir)
     try:
-        census = json.loads((out / QUALIFICATION_FILENAME).read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        census = _read_marker(out)
+    except (OSError, ValueError) as error:
         raise QualifyError(
-            "The published set is unusable: qualification.json is missing or is not valid JSON."
+            "The published set is unusable: qualification.json is missing, is not a regular "
+            "file, or is not one unambiguous JSON document."
         ) from error
     if not isinstance(census, dict) or not isinstance(census.get("generation"), dict):
         raise QualifyError("The published set is unusable: qualification.json has no generation.")
     generation = census["generation"]
     # Closure is evaluated per mode: a set published with a sidecar carries one
     # more upstream than one published without.  Both key sets are closed, so a
-    # key neither mode writes still fails.
+    # key neither mode writes still fails.  The marker declaring its own mode is
+    # sound only because `census_digest` now covers this block: adding the key
+    # without recomputing that digest is caught below.
     expected_keys = set(GENERATION_KEYS)
     if "measurements" in generation:
         expected_keys.add("measurements")

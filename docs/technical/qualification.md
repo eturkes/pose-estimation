@@ -263,7 +263,10 @@ quote one for the other.
 
 ## Validate before you read
 
-Call `validate_generation` before you read any row.
+Call `validate_generation` before you read any row. Pass every upstream the set was published from.
+An upstream you do not pass is an upstream this call does not check.
+
+A set published without `--measurements` has two upstreams:
 
 ```python
 from pose_estimation import qualify
@@ -271,22 +274,36 @@ from pose_estimation import qualify
 qualify.validate_generation("qualification", sessions_dir="sessions", inventory_dir="inventory")
 ```
 
-The three-argument form is the only form that catches an upstream rebuilt underneath a set that
-still looks internally consistent. Always pass all three.
+A set published with `--measurements` has three. Add the sidecar:
+
+```python
+qualify.validate_generation(
+    "qualification",
+    sessions_dir="sessions",
+    inventory_dir="inventory",
+    measurements_dir="measurements",
+)
+```
 
 The check proves five things:
 
-1. `qualification.json` is this generator's document.
+1. `qualification.json` is this generator's document. It is a regular file, and it holds one
+   unambiguous JSON document.
 2. Each CSV matches its published digest.
-3. The census matches its own digest.
+3. The census matches its own digest. The digest covers the generation block, so an edited
+   provenance claim fails here.
 4. No file was added, removed or changed.
-5. Both upstream generations still match.
+5. Every upstream generation you passed still matches.
+
+The census digest detects an edit. It does not authenticate the set. A set carries no key, so
+anyone who rewrites a claim and recomputes the digest produces a document this check accepts. What
+the check rules out is corruption, and every edit that stops at the claim.
 
 ## Determinism
 
-The published set is a function of the corpus bytes and the two upstream generations. The bytes do
-not change under a different locale, hash seed, time zone, umask, directory order, output name or
-optimized interpreter.
+The published set is a function of the corpus bytes and the upstream generations. The bytes do not
+change under a different locale, hash seed, time zone, umask, directory order, output name or
+optimized interpreter. `scripts/check_qualify_determinism.py` proves this in both modes.
 
 ## Crash safety
 

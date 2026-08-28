@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import functools
 import hashlib
 import json
 import os
@@ -53,6 +54,7 @@ class Inputs:
     inventory: pathlib.Path
     sessions: pathlib.Path
     corpus: pathlib.Path
+    measurements: pathlib.Path
 
 
 def digests(out: pathlib.Path) -> dict[str, str]:
@@ -110,7 +112,41 @@ def build_fixture(root: pathlib.Path) -> Inputs:
     _write_media(registry.corpus / assets[1].source_path, [index * 20 for index in range(30)])
     _write_media(registry.corpus / assets[2].source_path, [index * 19 for index in range(30)])
     # The fourth source stays non-media, pinning a second decode-status tally.
-    return Inputs(registry.root, registry.out, registry.corpus)
+
+    # Enumerated rather than transcribed: `_ingest` reconciles the sidecar
+    # against `enumerate_pairs`, so building the rows from that same call is
+    # what keeps the fixture from drifting into an unreconcilable sidecar.
+    from pose_estimation import measure, qualify
+
+    measurements = root / "measurements"
+    rows = [
+        {
+            "capture_id": capture_id,
+            "asset_a": first.asset_id,
+            "asset_b": second.asset_id,
+            "offset_audio_s": f"{(index + 1) * 0.125:.9f}",
+            "peak_rms_audio": "5.000000000",
+            "peak_ratio_audio": "2.500000000",
+            "status_audio": "ok",
+            "drift_ppm": "",
+            "drift_se": "",
+            "offset_visual_s": "",
+            "conf_visual": "",
+            "peak_corr_visual": "",
+            "status_visual": "low_peak_correlation",
+            "overlap_s": "4.000000000",
+            "dur_a": "5.000000000",
+            "dur_b": "5.000000000",
+            "same_audio_rate": "1",
+        }
+        for index, (capture_id, first, second) in enumerate(
+            qualify.enumerate_pairs(qualify.load_assets(registry.root))
+        )
+    ]
+    measure.write_axis(
+        measurements, "sync", rows, {"fixture": "determinism"}, inventory_dir=registry.root
+    )
+    return Inputs(registry.root, registry.out, registry.corpus, measurements)
 
 
 def run_cli(
@@ -120,6 +156,8 @@ def run_cli(
     inventory: str | os.PathLike[str] | None = None,
     sessions: str | os.PathLike[str] | None = None,
     corpus: str | os.PathLike[str] | None = None,
+    measurements: str | os.PathLike[str] | None = None,
+    measured: bool = False,
     env_overrides: dict[str, str | None] | None = None,
     cwd: pathlib.Path = ROOT,
     optimize: bool = False,
@@ -149,6 +187,8 @@ def run_cli(
         "--out",
         str(out),
     ]
+    if measured:
+        command += ["--measurements", os.fspath(measurements or inputs.measurements)]
     if shuffle_seed is not None:
         command += ["--shuffle-seed", str(shuffle_seed)]
     if republish:
@@ -165,42 +205,50 @@ def run_cli(
     return digests(out)
 
 
-def sweeps(work: pathlib.Path, inputs: Inputs) -> Iterator[tuple[str, str, dict[str, str]]]:
-    """Yield every subprocess variation and its four artifact digests."""
+def sweeps(
+    work: pathlib.Path, inputs: Inputs, *, measured: bool
+) -> Iterator[tuple[str, str, dict[str, str]]]:
+    """Yield every subprocess variation and its four artifact digests.
+
+    The mode is bound once rather than threaded through every variation: it is
+    a property of the whole sweep set, and each set is compared against its own
+    mode's baseline.
+    """
+    run = functools.partial(run_cli, measured=measured)
     out = work / "sweep"
 
-    yield "Q01", "repeat in a fresh process", run_cli(out, inputs)
+    yield "Q01", "repeat in a fresh process", run(out, inputs)
 
     for seed in ("0", "1", "12345", "random"):
         yield (
             f"Q02:{seed}",
             f"PYTHONHASHSEED={seed}",
-            run_cli(out, inputs, env_overrides={"PYTHONHASHSEED": seed}),
+            run(out, inputs, env_overrides={"PYTHONHASHSEED": seed}),
         )
 
     for locale in ("C", "C.UTF-8", "en_US.UTF-8"):
         yield (
             f"Q03:{locale}",
             f"LC_ALL={locale}",
-            run_cli(out, inputs, env_overrides={"LC_ALL": locale, "LANG": locale}),
+            run(out, inputs, env_overrides={"LC_ALL": locale, "LANG": locale}),
         )
     yield (
         "Q03:unset",
         "LANG and LC_ALL unset",
-        run_cli(out, inputs, env_overrides={"LC_ALL": None, "LANG": None}),
+        run(out, inputs, env_overrides={"LC_ALL": None, "LANG": None}),
     )
 
     yield (
         "Q04",
         "shuffled Path.iterdir in a subprocess",
-        run_cli(out, inputs, shuffle_seed=8117),
+        run(out, inputs, shuffle_seed=8117),
     )
 
     detour = inputs.corpus / ".."
     yield (
         "Q05:dotdot",
         "all input paths with .. detours",
-        run_cli(
+        run(
             out,
             inputs,
             inventory=detour / inputs.inventory.name,
@@ -211,7 +259,7 @@ def sweeps(work: pathlib.Path, inputs: Inputs) -> Iterator[tuple[str, str, dict[
     yield (
         "Q05:relative",
         "relative inputs from a different working directory",
-        run_cli(
+        run(
             out,
             inputs,
             inventory=inputs.inventory.name,
@@ -229,7 +277,7 @@ def sweeps(work: pathlib.Path, inputs: Inputs) -> Iterator[tuple[str, str, dict[
     yield (
         "Q05:symlinks",
         "equivalent symlink spellings for both upstreams and corpus",
-        run_cli(
+        run(
             out,
             inputs,
             inventory=aliases / "inventory",
@@ -241,23 +289,23 @@ def sweeps(work: pathlib.Path, inputs: Inputs) -> Iterator[tuple[str, str, dict[
     yield (
         "Q06",
         "different --out directory name",
-        run_cli(work / "differently named output", inputs),
+        run(work / "differently named output", inputs),
     )
 
     for timezone in ("UTC", "Pacific/Kiritimati"):
         yield (
             f"Q07:{timezone}",
             f"TZ={timezone}",
-            run_cli(out, inputs, env_overrides={"TZ": timezone}),
+            run(out, inputs, env_overrides={"TZ": timezone}),
         )
 
-    yield "Q08", "second late repeat", run_cli(work / "late", inputs)
-    yield "Q09", "umask 077", run_cli(out, inputs, umask=0o077)
-    yield "Q10", "interpreter -O", run_cli(out, inputs, optimize=True)
+    yield "Q08", "second late repeat", run(work / "late", inputs)
+    yield "Q09", "umask 077", run(out, inputs, umask=0o077)
+    yield "Q10", "interpreter -O", run(out, inputs, optimize=True)
     yield (
         "Q11",
         "same-process PyAV demux and publication repeat",
-        run_cli(out, inputs, republish=True),
+        run(out, inputs, republish=True),
     )
 
 
@@ -295,13 +343,25 @@ def _rewrite_marker(path: pathlib.Path, mutation: str) -> None:
         generation["unexpected"] = "value"
     elif mutation == "generator_version":
         generation["generator_version"] = "not-this-generator"
+    elif mutation == "measurements_added":
+        generation["measurements"] = "0" * 64
+    elif mutation == "measurements_removed":
+        generation.pop("measurements")
     else:
         raise AssertionError(f"unhandled marker mutation: {mutation}")
     path.write_text(json.dumps(document, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 
 
-def tamper_verdicts(out: pathlib.Path, inputs: Inputs, work: pathlib.Path) -> dict[str, str]:
-    """Put thirteen tamper classes through the public consumer boundary."""
+def tamper_verdicts(
+    out: pathlib.Path, measured_out: pathlib.Path, inputs: Inputs, work: pathlib.Path
+) -> dict[str, str]:
+    """Put every tamper class through the public consumer boundary.
+
+    Both published modes are covered because the mode is itself a claim in the
+    marker: a flagless set that gains a `measurements` key and a measured set
+    that loses one are each a forged provenance story, and neither shows up in
+    a sweep of the flagless tree alone.
+    """
     sys.path.insert(0, str(TESTS))
     from pose_estimation import qualify
     from pose_estimation import sessions as sessions_module
@@ -339,8 +399,13 @@ def tamper_verdicts(out: pathlib.Path, inputs: Inputs, work: pathlib.Path) -> di
         "CSV reordered row",
         "symlink swapped into tree",
         "qualification.json non-JSON",
+        "qualification.json duplicate key",
+        "qualification.json symlinked",
     )
-    verdicts = {"clean": verdict(out, inputs, "accept")}
+    verdicts = {
+        "clean": verdict(out, inputs, "accept"),
+        "clean measured": verdict(measured_out, inputs, "accept"),
+    }
     for index, label in enumerate(labels):
         copy = work / f"tamper-{index:02d}"
         shutil.copytree(out, copy)
@@ -383,9 +448,27 @@ def tamper_verdicts(out: pathlib.Path, inputs: Inputs, work: pathlib.Path) -> di
             assets.symlink_to(external)
         elif label == "qualification.json non-JSON":
             marker.write_bytes(b"not JSON\n")
+        elif label == "qualification.json duplicate key":
+            text = marker.read_text(encoding="utf-8")
+            marker.write_text('{"assets":{"rows":999},' + text[1:], encoding="utf-8")
+        elif label == "qualification.json symlinked":
+            external = work / f"marker-target-{index}.json"
+            external.write_bytes(marker.read_bytes())
+            marker.unlink()
+            marker.symlink_to(external)
         else:
             raise AssertionError(f"unhandled tamper class: {label}")
         verdicts[label] = verdict(copy, actual_inputs, "reject")
+
+    for label, source, mutation in (
+        ("forged measurements provenance", out, "measurements_added"),
+        ("removed measurements provenance", measured_out, "measurements_removed"),
+    ):
+        copy = work / f"tamper-mode-{mutation}"
+        shutil.copytree(source, copy)
+        _rewrite_marker(copy / ARTIFACTS[-1], mutation)
+        verdicts[label] = verdict(copy, inputs, "reject")
+
     verdicts["validated sync cell changed after validation"] = ingestion_cache_verdict(
         inputs, work / "ingestion-cache"
     )
@@ -418,38 +501,47 @@ def main(argv: list[str] | None = None) -> int:
     with tempfile.TemporaryDirectory() as raw:
         work = pathlib.Path(raw)
         inputs = build_fixture(work / "fixture")
-        baseline_out = work / "baseline"
-        baseline = run_cli(baseline_out, inputs)
+        # No head SHA is recorded: the run that regenerates this file always
+        # precedes the commit that carries it, so any SHA written here names the
+        # parent state and can never be checked. `source_sha256` binds the
+        # result to the bytes that produced it, which is the real dependency.
+        baselines = {
+            mode: run_cli(work / f"baseline-{mode}", inputs, measured=(mode == "measured"))
+            for mode in ("flagless", "measured")
+        }
         payload: dict[str, object] = {
-            "schema_version": 2,
+            "schema_version": 3,
             "source_sha256": current_sources,
-            "tested_head": subprocess.run(
-                ("git", "rev-parse", "HEAD"), cwd=ROOT, capture_output=True, text=True, check=True
-            ).stdout.strip(),
-            "baseline_sha256": baseline,
+            "baseline_sha256": baselines,
             "sweeps": rows,
             "tamper_classes": tamper_results,
         }
         write_payload(output, payload)
-        print(f"Q00 baseline {json.dumps(baseline, sort_keys=True)}", flush=True)
+        print(f"Q00 baselines {json.dumps(baselines, sort_keys=True)}", flush=True)
 
-        for identifier, variation, observed in sweeps(work, inputs):
-            verdict = {
-                name: ("PASS" if observed[name] == baseline[name] else "FAIL") for name in ARTIFACTS
-            }
-            rows.append(
-                {
-                    "id": identifier,
-                    "variation": variation,
-                    **{f"verdict_{name}": verdict[name] for name in ARTIFACTS},
-                    "observed_sha256": observed,
+        for mode, baseline in baselines.items():
+            for identifier, variation, observed in sweeps(
+                work, inputs, measured=(mode == "measured")
+            ):
+                verdict = {
+                    name: ("PASS" if observed[name] == baseline[name] else "FAIL")
+                    for name in ARTIFACTS
                 }
-            )
-            payload["sweeps"] = rows
-            write_payload(output, payload)
-            print(f"{identifier} {' '.join(verdict.values())} {variation}", flush=True)
+                rows.append(
+                    {
+                        "id": f"{identifier}:{mode}",
+                        "variation": f"{variation} ({mode})",
+                        **{f"verdict_{name}": verdict[name] for name in ARTIFACTS},
+                        "observed_sha256": observed,
+                    }
+                )
+                payload["sweeps"] = rows
+                write_payload(output, payload)
+                print(f"{identifier}:{mode} {' '.join(verdict.values())} {variation}", flush=True)
 
-        tamper_results = tamper_verdicts(baseline_out, inputs, work)
+        tamper_results = tamper_verdicts(
+            work / "baseline-flagless", work / "baseline-measured", inputs, work
+        )
         payload["tamper_classes"] = tamper_results
         write_payload(output, payload)
         print(f"Q12 {json.dumps(tamper_results, sort_keys=True)}", flush=True)
@@ -501,6 +593,7 @@ def worker_main(argv: list[str]) -> int:
     parser.add_argument("--sessions", required=True)
     parser.add_argument("--corpus", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--measurements")
     parser.add_argument("--shuffle-seed", type=int)
     parser.add_argument("--republish", action="store_true")
     args = parser.parse_args(argv)
@@ -517,6 +610,8 @@ def worker_main(argv: list[str]) -> int:
         "--out",
         args.out,
     ]
+    if args.measurements:
+        qualify_args += ["--measurements", args.measurements]
 
     def publish() -> int:
         result = qualify.main(qualify_args)

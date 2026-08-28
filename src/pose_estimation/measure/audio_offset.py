@@ -55,9 +55,18 @@ LOCAL_MIN_PEAK_RATIO = 1.2
 
 # Every constant above reaches the sidecar manifest.  A threshold that moves the
 # numbers and is not recorded makes the published figures unattributable to the
-# code that produced them.  The accept thresholds are compared against the
-# published statistics and never enter them, so moving one changes which pairs
-# qualify and leaves every measured value byte-identical.
+# code that produced them.
+#
+# MIN_PEAK_RMS and MIN_PEAK_RATIO are the pair accept gate: they are compared
+# against the published statistics and never enter them, so moving one changes
+# which pairs qualify and leaves every measured value byte-identical.
+#
+# LOCAL_MIN_PEAK_RMS and LOCAL_MIN_PEAK_RATIO are not that.  They select which
+# windows enter the drift regression, so they shape drift_ppm, drift_se and
+# window_count, and a value high enough leaves the fit with too few windows to
+# run at all.  They are separate constants from the pair gate for exactly that
+# reason: one constant serving both roles would score a statistic it also pins,
+# which is the defect P39 refuses.  Sweep these before trusting a drift figure.
 PROVENANCE: dict[str, float | int | str] = {
     "estimator": "gcc_phat",
     "target_rate_hz": TARGET_RATE,

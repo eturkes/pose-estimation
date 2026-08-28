@@ -24,7 +24,7 @@ import av
 import numpy as np
 import pytest
 
-from pose_estimation import qualify, sessions
+from pose_estimation import inventory, qualify, sessions
 from test_sessions import _Asset, _canonical, _write_registry
 
 FRAME_SIZE = (64, 48)
@@ -711,8 +711,75 @@ def test_a_set_published_by_an_older_generator_is_refused(tmp_path: pathlib.Path
     marker = out / qualify.QUALIFICATION_FILENAME
     census = json.loads(marker.read_text(encoding="utf-8"))
     census["generation"]["generator_version"] = "v1"
-    marker.write_text(
-        json.dumps(census, sort_keys=True, indent=2) + "\n", encoding="utf-8", newline=""
-    )
+    marker.write_text(inventory.render_json(census), encoding="utf-8", newline="")
     with pytest.raises(qualify.QualifyError):
         qualify.validate_generation(out)
+
+
+def test_a_forged_measurements_mode_cannot_be_added_to_a_flagless_marker(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The marker declares its own mode, so the census digest has to cover it."""
+    inventory_dir, sessions_dir, corpus, out = _one_asset(tmp_path, _uniform(3))
+    qualify.run(inventory_dir, sessions_dir, corpus, out)
+    marker = out / qualify.QUALIFICATION_FILENAME
+    document = json.loads(marker.read_text(encoding="utf-8"))
+    document["generation"]["measurements"] = "0" * 64
+    marker.write_text(inventory.render_json(document), encoding="utf-8", newline="")
+    with pytest.raises(qualify.QualifyError):
+        qualify.validate_generation(out, sessions_dir, inventory_dir)
+
+
+def test_the_marker_may_not_make_two_claims(tmp_path: pathlib.Path) -> None:
+    """Last-key-wins hides the losing claim from every digest and every reader."""
+    inventory_dir, sessions_dir, corpus, out = _one_asset(tmp_path, _uniform(3))
+    qualify.run(inventory_dir, sessions_dir, corpus, out)
+    marker = out / qualify.QUALIFICATION_FILENAME
+    original = marker.read_text(encoding="utf-8")
+    marker.write_text('{"assets":{"rows":999},' + original[1:], encoding="utf-8", newline="")
+    with pytest.raises(qualify.QualifyError):
+        qualify.validate_generation(out, sessions_dir, inventory_dir)
+
+
+def test_the_marker_may_not_be_a_symlink(tmp_path: pathlib.Path) -> None:
+    """tree_digest cannot cover the marker, so the marker's own identity is the check."""
+    inventory_dir, sessions_dir, corpus, out = _one_asset(tmp_path, _uniform(3))
+    qualify.run(inventory_dir, sessions_dir, corpus, out)
+    marker = out / qualify.QUALIFICATION_FILENAME
+    elsewhere = tmp_path / "elsewhere.json"
+    marker.rename(elsewhere)
+    marker.symlink_to(elsewhere)
+    with pytest.raises(qualify.QualifyError):
+        qualify.validate_generation(out, sessions_dir, inventory_dir)
+
+
+@pytest.mark.parametrize("kind", ["symlink", "foreign"])
+def test_a_marker_this_tool_did_not_write_cannot_license_deleting_a_tree(
+    tmp_path: pathlib.Path, kind: str
+) -> None:
+    """Ownership decides a recursive delete, so it reads the strict predicate.
+
+    A symlinked marker puts the licensing document outside the tree it condemns;
+    a foreign one puts a different writer's shape inside it.  Neither is this
+    tool's output, and the sentinel proves the refusal happened before the swap.
+    """
+    inventory_dir, sessions_dir, corpus, published = _one_asset(tmp_path, _uniform(3))
+    qualify.run(inventory_dir, sessions_dir, corpus, published)
+    target = tmp_path / "foreign-output"
+    target.mkdir()
+    sentinel = target / "keep.txt"
+    sentinel.write_text("foreign", encoding="utf-8")
+    marker = target / qualify.QUALIFICATION_FILENAME
+    if kind == "symlink":
+        external = tmp_path / "external-marker.json"
+        external.write_bytes((published / qualify.QUALIFICATION_FILENAME).read_bytes())
+        marker.symlink_to(external)
+    else:
+        marker.write_text(
+            inventory.render_json({"generation": {"generator_version": "foreign-generator"}}),
+            encoding="utf-8",
+            newline="",
+        )
+    with pytest.raises(qualify.QualifyError):
+        qualify.run(inventory_dir, sessions_dir, corpus, target)
+    assert sentinel.read_text(encoding="utf-8") == "foreign"
