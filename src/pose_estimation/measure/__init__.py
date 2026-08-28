@@ -26,6 +26,7 @@ import csv
 import dataclasses
 import hashlib
 import json
+import math
 import os
 import pathlib
 import re
@@ -47,6 +48,10 @@ MANIFEST_FILENAME = "measurements.json"
 # Closed for the same reason qualify's is: an added or renamed key means a
 # different writer, and no digest inside the document catches that.
 GENERATION_KEYS: tuple[str, ...] = ("manifest", "inventory", "generator_version")
+# Closed like GENERATION_KEYS and for the same reason: an added or renamed key
+# means a different writer.  The self-digest stops a key being added after the
+# fact; it does not stop a producer emitting one in the first place.
+MANIFEST_KEYS: tuple[str, ...] = ("axes", "generation")
 
 AXIS_ENTRY_KEYS: tuple[str, ...] = (
     "table",
@@ -156,6 +161,22 @@ class Sidecar:
 
 
 # Populated cells only; an axis that abstained on one row publishes "".
+# A cell that spells correctly can still be outside its quantity's range:
+# "-3.000000000" matches DECIMAL_CELL, and a correlation of "5.000000000" is not
+# a correlation.  The alphabet decides spelling and this decides meaning.  A
+# column absent here is unbounded deliberately — drift_ppm and both offsets are
+# signed, and same_audio_rate is already pinned to 0 or 1 by BOOLEAN_CELL.
+DOMAINS: dict[str, tuple[float, float]] = {
+    "peak_rms_audio": (0.0, math.inf),
+    "peak_ratio_audio": (0.0, math.inf),
+    "conf_visual": (0.0, math.inf),
+    "peak_corr_visual": (-1.0, 1.0),
+    "drift_se": (0.0, math.inf),
+    "overlap_s": (0.0, math.inf),
+    "dur_a": (0.0, math.inf),
+    "dur_b": (0.0, math.inf),
+}
+
 DECIMAL_CELL = re.compile(r"-?[0-9]+\.[0-9]+")
 TOKEN_CELL = re.compile(r"[a-z0-9_]+")
 BOOLEAN_CELL = re.compile(r"[01]")
@@ -268,6 +289,25 @@ def _read_manifest(out: pathlib.Path) -> dict[str, Any] | None:
     return manifest
 
 
+def _assert_domains(axis: Axis, rows: list[dict[str, str]]) -> None:
+    """Refuse a cell that spells correctly and means nothing.
+
+    Runs after ``_assert_cells``, so every cell reaching ``float`` already
+    matches its alphabet and cannot raise.
+    """
+    for row in rows:
+        for column, (low, high) in DOMAINS.items():
+            cell = row.get(column, "")
+            if column not in axis.columns or not cell:
+                continue
+            value = float(cell)
+            if not low <= value <= high:
+                raise MeasureError(
+                    f"{axis.table}: {column} carries {cell!r}, outside [{low}, {high}].",
+                    reason="cell_domain",
+                )
+
+
 def _assert_cells(axis: Axis, rows: list[dict[str, str]]) -> None:
     """Refuse to record a cell this sidecar cannot spell.
 
@@ -372,6 +412,7 @@ def write_axis(
         raise MeasureError(f"There is no {axis_name!r} axis.", reason="unknown_axis")
     axis = AXES[axis_name]
     _assert_cells(axis, rows)
+    _assert_domains(axis, rows)
     _assert_keys(axis, rows)
     _assert_order(axis, rows)
     upstream = inventory.validate_generation(pathlib.Path(inventory_dir)).get("generation", {})
@@ -422,6 +463,12 @@ def validate(
         raise MeasureError(
             "The sidecar is unusable: it holds no measurements.json.",
             reason="manifest_absent",
+        )
+    if set(manifest) != set(MANIFEST_KEYS):
+        raise MeasureError(
+            "The sidecar is unusable: measurements.json carries top-level keys "
+            "this generator never writes.",
+            reason="manifest_keys",
         )
     generation = manifest.get("generation")
     if not isinstance(generation, dict) or set(generation) != set(GENERATION_KEYS):
@@ -552,6 +599,7 @@ def load_axis(sidecar: Sidecar, axis_name: str) -> dict[tuple[str, ...], dict[st
             reason="row_count",
         )
     _assert_cells(axis, rows)
+    _assert_domains(axis, rows)
     _assert_keys(axis, rows)
     _assert_order(axis, rows)
     return {tuple(row[name] for name in axis.keys): row for row in rows}
