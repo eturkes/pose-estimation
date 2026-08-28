@@ -54,9 +54,9 @@ LOCAL_MIN_PEAK_RATIO = 1.2
 
 # Every constant above reaches the sidecar manifest.  A threshold that moves the
 # numbers and is not recorded makes the published figures unattributable to the
-# code that produced them, and none of these doubles as an instrument parameter:
-# the accept thresholds scale a confidence that the correlation computes without
-# them, so no statistic here is judged against a constant that also shapes it.
+# code that produced them.  The accept thresholds are compared against the
+# published statistics and never enter them, so moving one changes which pairs
+# qualify and leaves every measured value byte-identical.
 PROVENANCE: dict[str, float | int | str] = {
     "estimator": "gcc_phat",
     "target_rate_hz": TARGET_RATE,
@@ -85,7 +85,6 @@ class Peak:
     """One correlation peak, with the statistics that decide whether to keep it."""
 
     lag_s: float
-    confidence: float
     peak_rms: float
     peak_ratio: float
     overlap_s: float
@@ -242,9 +241,9 @@ def gcc_phat_peak(
     b = _condition(samples_b, rate)
     minimum = max(2, round(min_overlap_s * rate))
     if min(a.size, b.size) < minimum:
-        return Peak(math.nan, math.nan, math.nan, math.nan, 0.0, "short_audio")
+        return Peak(math.nan, math.nan, math.nan, 0.0, "short_audio")
     if float(np.sqrt(np.mean(a * a))) < 1e-5 or float(np.sqrt(np.mean(b * b))) < 1e-5:
-        return Peak(math.nan, math.nan, math.nan, math.nan, 0.0, "silent")
+        return Peak(math.nan, math.nan, math.nan, 0.0, "silent")
 
     fft_size = next_fast_len(a.size + b.size - 1)
     cross = rfft(b, fft_size) * np.conj(rfft(a, fft_size))
@@ -263,7 +262,7 @@ def gcc_phat_peak(
     if lag_center_s is not None and lag_radius_s is not None:
         valid &= np.abs(lags / rate - lag_center_s) <= lag_radius_s
     if not np.any(valid):
-        return Peak(math.nan, math.nan, math.nan, math.nan, 0.0, "no_feasible_lag")
+        return Peak(math.nan, math.nan, math.nan, 0.0, "no_feasible_lag")
 
     absolute = np.abs(correlation)
     index = int(np.argmax(np.where(valid, absolute, -np.inf)))
@@ -278,21 +277,23 @@ def gcc_phat_peak(
     guard = max(1, round(peak_guard_s * rate))
     background = absolute[valid & (np.abs(lags - lags[index]) > guard)]
     if background.size == 0:
-        return Peak(math.nan, math.nan, math.nan, math.nan, 0.0, "no_background")
+        return Peak(math.nan, math.nan, math.nan, 0.0, "no_background")
     rms = float(np.sqrt(np.mean(background * background, dtype=np.float64)))
     second = float(np.max(background))
+    # Both statistics publish raw. Dividing each by its own accept threshold
+    # and publishing the minimum made the number a function of the thresholds,
+    # so a sweep moved a "measurement" while lag, peak and overlap held still.
     peak_rms = peak / rms if rms > 0 else math.inf
     peak_ratio = peak / second if second > 0 else math.inf
-    confidence = min(peak_rms / min_peak_rms, peak_ratio / min_peak_ratio)
     at_boundary = not valid[index - 1] if index > 0 else True
     at_boundary |= not valid[index + 1] if index + 1 < valid.size else True
     if at_boundary:
         status = "boundary_peak"
-    elif confidence < 1.0:
+    elif peak_rms < min_peak_rms or peak_ratio < min_peak_ratio:
         status = "low_confidence"
     else:
         status = "ok"
-    return Peak(lag / rate, confidence, peak_rms, peak_ratio, float(overlaps[index] / rate), status)
+    return Peak(lag / rate, peak_rms, peak_ratio, float(overlaps[index] / rate), status)
 
 
 def _empty_drift(status: str, window_count: int = 0) -> Drift:

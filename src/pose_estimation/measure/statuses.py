@@ -47,6 +47,6 @@ VISUAL_STATUSES = frozenset(
 # peak that failed — which is P39's instrument/gate separation seen from the
 # data side.  Only these columns are required, and only when the status is ok.
 REQUIRED_WHEN_OK: dict[str, tuple[str, ...]] = {
-    "status_audio": ("offset_audio_s", "conf_audio", "peak_ratio_audio"),
+    "status_audio": ("offset_audio_s", "peak_rms_audio", "peak_ratio_audio"),
     "status_visual": ("offset_visual_s", "conf_visual", "peak_corr_visual"),
 }

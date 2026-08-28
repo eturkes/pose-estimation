@@ -36,7 +36,7 @@ from .statuses import AUDIO_STATUSES, DRIFT_STATUSES, REQUIRED_WHEN_OK, VISUAL_S
 
 __all__ = ["AUDIO_STATUSES", "DRIFT_STATUSES", "REQUIRED_WHEN_OK", "VISUAL_STATUSES"]
 
-GENERATOR_VERSION = "v1"
+GENERATOR_VERSION = "v2"
 
 # Every version this build ingests. A03: an axis entry asserts the axis was
 # produced, and its own version is what says by which generator.
@@ -64,7 +64,7 @@ SYNC_COLUMNS: tuple[str, ...] = (
     "asset_a",
     "asset_b",
     "offset_audio_s",
-    "conf_audio",
+    "peak_rms_audio",
     "peak_ratio_audio",
     "status_audio",
     "drift_ppm",
@@ -162,7 +162,7 @@ BOOLEAN_CELL = re.compile(r"[01]")
 
 CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
     "offset_audio_s": DECIMAL_CELL,
-    "conf_audio": DECIMAL_CELL,
+    "peak_rms_audio": DECIMAL_CELL,
     "peak_ratio_audio": DECIMAL_CELL,
     "status_audio": TOKEN_CELL,
     "drift_ppm": DECIMAL_CELL,

@@ -27,7 +27,7 @@ def _row(**overrides: str) -> dict[str, str]:
         asset_a="a-1",
         asset_b="a-2",
         offset_audio_s="0.100000000",
-        conf_audio="2.000000000",
+        peak_rms_audio="2.000000000",
         peak_ratio_audio="3.000000000",
         status_audio="ok",
         offset_visual_s="0.110000000",
@@ -48,7 +48,7 @@ def _sidecar(
     rows: list[dict[str, str]],
     *,
     declared_rows: int | None = None,
-    version: str = "v1",
+    version: str = measure.GENERATOR_VERSION,
 ) -> pathlib.Path:
     out = tmp_path / "measurements"
     out.mkdir(parents=True, exist_ok=True)
@@ -68,7 +68,7 @@ def _sidecar(
     manifest["generation"] = {
         "manifest": measure.manifest_digest(manifest),
         "inventory": {},
-        "generator_version": "v1",
+        "generator_version": measure.GENERATOR_VERSION,
     }
     inventory.write_text(out / measure.MANIFEST_FILENAME, inventory.render_json(manifest))
     return out
@@ -91,7 +91,7 @@ def test_ingestion_refuses_a_cell_the_alphabet_forbids(tmp_path: pathlib.Path) -
 
 def test_ingestion_refuses_a_duplicated_logical_key(tmp_path: pathlib.Path) -> None:
     """A dict-built index silently keeps the last row; row_count would not notice."""
-    out = _sidecar(tmp_path, [_row(), _row(conf_audio="9.000000000")])
+    out = _sidecar(tmp_path, [_row(), _row(peak_rms_audio="9.000000000")])
     with pytest.raises(measure.MeasureError) as error:
         _load(out)
     assert error.value.reason == "duplicate_key"
@@ -176,7 +176,7 @@ def test_ingestion_reads_the_bytes_it_validated(tmp_path: pathlib.Path) -> None:
     """A digest proves nothing about bytes fetched through a second open."""
     out = _sidecar(tmp_path, [_row()])
     sidecar = measure.validate(out)
-    swapped = [_row(asset_a="a-8", asset_b="a-9", conf_audio="7.000000000")]
+    swapped = [_row(asset_a="a-8", asset_b="a-9", peak_rms_audio="7.000000000")]
     inventory.write_text(
         out / "sync_pairs.csv", inventory.render_csv(measure.SYNC_COLUMNS, swapped)
     )

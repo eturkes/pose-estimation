@@ -121,7 +121,7 @@ def _estimate(arguments: tuple[PairKey, str, str]) -> dict[str, str]:
         "asset_a": pair.asset_a,
         "asset_b": pair.asset_b,
         "offset_audio_s": decimal(peak.lag_s),
-        "conf_audio": decimal(peak.confidence),
+        "peak_rms_audio": decimal(peak.peak_rms),
         "peak_ratio_audio": decimal(peak.peak_ratio),
         "status_audio": peak.status,
         "drift_ppm": decimal(drift.ppm),
