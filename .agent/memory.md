@@ -24,6 +24,17 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 - **Upstream digests prove bytes, never shape.** `inventory.validate_generation` proves the registry on disk is the one that was published; it says nothing about duplicate ids, an unknown disposition, an absent column, or a `view_conflict` cell that contradicts its own rows. Every consumer re-derives what it reads: `sessions.plan` derives the conflict from the canonical rows by the registry's own rule and requires the published cell to agree. A future consumer inherits that obligation.
 - **Three standard-library calls normalize away the property under test.** `Path.readlink()` drops a leading `./`, so link text compared through it is not the link's text — `os.readlink` is. `Path.is_dir()` follows a symlink, so a directory test alone lets a link to an outside tree pass as a child; take the kind from `is_symlink()` first. `shutil.rmtree(p, ignore_errors=True)` refuses a symlink and swallows the refusal, so link debris survives a cleanup that reports success.
 - **A path-prefix containment test breaks at `/`.** `parent + os.sep` yields `//`, which no real path carries, so a filesystem-root corpus classifies every file below it as an escape. Strip the separator from the parent before appending one.
+- **Poll a worktree teammate's report inside its worktree.** A teammate whose cwd is
+  `.scratch/worktrees/<name>` writes `.scratch/agents/<name>.md` **there**, which is a different file
+  from MAIN's `.scratch/agents/<name>.md`. MAIN's copy keeps the unfilled seed forever, so a flush
+  counter reading it reports `0/N` against an agent that is fully on pace — one such agent reached
+  its supersession trigger while at 5/6. Always poll
+  `.scratch/worktrees/<name>/.scratch/agents/<name>.md`, and copy that file into MAIN's
+  `.scratch/agents/` before removing the worktree, because `.scratch/` is gitignored in main and the
+  report does not survive teardown otherwise.
+- **A worktree branch tip moves after the poll that read it.** Deleting a branch prints `was <sha>`
+  for a commit the poll never saw; check ancestry (`git log --oneline -3 <sha>`) before concluding
+  work was lost, since the later sha is normally a descendant carrying one more report edit.
 - **Gate invocations must strip the host OpenVINO leak.** Every gate command in this project runs as
   `env -u LD_LIBRARY_PATH PYTHONPATH="$PWD/src" uv run --no-sync <cmd>`. Both halves are load-bearing:
   `PYTHONPATH` selects the primary tree for the non-pytest half, and unsetting `LD_LIBRARY_PATH` keeps

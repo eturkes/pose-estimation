@@ -142,6 +142,28 @@ apparatus instance, a filmed ruler or board, or a cardinality-checked participan
 mapping with contemporaneous side-specific segment lengths. All three are acquisition actions, not
 analysis, so none is schedulable as a unit here.
 
+**The negative is sampled, so it publishes as unmeasured and never as `none`.** The survey covered
+52 of 379 assets, 13.7%. A sample cannot assign a measured negative to every row, so all 379 rows
+keep `scale_ref_class=""`, `scale_ref_conf=""` and a standing `scale_unmeasured` flag. Empty is the
+unmeasured sentinel and is distinct from a measured `none`; no row may receive `none`, `class_only`
+or a nonempty confidence from sampled work.
+
+**Alphabets for a future exhaustive axis**, fixed now while the evidence is fresh so the axis is not
+re-derived later. `scale_ref_class ∈ {none, closure, coin, vessel, key, nut, peg, anthropometric,
+furniture, calibration_target}`; `scale_ref_conf ∈ {none, class_only, variant_verified,
+dimension_verified}`. Assignment: `none/none` only after that asset's full candidate-frame review;
+`<class>/class_only` when the generic object is visible; `<class>/variant_verified` only when visible
+markings or unique geometry prove the denomination, model or thread style; `<class>/dimension_verified`
+only when a citable dimension, its tolerance and sidecar provenance are all linked. Consumers may use
+scale at `dimension_verified` alone. Multiple classes take the lowest derived error bound, breaking
+ties lexically by class so the choice stays deterministic.
+
+That axis needs manual annotation and cannot be automated end to end. Object localisation triages,
+but the two-model audit produced three self-disqualifying one-sided positives and zero dual
+confirmations, so variant and source assignment is a human ruling. Budget 60-90 s per asset for a
+seven-frame contact sheet and best-crop ruling plus 3-10 min per positive make or standard lookup,
+which is roughly 6-9.5 h of negative review across 379 assets before any positive research begins.
+
 ## R4 — does M2.6 exist?
 
 **Ruling: M2.6 exists, and its route is re-specified. Scene-feature extrinsics is eliminated by
@@ -412,14 +434,16 @@ Emptiness means "no peak was computed", not "the peak was rejected". Ruled matri
   cross-family pair, a wrong `capture_id`, or an id absent from the canonical registry is HARD.
   Normalizing would publish malformed provenance and can silently collapse duplicates. **K20** ids
   compare as exact code-point strings; no locale or Unicode normalization.
-- **A31-A34, C19** R6's fusion tokens: `ok_corroborated`, `ok_uncorroborated`, `contradicted`,
-  `visual_only`. "Spoke" = `status_visual == "ok"`, i.e. the corroborator cleared **its own** gate —
-  a low-quality visual estimate holds no veto. "Veto" = both ok and disagreeing by more than one
-  frame. "No vote" = any non-`ok` visual status, whatever diagnostics its cells carry. `visual_only`
-  = visual ok while audio is **not** ok, covering both audio rejection and audio abstention. The
-  alphabet closes at **five** tokens: `neither_accepted` carries the 27 pairs neither instrument
-  accepted, which the four-token reading left unmapped. **A36** the mapping must reproduce 201/246
-  qualified pairs and 117/137 view-recoverable families.
+- **A31-A34, C19** R6's fusion alphabet closes at **five** tokens, and every one of the 246 pairs
+  maps to exactly one: `ok_corroborated` 56, `ok_uncorroborated` 145, `contradicted` 9,
+  `visual_only` 9, `neither_accepted` 27. Definitions: "spoke" = `status_visual == "ok"`, i.e. the
+  corroborator cleared **its own** gate, so a low-quality visual estimate holds no veto; "veto" =
+  both ok and disagreeing by more than one frame; "no vote" = any non-`ok` visual status, whatever
+  diagnostics its cells carry. `visual_only` = visual ok while audio is **not** ok, covering audio
+  rejection and audio abstention alike. `neither_accepted` carries the pairs both instruments
+  measured and neither accepted, which is distinct from `contradicted`, where both accepted and
+  disagreed. **A36** the mapping must reproduce 201/246 qualified pairs — `ok_corroborated` plus
+  `ok_uncorroborated` — and 117/137 view-recoverable families.
 - **K01-K02, K06-K07, K15-K17** stand as the teammate proposed. **K19** registry validation precedes
   sidecar key checks; the sidecar never adjudicates a malformed registry.
 - **S01, S02, S04, S05, S07, S09-S13, S15, S17, S20, S23, S24** stand as proposed: each is HARD on
