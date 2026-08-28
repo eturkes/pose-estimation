@@ -20,6 +20,7 @@ the only accuracy statistic this corpus yields.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import math
 import os
@@ -394,6 +395,36 @@ def _write_array(path: pathlib.Path, values: np.ndarray) -> None:
     temporary.replace(path)
 
 
+def _file_digest(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _cache_valid(cache_dir: pathlib.Path, asset_id: str, source_sha256: str) -> bool:
+    """Accept a cache only when it holds this source's own complete decode.
+
+    Existence is not the question.  A cache keyed on ``asset_id`` alone answers
+    for whatever file wore that id when it was filled, so a re-encoded or
+    replaced source silently reads back the previous decode; and a run killed
+    between two array writes leaves three files present with one truncated,
+    which every later load reads as a measurement.  The timing sidecar
+    therefore records both the source it decoded and a digest of each array it
+    wrote, and any mismatch re-derives the whole set rather than half of it.
+    """
+    full, coarse, timing = cache_paths(cache_dir, asset_id)
+    try:
+        recorded = json.loads(timing.read_text(encoding="utf-8")).get("cache", {})
+        if recorded.get("source_sha256") != source_sha256:
+            return False
+        artifacts = recorded["artifacts"]
+        return all(artifacts.get(part.name) == _file_digest(part) for part in (full, coarse))
+    except (OSError, ValueError, KeyError, AttributeError, TypeError):
+        return False
+
+
 def ensure_cached(path: pathlib.Path, cache_dir: pathlib.Path, asset_id: str) -> None:
     """Decode one asset's audio into the cache, at both analysis rates.
 
@@ -402,9 +433,16 @@ def ensure_cached(path: pathlib.Path, cache_dir: pathlib.Path, asset_id: str) ->
     full rate carries the drift windows, which are short and need the
     resolution.  Both are cached because a rerun of the pair grain must not
     re-decode.
+
+    The source is digested on every call rather than taken from the registry:
+    this function is the corpus-independent one an operator points at a file,
+    and a digest passed in by a caller proves what the registry believes rather
+    than what is on disk.  The cost sits against a decode that is orders of
+    magnitude larger.
     """
     full, coarse, timing = cache_paths(cache_dir, asset_id)
-    if full.exists() and coarse.exists() and timing.exists():
+    source_sha256 = _file_digest(path)
+    if _cache_valid(cache_dir, asset_id, source_sha256):
         return
     cache_dir.mkdir(parents=True, exist_ok=True)
     samples, facts = decode_audio(path)
@@ -412,6 +450,16 @@ def ensure_cached(path: pathlib.Path, cache_dir: pathlib.Path, asset_id: str) ->
     _write_array(
         coarse, resample_poly(samples, COARSE_RATE, TARGET_RATE).astype(np.float32, copy=False)
     )
+    # The timing file lands last and names the arrays it describes, so it is
+    # both the trust anchor and the completion marker: a torn run leaves no
+    # coherent record to accept.
+    facts = {
+        **facts,
+        "cache": {
+            "source_sha256": source_sha256,
+            "artifacts": {part.name: _file_digest(part) for part in (full, coarse)},
+        },
+    }
     temporary = timing.with_suffix(f".json.{os.getpid()}.tmp")
     temporary.write_text(json.dumps(facts, sort_keys=True) + "\n", encoding="utf-8")
     temporary.replace(timing)

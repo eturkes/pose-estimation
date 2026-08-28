@@ -419,7 +419,10 @@ Emptiness means "no peak was computed", not "the peak was rejected". Ruled matri
   produced by scheduled runs; a merge protocol's failure modes exceed the hazard it removes.
   → **D14** pins the refusal rather than a merge.
 - **A20** each axis entry's `generator_version` is checked at ingestion; the supported set is exactly
-  `{"v1"}` today. Mixed-age sidecars stay expressible without inventing migration machinery now.
+  `measure.SUPPORTED_VERSIONS`, today `{GENERATOR_VERSION} = {"v2"}`. Mixed-age sidecars stay
+  expressible without inventing migration machinery now. The set is named by symbol, not by literal:
+  the `v1`→`v2` bump for R9's `peak_rms` rename had to edit the ruling text as well as the code, and
+  a ruling that restates a constant drifts from it on the next bump.
 - **A21** `--measurements` adds its upstream key to `qualification.json`'s `generation` block **only
   when the flag is given**. Flagless output stays byte-identical (P34, P08); schema closure is
   evaluated per mode. An always-present nullable key would change bytes for every existing consumer.

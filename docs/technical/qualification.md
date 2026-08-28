@@ -13,27 +13,54 @@ pose-estimation-qualify \
   --inventory inventory \
   --sessions sessions \
   --corpus videos/3-cam \
-  --out qualification
+  --out qualification \
+  --measurements measurements
 ```
 
 The command exits 0 on success. It exits 2 when it refuses to publish. A refusal prints one message
 and no path.
 
+Omit `--measurements` to publish the expensive axes unmeasured. The output is then byte-identical to
+the output of every earlier flagless run.
+
 ## Inputs
 
-The tool reads three inputs. It writes none of them.
+The tool reads four inputs. It writes none of them.
 
 | Input | Purpose |
 | ----- | ------- |
 | `--inventory` | The registry. It supplies every asset row and every canonical source path. |
 | `--sessions` | The session tree. It supplies the recording events. |
 | `--corpus` | The recordings. The tool opens only files the registry names. |
+| `--measurements` | The measurement sidecar. It supplies the expensive axes. Optional. |
 
 The tool never walks the corpus directory. Every path comes from the registry `source_path` column.
 An asset that the registry does not list cannot enter the evidence set.
 
-The tool validates both upstream generations before it reads a row. A rebuilt registry or a rebuilt
-session tree stops the run.
+The tool validates every upstream generation before it reads a row. A rebuilt registry, a rebuilt
+session tree, or an altered sidecar stops the run.
+
+## Measurement sidecar
+
+The sidecar records the axes that cost a decode. See `src/pose_estimation/measure/`. The tool
+ingests it; the tool never produces it.
+
+If you give `--measurements`, the tool asserts that the sidecar is there. A directory that is
+missing, unreadable, or without a manifest stops the run. The tool does not fall back to unmeasured
+axes, because that turns an operator mistake into a silent publication.
+
+The tool validates the sidecar before it decodes one frame. It then binds every sidecar key to the
+registry:
+
+- A key that the registry does not carry stops the run.
+- A row that names a different capture family than its own key stops the run.
+- A registry key that the sidecar omits publishes as unmeasured.
+
+The two directions differ on purpose. A row keyed to an asset that does not exist is provenance for
+nothing. An omitted row is the normal state of an axis that is still in production.
+
+`qualification.json` records the sidecar manifest digest as a third upstream, under
+`generation.measurements`. That key is present only in the runs that used the flag.
 
 ## Outputs
 
@@ -74,8 +101,20 @@ found nothing. The second state is a check that has not run. The flag separates 
 
 `qualification.json` lists both `measured_axes` and `unmeasured_axes`. Read those two lists first.
 
-Current state: the timebase and orientation axes are measured. The rigidity, detectability, scale
-and sync axes are not.
+The tool measures the timebase and orientation axes itself, on every run. It ingests the rigidity,
+detect, scale and sync axes from the sidecar. An axis that the sidecar manifest does not name stays
+unmeasured.
+
+The sync axis reaches two tables. `pairs_qc.csv` carries the per-pair verdict. `events_qc.csv`
+carries the per-event verdict that the accepted pairs support. Without `--measurements`, every
+sync cell in both tables stays empty.
+
+An axis that the manifest names with zero rows counts as measured. Its producer completed and found
+nothing to record. Coverage of one asset is a different question, and `qc_flags` answers it.
+
+Current state: the sync axis is produced, over all 246 within-family pairs. It qualifies 201 pairs
+and 173 of the 193 events. The rigidity, detect and scale axes are not yet produced, so no event is
+`qualified` yet.
 
 ## `assets_qc.csv`
 
@@ -92,10 +131,20 @@ and sync axes are not.
 | `pts_monotonic` | `1` when the packets demux in presentation order. |
 | `orientation_values` | The distinct device-orientation codes, pipe-separated and ascending. |
 | `orientation_changes` | The number of orientation transitions in the track. |
-| `rigidity_drift_median_px`, `rigidity_drift_p95_px`, `rigidity_valid_fraction`, `rigidity_flag` | Background stability, as image-space drift from one reference frame. Two quantiles, never one summary statistic: a single residual figure tracks whichever threshold judges it. Not yet ingested. |
-| `detect_rate`, `detect_conf_median`, `subject_px_height_median` | Detection. Not yet measured. |
-| `scale_ref_class`, `scale_ref_conf` | Metric scale reference. Not yet measured. |
+| `rigidity_drift_median_px`, `rigidity_drift_p95_px`, `rigidity_valid_fraction`, `rigidity_flag` | Background stability, as image-space drift from one reference frame. Two quantiles, never one summary statistic: a single residual figure tracks whichever threshold judges it. From the sidecar. |
+| `detect_rate`, `detect_conf_median`, `subject_px_height_median` | Detection. From the sidecar. |
+| `scale_ref_class`, `scale_ref_conf` | Metric scale reference. From the sidecar. |
 | `qc_flags` | Pipe-separated flags. |
+
+### Metric scale
+
+This corpus carries no metric scale reference. A survey of a stratified 52-asset sample found no
+exact dimensional identity in any cell. Every fallback is absent rather than imprecise.
+
+That negative comes from a sample, so no asset publishes a measured `none`. Every asset keeps the
+`scale_unmeasured` flag and two empty cells instead. Read every 3D output from this corpus as
+arbitrary-scale: angles, timing and dimensionless ratios survive; distance, velocity and jerk in
+metres do not.
 
 The tool sorts the presentation timestamps before it measures an interval. An HEVC stream demuxes
 out of presentation order. `pts_monotonic` records whether the sort changed the order.
@@ -128,12 +177,85 @@ One row covers one unordered pair of assets inside one capture family. `asset_a`
 A pair that is absent from this table is a pair that no estimator was asked about. That is a
 different claim from an estimator that abstained. Enumeration is therefore part of the artifact.
 
-The offset columns are not yet measured. `status` reads `unmeasured` until the sync axis runs.
+| Column | Meaning |
+| ------ | ------- |
+| `capture_id`, `asset_a`, `asset_b`, `view_a`, `view_b` | Pair identity. |
+| `offset_s` | The audio offset, in seconds. `t_B` minus `t_A` for one shared event. A positive value means that camera B started earlier. |
+| `peak_rms`, `peak_ratio` | The audio estimator's raw peak statistics. |
+| `status_audio` | The audio estimator's own verdict. |
+| `offset_visual_s` | The corroborator's offset, in the same convention. |
+| `status_visual` | The corroborator's own verdict. |
+| `status` | The fused verdict. See the table below. |
+| `drift_ppm`, `drift_se` | The rate fit. No consumer applies a rate term. |
+| `overlap_s`, `dur_a`, `dur_b` | The analysed overlap, and each asset's duration. |
+| `same_device_config`, `same_audio_rate` | Strata that keep an unmodelled device bias visible. |
+
+Both statistics are raw instrument readings. Never divide a published statistic by the threshold
+that accepts it: a re-ruled threshold then rewrites the statistic while the signal is unchanged.
+
+### Fusion
+
+The audio estimator supplies the offset. The corroborator holds a veto where it cleared its own
+gate, and no vote where it did not.
+
+| `status` | Meaning |
+| -------- | ------- |
+| `ok_corroborated` | Both estimators accepted, and they agree inside one frame. Qualified. |
+| `ok_uncorroborated` | Audio accepted, and the corroborator did not speak. Qualified. |
+| `contradicted` | Both accepted, and they disagree by more than one frame. Refused. |
+| `visual_only` | The corroborator accepted, and audio did not. Refused. |
+| `neither_accepted` | Both estimators measured the pair, and neither accepted. Refused. |
+| `unmeasured` | No sidecar carried this pair. |
+
+`status` is a function of `status_audio`, `status_visual`, `offset_s` and `offset_visual_s`. All
+four are in this table, so you can re-derive every verdict.
+
+Two estimators that accept and disagree are two measurements in conflict. The tool prefers neither.
+The `visual_only` stratum is where the corroborator's known gross errors live: one such pair
+disagrees with audio by 87 seconds.
 
 ## `events_qc.csv`
 
 One row covers one recording event from the session tree. `qualified` states whether the event is
 eligible for 3D work. `reason` names every axis that blocks it.
+
+| Column | Meaning |
+| ------ | ------- |
+| `event_id`, `capture_id`, `n_cameras`, `views` | Event identity, copied from the session tree. |
+| `graph_connected` | `1` when accepted pairs join every camera of the event. |
+| `closure_residual_s` | The three-camera closure residual, in seconds. |
+| `offset_span_s` | The spread of the solved camera offsets, in seconds. |
+| `sync_qualified` | `1` when the sync axis accepts the event. |
+| `geom_qualified` | `1` when the geometry axis accepts the event. |
+| `qualified` | `1` when every axis accepts the event. |
+| `reason` | Pipe-separated blockers. |
+
+The tool reads event membership from the session tree `placements.csv`. It never reads membership
+from the capture family. A view-conflict family becomes several single-camera events, so a
+family-wide member list gives each of those events cameras that it does not hold.
+
+The tool solves one offset for each camera. It starts at the lowest asset id, and it walks accepted
+pairs only. A camera that one accepted pair reaches directly keeps that measured offset. The tool
+does not accumulate a longer path over a direct measurement.
+
+A one-camera event is connected. It carries no alignment that can fail. The geometry axis is what
+refuses a single camera.
+
+### Closure
+
+`closure_residual_s` is a self-consistency statistic. Never read it as an accuracy statistic.
+Acoustic propagation delay is an exact cocycle around a triangle, so closure cancels that delay
+exactly. A perfect closure and a biased offset are the same number.
+
+The tool publishes closure for a three-camera event whose three pairs are all accepted. It publishes
+an empty cell for every other event. A path joins three cameras, but a path cannot close them.
+
+Current corpus: 30 event triangles close, at 5.403 ms median and 30.286 ms maximum.
+
+The policy probe in `scripts/probe_sync_policy.py` reports a different closure population. It groups
+by capture family instead of by event, and it accepts on audio alone instead of on the fused verdict.
+It reports 35 triangles at 4.451 ms median. Both numbers are correct for their own population. Never
+quote one for the other.
 
 ## Validate before you read
 

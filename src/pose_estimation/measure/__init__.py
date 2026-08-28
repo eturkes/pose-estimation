@@ -33,9 +33,17 @@ import re
 from typing import Any
 
 from .. import inventory
+from .scale import NO_REFERENCE, SCALE_CLASSES, SCALE_CONFIDENCES
 from .statuses import AUDIO_STATUSES, DRIFT_STATUSES, REQUIRED_WHEN_OK, VISUAL_STATUSES
 
-__all__ = ["AUDIO_STATUSES", "DRIFT_STATUSES", "REQUIRED_WHEN_OK", "VISUAL_STATUSES"]
+__all__ = [
+    "AUDIO_STATUSES",
+    "DRIFT_STATUSES",
+    "REQUIRED_WHEN_OK",
+    "SCALE_CLASSES",
+    "SCALE_CONFIDENCES",
+    "VISUAL_STATUSES",
+]
 
 GENERATOR_VERSION = "v2"
 
@@ -139,7 +147,14 @@ AXES: dict[str, Axis] = {
         ),
         Axis("rigidity", "rigidity_assets.csv", RIGIDITY_COLUMNS, ASSET_KEYS, ASSET_KEYS),
         Axis("detect", "detect_assets.csv", DETECT_COLUMNS, ASSET_KEYS, ASSET_KEYS),
-        Axis("scale", "scale_assets.csv", SCALE_COLUMNS, ASSET_KEYS, ASSET_KEYS),
+        Axis(
+            "scale",
+            "scale_assets.csv",
+            SCALE_COLUMNS,
+            ASSET_KEYS,
+            ASSET_KEYS,
+            {"scale_ref_class": SCALE_CLASSES, "scale_ref_conf": SCALE_CONFIDENCES},
+        ),
     )
 }
 
@@ -204,7 +219,10 @@ CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
     "detect_conf_median": DECIMAL_CELL,
     "subject_px_height_median": DECIMAL_CELL,
     "scale_ref_class": TOKEN_CELL,
-    "scale_ref_conf": DECIMAL_CELL,
+    # A token, not a decimal.  Identifying an object as a coin fixes no
+    # dimension, so the cell records how far identification reached rather than
+    # a number something downstream could multiply.
+    "scale_ref_conf": TOKEN_CELL,
 }
 
 
@@ -348,6 +366,25 @@ def _assert_cells(axis: Axis, rows: list[dict[str, str]]) -> None:
                 )
 
 
+def _assert_scale_pairing(axis: Axis, rows: list[dict[str, str]]) -> None:
+    """Keep "no reference" one verdict rather than two independent cells.
+
+    A class of ``none`` with a confidence of ``class_only`` claims a survey
+    identified the class of a reference that is not there, and the mirror case
+    claims a coin was identified to no depth at all.  Both spell correctly and
+    both are incoherent, so the columns are checked as one answer.
+    """
+    if axis.name != "scale":
+        return
+    for row in rows:
+        if (row["scale_ref_class"] == NO_REFERENCE) != (row["scale_ref_conf"] == NO_REFERENCE):
+            raise MeasureError(
+                f"{axis.table}: scale_ref_class {row['scale_ref_class']!r} and scale_ref_conf "
+                f"{row['scale_ref_conf']!r} disagree about whether a reference is present.",
+                reason="scale_pairing",
+            )
+
+
 def _assert_keys(axis: Axis, rows: list[dict[str, str]]) -> None:
     """Refuse a duplicated key, an empty key, or a mis-ordered pair.
 
@@ -407,12 +444,20 @@ def write_axis(
     Refusing a manifest measured against a different registry is the same
     argument at set level: two axes keyed to two generations of asset ids can
     agree on every digest and still describe no corpus that ever existed.
+
+    **Concurrent axis writers against one directory are unsupported.** Two
+    writers read the manifest, each copies the other's entries as they stood
+    before, and whichever writes last erases the other's axis while publishing
+    a digest that validates.  The sidecar is produced by scheduled runs, one
+    axis at a time, and a merge protocol would add failure modes exceeding the
+    hazard it removes.  Measure concurrent axes into separate directories.
     """
     if axis_name not in AXES:
         raise MeasureError(f"There is no {axis_name!r} axis.", reason="unknown_axis")
     axis = AXES[axis_name]
     _assert_cells(axis, rows)
     _assert_domains(axis, rows)
+    _assert_scale_pairing(axis, rows)
     _assert_keys(axis, rows)
     _assert_order(axis, rows)
     upstream = inventory.validate_generation(pathlib.Path(inventory_dir)).get("generation", {})
@@ -499,6 +544,16 @@ def validate(
             raise MeasureError(
                 f"The sidecar's {name!r} entry is not this generator's shape.",
                 reason="axis_shape",
+            )
+        # bool before int: JSON ``true`` parses to a Python bool, which equals 1,
+        # so a row count of ``true`` would satisfy every later length comparison
+        # on a one-row table.
+        declared = entry["rows"]
+        if isinstance(declared, bool) or not isinstance(declared, int) or declared < 0:
+            raise MeasureError(
+                f"The sidecar's {name!r} entry declares a row count that is not a "
+                f"non-negative integer: {declared!r}.",
+                reason="row_count_type",
             )
         if entry["generator_version"] not in SUPPORTED_VERSIONS:
             raise MeasureError(
@@ -600,6 +655,52 @@ def load_axis(sidecar: Sidecar, axis_name: str) -> dict[tuple[str, ...], dict[st
         )
     _assert_cells(axis, rows)
     _assert_domains(axis, rows)
+    _assert_scale_pairing(axis, rows)
     _assert_keys(axis, rows)
     _assert_order(axis, rows)
     return {tuple(row[name] for name in axis.keys): row for row in rows}
+
+
+def reconcile(
+    rows: dict[tuple[str, ...], dict[str, str]],
+    expected: dict[tuple[str, ...], dict[str, str]],
+) -> frozenset[tuple[str, ...]]:
+    """Bind one axis's keys to the registry, returning the keys it omitted.
+
+    P35's rules are registry-relative, and ``load_axis`` holds no registry: it
+    cannot know which family an asset belongs to, whether an id is canonical,
+    or whether a ``capture_id`` names the pair's family.  Keeping it a pure
+    schema reader is what makes it testable without a corpus, so those rules
+    live here instead, driven by the caller's own key enumeration.
+
+    The two directions are deliberately asymmetric.  A key the registry does
+    not carry is a hard error, because a row keyed to an asset that does not
+    exist is provenance for nothing and would publish under a name no consumer
+    can resolve.  A key the sidecar omits is not: axes are produced
+    independently and incrementally, so absence is the unmeasured state every
+    consumer already handles, and the returned set is what the caller publishes
+    unmeasured.
+
+    *expected* maps each canonical key to the registry-derived cells the row
+    must agree with, so a row may not carry a different family's ``capture_id``
+    than the one its own key belongs to.
+    """
+    foreign = sorted(set(rows) - set(expected))
+    if foreign:
+        raise MeasureError(
+            f"The sidecar measures {len(foreign)} key(s) the registry does not carry, "
+            f"starting at {'/'.join(foreign[0])}.",
+            reason="foreign_key",
+        )
+    for key, required in expected.items():
+        row = rows.get(key)
+        if row is None:
+            continue
+        for column, value in required.items():
+            if row.get(column) != value:
+                raise MeasureError(
+                    f"The sidecar row {'/'.join(key)} carries {column} "
+                    f"{row.get(column)!r}; the registry says {value!r}.",
+                    reason="registry_disagreement",
+                )
+    return frozenset(expected) - frozenset(rows)

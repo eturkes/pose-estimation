@@ -445,14 +445,14 @@ def test_orientation_flags_name_the_state(facts: qualify.OrientationFacts, expec
     """A rotation constant applied to a whole asset is wrong for both states."""
     asset = qualify.AssetRef("a", "c", "above", "t", "s", "1", "x.mov", None)
     decode = qualify.DecodeFacts(qualify.DECODE_OK, "h264", "m/s", 1, None, None, None, True)
-    assert expected in qualify._asset_flags(asset, decode, facts)
+    assert expected in qualify._asset_flags(asset, decode, facts, frozenset())
 
 
 def test_orientation_a_constant_track_is_not_flagged_as_changed() -> None:
     facts = qualify.OrientationFacts(present=True, values=(1,), changes=0)
     asset = qualify.AssetRef("a", "c", "above", "t", "s", "1", "x.mov", None)
     decode = qualify.DecodeFacts(qualify.DECODE_OK, "h264", "m/s", 1, None, None, None, True)
-    flags = qualify._asset_flags(asset, decode, facts)
+    flags = qualify._asset_flags(asset, decode, facts, frozenset())
     assert "orientation_changed" not in flags
     assert "orientation_absent" not in flags
 
@@ -478,3 +478,198 @@ def test_a_device_config_keeps_its_model_software_separator() -> None:
     row["device_config"] = "iPad/16.6/extra"
     with pytest.raises(qualify.QualifyError):
         qualify._assert_cell_alphabets([row])
+
+
+def _sync_sidecar(
+    inventory_dir: pathlib.Path,
+    measurements: pathlib.Path,
+    offsets: dict[tuple[str, str], float],
+    *,
+    capture_id: str,
+    accepted: set[tuple[str, str]] | None = None,
+) -> pathlib.Path:
+    """Write a sync axis carrying exactly *offsets*, ascending by pair key.
+
+    Offsets are chosen rather than measured: every event predicate below asserts
+    on a solved camera timeline, which needs edges whose arithmetic is known in
+    advance.
+    """
+    from pose_estimation import measure
+
+    rows = []
+    for (asset_a, asset_b), offset in sorted(offsets.items()):
+        ok = accepted is None or (asset_a, asset_b) in accepted
+        rows.append(
+            {
+                "capture_id": capture_id,
+                "asset_a": asset_a,
+                "asset_b": asset_b,
+                "offset_audio_s": f"{offset:.9f}",
+                "peak_rms_audio": "5.000000000",
+                "peak_ratio_audio": "2.500000000",
+                "status_audio": "ok" if ok else "low_confidence",
+                "drift_ppm": "",
+                "drift_se": "",
+                "offset_visual_s": "",
+                "conf_visual": "",
+                "peak_corr_visual": "",
+                "status_visual": "low_peak_correlation",
+                "overlap_s": "4.000000000",
+                "dur_a": "5.000000000",
+                "dur_b": "5.000000000",
+                "same_audio_rate": "1",
+            }
+        )
+    measure.write_axis(
+        measurements,
+        "sync",
+        rows,
+        {"fixture": "event-surface"},
+        inventory_dir=inventory_dir,
+    )
+    return measurements
+
+
+def _three_camera_world(
+    tmp_path: pathlib.Path,
+) -> tuple[tuple[pathlib.Path, ...], list[str], str]:
+    """Publish one three-camera family; return its paths, member ids and key."""
+    from pose_estimation import inventory
+
+    assets = [_canonical(1, view) for view in ("above", "left", "right")]
+    paths = _publish(tmp_path, assets)
+    for asset in assets:
+        _write_media(paths[2] / asset.source_path, _uniform(30))
+    registry = [
+        row for row in _rows(paths[0] / "assets.csv") if row["disposition"] == inventory.CANONICAL
+    ]
+    return paths, sorted(row["asset_id"] for row in registry), registry[0]["capture_id"]
+
+
+def test_p19_an_event_is_sync_qualified_when_accepted_pairs_join_its_cameras(
+    tmp_path: pathlib.Path,
+) -> None:
+    (inventory_dir, sessions_dir, corpus, out), members, capture_id = _three_camera_world(tmp_path)
+    first, second, third = members
+    _sync_sidecar(
+        inventory_dir,
+        tmp_path / "measurements",
+        {(first, second): 0.1, (second, third): 0.2, (first, third): 0.31},
+        capture_id=capture_id,
+    )
+    qualify.run(
+        inventory_dir, sessions_dir, corpus, out, measurements_dir=tmp_path / "measurements"
+    )
+    row = _rows(out / qualify.EVENTS_QC_FILENAME)[0]
+    assert row["graph_connected"] == "1"
+    assert row["sync_qualified"] == "1"
+    # Solved against the lowest id, taking the measured edge over an accumulated
+    # path: 0, 0.1, 0.31.  The path would give 0.30, and the 10 ms between the
+    # two is exactly what closure_residual_s publishes.
+    assert row["offset_span_s"] == "0.310000000"
+    # Geometry has not run, so the event is still not qualified overall.
+    assert row["qualified"] == ""
+    assert row["reason"] == "geom_unmeasured"
+
+
+def test_p19_an_isolated_camera_leaves_its_event_unqualified(tmp_path: pathlib.Path) -> None:
+    """Two of three cameras joined is not a joined event."""
+    (inventory_dir, sessions_dir, corpus, out), members, capture_id = _three_camera_world(tmp_path)
+    first, second, third = members
+    _sync_sidecar(
+        inventory_dir,
+        tmp_path / "measurements",
+        {(first, second): 0.1, (second, third): 0.2, (first, third): 0.31},
+        capture_id=capture_id,
+        accepted={(first, second)},
+    )
+    qualify.run(
+        inventory_dir, sessions_dir, corpus, out, measurements_dir=tmp_path / "measurements"
+    )
+    row = _rows(out / qualify.EVENTS_QC_FILENAME)[0]
+    assert row["graph_connected"] == "0"
+    assert row["sync_qualified"] == "0"
+    assert row["offset_span_s"] == ""
+    assert row["reason"] == "sync_unqualified|geom_unmeasured"
+
+
+def test_p16_closure_is_published_for_a_triangle_whose_three_edges_are_accepted(
+    tmp_path: pathlib.Path,
+) -> None:
+    """0.1 + 0.2 - 0.31 is a 10 ms disagreement the artifact must state."""
+    (inventory_dir, sessions_dir, corpus, out), members, capture_id = _three_camera_world(tmp_path)
+    first, second, third = members
+    _sync_sidecar(
+        inventory_dir,
+        tmp_path / "measurements",
+        {(first, second): 0.1, (second, third): 0.2, (first, third): 0.31},
+        capture_id=capture_id,
+    )
+    qualify.run(
+        inventory_dir, sessions_dir, corpus, out, measurements_dir=tmp_path / "measurements"
+    )
+    row = _rows(out / qualify.EVENTS_QC_FILENAME)[0]
+    assert row["closure_residual_s"] == "0.010000000"
+    census = json.loads((out / qualify.QUALIFICATION_FILENAME).read_text(encoding="utf-8"))
+    assert census["events"]["closure_residual_s"]["n"] == 1.0
+    assert census["events"]["sync_qualified"] == {"1": 1}
+
+
+def test_p16_an_unclosed_triangle_publishes_no_closure_rather_than_a_partial_one(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A path joins the event; it does not close it, and closure must say so."""
+    (inventory_dir, sessions_dir, corpus, out), members, capture_id = _three_camera_world(tmp_path)
+    first, second, third = members
+    _sync_sidecar(
+        inventory_dir,
+        tmp_path / "measurements",
+        {(first, second): 0.1, (second, third): 0.2, (first, third): 0.31},
+        capture_id=capture_id,
+        accepted={(first, second), (second, third)},
+    )
+    qualify.run(
+        inventory_dir, sessions_dir, corpus, out, measurements_dir=tmp_path / "measurements"
+    )
+    row = _rows(out / qualify.EVENTS_QC_FILENAME)[0]
+    assert row["graph_connected"] == "1"
+    assert row["closure_residual_s"] == ""
+    assert row["offset_span_s"] == "0.300000000"
+    census = json.loads((out / qualify.QUALIFICATION_FILENAME).read_text(encoding="utf-8"))
+    assert census["events"]["closure_residual_s"] is None
+
+
+def test_an_events_views_cell_names_its_own_cameras_not_its_families(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A view-conflict family splits into single-camera events.
+
+    Re-deriving ``views`` from the capture family credits each of those events
+    with every camera the family holds, which is the one thing this column may
+    never say.
+    """
+    assets = [
+        _canonical(1, "above"),
+        _canonical(1, "above", repeat=1),
+        _canonical(1, "left"),
+    ]
+    inventory_dir, sessions_dir, corpus, out = _publish(tmp_path, assets)
+    for asset in assets:
+        _write_media(corpus / asset.source_path, _uniform(30))
+    qualify.run(inventory_dir, sessions_dir, corpus, out)
+    rows = _rows(out / qualify.EVENTS_QC_FILENAME)
+    assert len(rows) == 3
+    for row in rows:
+        assert row["n_cameras"] == "1"
+        assert "|" not in row["views"]
+    assert sorted(row["views"] for row in rows) == ["above", "above", "left"]
+
+
+def test_a_flagless_run_leaves_every_event_axis_cell_unmeasured(tmp_path: pathlib.Path) -> None:
+    """Without a sidecar there is no sync axis, and the row must not imply one."""
+    (inventory_dir, sessions_dir, corpus, out), _, _ = _three_camera_world(tmp_path)
+    qualify.run(inventory_dir, sessions_dir, corpus, out)
+    row = _rows(out / qualify.EVENTS_QC_FILENAME)[0]
+    for column in ("graph_connected", "closure_residual_s", "offset_span_s", "sync_qualified"):
+        assert row[column] == ""
+    assert row["reason"] == "sync_unmeasured|geom_unmeasured"

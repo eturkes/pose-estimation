@@ -44,7 +44,23 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
   source digests** — that refusal is the stale-green barrier, so an intentional source change needs
   an explicit `rm -f tests/qualify_determinism_results.json` first. Any schema rename must also reach
   the script's own fixture, which builds real sidecar rows and fails loudly with
-  `ValueError: dict contains fields not in fieldnames` when it lags the schema.
+  `ValueError: dict contains fields not in fieldnames` when it lags the schema. Its `SOURCE_FILES`
+  tuple is the tripwire's whole reach: a new module that shapes the published bytes is invisible to
+  it until listed, so every module added to `measure.AXES` joins that tuple in the same commit.
+- **A published artifact must not contradict its own census.** Ingesting the sync axis filled
+  `pairs_qc.csv` and left all 193 `events_qc.csv` rows at `sync_unmeasured` while
+  `qualification.json` claimed the axis measured. After wiring any axis into one table, grep the
+  other tables for that axis's unmeasured sentinel before publishing.
+- **Event membership lives in `sessions/placements.csv`, never in the capture family.** A
+  view-conflict family resolves to several single-camera events, so any family-wide derivation
+  credits each of them with cameras it does not hold — it published `above|left` on 7 single-camera
+  events. Where the session tree already publishes a per-event cell, copy it; re-deriving published
+  text is how two spellings of one fact drift apart.
+- **Two closure statistics exist and neither substitutes for the other.** `events_qc.csv` groups by
+  event and accepts on R6's fused verdict (30 triangles, 5.403/30.286 ms). `scripts/probe_sync_policy.py`
+  groups by capture family and accepts on audio alone (35 triangles, 4.451/30.286 ms — the P38
+  figure). Same corpus, same estimator, different populations. Always name the population beside the
+  number.
 - **`--corpus` is `videos/3-cam`, never `videos`.** `videos/` holds two trees, `3-cam` (the 16 subject
   directories this milestone measures) and `initial` (12 loose `IMG_*.MP4` files outside the registry).
   `assets.csv` `source_path` is relative to `3-cam`, so pointing `--corpus` one level up fails every

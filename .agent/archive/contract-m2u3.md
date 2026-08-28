@@ -29,16 +29,30 @@ rows). Publication is per-file atomic, whole-set digest-verified, exactly as `in
 
 - `assets_qc.csv` — one row per canonical asset (379):
   `asset_id, capture_id, view, task, side, subject_ordinal, device_config, codec,
-   decode_status, frames_decoded, frames_reported, pts_dt_median_s, pts_dt_p95_s, pts_dt_max_s,
-   pts_monotonic, orientation_values, orientation_changes, rigidity_stat, rigidity_flag,
+   decode_status, pts_source, frames_source, frames_decoded, frames_reported, pts_dt_median_s,
+   pts_dt_p95_s, pts_dt_max_s, pts_monotonic, orientation_values, orientation_changes,
+   rigidity_drift_median_px, rigidity_drift_p95_px, rigidity_valid_fraction, rigidity_flag,
    detect_rate, detect_conf_median, subject_px_height_median, scale_ref_class, scale_ref_conf,
    qc_flags`
+  **Amended** — the frozen text read `rigidity_stat` and carried no measurement-provenance columns.
+  R2 split the rigidity statistic into two quantiles plus a valid fraction, and `pts_source` /
+  `frames_source` exist because `SourceTimestampClock` substitutes `frame_index / fps` with callers
+  unable to tell that from a measurement.
 - `pairs_qc.csv` — one row per unordered within-family asset pair (246):
-  `capture_id, asset_a, asset_b, view_a, view_b, offset_s, confidence, peak_ratio, status,
-   drift_ppm, drift_se, overlap_s, dur_a, dur_b, same_device_config, same_audio_rate`
+  `capture_id, asset_a, asset_b, view_a, view_b, offset_s, peak_rms, peak_ratio, status_audio,
+   offset_visual_s, status_visual, status, drift_ppm, drift_se, overlap_s, dur_a, dur_b,
+   same_device_config, same_audio_rate`
+  **Amended** — the frozen text read `confidence` and published no corroborator column. R9 removed
+  the normalized confidence, so `peak_rms` carries the raw statistic under a name that does not
+  assert a quantity the code no longer computes. `status_audio`, `offset_visual_s` and
+  `status_visual` join it so that **`status` is a pure function of columns this table publishes**:
+  a reader re-derives every fusion verdict from the artifact, and R6 stays re-rulable against the
+  bytes it changed rather than against the sidecar alone.
 - `events_qc.csv` — one row per session event from `sessions/` (193):
   `event_id, capture_id, n_cameras, views, graph_connected, closure_residual_s, offset_span_s,
    sync_qualified, geom_qualified, qualified, reason`
+  Schema unchanged; the cells below the identity block are filled by the sync axis under
+  `--measurements` (P19, P19b, P19c) and stay empty without it.
 - `qualification.json` — redaction-safe aggregates only, plus a `generation` block digesting the
   three CSVs and itself. **This is the only artifact whose numbers may be quoted anywhere.**
 
@@ -96,6 +110,13 @@ Each is testable and each earns at least one committed test. `P##` is the stable
   self-consistency statistic, never an accuracy statistic**. Acoustic propagation delay is an exact
   cocycle around a triangle, so closure is blind to it by construction (main:F8). Any document that
   cites closure as evidence of sync accuracy is in breach of this predicate.
+  **Amended** — the artifact's closure population is not the probe's. `events_qc.csv` groups by
+  **event** and accepts on the **fused** verdict: 30 triangles, median 5.403 ms, max 30.286 ms.
+  `scripts/probe_sync_policy.py` groups by **capture family** and accepts on **audio alone**: 35
+  triangles, median 4.451 ms, max 30.286 ms — the P38 figure, and it still reruns exactly. Both are
+  correct for their own population and neither may be quoted for the other. A three-camera event
+  whose three pairs are not all accepted publishes an empty cell: a path joins three cameras without
+  closing them, and a partial residual would be a number for a triangle that was never measured.
 - **P17** The accuracy statement rests on the cross-modality agreement instead: two estimators
   sharing no code and no signal agree to **median 12.89 ms, 86.2% within one 33.4 ms frame, 41.5%
   under 10 ms** on the **65** pairs both accept (p75 23.10 ms, p95 50.72 ms, max 74.8 ms; main,
@@ -114,6 +135,23 @@ Each is testable and each earns at least one committed test. `P##` is the stable
   A single constant offset per pair is sufficient **for this corpus** and the artifact says so.
 - **P19** `sync_qualified` is true for an event only when its camera graph is connected by accepted
   pairs. Measured connectivity: 122/137 multi-view families (89.05%, audio:U6).
+  **Amended** — the predicate quantifies over the **event's own cameras**, and event membership comes
+  from the session tree's `placements.csv`, never from the capture family: a view-conflict family
+  resolves to several single-camera events, so a family-wide member list credits each of them with
+  cameras it does not hold. Published: **173/193 events sync-qualified** (58/58 one-camera, 74/84
+  two-camera, 41/51 three-camera), under R6's fused acceptance. A one-camera event is connected —
+  it carries no alignment that can fail, and geometry is the axis that refuses a single camera.
+  The 122/137 figure stays the **family**-grain statistic under audio-alone acceptance; the same
+  probe under the shipped fused policy reads 117/137.
+- **P19b** Each camera's offset is solved breadth-first from the event's lowest asset id over
+  accepted edges alone, so a camera one accepted pair reaches directly keeps that measured offset
+  rather than an accumulated path. Where a triangle does not close, the route decides the answer, so
+  the traversal is fixed rather than incidental and `closure_residual_s` publishes exactly the
+  disagreement between the two routes. `offset_span_s` is the spread of that solution and is
+  published only for a connected event of two or more cameras.
+- **P19c** `views` is copied from the session tree's own per-event cell rather than re-derived from
+  the capture family. Re-deriving it published `above|left` on seven single-camera events of the two
+  view-conflict families — cameras those events do not hold.
 - **P20** The two `view_conflict` families stay `take_resolution = "unresolved"`. Neither estimator
   places their same-view pairs together (0.589 s and 5.602 s cross-modality disagreement, both with
   at least one estimator abstaining). Overturning this needs a wave-2 measurement, not an argument.
@@ -243,9 +281,11 @@ tables through a **validated measurement sidecar** — a record, not a publicati
 ### Sync axis — the port P14–P19 bind
 
 - **P36** `sync_pairs.csv` carries **both** estimators on every enumerated pair, each with its own
-  status, unfused: `capture_id, asset_a, asset_b, offset_audio_s, conf_audio, peak_ratio_audio,
+  status, unfused: `capture_id, asset_a, asset_b, offset_audio_s, peak_rms_audio, peak_ratio_audio,
   status_audio, drift_ppm, drift_se, offset_visual_s, conf_visual, peak_corr_visual, status_visual,
-  overlap_s, dur_a, dur_b, same_audio_rate`. Publishing them unfused is what keeps P17b a policy
+  overlap_s, dur_a, dur_b, same_audio_rate`. **Amended** — the frozen text read `conf_audio`; R9
+  removed the normalized confidence, so the column carries the raw peak RMS under a name that
+  asserts only what the estimator computes. Publishing them unfused is what keeps P17b a policy
   `qualify.py` applies rather than a fact baked into the measurement, and it is what lets the
   policy be re-ruled without re-decoding the corpus.
 - **P37** The sign convention is published and tested: `offset_audio_s` is `t_B − t_A`, the local
@@ -266,7 +306,7 @@ tables through a **validated measurement sidecar** — a record, not a publicati
 | -- | -------- | ------ |
 | R1 | Does `above`/`left` track a position or a device across the era boundary? | **Neither.** The label named two setups in two eras; no per-view prior crosses that boundary. |
 | R2 | Is background rigidity sufficient for per-event extrinsics, and on what fraction? | **Yes on the measurable population.** P21's gate replaced by `drift_p95 ≤ 20 px`; 278/286 assets, 71/137 families. 93/379 assets carry no verdict under any gate. |
-| R3 | Does any metric scale reference exist in frame? | **Open — the scale axis has not run.** |
+| R3 | Does any metric scale reference exist in frame? | **Closed negative.** A stratified 52-asset survey found no exact dimensional identity in any cell; the axis stays unproduced and every asset keeps `scale_unmeasured`. |
 | R4 | Does M2.6 exist? | **Yes, route re-specified.** Scene-feature extrinsics eliminated by measurement (0/246 pairs recoverable); subject-keypoint calibration is the route. |
 | R5 | What replaces the integer `sync_offset`? | One float `offset_s` per camera against the event reference. No rate or drift term. |
 | A1 | How do the expensive axes reach `assets_qc.csv`? | A validated **sidecar generation**, ingested by `qualify.py` as a third upstream. |

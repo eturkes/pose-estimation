@@ -38,7 +38,7 @@ from typing import Any, BinaryIO
 
 import av
 
-from . import inventory, sessions
+from . import inventory, measure, sessions
 
 GENERATOR_VERSION = "v1"
 
@@ -104,9 +104,21 @@ PAIRS_QC_COLUMNS: tuple[str, ...] = (
     "asset_b",
     "view_a",
     "view_b",
+    # The audio estimate is the published offset: audio estimates and the
+    # corroborator holds a veto, so these three are the accepted measurement.
+    # ``peak_rms`` replaces the frozen ``confidence`` because ruling R9 found
+    # that quantity divided by its own accept thresholds, which made a
+    # published statistic move nine orders of magnitude when a gate alone was
+    # re-ruled.  Both columns here are raw instrument readings.
     "offset_s",
-    "confidence",
+    "peak_rms",
     "peak_ratio",
+    "status_audio",
+    # The corroborator's vote, published so ``status`` is a pure function of
+    # columns this table carries: a reader can re-derive every verdict, and a
+    # re-ruled fusion policy is checkable against the artifact it changed.
+    "offset_visual_s",
+    "status_visual",
     "status",
     "drift_ppm",
     "drift_se",
@@ -145,7 +157,14 @@ EVENT_INPUT_COLUMNS: tuple[str, ...] = (
     "n_cameras",
     "run_index",
     "take_resolution",
+    "views",
 )
+
+# The session tree's asset-to-event ledger.  Membership is per event and the
+# capture family cannot supply it: a view-conflict family resolves to several
+# single-camera events, so any family-wide member list credits each of them
+# with cameras it does not hold.
+PLACEMENT_INPUT_COLUMNS: tuple[str, ...] = ("asset_id", "event_id", "placement")
 
 # Populated cells only.  An unmeasured axis publishes "" precisely so that no
 # alphabet has to admit a sentinel that could be mistaken for a measurement.
@@ -173,6 +192,44 @@ ASSET_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
     "orientation_changes": INTEGER_CELL,
     "qc_flags": FLAG_CELL,
 }
+
+# The sidecar axes this tool ingests, named exactly as `measure.AXES` names them
+# so a census axis name and a manifest key can never drift apart.
+SIDECAR_ASSET_AXES: tuple[str, ...] = ("detect", "rigidity", "scale")
+SIDECAR_AXES: tuple[str, ...] = (*SIDECAR_ASSET_AXES, "sync")
+# Axes this tool measures itself, on every run, with no sidecar.
+LOCAL_AXES: tuple[str, ...] = ("orientation", "timebase")
+
+# R6's fusion alphabet, closed at five tokens over the pairs a sidecar carries,
+# plus the token for a pair no sidecar measured.  Fusion lives here and never in
+# the record (R8's G7): the sidecar publishes both estimators unfused, so
+# re-ruling this policy re-reads bytes instead of re-decoding the corpus.
+PAIR_OK_CORROBORATED = "ok_corroborated"
+PAIR_OK_UNCORROBORATED = "ok_uncorroborated"
+PAIR_CONTRADICTED = "contradicted"
+PAIR_VISUAL_ONLY = "visual_only"
+PAIR_NEITHER_ACCEPTED = "neither_accepted"
+PAIR_UNMEASURED = "unmeasured"
+
+PAIR_STATUSES: frozenset[str] = frozenset(
+    {
+        PAIR_OK_CORROBORATED,
+        PAIR_OK_UNCORROBORATED,
+        PAIR_CONTRADICTED,
+        PAIR_VISUAL_ONLY,
+        PAIR_NEITHER_ACCEPTED,
+        PAIR_UNMEASURED,
+    }
+)
+
+# A pair qualifies on audio acceptance that the corroborator did not veto.
+QUALIFIED_PAIR_STATUSES: frozenset[str] = frozenset({PAIR_OK_CORROBORATED, PAIR_OK_UNCORROBORATED})
+
+# One frame at the corpus's nominal cadence.  Two estimates further apart than
+# this describe different events, which is a contradiction rather than noise;
+# closer than this, no downstream consumer can act on the difference, because
+# alignment is applied in whole frames.
+AGREE_TOLERANCE_S = 1.0 / 29.97
 
 DECODE_OK = "ok"
 DECODE_OPEN_FAILED = "open_failed"
@@ -341,6 +398,17 @@ def load_assets(inventory_dir: pathlib.Path) -> list[AssetRef]:
 
 def load_events(sessions_dir: pathlib.Path) -> list[dict[str, str]]:
     return _read_table(sessions_dir / sessions.EVENTS_FILENAME, EVENT_INPUT_COLUMNS)
+
+
+def load_placements(sessions_dir: pathlib.Path) -> dict[str, list[str]]:
+    """Return each event's placed asset ids, ascending."""
+    members: dict[str, list[str]] = {}
+    rows = _read_table(sessions_dir / sessions.PLACEMENTS_FILENAME, PLACEMENT_INPUT_COLUMNS)
+    for row in rows:
+        if row["placement"] != sessions.PLACED:
+            continue
+        members.setdefault(row["event_id"], []).append(row["asset_id"])
+    return {event_id: sorted(ids) for event_id, ids in members.items()}
 
 
 def _device_config(container: av.container.InputContainer) -> str:
@@ -569,7 +637,12 @@ def _percentile(values: list[float], fraction: float) -> float:
     return ordered[index]
 
 
-def _asset_flags(asset: AssetRef, facts: DecodeFacts, orientation: OrientationFacts) -> list[str]:
+def _asset_flags(
+    asset: AssetRef,
+    facts: DecodeFacts,
+    orientation: OrientationFacts,
+    measured_axes: frozenset[str],
+) -> list[str]:
     flags: list[str] = []
     if facts.status != DECODE_OK:
         flags.append(facts.status)
@@ -585,14 +658,27 @@ def _asset_flags(asset: AssetRef, facts: DecodeFacts, orientation: OrientationFa
         flags.append("orientation_changed")
     # Named per axis, so a consumer can tell "this asset failed the check" from
     # "this check has not run yet".  An empty cell alone cannot say which.
-    flags.extend(("rigidity_unmeasured", "detect_unmeasured", "scale_unmeasured"))
+    # The flag tracks THIS asset's row, not the axis's presence: an axis can be
+    # produced and still abstain on an asset, and that asset is unmeasured.
+    flags.extend(f"{axis}_unmeasured" for axis in SIDECAR_ASSET_AXES if axis not in measured_axes)
     return flags
 
 
 def _asset_row(
-    asset: AssetRef, facts: DecodeFacts, orientation: OrientationFacts
+    asset: AssetRef,
+    facts: DecodeFacts,
+    orientation: OrientationFacts,
+    axes: dict[str, dict[tuple[str, ...], dict[str, str]]],
 ) -> dict[str, str]:
     measured = facts.status == DECODE_OK
+    ingested: dict[str, str] = {}
+    covered: set[str] = set()
+    for axis_name in SIDECAR_ASSET_AXES:
+        row = axes.get(axis_name, {}).get((asset.asset_id,))
+        if row is None:
+            continue
+        covered.add(axis_name)
+        ingested.update({column: row[column] for column in measure.AXES[axis_name].columns[1:]})
     return {
         "asset_id": asset.asset_id,
         "capture_id": asset.capture_id,
@@ -622,7 +708,8 @@ def _asset_row(
         "subject_px_height_median": UNMEASURED,
         "scale_ref_class": UNMEASURED,
         "scale_ref_conf": UNMEASURED,
-        "qc_flags": "|".join(_asset_flags(asset, facts, orientation)),
+        **ingested,
+        "qc_flags": "|".join(_asset_flags(asset, facts, orientation, frozenset(covered))),
     }
 
 
@@ -644,76 +731,205 @@ def _assert_cell_alphabets(rows: list[dict[str, str]]) -> None:
                 )
 
 
-def _pair_rows(assets: list[AssetRef], facts: dict[str, DecodeFacts]) -> list[dict[str, str]]:
-    """Enumerate every unordered within-family asset pair.
+def enumerate_pairs(assets: list[AssetRef]) -> list[tuple[str, AssetRef, AssetRef]]:
+    """Enumerate every unordered within-family asset pair, ascending.
 
-    Enumeration is the deliverable here even though no offset is measured yet:
-    a pair absent from this table is a pair no estimator was ever asked about,
-    and that is a different claim from an estimator abstaining on it.
+    One enumeration serves the published table and the sidecar reconciliation.
+    They must agree exactly — a pair keyed the other way round is a key this
+    side never looks up, so the axis would read as having abstained on it
+    rather than as having disagreed about its identity — and the only way two
+    enumerations cannot drift is for there to be one.
     """
     by_capture: dict[str, list[AssetRef]] = {}
     for asset in assets:
         by_capture.setdefault(asset.capture_id, []).append(asset)
-    rows: list[dict[str, str]] = []
+    pairs: list[tuple[str, AssetRef, AssetRef]] = []
     for capture_id in sorted(by_capture):
         members = sorted(by_capture[capture_id], key=lambda item: item.asset_id)
         for index, first in enumerate(members):
-            for second in members[index + 1 :]:
-                left = facts.get(first.asset_id)
-                right = facts.get(second.asset_id)
-                same_config = (
-                    _boolean(left.device_config == right.device_config)
-                    if left is not None
-                    and right is not None
-                    and left.device_config
-                    and right.device_config
-                    else UNMEASURED
-                )
-                rows.append(
-                    {
-                        "capture_id": capture_id,
-                        "asset_a": first.asset_id,
-                        "asset_b": second.asset_id,
-                        "view_a": first.view,
-                        "view_b": second.view,
-                        "offset_s": UNMEASURED,
-                        "confidence": UNMEASURED,
-                        "peak_ratio": UNMEASURED,
-                        "status": "unmeasured",
-                        "drift_ppm": UNMEASURED,
-                        "drift_se": UNMEASURED,
-                        "overlap_s": UNMEASURED,
-                        "dur_a": UNMEASURED,
-                        "dur_b": UNMEASURED,
-                        "same_device_config": same_config,
-                        "same_audio_rate": UNMEASURED,
-                    }
-                )
+            pairs.extend((capture_id, first, second) for second in members[index + 1 :])
+    return pairs
+
+
+def fuse_pair(row: dict[str, str]) -> str:
+    """Return R6's verdict for one measured pair.
+
+    Audio estimates; the corroborator holds a veto where it spoke and no vote
+    where it did not.  "Spoke" is the corroborator clearing **its own** gate,
+    so a low-quality visual estimate carries no veto, and a pair both
+    instruments accept while disagreeing by more than a frame is refused rather
+    than resolved: two independent measurements disagree and neither is
+    preferred.  The strict reading — qualify only on agreement — was priced and
+    refused, because it leaves 111 of 137 families unrecoverable while the
+    gross-error evidence behind it bounds the visual estimator alone.
+    """
+    audio_ok = row["status_audio"] == "ok"
+    visual_ok = row["status_visual"] == "ok"
+    if audio_ok and visual_ok:
+        delta = abs(float(row["offset_audio_s"]) - float(row["offset_visual_s"]))
+        return PAIR_OK_CORROBORATED if delta <= AGREE_TOLERANCE_S else PAIR_CONTRADICTED
+    if audio_ok:
+        return PAIR_OK_UNCORROBORATED
+    if visual_ok:
+        return PAIR_VISUAL_ONLY
+    return PAIR_NEITHER_ACCEPTED
+
+
+def _pair_rows(
+    assets: list[AssetRef],
+    facts: dict[str, DecodeFacts],
+    sync: dict[tuple[str, ...], dict[str, str]],
+) -> list[dict[str, str]]:
+    """Enumerate every within-family pair, carrying the sync axis where it ran.
+
+    Enumeration is the deliverable even where no offset was measured: a pair
+    absent from this table is a pair no estimator was ever asked about, and
+    that is a different claim from an estimator abstaining on it.
+    """
+    rows: list[dict[str, str]] = []
+    for capture_id, first, second in enumerate_pairs(assets):
+        left = facts.get(first.asset_id)
+        right = facts.get(second.asset_id)
+        same_config = (
+            _boolean(left.device_config == right.device_config)
+            if left is not None and right is not None and left.device_config and right.device_config
+            else UNMEASURED
+        )
+        measured = sync.get((first.asset_id, second.asset_id))
+        rows.append(
+            {
+                "capture_id": capture_id,
+                "asset_a": first.asset_id,
+                "asset_b": second.asset_id,
+                "view_a": first.view,
+                "view_b": second.view,
+                "offset_s": UNMEASURED,
+                "peak_rms": UNMEASURED,
+                "peak_ratio": UNMEASURED,
+                "status_audio": UNMEASURED,
+                "offset_visual_s": UNMEASURED,
+                "status_visual": UNMEASURED,
+                "status": PAIR_UNMEASURED,
+                "drift_ppm": UNMEASURED,
+                "drift_se": UNMEASURED,
+                "overlap_s": UNMEASURED,
+                "dur_a": UNMEASURED,
+                "dur_b": UNMEASURED,
+                "same_device_config": same_config,
+                "same_audio_rate": UNMEASURED,
+            }
+        )
+        if measured is None:
+            continue
+        rows[-1].update(
+            {
+                "offset_s": measured["offset_audio_s"],
+                "peak_rms": measured["peak_rms_audio"],
+                "peak_ratio": measured["peak_ratio_audio"],
+                "status_audio": measured["status_audio"],
+                "offset_visual_s": measured["offset_visual_s"],
+                "status_visual": measured["status_visual"],
+                "status": fuse_pair(measured),
+                "drift_ppm": measured["drift_ppm"],
+                "drift_se": measured["drift_se"],
+                "overlap_s": measured["overlap_s"],
+                "dur_a": measured["dur_a"],
+                "dur_b": measured["dur_b"],
+                "same_audio_rate": measured["same_audio_rate"],
+            }
+        )
     return rows
 
 
-def _event_rows(events: list[dict[str, str]], assets: list[AssetRef]) -> list[dict[str, str]]:
-    views_by_capture: dict[str, list[str]] = {}
-    for asset in assets:
-        views_by_capture.setdefault(asset.capture_id, []).append(asset.view)
+def _spanning_offsets(
+    members: list[str], directed: dict[tuple[str, str], float]
+) -> dict[str, float] | None:
+    """Solve one offset per member against the lowest id, or None when unjoined.
+
+    Breadth-first over accepted edges alone, so a camera reachable directly
+    takes its own measured edge rather than an accumulated path.  Where a
+    triangle does not close, which edges carry the solution changes it, so the
+    traversal is fixed rather than incidental; ``closure_residual_s`` publishes
+    exactly the disagreement between the two routes.
+    """
+    if not members:
+        return None
+    solved = {members[0]: 0.0}
+    frontier = [members[0]]
+    while frontier:
+        current = frontier.pop(0)
+        for other in members:
+            if other in solved or (current, other) not in directed:
+                continue
+            solved[other] = solved[current] + directed[(current, other)]
+            frontier.append(other)
+    return solved if len(solved) == len(members) else None
+
+
+def _event_rows(
+    events: list[dict[str, str]],
+    members_by_event: dict[str, list[str]],
+    pair_rows: list[dict[str, str]],
+    *,
+    sync_measured: bool,
+) -> list[dict[str, str]]:
+    """One row per session event, carrying the sync axis where it ran.
+
+    ``views`` is the session tree's own per-event cell rather than a re-derived
+    one: the capture family of a view-conflict event holds views that event
+    does not, and re-deriving published text is how the two spellings drift.
+
+    Every cell below the identity block stays unmeasured without the sidecar,
+    which is what keeps a flagless run byte-identical to every earlier one.
+    """
+    directed: dict[tuple[str, str], float] = {}
+    for row in pair_rows:
+        if row["status"] not in QUALIFIED_PAIR_STATUSES:
+            continue
+        offset = float(row["offset_s"])
+        directed[(row["asset_a"], row["asset_b"])] = offset
+        directed[(row["asset_b"], row["asset_a"])] = -offset
     rows: list[dict[str, str]] = []
     for event in sorted(events, key=lambda item: item["event_id"]):
-        views = sorted(set(views_by_capture.get(event["capture_id"], ())))
-        rows.append(
-            {
-                "event_id": event["event_id"],
-                "capture_id": event["capture_id"],
-                "n_cameras": event["n_cameras"],
-                "views": "|".join(views),
-                "graph_connected": UNMEASURED,
-                "closure_residual_s": UNMEASURED,
-                "offset_span_s": UNMEASURED,
-                "sync_qualified": UNMEASURED,
-                "geom_qualified": UNMEASURED,
-                "qualified": UNMEASURED,
-                "reason": "sync_unmeasured|geom_unmeasured",
-            }
+        row = {
+            "event_id": event["event_id"],
+            "capture_id": event["capture_id"],
+            "n_cameras": event["n_cameras"],
+            "views": event["views"],
+            "graph_connected": UNMEASURED,
+            "closure_residual_s": UNMEASURED,
+            "offset_span_s": UNMEASURED,
+            "sync_qualified": UNMEASURED,
+            "geom_qualified": UNMEASURED,
+            "qualified": UNMEASURED,
+            "reason": "sync_unmeasured|geom_unmeasured",
+        }
+        rows.append(row)
+        if not sync_measured:
+            continue
+        members = members_by_event.get(event["event_id"], [])
+        solved = _spanning_offsets(members, directed)
+        # P19 quantifies over the event's own cameras, so a one-camera event is
+        # connected: it carries no alignment to fail.  Geometry is what refuses
+        # a single camera, and geometry answers on its own axis.
+        row["graph_connected"] = _boolean(solved is not None)
+        row["sync_qualified"] = row["graph_connected"]
+        if solved is not None and len(members) > 1:
+            row["offset_span_s"] = _decimal(max(solved.values()) - min(solved.values()))
+        if len(members) == 3:
+            first, second, third = members
+            triangle = ((first, second), (second, third), (first, third))
+            if all(edge in directed for edge in triangle):
+                # A cocycle: acoustic propagation delay cancels identically
+                # around the triangle, so this certifies self-consistency and
+                # never accuracy (P16).
+                row["closure_residual_s"] = _decimal(
+                    abs(directed[triangle[0]] + directed[triangle[1]] - directed[triangle[2]])
+                )
+        blockers = (
+            ["geom_unmeasured"] if solved is not None else ["sync_unqualified", "geom_unmeasured"]
         )
+        row["reason"] = "|".join(blockers)
     return rows
 
 
@@ -721,6 +937,7 @@ def build_census(
     asset_rows: list[dict[str, str]],
     pair_rows: list[dict[str, str]],
     event_rows: list[dict[str, str]],
+    measured_axes: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """Return the redaction-safe aggregate census.
 
@@ -764,10 +981,23 @@ def build_census(
         "events": {
             "rows": len(event_rows),
             "n_cameras": _tally(row["n_cameras"] for row in event_rows),
+            "sync_qualified": _tally(row["sync_qualified"] for row in event_rows),
+            # Self-consistency, never accuracy (P16).  It is quotable because it
+            # is a distribution over triangles and names none of them.
+            "closure_residual_s": _distribution(
+                [
+                    float(row["closure_residual_s"])
+                    for row in event_rows
+                    if row["closure_residual_s"]
+                ]
+            ),
         },
         "qc_flags": dict(sorted(flag_counts.items())),
-        "measured_axes": ["timebase", "orientation"],
-        "unmeasured_axes": ["rigidity", "detectability", "scale", "sync"],
+        # Axis presence, not per-row coverage: an axis produced and empty is
+        # measured, because its producer completed and found nothing to say.
+        # Whether any single asset carries a value is the qc_flags question.
+        "measured_axes": sorted({*LOCAL_AXES, *measured_axes}),
+        "unmeasured_axes": sorted(set(SIDECAR_AXES) - measured_axes),
     }
 
 
@@ -835,6 +1065,8 @@ def _build(
     *,
     upstream_inventory: dict[str, Any],
     upstream_sessions: dict[str, Any],
+    upstream_measurements: str | None = None,
+    measured_axes: frozenset[str] = frozenset(),
 ) -> None:
     staging.mkdir(parents=True)
     tables = (
@@ -846,7 +1078,7 @@ def _build(
         (staging / name).write_text(
             inventory.render_csv(columns, rows), encoding="utf-8", newline=""
         )
-    census = build_census(asset_rows, pair_rows, event_rows)
+    census = build_census(asset_rows, pair_rows, event_rows, measured_axes)
     census["generation"] = {
         ASSETS_QC_FILENAME: _digest_bytes(staging / ASSETS_QC_FILENAME),
         PAIRS_QC_FILENAME: _digest_bytes(staging / PAIRS_QC_FILENAME),
@@ -858,6 +1090,11 @@ def _build(
         "sessions": dict(upstream_sessions),
         "generator_version": GENERATOR_VERSION,
     }
+    if upstream_measurements is not None:
+        # Present only in the mode that has a third upstream.  An always-present
+        # nullable key would change the published bytes for every consumer that
+        # never asked for a sidecar, which is what P34 and P08 forbid.
+        census["generation"]["measurements"] = upstream_measurements
     (staging / QUALIFICATION_FILENAME).write_text(
         inventory.render_json(census), encoding="utf-8", newline=""
     )
@@ -933,11 +1170,47 @@ def _assert_owned(out_dir: pathlib.Path) -> None:
         raise refusal
 
 
+def _ingest(
+    measurements_dir: str | os.PathLike[str],
+    inventory_path: pathlib.Path,
+    assets: list[AssetRef],
+) -> tuple[str, dict[str, dict[tuple[str, ...], dict[str, str]]]]:
+    """Validate the sidecar and bind every axis key to this registry.
+
+    Runs before one frame is decoded and before the output tree is touched, so
+    a sidecar this run cannot trust costs an exit code rather than a discarded
+    publication.  ``MeasureError`` is wrapped here rather than raised onward:
+    callers of this tool face one error domain, and a sidecar defect is a
+    qualification failure from where they stand.
+    """
+    expected_assets: dict[tuple[str, ...], dict[str, str]] = {
+        (asset.asset_id,): {} for asset in assets
+    }
+    expected_pairs: dict[tuple[str, ...], dict[str, str]] = {
+        (first.asset_id, second.asset_id): {"capture_id": capture_id}
+        for capture_id, first, second in enumerate_pairs(assets)
+    }
+    try:
+        sidecar = measure.validate(measurements_dir, inventory_dir=inventory_path)
+        axes = {
+            name: measure.load_axis(sidecar, name)
+            for name in SIDECAR_AXES
+            if name in sidecar.manifest["axes"]
+        }
+        for name, rows in axes.items():
+            measure.reconcile(rows, expected_pairs if name == "sync" else expected_assets)
+    except measure.MeasureError as error:
+        raise QualifyError(str(error), reason=error.reason) from error
+    return sidecar.manifest["generation"]["manifest"], axes
+
+
 def run(
     inventory_dir: str | os.PathLike[str],
     sessions_dir: str | os.PathLike[str],
     corpus_root: str | os.PathLike[str],
     out_dir: str | os.PathLike[str],
+    *,
+    measurements_dir: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     """Publish the qualification set, replacing any generation this tool owns."""
     inventory_path = pathlib.Path(inventory_dir)
@@ -955,6 +1228,11 @@ def run(
 
     assets = load_assets(inventory_path)
     events = load_events(sessions_path)
+    measurements_digest: str | None = None
+    axes: dict[str, dict[tuple[str, ...], dict[str, str]]] = {}
+    if measurements_dir is not None:
+        _assert_disjoint(out, measurements_dir, "measurement sidecar")
+        measurements_digest, axes = _ingest(measurements_dir, inventory_path, assets)
     paths = {
         asset.asset_id: sessions.resolve_source(corpus_root, asset.source_relative)
         for asset in assets
@@ -962,11 +1240,17 @@ def run(
     facts = {asset_id: probe_decode(path) for asset_id, path in paths.items()}
     orientations = {asset_id: probe_orientation(path) for asset_id, path in paths.items()}
     asset_rows = [
-        _asset_row(asset, facts[asset.asset_id], orientations[asset.asset_id]) for asset in assets
+        _asset_row(asset, facts[asset.asset_id], orientations[asset.asset_id], axes)
+        for asset in assets
     ]
     _assert_cell_alphabets(asset_rows)
-    pair_rows = _pair_rows(assets, facts)
-    event_rows = _event_rows(events, assets)
+    pair_rows = _pair_rows(assets, facts, axes.get("sync", {}))
+    event_rows = _event_rows(
+        events,
+        load_placements(sessions_path),
+        pair_rows,
+        sync_measured="sync" in axes,
+    )
 
     staging = out.with_name(f"{out.name}.staging.{os.getpid()}")
     retiring = out.with_name(f"{out.name}.retiring.{os.getpid()}")
@@ -980,6 +1264,8 @@ def run(
             event_rows,
             upstream_inventory=inventory_census.get("generation", {}),
             upstream_sessions=sessions_census,
+            upstream_measurements=measurements_digest,
+            measured_axes=frozenset(axes),
         )
         if out.exists():
             out.rename(retiring)
@@ -1002,6 +1288,7 @@ def validate_generation(
     out_dir: str | os.PathLike[str],
     sessions_dir: str | os.PathLike[str] | None = None,
     inventory_dir: str | os.PathLike[str] | None = None,
+    measurements_dir: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     """Return the generation block of *out_dir*, or raise when it is stale.
 
@@ -1020,9 +1307,13 @@ def validate_generation(
     if not isinstance(census, dict) or not isinstance(census.get("generation"), dict):
         raise QualifyError("The published set is unusable: qualification.json has no generation.")
     generation = census["generation"]
-    if set(generation) != set(GENERATION_KEYS) or generation["generator_version"] != (
-        GENERATOR_VERSION
-    ):
+    # Closure is evaluated per mode: a set published with a sidecar carries one
+    # more upstream than one published without.  Both key sets are closed, so a
+    # key neither mode writes still fails.
+    expected_keys = set(GENERATION_KEYS)
+    if "measurements" in generation:
+        expected_keys.add("measurements")
+    if set(generation) != expected_keys or generation["generator_version"] != (GENERATOR_VERSION):
         raise QualifyError(
             "The published set is unusable: qualification.json is not this generator's document."
         )
@@ -1062,6 +1353,20 @@ def validate_generation(
             raise QualifyError(
                 "The published set is stale: the session tree is a different generation."
             )
+    if measurements_dir is not None:
+        if "measurements" not in generation:
+            raise QualifyError(
+                "The published set was published without a measurement sidecar, "
+                "so it cannot be checked against one."
+            )
+        try:
+            sidecar = measure.validate(measurements_dir, inventory_dir=inventory_dir)
+        except measure.MeasureError as error:
+            raise QualifyError(str(error), reason=error.reason) from error
+        if sidecar.manifest["generation"]["manifest"] != generation["measurements"]:
+            raise QualifyError(
+                "The published set is stale: the measurement sidecar is a different generation."
+            )
     return generation
 
 
@@ -1080,6 +1385,7 @@ def render_summary(census: dict[str, Any]) -> str:
         f"  frame-count mismatch: {assets['frame_count_mismatch']}",
         f"Pairs enumerated: {census['pairs']['rows']}",
         f"Events: {census['events']['rows']}",
+        f"  sync qualified: {_render_counts(census['events']['sync_qualified'])}",
         f"Measured axes: {', '.join(census['measured_axes'])}",
         f"Unmeasured axes: {', '.join(census['unmeasured_axes'])}",
     ]
@@ -1087,7 +1393,12 @@ def render_summary(census: dict[str, Any]) -> str:
 
 
 def _render_counts(counts: dict[str, int]) -> str:
-    return ", ".join(f"{key}={value}" for key, value in sorted(counts.items())) or "none"
+    # A tally over cells that may be unmeasured keys the empty cell, which
+    # renders as a nameless "=193" unless the console spells it out.
+    return (
+        ", ".join(f"{key or 'unmeasured'}={value}" for key, value in sorted(counts.items()))
+        or "none"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1099,9 +1410,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sessions", required=True, help="Directory that holds events.csv.")
     parser.add_argument("--corpus", required=True, help="Root directory of the recordings.")
     parser.add_argument("--out", required=True, help="Directory to publish the evidence set into.")
+    parser.add_argument(
+        "--measurements",
+        help="Measurement sidecar directory to ingest. Omit it to publish the axes unmeasured.",
+    )
     arguments = parser.parse_args(argv)
     try:
-        census = run(arguments.inventory, arguments.sessions, arguments.corpus, arguments.out)
+        census = run(
+            arguments.inventory,
+            arguments.sessions,
+            arguments.corpus,
+            arguments.out,
+            measurements_dir=arguments.measurements,
+        )
     except (QualifyError, sessions.SessionsError, inventory.InventoryError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 2

@@ -36,6 +36,7 @@ SOURCE_FILES = (
     "src/pose_estimation/__init__.py",
     "src/pose_estimation/inventory.py",
     "src/pose_estimation/measure/__init__.py",
+    "src/pose_estimation/measure/scale.py",
     "src/pose_estimation/measure/statuses.py",
     "src/pose_estimation/multicam.py",
     "src/pose_estimation/qualify.py",
