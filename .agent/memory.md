@@ -24,6 +24,16 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 - **Upstream digests prove bytes, never shape.** `inventory.validate_generation` proves the registry on disk is the one that was published; it says nothing about duplicate ids, an unknown disposition, an absent column, or a `view_conflict` cell that contradicts its own rows. Every consumer re-derives what it reads: `sessions.plan` derives the conflict from the canonical rows by the registry's own rule and requires the published cell to agree. A future consumer inherits that obligation.
 - **Three standard-library calls normalize away the property under test.** `Path.readlink()` drops a leading `./`, so link text compared through it is not the link's text — `os.readlink` is. `Path.is_dir()` follows a symlink, so a directory test alone lets a link to an outside tree pass as a child; take the kind from `is_symlink()` first. `shutil.rmtree(p, ignore_errors=True)` refuses a symlink and swallows the refusal, so link debris survives a cleanup that reports success.
 - **A path-prefix containment test breaks at `/`.** `parent + os.sep` yields `//`, which no real path carries, so a filesystem-root corpus classifies every file below it as an escape. Strip the separator from the parent before appending one.
+- **Gate invocations must strip the host OpenVINO leak.** Every gate command in this project runs as
+  `env -u LD_LIBRARY_PATH PYTHONPATH="$PWD/src" uv run --no-sync <cmd>`. Both halves are load-bearing:
+  `PYTHONPATH` selects the primary tree for the non-pytest half, and unsetting `LD_LIBRARY_PATH` keeps
+  the host OpenVINO build out of the loader path. Without them `conftest.py` dies at
+  `ImportError … GLIBC_2.43 not found` before collecting one test.
+- **`scripts/check_qualify_determinism.py` refuses to overwrite a result measured against different
+  source digests** — that refusal is the stale-green barrier, so an intentional source change needs
+  an explicit `rm -f tests/qualify_determinism_results.json` first. Any schema rename must also reach
+  the script's own fixture, which builds real sidecar rows and fails loudly with
+  `ValueError: dict contains fields not in fieldnames` when it lags the schema.
 - **`--corpus` is `videos/3-cam`, never `videos`.** `videos/` holds two trees, `3-cam` (the 16 subject
   directories this milestone measures) and `initial` (12 loose `IMG_*.MP4` files outside the registry).
   `assets.csv` `source_path` is relative to `3-cam`, so pointing `--corpus` one level up fails every

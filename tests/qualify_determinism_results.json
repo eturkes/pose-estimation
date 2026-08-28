@@ -1,0 +1,324 @@
+{
+  "baseline_sha256": {
+    "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+    "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+    "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+    "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+  },
+  "schema_version": 2,
+  "source_sha256": {
+    "scripts/check_qualify_determinism.py": "f018d1a7f6528898cb20582d555809328118864cee1f687f009a9702c8772521",
+    "scripts/probe_sync_policy.py": "6d22ec323b96b83cd22a848d8e80c36ad03e0a136b2f3dc0c304ce60228d91f5",
+    "src/pose_estimation/__init__.py": "de77d850cc0d7695903de638c51dda72a5e03612ebc850e80fb707bc7e6477a2",
+    "src/pose_estimation/inventory.py": "66d3ef1dbc852758e8a7a41f9a477035ed5964516312daa6127e14929d13230d",
+    "src/pose_estimation/measure/__init__.py": "bda082397b0db6e42c8c8e836815639a4ddb274c80cff830b34cd9c25f9ddc61",
+    "src/pose_estimation/measure/statuses.py": "821b0f65cd6eb7ac14d97545811b0129e3d0ea25ca0831780759e6302439efc9",
+    "src/pose_estimation/multicam.py": "44ce953c623a8fdcecfe6d11048dc4110b92975b13cb38357649953b8421147d",
+    "src/pose_estimation/qualify.py": "2c5940f4c7759b004a14ffac4e64b702e3841eef21d8f8cc591f301a2bdca5b3",
+    "src/pose_estimation/sessions.py": "99c6bf2b3c1294330d894271de2423980a34d553cb7010f520ea552ef56bf72b",
+    "src/pose_estimation/video_io.py": "fa3572b4bf6e7ba5412771f9aecf2c2629ee56da835169eb9be705ff7fa9c28d",
+    "tests/test_measure.py": "1d8455ad5977d03c7197b0c152dd5567ef2a75dc85eebf61f839dbaddb9206c9",
+    "tests/test_qualify.py": "2066272b048c69d77c5f48f48315b92efccc45d46a77249f81eea55b1ec03911",
+    "tests/test_sessions.py": "570ed80320204100c7ed4e790fd9a126048945815dee47185546f00850c1f021"
+  },
+  "sweeps": [
+    {
+      "id": "Q01",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "repeat in a fresh process",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q02:0",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "PYTHONHASHSEED=0",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q02:1",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "PYTHONHASHSEED=1",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q02:12345",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "PYTHONHASHSEED=12345",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q02:random",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "PYTHONHASHSEED=random",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q03:C",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "LC_ALL=C",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q03:C.UTF-8",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "LC_ALL=C.UTF-8",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q03:en_US.UTF-8",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "LC_ALL=en_US.UTF-8",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q03:unset",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "LANG and LC_ALL unset",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q04",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "shuffled Path.iterdir in a subprocess",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q05:dotdot",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "all input paths with .. detours",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q05:relative",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "relative inputs from a different working directory",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q05:symlinks",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "equivalent symlink spellings for both upstreams and corpus",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q06",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "different --out directory name",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q07:UTC",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "TZ=UTC",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q07:Pacific/Kiritimati",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "TZ=Pacific/Kiritimati",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q08",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "second late repeat",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q09",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "umask 077",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q10",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "interpreter -O",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    },
+    {
+      "id": "Q11",
+      "observed_sha256": {
+        "assets_qc.csv": "93283dba3e0810bdb7ac1cf6cec513cacabe9d96eac4ef91672c58b1284e699b",
+        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "pairs_qc.csv": "305ea97cb553fcbdc90afd0cf108dbddcc1914af3b5404e198a2179b89cdffc9",
+        "qualification.json": "68b2894d6cba69d6aa33a6be4b5b6f3106f1b8cf72b241c61e9fa6436d8925bd"
+      },
+      "variation": "same-process PyAV demux and publication repeat",
+      "verdict_assets_qc.csv": "PASS",
+      "verdict_events_qc.csv": "PASS",
+      "verdict_pairs_qc.csv": "PASS",
+      "verdict_qualification.json": "PASS"
+    }
+  ],
+  "tamper_classes": {
+    "CSV reordered row": "rejected",
+    "added file": "rejected",
+    "added generation key": "rejected",
+    "clean": "accepted",
+    "deleted CSV": "rejected",
+    "edited CSV cell": "rejected",
+    "edited census value": "rejected",
+    "qualification.json non-JSON": "rejected",
+    "removed generation key": "rejected",
+    "symlink swapped into tree": "rejected",
+    "truncated CSV": "rejected",
+    "upstream inventory rebuilt": "rejected",
+    "upstream sessions rebuilt": "rejected",
+    "validated sync cell changed after validation": "validated bytes preserved",
+    "wrong generator_version": "rejected"
+  },
+  "tested_head": "c2ab6c02916159d42b6a6a79ea746f6e0ae6a59a"
+}
