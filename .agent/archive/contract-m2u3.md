@@ -209,6 +209,57 @@ a file measured against different source digests.
 - The 55 multi-view families that mix 44 100 and 48 000 Hz audio.
 - Both eras of the `above` and `left` view labels (main:F3).
 
+## 6b. Measurement sidecar — the shape ruling A1 fixed
+
+The four expensive axes cannot run inside `qualify.py`'s ~33 s publication: rigidity decodes, the
+sync axis decodes audio corpus-wide, detectability runs the pose pipeline. They reach the published
+tables through a **validated measurement sidecar** — a record, not a publication.
+
+- **P30** The sidecar lives in `src/pose_estimation/measure/`, one module per axis, and writes one
+  directory holding one table per axis plus a `measurements.json` manifest. It inherits **no**
+  publication contract: no whole-tree swap, no retiring sibling, no orphan sweep. A torn sidecar is
+  caught by digest and repaired by rerun, which is the tier-appropriate bar for an artifact whose
+  only consumer re-validates every byte before reading it.
+- **P31** The manifest carries, per axis: the table filename, its SHA-256, its row count, its
+  generator version, and its **provenance** — every constant, device, sampling rule and analysis
+  resolution the measurement depended on. A constant that moves the numbers and does not appear in
+  provenance is a defect, because the sidecar's numbers are otherwise unattributable to the code
+  that produced them.
+- **P32** The manifest digests itself minus its own `generation` key, and records the upstream
+  `inventory` generation block. A sidecar measured against a different registry fails ingestion
+  rather than publishing rows keyed to assets the registry no longer carries.
+- **P33** Axes are independently producible and independently absent. An axis absent from the
+  manifest publishes as unmeasured, keeping its named `*_unmeasured` flag. An axis **present** in
+  the manifest whose table is missing, unreadable or digest-mismatched is a hard error, and a table
+  on disk that no manifest entry names is also a hard error — a stale table can never be read as
+  current.
+- **P34** `qualify.py --measurements DIR` validates the sidecar before reading a row and records its
+  manifest digest in `qualification.json`'s `generation` block as a third upstream. Without the flag
+  the tool behaves exactly as it does today, so P08 determinism holds in both modes.
+- **P35** Per-asset rows key on the registry's `asset_id`; per-pair rows key on the ordered pair
+  with `asset_a < asset_b`, the same order `qualify.py` enumerates. A sidecar key the registry does
+  not carry is a hard error; a registry key the sidecar omits publishes unmeasured.
+
+### Sync axis — the port P14–P19 bind
+
+- **P36** `sync_pairs.csv` carries **both** estimators on every enumerated pair, each with its own
+  status, unfused: `capture_id, asset_a, asset_b, offset_audio_s, conf_audio, peak_ratio_audio,
+  status_audio, drift_ppm, drift_se, offset_visual_s, conf_visual, peak_corr_visual, status_visual,
+  overlap_s, dur_a, dur_b, same_audio_rate`. Publishing them unfused is what keeps P17b a policy
+  `qualify.py` applies rather than a fact baked into the measurement, and it is what lets the
+  policy be re-ruled without re-decoding the corpus.
+- **P37** The sign convention is published and tested: `offset_audio_s` is `t_B − t_A`, the local
+  time of one shared event in B's timeline minus its local time in A's. Positive means B started
+  recording earlier. The visual column carries the identical convention, so the two are directly
+  differenced.
+- **P38** The port reproduces the spike's measured acceptance on the real corpus — **210/246**
+  audio-accepted at the committed thresholds, 122/137 families connected. A port that moves those
+  counts has changed the estimator, and the change is a finding rather than a refinement.
+- **P39** Every threshold the estimator applies is a module constant recorded in the manifest's
+  provenance, and **no threshold doubles as an instrument parameter** (rulings R2: `P21`'s gate was
+  unadjudicable for exactly that reason). A statistic gated by a constant that also shapes it is
+  refused at review.
+
 ## 7. Rulings — verdict table at `.agent/archive/rulings-m2u3.md`
 
 | id | question | ruling |
