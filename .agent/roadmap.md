@@ -42,7 +42,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.6 | Calibration recovery | Per-recording-event extrinsics by **bundle adjustment over time-synchronized 2D keypoints** under the per-model intrinsics prior (M2.3 R4) — never scene-feature SfM, which is eliminated by measurement. Held-out reprojection acceptance, explicit scale provenance, bound to the M2.2 instance grain. Consumes M2.5's offsets, so it is gated on M2.5. Must measure per-event pose variety before claiming an extrinsic: subject-only calibration degrades on near-coplanar keypoints and a near-static subject, and the tasks are seated upper-limb movements. |
 | M2.7 | Gated fusion + corpus study | Fusion over qualified recording events, reprojection/gap/throughput/stability/repeatability evidence, claim-bounded report, prospective-capture specification, de-identified regression fixtures. |
 
-**Unit status.** M2.1 and M2.2 DONE. **M2.3 OPEN, one window spent on evidence, nothing shipped yet** (see *M2.3 in flight* below). M2.4 OPEN and independent of M2.3's ruling. M2.5, M2.6, M2.7 **BLOCKED on M2.3's ruling** — their shape, and whether M2.6 exists at all, is what that ruling decides.
+**Unit status.** M2.1 and M2.2 DONE. **M2.3 OPEN, five windows spent; the qualification publisher, the measurement sidecar and rulings R1-R8 have shipped, and `qualify.py --measurements` ingestion is the remaining spine work** (see *M2.3 in flight* below). M2.4 OPEN and independent of M2.3's ruling. M2.5, M2.6, M2.7 **BLOCKED on M2.3's ruling** — their shape, and whether M2.6 exists at all, is what that ruling decides.
 
 ### M2.3 in flight
 
@@ -51,6 +51,14 @@ Contract frozen at `.agent/archive/contract-m2u3.md` — 29 predicates, 4 invari
 **Sizing overrun, recorded for PLANNING.** One full MAIN window (`main=` 87% 209K/240K at close of window 1) bought tooling, the whole metadata axis, two competing offset spikes, the cross-modality cross-check and the contract — and shipped one commit, `1ae599c`, which adds a dependency. The tool, its suite, the remaining four evidence axes and the ruling are all still ahead. M2.3 as planned is a **multi-window unit like M2.1 and M2.2**, and the reason is visible in the contract: 29 predicates over six independent evidence axes, four of which need their own measurement pipeline.
 
 **User ruling: M2.3 runs as one unit across as many windows as it needs.** The contract stays whole — no re-split into sub-units, no narrowing. WORK-UNIT's one-window aim is suspended for this unit alone; the unit closes when its 29 predicates are green and every review row is adjudicated, whichever window that lands in. PLANNING sizes future units against the recorded overrun, not against this ruling.
+
+**Window 5 state.** Sidecar shipped (`src/pose_estimation/measure/`, `4baa307`) and its ingestion path
+hardened: `load_axis` validated only the header, so cells, keys, duplicates, row count and row order
+went unchecked on the one path whose whole premise is re-validating an independently produced record.
+`validate` now returns the bytes it digested, closing the reopen window. R6 re-ruled P17b on
+measurement; R8 batch-ruled all 138 rows of `test-m2u3-measure`'s PREP-1. **P38 is verified in full**
+— the port reproduces 210/246 acceptance, 122/137 view-recoverable families and 4.451/30.286 ms
+closure. Remaining spine work: `qualify.py --measurements` ingestion, then R3 (scale).
 
 **Settled by measurement** (redaction-safe aggregates, `.scratch/m2u3/*_agg.json`, from committed PyAV):
 

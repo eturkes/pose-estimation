@@ -219,17 +219,27 @@ never on either alone". Audio accepts 210/246 within-family pairs, the visual co
 **Evidence.** `scripts/probe_sync_policy.py` over the published sidecar (`measurements/`, sync axis,
 committed estimators). Every figure reruns from committed state.
 
-| policy | pairs | families connected (of 137) | triangles closed | closure median | closure max |
-| ------ | ----- | --------------------------- | ---------------- | -------------- | ----------- |
-| audio alone | 210 | 121 | 35 | 4.451 ms | 30.286 ms |
-| **audio + corroborator veto** | **201** | **116** | **31** | **4.994 ms** | **30.286 ms** |
+| policy | pairs | families view-recoverable (of 137) | triangles closed | closure median | closure max |
+| ------ | ----- | --------------------------------- | ---------------- | -------------- | ----------- |
+| audio alone | 210 | 122 | 35 | 4.451 ms | 30.286 ms |
+| **audio + corroborator veto** | **201** | **117** | **31** | **4.994 ms** | **30.286 ms** |
 | strict agreement | 56 | 26 | 2 | 11.647 ms | 11.881 ms |
 | visual alone | 74 | 34 | 9 | 8.080 ms | 34.121 ms |
+
+**View-recoverable is P38's statistic and the only one quoted here**: a family counts when *some*
+choice of one camera per view is spanned by cross-view accepted pairs. That is what M2.6 consumes —
+a family holding two files of one view needs only one of them, and a same-view edge carries no
+cross-view geometry. The probe also reports `families_all_assets_connected`, a strictly harder
+question (every asset joined, same-view edges counted) that reads 121 and 116 on the top two rows.
+The two must never be quoted as one number. Under the P38 rule the port returns **122/137** on audio
+alone with closure median/max **4.451/30.286 ms**, reproducing the spike digit-for-digit, so P38 is
+verified in full rather than on its acceptance count alone.
 
 Cross-modality agreement on the 65 both accept: median **12.886 ms**, p75 23.10, p95 50.72, max
 74.819; 56/65 within one 33.4 ms frame, 27/65 under 10 ms. Reproduces P17 exactly.
 
-**Ruling.** The strict reading is refused. It discards **95 of 137 families** and leaves 2 closing
+**Ruling.** The strict reading is refused. It leaves **111 of 137 families unrecoverable**, 96 more
+than audio alone, and leaves 2 closing
 triangles, so it would end M2.5 and M2.6 for most of the corpus, and it buys nothing the veto does
 not: the gross-error evidence behind P17b bounds the **visual** estimator alone — of the 9 pairs it
 accepts and audio rejects, one disagrees by **87.421 s** despite its 0/200 held-out control rate.
@@ -238,19 +248,26 @@ closing under one frame, and 12.9 ms median agreement wherever the second instru
 
 **Audio estimates; the corroborator holds a veto where it spoke and no vote where it did not.**
 
-| both statuses | verdict | published `status` |
-| ------------- | ------- | ------------------ |
-| audio ok, visual ok, agree ≤ 1 frame | qualified | `ok_corroborated` |
-| audio ok, visual ok, disagree > 1 frame | **refused** | `contradicted` |
-| audio ok, visual not ok | qualified, flagged | `ok_uncorroborated` |
-| audio not ok, visual ok | **refused** | `visual_only` |
-| neither ok | refused | the audio abstention token |
+| both statuses | n | verdict | published `status` |
+| ------------- | - | ------- | ------------------ |
+| audio ok, visual ok, agree ≤ 1 frame | 56 | qualified | `ok_corroborated` |
+| audio ok, visual ok, disagree > 1 frame | 9 | **refused** | `contradicted` |
+| audio ok, visual not ok | 145 | qualified, flagged | `ok_uncorroborated` |
+| audio not ok, visual ok | 9 | **refused** | `visual_only` |
+| neither ok | 27 | refused | `neither_accepted` |
+
+The alphabet is closed at **five** tokens and the strata partition all 246 pairs exactly
+(56+9+145+9+27), qualifying 201. The fifth token is not optional: publishing the audio abstention
+token verbatim for the both-refused stratum would leave the output alphabet open to every estimator
+status, which is what C19 refuses. `neither_accepted` says both instruments measured the pair and
+neither accepted it — distinct from `contradicted`, where both accepted and disagreed.
 
 A pair both instruments accept and contradict is two independent measurements disagreeing, and
 neither is preferred, so it is refused rather than resolved — 9 pairs, costing 5 families. The
 `visual_only` stratum is exactly where the 87 s gross error lives and is never qualified.
 
-**Consequence.** M2.5 inherits 201 qualified pairs and 116/137 connected families. `sync_qualified`
+**Consequence.** M2.5 inherits 201 qualified pairs and 117/137 view-recoverable families — the veto
+costs 5 families against audio alone. `sync_qualified`
 is true for an event only when accepted pairs connect its cameras (P19), and the closure statistic
 stays labelled self-consistency, never accuracy (P16).
 
@@ -265,3 +282,124 @@ recorded in the sidecar's provenance (`visual_offset.SIGNAL_FIELD`), and the por
 
 **Standing rule this earns:** a ported estimator reproduces its source's acceptance count before any
 number it produces is quoted. A default argument is a silent parameter.
+
+## R8 — sidecar ingestion contract (batch ruling over `test-m2u3-measure` PREP-1)
+
+138 enumerated rows (A01-A36, S01-S28, K01-K20, C01-C19, V01-V14, D01-D21). Seven governing
+rulings decide most of them; the rest are ruled individually below. Every row is adjudicated.
+
+### Governing rulings
+
+**G1 — the ingestion path validates exactly what the write path validates.** `load_axis` is not a
+trusted reader. `write_axis` checks cells, keys and pair order; `load_axis` checked only the header,
+so a coherently hand-edited or third-party table reached `qualify` with no cell, key, duplicate or
+count check. The sidecar's whole premise is that it is *independently produced* and re-validated at
+use, which makes the read path the one that must be strict. Ingestion re-runs the cell alphabets,
+the key rules, the declared row count and canonical row order.
+→ decides A11 A12 A13 A16 A24 A25, C01-C18, K05 K08 K09 K10 K18, S14 S21 S22.
+
+**G2 — validation and reading share one byte buffer.** `validate` returns the bytes it digested and
+`load_axis` parses that buffer, never reopening the file. A digest proves nothing about bytes read
+through a second `open`. → A23 S25.
+
+**G3 — the manifest is the trust root, so its own read is hardened** to the standard already applied
+to tables: regular non-symlink file, and duplicate JSON keys rejected rather than resolved
+last-key-wins. A document that makes two claims must not validate on one of them. → A07 A10 S11 S16.
+
+**G4 — an axis entry asserts "this axis was produced".** Present with zero rows = produced and
+empty; every canonical key publishes unmeasured and the axis counts as measured. Absent = not
+produced; the `*_unmeasured` flag stays. Producers must therefore write the manifest entry only
+after the axis completes. → A03 K03 K04 S03.
+
+**G5 — digests prove internal consistency, never authorship or cache freshness.** A coherently
+recomputed sidecar is accepted; that is a property of the design, not a hole in it. A stale cached
+result inside a freshly digested table is unreachable by any digest and is answered by cache-key
+provenance (V12), never by ingestion. → S06 S08 S26 S27 S28.
+
+**G6 — P35 binds ingestion, P36 binds the generator.** An enumerated pair the sidecar omits ingests
+as unmeasured (P35) and fails a generator conformance test (P36). Ingestion never hard-errors on
+omission, and the sync generator is separately required to emit all 246. → A14 K14.
+
+**G7 — fusion lives in `qualify`, never in the record.** `status_audio`/`status_visual` stay
+estimator-local tokens. The measurement bytes must be byte-identical when only fusion policy
+changes, which is what makes R6 re-rulable without re-decoding. → A35 V14 D21.
+
+### Status alphabets and the required-cell matrix
+
+Enums are ruled into code beside the branches that produce them, never transcribed into prose that
+can drift. `status_audio` = the **Peak** statuses only: `ok`, `short_audio`, `silent`,
+`no_feasible_lag`, `no_background`, `boundary_peak`, `low_confidence`. `short_overlap`,
+`insufficient_windows`, `degenerate_regression` and `global_abstention` are **Drift** statuses and
+reach no published column. `status_visual` = `ok`, `insufficient_overlap`, `edge_peak`,
+`undefined_confidence`, `low_peak_correlation`, `low_prominence`, `ambiguous_peak`, `signal_absent`.
+
+Measured on the shipped table (246 rows): `status_audio` = ok 210 / low_confidence 36;
+`status_visual` = low_peak_correlation 152 / ok 74 / low_prominence 15 / edge_peak 5. Every row
+populates offset, confidence and peak for **both** estimators regardless of status; only
+`drift_ppm`/`drift_se` are empty, on 114 of 246 rows.
+
+That measurement corrects the proposed C10. **A refused row still publishes its statistics** — the
+gate rejects the estimate, it does not erase it, which is P39's separation seen from the data side.
+Emptiness means "no peak was computed", not "the peak was rejected". Ruled matrix:
+
+- `status == "ok"` ⇒ that estimator's offset, confidence and peak cells are populated. Empty = HARD.
+  Provable from the code: `ok` is reachable only past the finiteness checks.
+- `status != "ok"` ⇒ those cells may be empty; a populated cell still matches its alphabet.
+- Both status columns are non-empty on every row (P36). Empty = HARD.
+- `drift_ppm`/`drift_se` carry no status of their own and are legally empty. Their abstention reason
+  is unpublished; nothing downstream consumes it (M2.5 takes no rate term, R5), so P36's frozen
+  column list stands and the gap is recorded rather than fixed.
+
+### Individually ruled rows
+
+- **A01** axis names closed to sync/rigidity/detect/scale. **A02** `generation` and axis-entry keys
+  closed; the **provenance payload stays open** — it is evidence, not schema, it is covered by the
+  manifest digest, and a closed provenance schema would version-lock every instrument change.
+- **A04** table basenames are fixed per axis in `measure.AXES`, never manifest-selected. This makes
+  **S19** unreachable by construction: no traversal, no collision, no aliasing input exists.
+- **A05** the self-digest is over the **canonically re-rendered** manifest minus `generation`, so
+  whitespace and key order survive and only semantics move it. **A22** qualification records that
+  self-digest, not a file SHA.
+- **A06** the sidecar directory is closed: any entry that is not the manifest or a named table is a
+  hard error, so writer debris cannot sit undigested beside a valid record. → **S18** HARD.
+- **A09** concurrent axis writers are **unsupported and declared so**, not locked. The sidecar is
+  produced by scheduled runs; a merge protocol's failure modes exceed the hazard it removes.
+  → **D14** pins the refusal rather than a merge.
+- **A20** each axis entry's `generator_version` is checked at ingestion; the supported set is exactly
+  `{"v1"}` today. Mixed-age sidecars stay expressible without inventing migration machinery now.
+- **A21** `--measurements` adds its upstream key to `qualification.json`'s `generation` block **only
+  when the flag is given**. Flagless output stays byte-identical (P34, P08); schema closure is
+  evaluated per mode. An always-present nullable key would change bytes for every existing consumer.
+- **A27** the non-sync schemas are already pinned in `measure.AXES` — `rigidity_assets.csv`,
+  `detect_assets.csv`, `scale_assets.csv` with the column tuples in `measure/__init__.py`. They are
+  contract, not module-private.
+- **A28** a `--measurements` directory that is missing, unreadable or manifest-less is a hard error.
+  The flag asserts the upstream; degrading to all-unmeasured would turn an operator typo into a
+  silent publication. **A29** every failure surfaces as `QualifyError`, exit 2; `MeasureError` is
+  wrapped at the `qualify` boundary so callers face one error domain.
+- **A30, K08-K13** malformed keys are refused, never normalized: a reversed pair, a self-pair, a
+  cross-family pair, a wrong `capture_id`, or an id absent from the canonical registry is HARD.
+  Normalizing would publish malformed provenance and can silently collapse duplicates. **K20** ids
+  compare as exact code-point strings; no locale or Unicode normalization.
+- **A31-A34, C19** R6's fusion tokens: `ok_corroborated`, `ok_uncorroborated`, `contradicted`,
+  `visual_only`. "Spoke" = `status_visual == "ok"`, i.e. the corroborator cleared **its own** gate —
+  a low-quality visual estimate holds no veto. "Veto" = both ok and disagreeing by more than one
+  frame. "No vote" = any non-`ok` visual status, whatever diagnostics its cells carry. `visual_only`
+  = visual ok while audio is **not** ok, covering both audio rejection and audio abstention. The
+  alphabet closes at **five** tokens: `neither_accepted` carries the 27 pairs neither instrument
+  accepted, which the four-token reading left unmapped. **A36** the mapping must reproduce 201/246
+  qualified pairs and 117/137 view-recoverable families.
+- **K01-K02, K06-K07, K15-K17** stand as the teammate proposed. **K19** registry validation precedes
+  sidecar key checks; the sidecar never adjudicates a malformed registry.
+- **S01, S02, S04, S05, S07, S09-S13, S15, S17, S20, S23, S24** stand as proposed: each is HARD on
+  the named predicate. **S03** accepted per G4.
+- **V01-V13** are accepted as the standard P31 already states. Auditing the shipped provenance block
+  against this list is a `gate` deliverable, not a claim that it currently passes. **D01-D20** are
+  accepted as the determinism battery and owned by the `gate` track; **D16** and **D17** are P39's
+  mechanical test — sweeping a gate must move only statuses, sweeping an instrument must move
+  provenance and miss the cache — and rank first.
+
+### Consequences
+
+`load_axis` gains cell, key, count and order validation; `validate` returns the bytes it digested;
+the manifest read rejects symlinks and duplicate JSON keys; the status enums become code constants.

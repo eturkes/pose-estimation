@@ -43,21 +43,22 @@ def _float(cell: str) -> float | None:
 
 
 def load_rows(measurements: pathlib.Path, inventory_dir: pathlib.Path) -> list[dict[str, str]]:
-    manifest = measure.validate(measurements, inventory_dir=inventory_dir)
-    return list(measure.load_axis(measurements, manifest, "sync").values())
+    sidecar = measure.validate(measurements, inventory_dir=inventory_dir)
+    return list(measure.load_axis(sidecar, "sync").values())
 
 
-def load_families(inventory_dir: pathlib.Path) -> dict[str, list[str]]:
+def load_families(inventory_dir: pathlib.Path) -> dict[str, dict[str, str]]:
+    """Return canonical families as ``capture_id -> {asset_id: view}``."""
     text = (inventory_dir / inventory.ASSETS_FILENAME).read_text(encoding="utf-8")
-    families: dict[str, list[str]] = {}
+    families: dict[str, dict[str, str]] = {}
     for row in csv.DictReader(text.splitlines(), lineterminator="\n"):
         if row["disposition"] == inventory.CANONICAL:
-            families.setdefault(row["capture_id"], []).append(row["asset_id"])
-    return {key: sorted(value) for key, value in families.items()}
+            families.setdefault(row["capture_id"], {})[row["asset_id"]] = row["view"]
+    return families
 
 
-def connected(members: list[str], edges: set[frozenset[str]]) -> bool:
-    """True when accepted pairs join every member of one family into one graph."""
+def _spans(members: tuple[str, ...], edges: set[frozenset[str]]) -> bool:
+    """True when *edges* join every member of *members* into one component."""
     if len(members) < 2:
         return False
     seen = {members[0]}
@@ -71,8 +72,38 @@ def connected(members: list[str], edges: set[frozenset[str]]) -> bool:
     return len(seen) == len(members)
 
 
+def view_recoverable(members: dict[str, str], edges: set[frozenset[str]]) -> bool:
+    """P38's rule: one camera per view, joined by cross-view accepted pairs.
+
+    This is the calibration-relevant question and it is *not* "every asset
+    aligns".  A family holding two files of one view needs only one of them, so
+    recoverability quantifies over one-asset-per-view selections and succeeds if
+    any selection spans.  Same-view pairs are excluded from the graph: aligning
+    two files of one camera contributes no cross-view geometry.
+    """
+    by_view: dict[str, list[str]] = {}
+    for asset, view in sorted(members.items()):
+        by_view.setdefault(view, []).append(asset)
+    if len(by_view) < 2:
+        return False
+    cross = {
+        edge
+        for edge in edges
+        if edge <= members.keys() and len({members[asset] for asset in edge}) == 2
+    }
+    return any(
+        _spans(selection, cross)
+        for selection in itertools.product(*(by_view[view] for view in sorted(by_view)))
+    )
+
+
+def all_assets_connected(members: dict[str, str], edges: set[frozenset[str]]) -> bool:
+    """Stricter than P38: every asset of the family joined, same-view included."""
+    return _spans(tuple(sorted(members)), edges)
+
+
 def closure_residuals(
-    families: dict[str, list[str]], offsets: dict[frozenset[str], float], directed: dict
+    families: dict[str, dict[str, str]], offsets: dict[frozenset[str], float], directed: dict
 ) -> list[float]:
     """Return |r| for every triangle whose three edges are all accepted.
 
@@ -81,7 +112,7 @@ def closure_residuals(
     """
     residuals: list[float] = []
     for members in families.values():
-        for triangle in itertools.combinations(members, 3):
+        for triangle in itertools.combinations(sorted(members), 3):
             edges = [frozenset(pair) for pair in itertools.combinations(triangle, 2)]
             if not all(edge in offsets for edge in edges):
                 continue
@@ -91,7 +122,7 @@ def closure_residuals(
 
 
 def evaluate(
-    name: str, accepted: list[dict[str, str]], families: dict[str, list[str]], column: str
+    name: str, accepted: list[dict[str, str]], families: dict[str, dict[str, str]], column: str
 ) -> dict[str, object]:
     edges = {frozenset((row["asset_a"], row["asset_b"])) for row in accepted}
     offsets: dict[frozenset[str], float] = {}
@@ -105,12 +136,19 @@ def evaluate(
         directed[(row["asset_a"], row["asset_b"])] = value
         directed[(row["asset_b"], row["asset_a"])] = -value
     multi = {key: value for key, value in families.items() if len(value) > 1}
+    multiview = {key: value for key, value in families.items() if len(set(value.values())) > 1}
     residuals = closure_residuals(multi, offsets, directed)
     return {
         "policy": name,
         "pairs_accepted": len(accepted),
-        "families_connected": sum(connected(value, edges) for value in multi.values()),
-        "families_multi": len(multi),
+        # P38's statistic. The strict column beside it is a different question
+        # and the two must never be quoted as one number.
+        "families_view_recoverable": sum(view_recoverable(v, edges) for v in multiview.values()),
+        "families_multiview": len(multiview),
+        "families_all_assets_connected": sum(
+            all_assets_connected(value, edges) for value in multi.values()
+        ),
+        "families_multi_asset": len(multi),
         "triangles_closed": len(residuals),
         "closure_median_ms": round(1000 * statistics.median(residuals), 3) if residuals else None,
         "closure_max_ms": round(1000 * max(residuals), 3) if residuals else None,

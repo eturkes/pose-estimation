@@ -49,7 +49,10 @@ benchmark_output
 
 # Corpus registry (patient-adjacent: carries source paths — never commit).
 # census.json inside it holds aggregates only and is safe to quote.
-inventory/
+# Slash-free on purpose: a trailing slash matches a directory and NOT a symlink
+# of the same name, and worktree briefs hand teammates exactly such a symlink.
+# `inventory` matches a whole path component, so `inventory.py` stays tracked.
+inventory
 
 # Measurement sidecar (patient-adjacent: one row per corpus asset pair, keyed
 # by the registry's ids). Re-derived by `measure`; the manifest digests the
@@ -59,10 +62,11 @@ measurements/
 
 # Materialized session tree (patient-adjacent: symlink targets and manifests
 # carry source paths). The second pattern covers the sibling staging and
-# retiring directories publication renames through. Both keep the trailing
-# slash: a directory-only rule cannot swallow src/pose_estimation/sessions.py
-# or docs/technical/sessions.md, which an unsuffixed `sessions.*` does.
-sessions/
+# retiring directories publication renames through. `sessions` is slash-free so
+# it also catches a symlink of that name; it matches a whole path component, so
+# src/pose_estimation/sessions.py and docs/technical/sessions.md stay tracked,
+# which an unsuffixed `sessions.*` would not.
+sessions
 sessions.*/
 
 # Qualification evidence set (patient-adjacent: per-asset rows keyed by

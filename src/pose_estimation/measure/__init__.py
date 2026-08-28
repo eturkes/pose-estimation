@@ -32,8 +32,15 @@ import re
 from typing import Any
 
 from .. import inventory
+from .statuses import AUDIO_STATUSES, DRIFT_STATUSES, REQUIRED_WHEN_OK, VISUAL_STATUSES
+
+__all__ = ["AUDIO_STATUSES", "DRIFT_STATUSES", "REQUIRED_WHEN_OK", "VISUAL_STATUSES"]
 
 GENERATOR_VERSION = "v1"
+
+# Every version this build ingests. A03: an axis entry asserts the axis was
+# produced, and its own version is what says by which generator.
+SUPPORTED_VERSIONS: frozenset[str] = frozenset({GENERATOR_VERSION})
 
 MANIFEST_FILENAME = "measurements.json"
 
@@ -108,19 +115,45 @@ class Axis:
     table: str
     columns: tuple[str, ...]
     keys: tuple[str, ...]
+    # Canonical row order. Not always the key: sync rows are enumerated family
+    # by family, so capture_id leads and the ordered pair breaks ties.
+    order: tuple[str, ...]
+    enums: dict[str, frozenset[str]] = dataclasses.field(default_factory=dict)
 
 
 AXES: dict[str, Axis] = {
     axis.name: axis
     for axis in (
-        Axis("sync", "sync_pairs.csv", SYNC_COLUMNS, PAIR_KEYS),
-        Axis("rigidity", "rigidity_assets.csv", RIGIDITY_COLUMNS, ASSET_KEYS),
-        Axis("detect", "detect_assets.csv", DETECT_COLUMNS, ASSET_KEYS),
-        Axis("scale", "scale_assets.csv", SCALE_COLUMNS, ASSET_KEYS),
+        Axis(
+            "sync",
+            "sync_pairs.csv",
+            SYNC_COLUMNS,
+            PAIR_KEYS,
+            ("capture_id", "asset_a", "asset_b"),
+            {"status_audio": AUDIO_STATUSES, "status_visual": VISUAL_STATUSES},
+        ),
+        Axis("rigidity", "rigidity_assets.csv", RIGIDITY_COLUMNS, ASSET_KEYS, ASSET_KEYS),
+        Axis("detect", "detect_assets.csv", DETECT_COLUMNS, ASSET_KEYS, ASSET_KEYS),
+        Axis("scale", "scale_assets.csv", SCALE_COLUMNS, ASSET_KEYS, ASSET_KEYS),
     )
 }
 
 TABLE_NAMES: frozenset[str] = frozenset(axis.table for axis in AXES.values())
+
+
+@dataclasses.dataclass(frozen=True)
+class Sidecar:
+    """A validated sidecar: the manifest, and the exact table text digested.
+
+    Reading a row goes through this object rather than the directory, because a
+    digest proves nothing about bytes fetched by a second ``open``.  ``validate``
+    keeps the text it hashed and ``load_axis`` parses that, so the window
+    between checking and reading does not exist.
+    """
+
+    manifest: dict[str, Any]
+    tables: dict[str, str]
+
 
 # Populated cells only; an axis that abstained on one row publishes "".
 DECIMAL_CELL = re.compile(r"-?[0-9]+\.[0-9]+")
@@ -192,12 +225,36 @@ def manifest_digest(manifest: dict[str, Any]) -> str:
     return hashlib.sha256(inventory.render_json(body).encode("utf-8")).hexdigest()
 
 
+def _object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Refuse a document that states one key twice.
+
+    Last-key-wins would let the manifest validate on one claim while its bytes
+    carry another, and the self-digest cannot see the difference: it digests
+    what the parser returned, not what the file said.
+    """
+    seen: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in seen:
+            raise MeasureError(
+                f"measurements.json states {key!r} twice.", reason="manifest_duplicate_key"
+            )
+        seen[key] = value
+    return seen
+
+
 def _read_manifest(out: pathlib.Path) -> dict[str, Any] | None:
     path = out / MANIFEST_FILENAME
+    # Kind before existence: a dangling symlink reports absent, and treating it
+    # as a fresh sidecar would write the next manifest through it.
+    if path.is_symlink() or (path.exists() and not path.is_file()):
+        raise MeasureError(
+            "The sidecar's measurements.json is not a regular file.",
+            reason="manifest_irregular",
+        )
     if not path.exists():
         return None
     try:
-        manifest = json.loads(path.read_text(encoding="utf-8"))
+        manifest = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_object_pairs)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise MeasureError(
             "The sidecar is unusable: measurements.json is missing or is not valid JSON.",
@@ -225,6 +282,29 @@ def _assert_cells(axis: Axis, rows: list[dict[str, str]]) -> None:
                 raise MeasureError(
                     f"{axis.table}: {column} cell {cell!r} does not match {pattern.pattern}",
                     reason="cell_alphabet",
+                )
+            allowed = axis.enums.get(column)
+            if allowed is None:
+                continue
+            if not cell:
+                raise MeasureError(
+                    f"{axis.table}: {column} is empty; every row carries both statuses.",
+                    reason="status_empty",
+                )
+            if cell not in allowed:
+                raise MeasureError(
+                    f"{axis.table}: {column} carries {cell!r}, which it never publishes.",
+                    reason="status_token",
+                )
+        for column, required in REQUIRED_WHEN_OK.items():
+            if column not in axis.columns or row.get(column) != "ok":
+                continue
+            missing = [name for name in required if not row.get(name)]
+            if missing:
+                raise MeasureError(
+                    f"{axis.table}: {column} accepted the row while {', '.join(missing)} "
+                    "is empty; a gate rejects an estimate, it never erases one.",
+                    reason="status_cells",
                 )
 
 
@@ -256,6 +336,19 @@ def _assert_keys(axis: Axis, rows: list[dict[str, str]]) -> None:
                 )
 
 
+def _assert_order(axis: Axis, rows: list[dict[str, str]]) -> None:
+    """Refuse rows the axis would not have enumerated in this order.
+
+    Canonical order is what makes two runs of one axis byte-identical, so it is
+    a property of the record rather than a convenience for the reader.
+    """
+    keys = [tuple(row.get(name, "") for name in axis.order) for row in rows]
+    if keys != sorted(keys):
+        raise MeasureError(
+            f"{axis.table}: rows are not in {'/'.join(axis.order)} order.", reason="row_order"
+        )
+
+
 def write_axis(
     out_dir: str | os.PathLike[str],
     axis_name: str,
@@ -280,6 +373,7 @@ def write_axis(
     axis = AXES[axis_name]
     _assert_cells(axis, rows)
     _assert_keys(axis, rows)
+    _assert_order(axis, rows)
     upstream = inventory.validate_generation(pathlib.Path(inventory_dir)).get("generation", {})
 
     out = pathlib.Path(out_dir)
@@ -314,8 +408,8 @@ def write_axis(
 def validate(
     out_dir: str | os.PathLike[str],
     inventory_dir: str | os.PathLike[str] | None = None,
-) -> dict[str, Any]:
-    """Return the manifest of *out_dir*, or raise when it cannot be trusted.
+) -> Sidecar:
+    """Return the validated sidecar at *out_dir*, or raise when it is untrustworthy.
 
     Every consumer calls this before reading a row.  With *inventory_dir* it
     also proves the sidecar was measured against the registry still on disk,
@@ -347,6 +441,7 @@ def validate(
         )
 
     named: set[str] = set()
+    tables: dict[str, str] = {}
     for name, entry in manifest["axes"].items():
         if name not in AXES:
             raise MeasureError(
@@ -357,6 +452,12 @@ def validate(
             raise MeasureError(
                 f"The sidecar's {name!r} entry is not this generator's shape.",
                 reason="axis_shape",
+            )
+        if entry["generator_version"] not in SUPPORTED_VERSIONS:
+            raise MeasureError(
+                f"The sidecar's {name!r} axis was written by a generator this build "
+                f"does not ingest: {entry['generator_version']!r}.",
+                reason="generator_version",
             )
         axis = AXES[name]
         if entry["table"] != axis.table:
@@ -370,16 +471,22 @@ def validate(
                 reason="table_absent",
             )
         try:
-            digest = _digest_bytes(table)
+            data = table.read_bytes()
         except OSError as error:
             raise MeasureError(
                 f"The sidecar's {name!r} table cannot be read.", reason="table_unreadable"
             ) from error
-        if digest != entry["sha256"]:
+        if hashlib.sha256(data).hexdigest() != entry["sha256"]:
             raise MeasureError(
                 f"The sidecar is inconsistent: the {name!r} table is a different measurement.",
                 reason="table_changed",
             )
+        try:
+            tables[name] = data.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise MeasureError(
+                f"The sidecar's {name!r} table is not UTF-8.", reason="table_encoding"
+            ) from error
         named.add(axis.table)
 
     # A table the manifest does not name is the staleness case the digests
@@ -406,26 +513,45 @@ def validate(
                 "The sidecar is stale: the registry is a different generation.",
                 reason="upstream_changed",
             )
-    return manifest
+    return Sidecar(manifest, tables)
 
 
-def load_axis(
-    out_dir: str | os.PathLike[str], manifest: dict[str, Any], axis_name: str
-) -> dict[tuple[str, ...], dict[str, str]]:
+def load_axis(sidecar: Sidecar, axis_name: str) -> dict[tuple[str, ...], dict[str, str]]:
     """Return one validated axis, indexed by its declared key.
+
+    The read path repeats every check the write path makes.  A table this tool
+    wrote is the easy case; the sidecar's whole premise is that it is produced
+    independently and re-validated at use, so trusting the writer here would
+    leave a hand-edited or third-party table checked on its header alone.
 
     An absent axis returns an empty index rather than raising: absence is the
     unmeasured state every consumer already handles, and P33 has already made
     the difference between absent and altered a decision ``validate`` owns.
     """
-    if axis_name not in manifest.get("axes", {}):
+    entry = sidecar.manifest.get("axes", {}).get(axis_name)
+    if entry is None:
         return {}
     axis = AXES[axis_name]
-    text = (pathlib.Path(out_dir) / axis.table).read_text(encoding="utf-8")
-    reader = csv.DictReader(text.splitlines(), lineterminator="\n")
-    header = tuple(reader.fieldnames or ())
-    if header != axis.columns:
+    reader = csv.DictReader(sidecar.tables[axis_name].splitlines(), lineterminator="\n")
+    if tuple(reader.fieldnames or ()) != axis.columns:
         raise MeasureError(
             f"The sidecar's {axis_name!r} table is not this schema.", reason="axis_schema"
         )
-    return {tuple(row[name] for name in axis.keys): dict(row) for row in reader}
+    rows = [dict(row) for row in reader]
+    # DictReader pads a short row with None and collects a long one under the
+    # None key, so both survive a header check that only compares field names.
+    if any(None in row or None in row.values() for row in rows):
+        raise MeasureError(
+            f"The sidecar's {axis_name!r} table has a row that is not its width.",
+            reason="row_shape",
+        )
+    if len(rows) != entry["rows"]:
+        raise MeasureError(
+            f"The sidecar's {axis_name!r} entry declares {entry['rows']} rows "
+            f"and its table carries {len(rows)}.",
+            reason="row_count",
+        )
+    _assert_cells(axis, rows)
+    _assert_keys(axis, rows)
+    _assert_order(axis, rows)
+    return {tuple(row[name] for name in axis.keys): row for row in rows}
