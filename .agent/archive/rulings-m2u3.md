@@ -105,11 +105,42 @@ that coverage raises M2.6's yield; it does not change M2.6's existence → `.age
 
 ## R3 — does any metric scale reference exist in frame?
 
-**Ruling: open. The scale axis has not run.** No survey has been performed, so no ruling is
-available, and the roadmap requires the survey to precede any request for participant
-anthropometrics. Until it runs, `scale_ref_class` publishes empty with a `scale_unmeasured` flag, and
-every artifact states arbitrary scale explicitly: angles and dimensionless ratios survive, every
-metre-valued distance, velocity and jerk does not (P24, P26).
+**Ruling: closed negative. This corpus carries no metric reference, and the standing fallback is
+therefore permanent for it rather than provisional.** The survey ran and found no route.
+
+Three findings carry the ruling. Apparatus class does not supply length: the battery is GRASSP v1
+Prehension Performance, which publishes no dimension or tolerance for any of its six object classes,
+and the plausible spread within a class runs from 6% (key blanks) to 82% (hex nut sizes) to 2.9×
+(twist closures). Identity is unresolvable in the frames themselves: a stratified 52/379 asset sample
+covering all 18 task×view cells decoded 364/364 frames, confirmed the task object present in every
+sampled asset, and found at least one visually sharp crop in 50/52 — yet two adversarial metrology
+prompts requiring a visible make, denomination, thread size or marking accepted **0/52**. Visibility
+is not the blocker; dimensional identity is. Every fallback is absent rather than imprecise:
+`inventory/assets.csv` carries no anthropometric column and 193 `session.json` manifests expose zero
+anthropometric keys, no furniture survey or height setting exists, the cameras were hand-held with no
+surveyed baseline, and 0/379 canonical paths contain a calibration-target token against a 379/379
+positive control. Audio time-of-flight cannot supply it either — triangle closure cancels propagation
+exactly, which is the same cocycle property that makes closure a consistency statistic and not an
+accuracy one.
+
+Even the best conditional route fails the requirement. An individual coin is the only object whose
+resolved identity would carry a statutory diameter, but no crop resolved a denomination, and its
+measured extent (p10/median/p90 = 38.5/48.7/86.0 px) puts an optimistic root-sum-square floor at
+**±17.7%** for a reconstructed-scene scale and **±22.2%** per image, before lens distortion, which
+has no corpus calibration at all. No finite end-to-end interval can be stated.
+
+Pipeline behaviour is unchanged, because the fallback was specified before the survey ran:
+`scale_ref_class` publishes empty with a `scale_unmeasured` flag, and every artifact states arbitrary
+scale explicitly. Angles, angular velocities, timing, normalized trajectory shape and dimensionless
+ratios survive intact; every metre-valued distance, velocity and jerk does not (P24, P26). M2.6 does
+not rescue this: recovering extrinsics removes the depth-plane penalty and would let one metric
+object be triangulated for a single global factor per event, but it supplies no physical length, and
+scale stays per-event because no fixed rig or reusable extrinsic exists.
+
+Reopening requires new provenance from outside this corpus — caliper measurement of each retained
+apparatus instance, a filmed ruler or board, or a cardinality-checked participant-anthropometry
+mapping with contemporaneous side-specific segment lengths. All three are acquisition actions, not
+analysis, so none is schedulable as a unit here.
 
 ## R4 — does M2.6 exist?
 
