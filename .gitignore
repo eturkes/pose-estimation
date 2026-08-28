@@ -18,6 +18,11 @@ htmlcov/
 .direnv/
 
 # R / RStudio
+# renv/library is already covered by renv's own generated renv/.gitignore, but
+# that file spells it `library/`, and a teammate worktree reaches the package
+# store through a symlink of that name. This rule is path-anchored and
+# slash-free, so it catches the symlink too.
+renv/library
 .Rproj.user/
 .Rhistory
 .RData
@@ -58,7 +63,11 @@ inventory
 # by the registry's ids). Re-derived by `measure`; the manifest digests the
 # registry, so a committed copy could never be re-derived from the repo alone.
 # Aggregates over it (acceptance counts, closure medians) are safe to quote.
-measurements/
+# Slash-free for the reason `sessions` is: a teammate worktree reaches this
+# directory through a symlink of the same name, and a trailing slash matches a
+# directory but never a symlink to one, so `measurements/` left that link
+# stageable by `git add -A`.
+measurements
 
 # Materialized session tree (patient-adjacent: symlink targets and manifests
 # carry source paths). The second pattern covers the sibling staging and
@@ -73,7 +82,7 @@ sessions.*/
 # capture_id pseudonyms). qualification.json inside it holds aggregates only
 # and is safe to quote. Same two-pattern shape as sessions, for the same
 # staging/retiring siblings and the same collision with the module and doc.
-qualification/
+qualification
 qualification.*/
 
 # Camera calibration (patient-adjacent: identifying lab/rig geometry — never commit)
