@@ -126,9 +126,24 @@ Each is testable and each earns at least one committed test. `P##` is the stable
   superseded, not deleted, and the conclusion is unchanged.
 - **P17b** The corroborator's control result does not bound its gross-error rate. Of the 9 pairs the
   visual estimator accepts and audio rejects, one disagrees by **87.4 s**, despite the visual gate
-  scoring 0/200 on held-out controls. The artifact therefore qualifies a pair on **agreement between
-  the two estimators**, never on either alone, and any pair accepted by exactly one carries a
-  `qc_flag`.
+  scoring 0/200 on held-out controls. ~~The artifact therefore qualifies a pair on **agreement
+  between the two estimators**, never on either alone, and any pair accepted by exactly one carries a
+  `qc_flag`.~~
+  **Amended, and the struck sentence is superseded rather than merely rephrased.** R6 priced the
+  strict reading on measurement and **refused** it: agreement-required leaves 111 of 137 families
+  unrecoverable — 96 more than audio alone — and 2 closing triangles, ending M2.5 and M2.6 for most
+  of the corpus, while buying nothing the veto does not. The gross-error evidence bounds the
+  **visual** estimator alone; no comparable evidence exists against audio (2/100 control false
+  positives, 35/35 accepted triangles closing under one frame, 12.9 ms median agreement wherever the
+  second instrument speaks). The shipped policy is R6's: **audio estimates; the corroborator holds a
+  veto where it cleared its own gate, and no vote where it did not.** Published: 201/246 qualified
+  (56 `ok_corroborated`, 145 `ok_uncorroborated`, 9 `contradicted`, 9 `visual_only`, 27
+  `neither_accepted`).
+  The `qc_flag` clause is superseded too, on a second ground: `pairs_qc.csv` carries no flag column,
+  and the six-token `status` alphabet already names "accepted by exactly one" more precisely than a
+  flag could — `ok_uncorroborated` and `visual_only` say which one, and in which direction.
+  The frozen sentence stays struck-through and visible: a contract that silently acquires the
+  ruling's text loses the record of what was priced and refused.
 - **P18** No rate/drift term is modelled. Measured: 0/132 qualified audio drifts move alignment by
   more than one frame over the pair's overlap (audio:U5); visual agrees, 0/15 at the 95% lower bound
   (visual:U5). Independent prior 16–31 ppm ⇒ 4.5–8.5 ms over the 274.8 s maximum clip (res2:Q2).
@@ -161,8 +176,13 @@ Each is testable and each earns at least one committed test. `P##` is the stable
 - **P21** `rigidity_stat` is an image-space background-drift statistic in **native pixels** with a
   stated sampling rule. The accept gate is `drift_p95_px ≤ 20`, the reprojection tolerance the 3D
   pipeline already applies (`src/pose_estimation/triangulation.py:423-424`); an asset outside it is
-  flagged `camera_motion`, not dropped. Measured: **278/286 eligible assets pass, 71/137 multi-asset
-  families keep every member rigid**. **Amended** — the frozen text read `median ≤ 2 px` and
+  flagged `camera_motion`, not dropped. Measured on the ruled implementation: **280/298 eligible
+  assets pass (94.0%), 71/137 multi-asset families keep every member rigid**, 81/379 carrying no
+  verdict. **Amended twice.** The second amendment retires the figures **278/286** and **93/379**:
+  those were measured with the 4 px instrument this ruling replaced, so the eligible denominator was
+  the old instrument's, and decoupling `RANSAC_THRESHOLD_PX = 8.0` recovers 12 support-unmeasurable
+  assets. Whether that denominator saturates in the instrument is open, and the sweep answering it
+  gates the final number. First: the frozen text read `median ≤ 2 px` and
   `p95 ≤ 4 px` (res1:U6), which flagged 210/286 and was **unadjudicable**: the 4 px accept threshold
   also served as the MAGSAC inlier threshold (`geometry_qualification.py:326`), so `residual_p95`
   could never exceed the gate it was judged against. A threshold sweep over 8× shows `residual_p95`
@@ -305,7 +325,7 @@ tables through a **validated measurement sidecar** — a record, not a publicati
 | id | question | ruling |
 | -- | -------- | ------ |
 | R1 | Does `above`/`left` track a position or a device across the era boundary? | **Neither.** The label named two setups in two eras; no per-view prior crosses that boundary. |
-| R2 | Is background rigidity sufficient for per-event extrinsics, and on what fraction? | **Yes on the measurable population.** P21's gate replaced by `drift_p95 ≤ 20 px`; 278/286 assets, 71/137 families. 93/379 assets carry no verdict under any gate. |
+| R2 | Is background rigidity sufficient for per-event extrinsics, and on what fraction? | **Yes on the measurable population.** P21's gate replaced by `drift_p95 ≤ 20 px`; 280/298 assets, 71/137 families. 81/379 assets carry no verdict under any gate. The retired 278/286 and 93/379 were the 4 px instrument's population. |
 | R3 | Does any metric scale reference exist in frame? | **Closed negative.** A stratified 52-asset survey found no exact dimensional identity in any cell; the axis stays unproduced and every asset keeps `scale_unmeasured`. |
 | R4 | Does M2.6 exist? | **Yes, route re-specified.** Scene-feature extrinsics eliminated by measurement (0/246 pairs recoverable); subject-keypoint calibration is the route. |
 | R5 | What replaces the integer `sync_offset`? | One float `offset_s` per camera against the event reference. No rate or drift term. |

@@ -87,6 +87,37 @@ exists independently of this measurement, which is what P21's constants lacked.
 | P21 as frozen (med ≤ 2 and p95 ≤ 4) | 76 (26.6%) | 3 / 137 |
 | **drift_p95 ≤ 20 (ruled)** | **278 (97.2%)** | **71 / 137** |
 
+**Amended — that table reports the 4 px instrument's population under the 20 px gate.** This ruling
+prescribed `RANSAC_THRESHOLD_PX = 8.0`, but its headline numbers were carried over from the run that
+preceded the decoupling, so the eligible denominator is the old instrument's. Third-order consequence
+of P39. Measured on the ruled implementation (`prod-m2u3-axes`, `a626cb9`):
+
+| quantity | recorded at 4 px | ruled 8 px instrument |
+| -------- | ---------------- | --------------------- |
+| eligible | 286 | **298** |
+| rigid | 278 (97.2%) | **280 (94.0%)** |
+| camera_motion | 8 | **18** |
+| support-unmeasurable | 83 | **71** |
+| orientation-excluded | 10 | 10 |
+| **no verdict under any gate** | **93 / 379** | **81 / 379** |
+| families, every member rigid | 71 / 137 | 71 / 137 |
+
+The mechanism is the one this ruling's own sweep predicts: support criteria (`MIN_TRACKS`,
+`MIN_GRID_CELLS`, `MIN_VALID_FRACTION`) sit downstream of the inlier count, which rises 257.8 → 268.5
+from 4 to 8 px, so 12 assets cross `MIN_VALID_FRACTION = 0.80`. Port drift is disproven rather than
+assumed: the original `geometry_qualification.py` with its single constant set to 8 reproduces the
+port byte- and numerically-identically on a source-order 20-asset oracle (n=17, drift_p95 median
+6.4659479907, drift_median 1.3769100108, inliers 282.5).
+
+**R2's verdict is unchanged** — yes on the measurable population, and the measurable population grew.
+
+**Open, and it gates this amendment's final form:** the 8 px justification rests on *inlier*
+saturation, measured over assets that were **already eligible**. Nothing has yet measured whether the
+*eligible population itself* saturates in the instrument. If 8 → 32 px recovers further assets, then
+298 is a property of the instrument rather than of the corpus, and this ruling must report the
+denominator with that dependence stated. `prod-m2u3-axes` sweeps the 83 assets unmeasurable at 4 px
+across RANSAC ∈ {4, 6, 8, 12, 20, 32}; anchors are 0 recovered at 4 and 12 at 8.
+
 104 of 137 multi-asset families keep at least two rigid cameras. The reading is direction-safe: taking
 drift entirely at face value as real camera motion is the pessimistic case, and 97.2% still sit inside
 the tolerance; if any part of drift is instrument noise the true motion is smaller and the conclusion
@@ -98,10 +129,11 @@ drift is not yet inflated. `residual_p95` leaves the published schema; the RANSA
 recorded in measurement provenance instead, because publishing it as a "residual" is what invited the
 misreading in the first place.
 
-**Coverage limit, stated as a fact about the work:** 83 assets are support-unmeasurable and 10 are
-orientation-excluded, so **93 of 379 assets carry no rigidity verdict under any gate**. 80 of the 83
-fail `MIN_VALID_FRACTION = 0.80`, and 76 of those sit in the single unstable cell R1 names. Raising
-that coverage raises M2.6's yield; it does not change M2.6's existence → `.agent/polish.md`.
+**Coverage limit, stated as a fact about the work:** 71 assets are support-unmeasurable and 10 are
+orientation-excluded, so **81 of 379 assets carry no rigidity verdict under any gate**. At the 4 px
+instrument this read 93 of 379, of which 80 failed `MIN_VALID_FRACTION = 0.80` and 76 of those sat in
+the single unstable cell R1 names. Raising that coverage raises M2.6's yield; it does not change
+M2.6's existence → `.agent/polish.md`.
 
 ## R3 — does any metric scale reference exist in frame?
 
