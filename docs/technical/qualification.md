@@ -92,7 +92,7 @@ and sync axes are not.
 | `pts_monotonic` | `1` when the packets demux in presentation order. |
 | `orientation_values` | The distinct device-orientation codes, pipe-separated and ascending. |
 | `orientation_changes` | The number of orientation transitions in the track. |
-| `rigidity_stat`, `rigidity_flag` | Background stability. Not yet measured. |
+| `rigidity_drift_median_px`, `rigidity_drift_p95_px`, `rigidity_valid_fraction`, `rigidity_flag` | Background stability, as image-space drift from one reference frame. Two quantiles, never one summary statistic: a single residual figure tracks whichever threshold judges it. Not yet ingested. |
 | `detect_rate`, `detect_conf_median`, `subject_px_height_median` | Detection. Not yet measured. |
 | `scale_ref_class`, `scale_ref_conf` | Metric scale reference. Not yet measured. |
 | `qc_flags` | Pipe-separated flags. |

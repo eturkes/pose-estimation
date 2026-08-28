@@ -209,3 +209,59 @@ are graph operations over already-measured offsets.
 **Deferred, with its acceptance check written now**: `inventory.py`, `sessions.py` and `qualify.py`
 each carry their own copy of the publication contract. Extracting it is correct and is not this
 unit's work → `.agent/polish.md`.
+
+## R6 — P17b's accept policy, priced on measurement
+
+**Question.** P17b as frozen reads "qualifies a pair on **agreement** between the two estimators,
+never on either alone". Audio accepts 210/246 within-family pairs, the visual corroborator 74, both
+65. What does each reading cost?
+
+**Evidence.** `scripts/probe_sync_policy.py` over the published sidecar (`measurements/`, sync axis,
+committed estimators). Every figure reruns from committed state.
+
+| policy | pairs | families connected (of 137) | triangles closed | closure median | closure max |
+| ------ | ----- | --------------------------- | ---------------- | -------------- | ----------- |
+| audio alone | 210 | 121 | 35 | 4.451 ms | 30.286 ms |
+| **audio + corroborator veto** | **201** | **116** | **31** | **4.994 ms** | **30.286 ms** |
+| strict agreement | 56 | 26 | 2 | 11.647 ms | 11.881 ms |
+| visual alone | 74 | 34 | 9 | 8.080 ms | 34.121 ms |
+
+Cross-modality agreement on the 65 both accept: median **12.886 ms**, p75 23.10, p95 50.72, max
+74.819; 56/65 within one 33.4 ms frame, 27/65 under 10 ms. Reproduces P17 exactly.
+
+**Ruling.** The strict reading is refused. It discards **95 of 137 families** and leaves 2 closing
+triangles, so it would end M2.5 and M2.6 for most of the corpus, and it buys nothing the veto does
+not: the gross-error evidence behind P17b bounds the **visual** estimator alone — of the 9 pairs it
+accepts and audio rejects, one disagrees by **87.421 s** despite its 0/200 held-out control rate.
+No comparable evidence exists against audio: 2/100 control false positives, 35/35 accepted triangles
+closing under one frame, and 12.9 ms median agreement wherever the second instrument speaks.
+
+**Audio estimates; the corroborator holds a veto where it spoke and no vote where it did not.**
+
+| both statuses | verdict | published `status` |
+| ------------- | ------- | ------------------ |
+| audio ok, visual ok, agree ≤ 1 frame | qualified | `ok_corroborated` |
+| audio ok, visual ok, disagree > 1 frame | **refused** | `contradicted` |
+| audio ok, visual not ok | qualified, flagged | `ok_uncorroborated` |
+| audio not ok, visual ok | **refused** | `visual_only` |
+| neither ok | refused | the audio abstention token |
+
+A pair both instruments accept and contradict is two independent measurements disagreeing, and
+neither is preferred, so it is refused rather than resolved — 9 pairs, costing 5 families. The
+`visual_only` stratum is exactly where the 87 s gross error lives and is never qualified.
+
+**Consequence.** M2.5 inherits 201 qualified pairs and 116/137 connected families. `sync_qualified`
+is true for an event only when accepted pairs connect its cameras (P19), and the closure statistic
+stays labelled self-consistency, never accuracy (P16).
+
+## R7 — the port's signal field, found by reproduction
+
+The visual estimator ported at its library default (`motion`, the whole frame) accepted **43/246**
+against the spike's 74. The spike passed `center_motion`. A hand-held camera writes its own movement
+into the frame border, so the whole-frame trace mixes camera motion with subject motion and the two
+views stop sharing a signal. The field is the estimator, not a knob: it is now a module constant
+recorded in the sidecar's provenance (`visual_offset.SIGNAL_FIELD`), and the port reproduces
+210/74/65 exactly.
+
+**Standing rule this earns:** a ported estimator reproduces its source's acceptance count before any
+number it produces is quoted. A default argument is a silent parameter.

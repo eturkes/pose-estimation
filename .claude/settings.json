@@ -19,6 +19,7 @@
       "Read(benchmark_output/)",
       "Read(inventory/assets.csv)",
       "Read(inventory/captures.csv)",
+      "Read(measurements/*.csv)",
       "Read(sessions/)",
       "Read(sessions.*/)",
       "Read(uv.lock)",

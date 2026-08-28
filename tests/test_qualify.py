@@ -332,7 +332,7 @@ def test_every_unmeasured_axis_publishes_an_empty_cell_and_a_named_flag(
     inventory_dir, sessions_dir, corpus, out = _one_asset(tmp_path, _uniform(30))
     qualify.run(inventory_dir, sessions_dir, corpus, out)
     row = _rows(out / qualify.ASSETS_QC_FILENAME)[0]
-    for column in ("rigidity_stat", "detect_rate", "scale_ref_class"):
+    for column in ("rigidity_drift_p95_px", "detect_rate", "scale_ref_class"):
         assert row[column] == ""
     flags = set(row["qc_flags"].split("|"))
     assert {"rigidity_unmeasured", "detect_unmeasured", "scale_unmeasured"} <= flags

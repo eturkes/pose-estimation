@@ -83,7 +83,12 @@ ASSETS_QC_COLUMNS: tuple[str, ...] = (
     "pts_monotonic",
     "orientation_values",
     "orientation_changes",
-    "rigidity_stat",
+    # Two statistics, never one: the sweep behind rulings R2 showed a single
+    # residual figure tracking whatever threshold judged it, so the published
+    # quantity is the drift itself, at two quantiles.
+    "rigidity_drift_median_px",
+    "rigidity_drift_p95_px",
+    "rigidity_valid_fraction",
     "rigidity_flag",
     "detect_rate",
     "detect_conf_median",
@@ -608,7 +613,9 @@ def _asset_row(
         "pts_monotonic": _boolean(facts.monotonic),
         "orientation_values": "|".join(str(value) for value in orientation.values),
         "orientation_changes": _integer(orientation.changes),
-        "rigidity_stat": UNMEASURED,
+        "rigidity_drift_median_px": UNMEASURED,
+        "rigidity_drift_p95_px": UNMEASURED,
+        "rigidity_valid_fraction": UNMEASURED,
         "rigidity_flag": UNMEASURED,
         "detect_rate": UNMEASURED,
         "detect_conf_median": UNMEASURED,
