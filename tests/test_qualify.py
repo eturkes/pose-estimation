@@ -673,3 +673,46 @@ def test_a_flagless_run_leaves_every_event_axis_cell_unmeasured(tmp_path: pathli
     for column in ("graph_connected", "closure_residual_s", "offset_span_s", "sync_qualified"):
         assert row[column] == ""
     assert row["reason"] == "sync_unmeasured|geom_unmeasured"
+
+
+# Recomputed only alongside a GENERATOR_VERSION bump.  Pinning the digest is what
+# turns "did I change the published schema?" from a judgment into a check.
+_SCHEMA_DIGEST = "3b566598b0ba00bc8b4c30727802666f162c80914a3dc6123d43527f4b4f145c"
+
+
+def test_a_schema_change_must_move_the_generator_version() -> None:
+    """A published set is self-describing only if the version tracks the schema.
+
+    `validate_generation` refuses a document whose `generator_version` is not
+    this generator's, which is the only mechanism stopping an older tree from
+    being read under a newer schema.  That mechanism is silent when a column
+    changes and the version does not, so the columns are digested here and the
+    digest is recomputed only with the bump.
+    """
+    payload = "\n".join(
+        "|".join(columns)
+        for columns in (
+            qualify.ASSETS_QC_COLUMNS,
+            qualify.PAIRS_QC_COLUMNS,
+            qualify.EVENTS_QC_COLUMNS,
+        )
+    )
+    assert hashlib.sha256(payload.encode()).hexdigest() == _SCHEMA_DIGEST, (
+        "The published column set changed. Bump qualify.GENERATOR_VERSION, then "
+        "recompute _SCHEMA_DIGEST, then republish the corpus and regenerate "
+        "tests/qualify_determinism_results.json."
+    )
+
+
+def test_a_set_published_by_an_older_generator_is_refused(tmp_path: pathlib.Path) -> None:
+    """The bump is only worth anything if the older document is actually rejected."""
+    inventory_dir, sessions_dir, corpus, out = _one_asset(tmp_path, _uniform(30))
+    qualify.run(inventory_dir, sessions_dir, corpus, out)
+    marker = out / qualify.QUALIFICATION_FILENAME
+    census = json.loads(marker.read_text(encoding="utf-8"))
+    census["generation"]["generator_version"] = "v1"
+    marker.write_text(
+        json.dumps(census, sort_keys=True, indent=2) + "\n", encoding="utf-8", newline=""
+    )
+    with pytest.raises(qualify.QualifyError):
+        qualify.validate_generation(out)

@@ -20,8 +20,12 @@ pose-estimation-qualify \
 The command exits 0 on success. It exits 2 when it refuses to publish. A refusal prints one message
 and no path.
 
-Omit `--measurements` to publish the expensive axes unmeasured. The output is then byte-identical to
-the output of every earlier flagless run.
+Omit `--measurements` to publish the expensive axes unmeasured. Both modes publish the same four
+files with the same columns. The flag adds one key to the generation block, and it fills the cells
+that the sidecar supplies.
+
+The column set never depends on the flag. A schema change instead moves `generator_version`, and
+`validate_generation` then refuses a set that an older generator published.
 
 ## Inputs
 

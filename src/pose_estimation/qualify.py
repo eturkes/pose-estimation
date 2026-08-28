@@ -40,7 +40,13 @@ import av
 
 from . import inventory, measure, sessions
 
-GENERATOR_VERSION = "v1"
+# v2 renamed pairs_qc's `confidence` to `peak_rms` (R9), added the corroborator's
+# three columns, and filled events_qc from the sync axis.  A published set is
+# self-describing only if this moves with the schema: validate_generation refuses
+# a document whose generator_version is not this one, and that refusal is the
+# whole mechanism by which a v1 tree cannot be read as a v2 tree.
+# `_SCHEMA_DIGEST` in the suite fails on any column change that skips this bump.
+GENERATOR_VERSION = "v2"
 
 ASSETS_QC_FILENAME = "assets_qc.csv"
 PAIRS_QC_FILENAME = "pairs_qc.csv"

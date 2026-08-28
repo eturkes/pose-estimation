@@ -455,6 +455,26 @@ Emptiness means "no peak was computed", not "the peak was rejected". Ruled matri
   expressible without inventing migration machinery now. The set is named by symbol, not by literal:
   the `v1`→`v2` bump for R9's `peak_rms` rename had to edit the ruling text as well as the code, and
   a ruling that restates a constant drifts from it on the next bump.
+- **A21 scope, ruled against `rev-m2u3` F2.** "Flagless output stays byte-identical" governs the
+  `generation` **key set**, not the CSV column set, and it holds *within* a generator version. Three
+  things fix that reading: A21's own rationale names the hazard as "an always-present nullable key";
+  "schema closure is evaluated per mode" is how `validate_generation` closes `GENERATION_KEYS` versus
+  those keys plus `measurements`; and `test-m2u3-measure`, reading this contract **diff-blind**,
+  encoded it as `"measurements" not in census["generation"]` plus
+  `set(census["generation"]) == set(GENERATION_KEYS)` and nothing about bytes. P08 cannot supply the
+  wider reading either — its text enumerates *environment* perturbations (locale, `PYTHONHASHSEED`,
+  timezone, `umask`, `iterdir` order, `--out` name, `-O`) and says nothing across commits. Read
+  wider, A21 would forbid every schema change this milestone ever makes, R9's rename included.
+  A **mode-dependent CSV schema is refused**: it gives one artifact name two schemas a consumer
+  cannot tell apart without first parsing the marker, it resurrects `confidence` as an always-empty
+  column named for a quantity R9 ruled the code does not compute, and it breaks the shipped invariant
+  that `status` is a pure function of the columns its own table publishes.
+  **The finding was still right about a defect, one level up:** a changed schema must move
+  `qualify.GENERATOR_VERSION`, which stayed `"v1"` through the rename. `measure` bumped `v1`→`v2` for
+  the identical situation one window earlier. Fixed — `qualify.GENERATOR_VERSION = "v2"`, so
+  `validate_generation` refuses a v1 tree instead of reading it under a v2 schema, and
+  `_SCHEMA_DIGEST` in `tests/test_qualify.py` fails on any column change that skips the bump, turning
+  "did I change the published schema?" from a judgment into a check.
 - **A21** `--measurements` adds its upstream key to `qualification.json`'s `generation` block **only
   when the flag is given**. Flagless output stays byte-identical (P34, P08); schema closure is
   evaluated per mode. An always-present nullable key would change bytes for every existing consumer.
