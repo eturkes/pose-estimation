@@ -58,7 +58,16 @@ went unchecked on the one path whose whole premise is re-validating an independe
 `validate` now returns the bytes it digested, closing the reopen window. R6 re-ruled P17b on
 measurement; R8 batch-ruled all 138 rows of `test-m2u3-measure`'s PREP-1. **P38 is verified in full**
 — the port reproduces 210/246 acceptance, 122/137 view-recoverable families and 4.451/30.286 ms
-closure. Remaining spine work: `qualify.py --measurements` ingestion, then R3 (scale).
+closure. Remaining spine work: **R9's P39 fix**, then `qualify.py --measurements` ingestion, then R3
+(scale).
+
+**P39 is red against shipped code (R9).** `audio_offset.py:286` divides the accept thresholds into
+the published confidence — `min(peak_rms / MIN_PEAK_RMS, peak_ratio / MIN_PEAK_RATIO)`, gated at
+`< 1.0` — so sweeping a gate alone moves `conf_audio` by nine orders of magnitude while lag,
+peak_rms, peak_ratio and overlap hold. Found by `test-m2u3-measure`'s independent D16 probe, verified
+in source. This is R2's defect in a second place. Fix: publish raw statistics
+(`conf_audio` → `peak_rms_audio`), gate by comparison, same on the drift path's `LOCAL_*` constants.
+Status-preserving by construction, so the re-measured corpus must still return 210/246 and 122/137.
 
 **Settled by measurement** (redaction-safe aggregates, `.scratch/m2u3/*_agg.json`, from committed PyAV):
 

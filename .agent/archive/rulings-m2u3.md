@@ -403,3 +403,40 @@ Emptiness means "no peak was computed", not "the peak was rejected". Ruled matri
 
 `load_axis` gains cell, key, count and order validation; `validate` returns the bytes it digested;
 the manifest read rejects symlinks and duplicate JSON keys; the status enums become code constants.
+
+## R9 — `conf_audio` is gate-relative, not an instrument reading (P39 breach, CONFIRMED)
+
+**Finding, from `test-m2u3-measure`'s independent D16 probe, verified in source.**
+`audio_offset.py:286` computes `confidence = min(peak_rms / min_peak_rms, peak_ratio /
+min_peak_ratio)` and `:291` gates on `confidence < 1.0`. `MIN_PEAK_RMS = 8.0` and
+`MIN_PEAK_RATIO = 2.1` are accept thresholds, and they divide into a published statistic. Sweeping
+them alone over 0.1→1e9 on one fixed shifted-noise signal holds lag, peak_rms, peak_ratio and
+overlap identical while `conf_audio` moves 970.338606 → 9.703e-08.
+
+**This is R2's defect, repeated.** P21 was unadjudicable because `DRIFT_P95_GATE_PX` was also the
+MAGSAC inlier threshold, so no residual above the gate could be reported. Here the coupling runs the
+other way — the gate does not pin the statistic, it *rescales* it — but the consequence P39 names is
+the same: re-ruling either threshold silently rewrites every published confidence while the signal
+is unchanged, so a confidence is comparable only within one threshold setting. The spike's recorded
+ROC AUC 0.96083 and its 2/100 held-out control rate are both figures on the normalized quantity and
+carry that dependency with them.
+
+The coupling was deliberate and commented (`audio_offset.py:58`), which does not exempt it: P39 is
+frozen and says a statistic gated by a constant that also shapes it is refused at review. **D16, the
+probe I ranked first in R8, fails on shipped code.**
+
+**Ruled fix — publish the raw statistics and let the gate be a comparison.** `conf_audio` leaves the
+schema and `peak_rms_audio` replaces it, carrying the raw statistic; `peak_ratio_audio` already
+carries its raw partner. The status becomes `peak_rms >= MIN_PEAK_RMS and peak_ratio >=
+MIN_PEAK_RATIO`. `LOCAL_MIN_PEAK_RMS`/`LOCAL_MIN_PEAK_RATIO` on the drift path (`:344`) carry the
+identical defect and are fixed the same way.
+
+**The refactor is status-preserving by construction**: `min(a/r, b/t) >= 1` holds exactly when
+`a >= r and b >= t`, so no acceptance changes. R7's bar therefore still applies and must be met —
+the re-measured corpus must return **210/246 accepted, 122/137 view-recoverable, closure median/max
+4.451/30.286 ms**. A moved count means the refactor changed the estimator and is a finding.
+
+**Consequences.** P36's frozen column list is amended (`conf_audio` → `peak_rms_audio`), the corpus
+is re-measured, and R6's numbers are re-derived from the new table. Confidence figures quoted
+anywhere as absolute — the ROC AUC above included — are threshold-relative until re-derived. This is
+**spine work**, not polish: a frozen contract predicate is red against shipped code.
