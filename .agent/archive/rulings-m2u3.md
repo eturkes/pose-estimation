@@ -440,3 +440,38 @@ the re-measured corpus must return **210/246 accepted, 122/137 view-recoverable,
 is re-measured, and R6's numbers are re-derived from the new table. Confidence figures quoted
 anywhere as absolute — the ROC AUC above included — are threshold-relative until re-derived. This is
 **spine work**, not polish: a frozen contract predicate is red against shipped code.
+
+## R10 — where P35's key rules live, and three R8 gaps closed
+
+`test-m2u3-measure`'s independent suite against `d6d7516`: 63 pass, 16 red. Adjudication.
+
+**K01/K11/K12 are correctly red and are not defects in shipped code — they were aimed at the wrong
+entry point.** `load_axis` takes a `Sidecar` and no registry, so it cannot know which family an asset
+belongs to, whether an id is canonical, or whether a `capture_id` matches its pair. Those are
+registry-relative facts and no schema reader can decide them. `validate(inventory_dir=…)` proves the
+sidecar was measured against the registry still on disk; it never loads the asset rows.
+
+Ruled: `load_axis` **stays registry-blind** — a pure schema reader is what makes it testable without
+a corpus — and P35's key rules move to a named reconciliation step that `qualify` calls with the
+canonical key set it already enumerates. K01-K20 target that function, not `load_axis`. It is
+unimplemented, so those reds stay red until the ingestion unit lands, which is their purpose.
+
+**C12's semantic ranges are intended, and R8's G1 under-specified them.** G1 says ingestion re-runs
+"the cell alphabets", and an alphabet is not a domain: `-3.000000000` matches `DECIMAL_CELL`, and a
+visual correlation of `5.000000000` is not a correlation. Ruled in as spine, checked after parse —
+`conf_*`, `peak_ratio_audio`, `drift_se`, `overlap_s`, `dur_a`, `dur_b` nonnegative;
+`peak_corr_visual` within [-1, 1]. Nine reds, all correct.
+
+**Top-level manifest keys close to exactly `{axes, generation}`.** A02's argument — an added or
+renamed key means a different writer — applies at the top level and R8 applied it only one level
+down. The self-digest stops a key being added after the fact; it does not stop a producer emitting
+one. Red is correct.
+
+**A09's declaration is a docstring obligation**, satisfied by stating one-writer-per-directory in
+`measure/__init__.py`. Lowest priority of the set.
+
+**Absent `rigidity`/`detect`/`scale` modules are expected, not defects.** Those axes are unbuilt;
+their schemas are pinned in `measure.AXES` so a suite can target them ahead of the code.
+
+Spine additions from this ruling, ordered after R9: semantic ranges, top-level key closure, the
+reconciliation function carrying K01-K20.
