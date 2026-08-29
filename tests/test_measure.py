@@ -20,6 +20,27 @@ import pytest
 
 from pose_estimation import inventory, measure
 
+_SYNC_SCHEMA_DIGEST = "b4cfcb1ac5ab5b0c447379496149f9872ea038a123e6ec9b5845b1cf4440ae36"
+
+
+def test_a_sync_schema_change_must_move_the_generator_version() -> None:
+    """Two incompatible sync tables must never both answer the same version.
+
+    ``SUPPORTED_VERSIONS`` is the only mechanism refusing a sidecar this build
+    cannot read, and it compares versions alone.  A widened column set under an
+    unchanged version leaves that refusal resting on the row shape, so the
+    version and the digest are pinned together and move together.
+    """
+    payload = "|".join(measure.SYNC_COLUMNS)
+    assert (measure.GENERATOR_VERSION, hashlib.sha256(payload.encode()).hexdigest()) == (
+        "v3",
+        _SYNC_SCHEMA_DIGEST,
+    ), (
+        "SYNC_COLUMNS changed. Bump measure.GENERATOR_VERSION, then recompute "
+        "_SYNC_SCHEMA_DIGEST and the expected version here, then re-measure the "
+        "corpus and regenerate tests/qualify_determinism_results.json."
+    )
+
 
 def _row(**overrides: str) -> dict[str, str]:
     row = dict.fromkeys(measure.SYNC_COLUMNS, "")

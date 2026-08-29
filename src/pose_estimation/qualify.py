@@ -198,7 +198,11 @@ POSITIVE_INTEGER_CELL = re.compile(r"[1-9][0-9]*")
 DECIMAL_CELL = re.compile(r"-?[0-9]+\.[0-9]+")
 FLAG_CELL = re.compile(r"[a-z0-9_]+(\|[a-z0-9_]+)*")
 # The separator is part of the value: device_config is spelled "model/software".
-_CONFIG_FIELD = r"[A-Za-z0-9 ()._-]+"
+# Interior spaces are real -- "iPad (5th generation)" -- but edge spaces are
+# not: _device_config strips every component, so a cell carrying one was never
+# written by this generator, and an alphabet laxer than its own producer
+# forfeits detection of exactly the edits these patterns exist to catch.
+_CONFIG_FIELD = r"[A-Za-z0-9()._-](?:[A-Za-z0-9 ()._-]*[A-Za-z0-9()._-])?"
 DEVICE_CONFIG_CELL = re.compile(rf"{_CONFIG_FIELD}(/{_CONFIG_FIELD})?")
 # One device_config, then the exact rate.  The field alphabet excludes "/", so
 # the last field is the rate and no model string can borrow a separator to
@@ -493,16 +497,25 @@ def _audio_rate(container: av.container.InputContainer) -> int | None:
     axis decodes: a rate read from any other stream would label the offsets
     with a rate that never produced one.
 
-    A rate that is absent, non-positive or fractional stays unmeasured rather
-    than aborting the run: every other unreadable container fact on this row
-    publishes a status and an empty cell, and one malformed file must not cost
-    the corpus its evidence set.  Truncating a fractional rate is the one
-    outcome ruled out -- it would spell an exact stratum the file never had.
+    A rate that is absent, non-positive, fractional or outside the sidecar's
+    own domain stays unmeasured rather than aborting the run: every other
+    unreadable container fact on this row publishes a status and an empty cell,
+    and one malformed file must not cost the corpus its evidence set.
+    Truncating a fractional rate is the one outcome ruled out -- it would spell
+    an exact stratum the file never had.
+
+    The ceiling is read from ``measure.DOMAINS`` rather than restated, because
+    both paths publish the same cell: a header rate this generator accepts but
+    no sidecar could ever carry would make one stratum writable in one
+    measurement mode and refused in the other.
     """
     if not container.streams.audio:
         return None
     rate = container.streams.audio[0].rate
     if rate is None or rate != int(rate) or int(rate) <= 0:
+        return None
+    low, high = measure.DOMAINS["audio_rate_a"]
+    if not low <= rate <= high:
         return None
     return int(rate)
 

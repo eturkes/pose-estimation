@@ -45,7 +45,11 @@ __all__ = [
     "VISUAL_STATUSES",
 ]
 
-GENERATOR_VERSION = "v2"
+# v3 = P29's two rate columns joining SYNC_COLUMNS. A published column set is
+# part of this generator's identity, so a schema change moves the version even
+# when every retained column keeps its bytes: without the bump two incompatible
+# sync tables both answer "v2" and only the row shape tells them apart.
+GENERATOR_VERSION = "v3"
 
 # Every version this build ingests. A03: an axis entry asserts the axis was
 # produced, and its own version is what says by which generator.

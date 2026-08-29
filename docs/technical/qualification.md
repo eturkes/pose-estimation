@@ -210,17 +210,24 @@ those two cells. Read a stratum as unmeasured when either component is absent. A
 not a wider population.
 
 `qualification.json` groups the pairs under `pairs.sync_strata`. The key is the two strata sorted,
-so one configuration pair is one population. A pair that is missing either stratum is keyed
+so one configuration pair is one population. A pair that is missing either stratum takes the key
 `unmeasured`.
 
+Each key holds a record, not a count: `pairs`, `audio_ok`, and `offset_s`. The `offset_s` field is
+the same distribution shape as `pts_dt_median_s`, and it is `null` when the group accepted no pair.
+The distribution is the part that shows structure. A count alone reports corpus composition and
+reports nothing about synchronization.
+
+A group holding one pair publishes that one offset in every distribution field. The census
+suppresses no count, and an offset names no asset, no capture, no view, no subject and no time.
+
 Current corpus: 4 configurations, and each one uses a single sample rate. The rate therefore adds
-no split here. Publish it anyway. A stratum that is assumed instead of measured cannot show when
-that stops being true.
+no split here. Publish it anyway. An assumed stratum cannot show when that stops being true.
 
-The offsets inside a stratum are dominated by manual camera start times. Do not read a stratum
-median as a device latency.
+Manual camera start times dominate the offsets inside a stratum. Do not read a stratum median as a
+device latency.
 
-When a sidecar is supplied, its own decode rate must equal the header rate. The tool refuses to
+If the run includes a sidecar, its decode rate must equal the header rate. The tool refuses to
 publish on any disagreement. Both sides read the first audio stream, so a disagreement means that
 the two ran against different bytes.
 

@@ -19,12 +19,14 @@ import struct
 import subprocess
 import sys
 from fractions import Fraction
+from types import SimpleNamespace
+from typing import cast
 
 import av
 import numpy as np
 import pytest
 
-from pose_estimation import inventory, qualify, sessions
+from pose_estimation import inventory, measure, qualify, sessions
 from test_sessions import _Asset, _canonical, _write_registry
 
 FRAME_SIZE = (64, 48)
@@ -537,6 +539,57 @@ _P29_VARIANTS: dict[str, tuple[str, int]] = {
     "os": ("iPad (5th generation)/26.5", 44_100),
     "rate": ("iPad (5th generation)/16.7", 48_000),
 }
+
+
+def _rate_container(rate: object) -> av.container.InputContainer:
+    return cast(
+        av.container.InputContainer,
+        SimpleNamespace(streams=SimpleNamespace(audio=[SimpleNamespace(rate=rate)])),
+    )
+
+
+@pytest.mark.parametrize(
+    ("rate", "expected"),
+    [
+        (measure.DOMAINS["audio_rate_a"][1], int(measure.DOMAINS["audio_rate_a"][1])),
+        (measure.DOMAINS["audio_rate_a"][1] + 1, None),
+        (measure.DOMAINS["audio_rate_a"][0], int(measure.DOMAINS["audio_rate_a"][0])),
+        (measure.DOMAINS["audio_rate_a"][0] - 1, None),
+    ],
+)
+def test_header_rate_outside_the_sidecar_domain_is_unmeasured(
+    rate: float, expected: int | None
+) -> None:
+    """One cell, two producers, so one admissible range.
+
+    ``qualify`` reads the rate from the container header and ``measure`` reads
+    it from its own decode, and both publish it as the stratum's third field.
+    A header rate this generator accepts but no sidecar could carry would make
+    a stratum writable in flagless mode and refused in measured mode.  Both
+    edges are pinned: a bound that rejects everything would satisfy a
+    ceiling-only test.
+    """
+    assert qualify._audio_rate(_rate_container(rate)) == expected
+
+
+@pytest.mark.parametrize(
+    "cell",
+    [" iPad/44100", "iPad /44100", "iPad/ 16.7/44100", "iPad/16.7 /44100", "iPad/16.7/44100 "],
+)
+def test_stratum_components_reject_edge_spaces(cell: str) -> None:
+    """An alphabet laxer than its own producer forfeits the detection it exists for.
+
+    Interior spaces are real -- ``iPad (5th generation)`` -- so the class keeps
+    them.  ``_device_config`` strips every component, so no edge space was ever
+    written by this generator, and a cell carrying one is an edit.
+    """
+    assert qualify.STRATUM_CELL.fullmatch(cell) is None
+
+
+@pytest.mark.parametrize("cell", ["iPad (5th generation)/16.7/44100", "iPad/44100", "A/1"])
+def test_stratum_accepts_the_shapes_the_generator_writes(cell: str) -> None:
+    """The positive control: the tightened class must not reject a real stratum."""
+    assert qualify.STRATUM_CELL.fullmatch(cell) is not None
 
 
 def test_sync_qc_is_stratified_by_model_os_and_sample_rate() -> None:
