@@ -42,7 +42,59 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.6 | Calibration recovery | Per-recording-event extrinsics by **bundle adjustment over time-synchronized 2D keypoints** under the per-model intrinsics prior (M2.3 R4) — never scene-feature SfM, which is eliminated by measurement. Held-out reprojection acceptance, explicit scale provenance, bound to the M2.2 instance grain. Consumes M2.5's offsets, so it is gated on M2.5. Must measure per-event pose variety before claiming an extrinsic: subject-only calibration degrades on near-coplanar keypoints and a near-static subject, and the tasks are seated upper-limb movements. |
 | M2.7 | Gated fusion + corpus study | Fusion over qualified recording events, reprojection/gap/throughput/stability/repeatability evidence, claim-bounded report, prospective-capture specification, de-identified regression fixtures. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 OPEN and is the next dispatch target**, independent of M2.3's ruling. M2.5, M2.6 and M2.7 are **unblocked**: M2.3's ruling is made and closed, so their shape is settled — M2.6 exists, and it recovers extrinsics from the subject's own keypoints rather than from scene features (R4). M2.5 stays M2.6's precondition.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 OPEN, contract frozen, implementation pending** — see below. M2.5, M2.6 and M2.7 are **unblocked**: M2.3's ruling is made and closed, so their shape is settled — M2.6 exists, and it recovers extrinsics from the subject's own keypoints rather than from scene features (R4). M2.5 stays M2.6's precondition.
+
+### M2.4 — contract frozen, implementation is the next dispatch
+
+Contract at `.agent/archive/contract-m2u4.md`: **20 predicates P01-P20**, 4 invariant surfaces, gate
+identity, an 8-class probe seed, and **26 amendments A01-A26** ruling `test-m2u4`'s phase-1
+ambiguities. Baseline `6bbd50e`, gate **1116 passed / 0 skipped**, MAIN-verified.
+
+**The defect is larger than a precision improvement — it decides whether the real corpus is
+processable.** `1/median(diff(ts))` carries ~1e-3 relative bias against 4-decimal timestamps, and
+`trajectory_grid_status` residual grows linearly with span under it: ~0.03 slots per second at
+29.97 Hz, crossing `GRID_SLOT_TOLERANCE = 0.25` at ~8.3 s. `nominal_fs` holds ~0.002 flat. On real
+decode timestamps (`scout-m2u4` pilot, 10 assets / 13 043 frames) `nominal_fs` places **610/610**
+one-second windows on the grid against **530/610** for the biased estimator. The producer checks
+windows, never whole clips, so that window figure is the one describing published rows.
+
+**The finding that shaped the contract.** Adopting any estimator makes `gap_too_long` depend on that
+estimator's residual, and `QC_POLICY_TOLERANCE = 1e-9` is sized for IEEE754 slack, four orders too
+tight. At nominal 30 Hz the 3-slot gap verdict then cycles pass/pass/**FAIL** with clip length
+mod 3 — a QC verdict with no physical meaning. Ruled (A10, A11): split the tolerance, keep `1e-9`
+representation slack on coverage, add a `1e-4` estimator slack on the gap comparison alone, publish
+it as `qc_policy_tolerance` so a consumer reproduces the verdict from the row. Two flips are
+intended and pinned — 30 Hz 3-slot stays `pass`, and 60 Hz 6-slot moves `FAIL` → `pass`, which closes
+the standing `gap6`/`gap7` polish row.
+
+Scope: `analysis/clinical_features.R` only. `src/pose_estimation/` timestamp production and rounding
+stay unchanged; `analysis/data_extraction.R:100-112` and `analysis/arthrose_diag.R:77-100` divide
+angular change by each rounded interval and go to `.agent/polish.md` rather than widening this unit.
+
+**Wave state, all worktrees retained with named open dependencies.**
+
+| teammate | branch tip | delivered | open dependency |
+| -------- | ---------- | --------- | --------------- |
+| `map-m2u4` | (primary) | 12-unit surface map + normative checklist, `.scratch/agents/map-m2u4.md` | none, harvested |
+| `scout-m2u4` | `bf09826` | `scripts/probe_timebase_grid.py` + 10-asset pilot; full 379-asset sweep unfinished | P20's sample + byte-identical rerun |
+| `spike-m2u4-adopt` | `bc49910` | prototype adoption, U1-U3 filled | golden/QC-verdict blast-radius cells U4-U8 |
+| `test-m2u4` | `3bf5f0f` | 80 candidate cases + 26 ambiguities, diff-blind | phase 2 = encode the ruled table as the red suite |
+| `rev2-m2u4` | `1bdd315` | 25-mutant catalogue + 8 determinism sweeps, fixed pre-diff | phase 2 = run the campaign against MAIN's diff |
+| `rev-m2u4` | `6bbd50e` | nothing committed; phase-1 work was transcript-only and is lost | re-dispatch from the contract |
+
+**Two corrections to teammate output, recorded so they are not re-inherited.** `map-m2u4` U6 claimed
+the 30 Hz 3-slot gap "still passes because the comparison is inclusive" — false for
+`(n-1) mod 3 == 2`, and the contract's §3 sweep is the disproof. `map-m2u4` U11 rows 6-7 cite
+`78352e1` and `2977cec` as prior art; both are this wave's own teammate branches, and **no prior
+adoption attempt exists in project history**.
+
+**Sizing, recorded for PLANNING.** One window bought the surface map, the real-corpus probe, the
+prototype, the contract and its 26 rulings — and no implementation. M2.4 read as a small unit in the
+M2 plan (two call sites, a golden regeneration) and is not one: the two-line estimator swap forces a
+QC-policy change, a published-schema change, three version bumps, a golden regeneration and a test
+oracle that currently encodes the defect it is meant to catch. **A unit that moves a shipped
+threshold's semantics is a kernel unit whatever its line count** — the same lesson M2.1 and M2.3
+recorded, arriving here through a different door.
 
 ### M2.3 — closed, and what it leaves standing
 
