@@ -410,11 +410,23 @@ def load_events(sessions_dir: pathlib.Path) -> list[dict[str, str]]:
 def load_placements(sessions_dir: pathlib.Path) -> dict[str, list[str]]:
     """Return each event's placed asset ids, ascending."""
     members: dict[str, list[str]] = {}
+    # P19 counts an event's cameras by its member ids, so a repeated placement
+    # inflates that cardinality and can read a connected event as disconnected.
+    # One asset is one camera in one event, which makes both the repeat and the
+    # cross-event claim input defects rather than something to deduplicate.
+    placed_in: dict[str, str] = {}
     rows = _read_table(sessions_dir / sessions.PLACEMENTS_FILENAME, PLACEMENT_INPUT_COLUMNS)
     for row in rows:
         if row["placement"] != sessions.PLACED:
             continue
-        members.setdefault(row["event_id"], []).append(row["asset_id"])
+        asset_id, event_id = row["asset_id"], row["event_id"]
+        if asset_id in placed_in:
+            raise QualifyError(
+                f"{sessions.PLACEMENTS_FILENAME}: {asset_id} is placed twice, "
+                f"in {placed_in[asset_id]} and {event_id}."
+            )
+        placed_in[asset_id] = event_id
+        members.setdefault(event_id, []).append(asset_id)
     return {event_id: sorted(ids) for event_id, ids in members.items()}
 
 

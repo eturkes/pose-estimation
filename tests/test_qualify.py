@@ -783,3 +783,39 @@ def test_a_marker_this_tool_did_not_write_cannot_license_deleting_a_tree(
     with pytest.raises(qualify.QualifyError):
         qualify.run(inventory_dir, sessions_dir, corpus, target)
     assert sentinel.read_text(encoding="utf-8") == "foreign"
+
+
+@pytest.mark.parametrize(
+    ("second_event", "case"),
+    [("event-1", "same event"), ("event-2", "cross event")],
+)
+def test_placement_loader_refuses_a_duplicate_asset(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, second_event: str, case: str
+) -> None:
+    """P19: one asset is one camera in one event, so a repeat is an input defect.
+
+    Silently keeping both rows inflates the event's camera count, and a graph
+    that never connects the phantom camera reads as disconnected -- a false
+    negative that looks exactly like a real sync failure.
+    """
+    rows = [
+        {"event_id": "event-1", "asset_id": "asset-a", "placement": sessions.PLACED},
+        {"event_id": second_event, "asset_id": "asset-a", "placement": sessions.PLACED},
+    ]
+    monkeypatch.setattr(qualify, "_read_table", lambda _path, _columns: rows)
+
+    with pytest.raises(qualify.QualifyError, match="placed twice"):
+        qualify.load_placements(tmp_path)
+
+
+def test_placement_loader_admits_an_unplaced_repeat_of_a_placed_asset(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The positive control: only PLACED rows claim a camera."""
+    rows = [
+        {"event_id": "event-1", "asset_id": "asset-a", "placement": sessions.PLACED},
+        {"event_id": "event-2", "asset_id": "asset-a", "placement": "held"},
+    ]
+    monkeypatch.setattr(qualify, "_read_table", lambda _path, _columns: rows)
+
+    assert qualify.load_placements(tmp_path) == {"event-1": ["asset-a"]}

@@ -130,7 +130,16 @@ def _display_gray(frame: av.VideoFrame, rotation_deg: int) -> np.ndarray:
     return cv2.GaussianBlur(np.ascontiguousarray(gray), (3, 3), 0)
 
 
-def _cache_valid(path: pathlib.Path, content_sha256: str) -> bool:
+def _cache_valid(path: pathlib.Path, content_sha256: str, rotation_deg: int) -> bool:
+    """Accept a cache only when this asset's own parameters produced it.
+
+    The content digest binds the bytes that were decoded; it does not bind the
+    parameters that shaped them.  ``rotation_deg`` is the one such parameter
+    that varies per asset, so ``SIGNAL_VERSION`` cannot express it: bumping a
+    global version invalidates every trace, and the two views of one family are
+    compared upright, so a trace decoded under the wrong rotation correlates
+    against its sibling only by accident.
+    """
     if not path.is_file():
         return False
     try:
@@ -138,6 +147,7 @@ def _cache_valid(path: pathlib.Path, content_sha256: str) -> bool:
             return bool(
                 int(cached["version"]) == SIGNAL_VERSION
                 and str(cached["content_sha256"]) == content_sha256
+                and int(cached["rotation_deg"]) == rotation_deg
                 and len(cached["time_s"]) == len(cached["motion"])
                 and len(cached["time_s"]) > 1
             )
@@ -162,7 +172,7 @@ def ensure_cached(
     """
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_path = cache_dir / f"{asset_id}.npz"
-    if _cache_valid(cache_path, content_sha256):
+    if _cache_valid(cache_path, content_sha256, rotation_deg):
         return "cached"
 
     times: list[float] = []

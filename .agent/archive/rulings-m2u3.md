@@ -111,12 +111,26 @@ port byte- and numerically-identically on a source-order 20-asset oracle (n=17, 
 
 **R2's verdict is unchanged** — yes on the measurable population, and the measurable population grew.
 
-**Open, and it gates this amendment's final form:** the 8 px justification rests on *inlier*
-saturation, measured over assets that were **already eligible**. Nothing has yet measured whether the
-*eligible population itself* saturates in the instrument. If 8 → 32 px recovers further assets, then
-298 is a property of the instrument rather than of the corpus, and this ruling must report the
-denominator with that dependence stated. `prod-m2u3-axes` sweeps the 83 assets unmeasurable at 4 px
-across RANSAC ∈ {4, 6, 8, 12, 20, 32}; anchors are 0 recovered at 4 and 12 at 8.
+**Closed — 298 is an instrument property and is published as one.** The 8 px justification rested on
+*inlier* saturation measured over assets that were **already eligible**, which cannot decide whether
+the *eligible population itself* saturates. `scripts/probe_rigidity_saturation.py` decides it: the
+accept gate is pinned at 20.0 px while RANSAC sweeps the 71 assets that carry no verdict at 8 px.
+
+| RANSAC px | 4 | 6 | 8 | 12 | 20 | 32 | 48 |
+| --------- | - | - | - | -- | -- | -- | -- |
+| eligible | 298 | 298 | **298** | 304 | 309 | 311 | 311 |
+
+Growth per step is `[0, 0, 6, 5, 2, 0]`, so `saturated_above_baseline` is **false**: the plateau is
+**311 at 32 px, not 298 at 8 px**, and 298 names where the instrument was set rather than what the
+corpus contains. The sweep prices only no-verdict assets, which is sound while eligibility never
+falls as the threshold rises; the spot-check confirms that rather than assuming it, losing **0 of 20**
+already-eligible assets at 48 px.
+
+**R2's verdict is unchanged and strengthened.** All 13 recovered assets are `camera_motion` and none
+is `rigid`, so the rigid numerator **280** and the family figure **71 / 137** are invariant across the
+whole 4–48 px sweep. Loosening the instrument buys assets that fail the gate; it buys no extrinsics.
+Every population figure in this ruling therefore reads "at RANSAC 8 px", and a denominator quoted
+without its threshold is misquoted.
 
 104 of 137 multi-asset families keep at least two rigid cameras. The reading is direction-safe: taking
 drift entirely at face value as real camera motion is the pessimistic case, and 97.2% still sit inside

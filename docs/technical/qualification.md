@@ -218,6 +218,27 @@ Two estimators that accept and disagree are two measurements in conflict. The to
 The `visual_only` stratum is where the corroborator's known gross errors live: one such pair
 disagrees with audio by 87 seconds.
 
+### Timing limits
+
+Every offset in this artifact carries two limits. Read both with every timing number here,
+including the closure figures below.
+
+**Rolling shutter is not removed by synchronization.** A rolling-shutter camera exposes the top and
+the bottom of one frame at different times. An offset aligns the frames. It does not align the
+lines inside a frame. Neither iPad model has a published readout time, so this artifact gives a
+sweep and not a value: **0 to 33.33 ms**. Apple-mobile 1080p line-scan evidence puts the readout at
+**12.4 to 30.9 ms**, which is 37% to 93% of one 30 Hz frame period. That range is a proxy from
+other devices. It is not a measurement of these two iPads. No document may call this contribution
+negligible.
+
+**AAC priming reaches the estimator as a measured 0 ms residual.** An AAC encoder puts priming
+samples in front of the signal. The predicted bias is rate-dependent: 2112 samples is 47.891 ms at
+44 100 Hz and 44.000 ms at 48 000 Hz. A raw untrimmed mixed-rate pair therefore carries a fixed
+**3.891 ms** bias, and 55 of 137 multi-view families mix the two rates. The decode path cancels it.
+PyAV trims the priming samples, so the measured skip is 2112 samples on 379 of 379 assets and the
+first decoded presentation timestamp is 0 on 379 of 379 assets. Quote the measured 0 ms residual.
+Never quote the 3.891 ms prediction as a bias in this artifact.
+
 ## `events_qc.csv`
 
 One row covers one recording event from the session tree. `qualified` states whether the event is
@@ -254,7 +275,9 @@ exactly. A perfect closure and a biased offset are the same number.
 The tool publishes closure for a three-camera event whose three pairs are all accepted. It publishes
 an empty cell for every other event. A path joins three cameras, but a path cannot close them.
 
-Current corpus: 30 event triangles close, at 5.403 ms median and 30.286 ms maximum.
+Current corpus: 30 event triangles close, at 5.403 ms median and 30.286 ms maximum. Both figures sit
+inside the 0–33.33 ms rolling-shutter sweep that *Timing limits* states, so closure at this scale
+does not show that the cameras agree to better than one readout.
 
 The policy probe in `scripts/probe_sync_policy.py` reports a different closure population. It groups
 by capture family instead of by event, and it accepts on audio alone instead of on the fused verdict.

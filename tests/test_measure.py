@@ -252,3 +252,25 @@ def test_ingestion_refuses_a_sidecar_directory_it_cannot_list(tmp_path: pathlib.
         assert error.value.reason == "sidecar_unreadable"
     finally:
         out.chmod(0o755)
+
+
+def test_every_measure_module_reaches_the_determinism_tripwire() -> None:
+    """The staleness tripwire's reach is exactly its list, so the list must be complete.
+
+    ``check_qualify_determinism.py`` refuses to overwrite a result measured
+    against different source digests, and ``SOURCE_FILES`` is the whole set it
+    digests.  A module this package adds is invisible to that refusal until it
+    is listed, which turns a real staleness signal into a silent green.
+    """
+    root = pathlib.Path(__file__).resolve().parents[1]
+    script = (root / "scripts" / "check_qualify_determinism.py").read_text(encoding="utf-8")
+    listed = {
+        line.strip().strip('",')
+        for line in script.split("SOURCE_FILES = (", 1)[1].split(")", 1)[0].splitlines()
+        if line.strip()
+    }
+    present = {
+        f"src/pose_estimation/measure/{path.name}"
+        for path in (root / "src" / "pose_estimation" / "measure").glob("*.py")
+    }
+    assert present <= listed, f"unlisted measure modules: {sorted(present - listed)}"

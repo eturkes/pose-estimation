@@ -1,0 +1,215 @@
+{
+  "results": [
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/measure/__init__.py:718",
+      "id": "M01-reconcile-foreign",
+      "killing_tests": [
+        "tests/test_measure_diff_blind.py::test_p35_qualification_reconciliation_rejects_a_foreign_per_asset_key",
+        "tests/test_measure_diff_blind.py::test_p35_qualification_reconciliation_rejects_registry_relative_pair_keys[cross_family]",
+        "tests/test_measure_diff_blind.py::test_p35_qualification_reconciliation_rejects_registry_relative_pair_keys[foreign_asset]"
+      ],
+      "mutation": "accept a key absent from the canonical registry",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": "qualify._ingest discards the return; asset and pair omission semantics come from independent keyed lookups",
+      "file_line": "src/pose_estimation/measure/__init__.py:735",
+      "id": "M02-reconcile-omitted-return",
+      "killing_tests": [],
+      "mutation": "discard the omitted canonical-key return",
+      "pytest_returncode": 0,
+      "verdict": "equivalent"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/measure/__init__.py:390",
+      "id": "M03-scale-pairing",
+      "killing_tests": [
+        "tests/test_measure_diff_blind.py::test_r3_scale_class_and_confidence_pairing_is_closed[coin-none]",
+        "tests/test_measure_diff_blind.py::test_r3_scale_class_and_confidence_pairing_is_closed[none-class_only]"
+      ],
+      "mutation": "accept an unmatched scale class and confidence",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/measure/__init__.py:562",
+      "id": "M04-row-count-bool",
+      "killing_tests": [
+        "tests/test_measure_diff_blind.py::test_manifest_row_count_is_a_nonnegative_json_integer[True]"
+      ],
+      "mutation": "accept a Boolean manifest row count",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/qualify.py:789",
+      "id": "M05-fuse-corroborated",
+      "killing_tests": [
+        "tests/test_measure_diff_blind.py::test_r6_fusion_policy_stays_in_qualification[ok-ok-0.000000000-0.010000000-ok_corroborated]",
+        "tests/test_measure_mutants.py::test_fusion_agreement_tolerance_is_inclusive"
+      ],
+      "mutation": "refuse an agreeing pair",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/qualify.py:789",
+      "id": "M06-fuse-contradicted",
+      "killing_tests": [
+        "tests/test_measure_diff_blind.py::test_r6_fusion_policy_stays_in_qualification[ok-ok-0.000000000-0.100000000-contradicted]"
+      ],
+      "mutation": "accept a contradicting pair",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/qualify.py:791",
+      "id": "M07-fuse-uncorroborated",
+      "killing_tests": [
+        "tests/test_measure_diff_blind.py::test_r6_fusion_policy_stays_in_qualification[ok-ambiguous_peak-0.000000000-0.010000000-ok_uncorroborated]",
+        "tests/test_qualify.py::test_p16_an_unclosed_triangle_publishes_no_closure_rather_than_a_partial_one",
+        "tests/test_qualify.py::test_p16_closure_is_published_for_a_triangle_whose_three_edges_are_accepted",
+        "tests/test_qualify.py::test_p19_an_event_is_sync_qualified_when_accepted_pairs_join_its_cameras"
+      ],
+      "mutation": "map audio-only acceptance to visual-only",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/qualify.py:793",
+      "id": "M08-fuse-visual-only",
+      "killing_tests": [
+        "tests/test_measure_diff_blind.py::test_r6_fusion_policy_stays_in_qualification[boundary_peak-ok-0.000000000-0.010000000-visual_only]"
+      ],
+      "mutation": "map visual-only acceptance to audio-only",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/qualify.py:794",
+      "id": "M09-fuse-neither",
+      "killing_tests": [
+        "tests/test_measure_diff_blind.py::test_r6_fusion_policy_stays_in_qualification[boundary_peak-ambiguous_peak-0.000000000-0.010000000-neither_accepted]"
+      ],
+      "mutation": "map dual rejection to visual-only",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/qualify.py:789",
+      "id": "M10-fuse-boundary",
+      "killing_tests": [
+        "tests/test_measure_mutants.py::test_fusion_agreement_tolerance_is_inclusive"
+      ],
+      "mutation": "exclude exact agreement-tolerance equality",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/qualify.py:885",
+      "id": "M11-spanning-connectivity",
+      "killing_tests": [
+        "tests/test_qualify.py::test_p19_an_isolated_camera_leaves_its_event_unqualified"
+      ],
+      "mutation": "return a partial spanning solution",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/qualify.py:941",
+      "id": "M12-closure-three-edges",
+      "killing_tests": [
+        "tests/test_qualify.py::test_p16_an_unclosed_triangle_publishes_no_closure_rather_than_a_partial_one",
+        "tests/test_qualify.py::test_p19_an_isolated_camera_leaves_its_event_unqualified"
+      ],
+      "mutation": "compute triangle closure without all three edges",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/qualify.py:936",
+      "id": "M13-span-multicamera",
+      "killing_tests": [
+        "tests/test_measure_mutants.py::test_single_camera_event_has_no_offset_span"
+      ],
+      "mutation": "publish a zero offset span for one camera",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/measure/audio_offset.py:458",
+      "id": "M14-cache-full-digest",
+      "killing_tests": [
+        "tests/test_measure_diff_blind.py::test_partial_audio_cache_is_rebuilt_not_reused"
+      ],
+      "mutation": "ignore corruption of the full-rate audio array",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/measure/audio_offset.py:458",
+      "id": "M15-cache-coarse-digest",
+      "killing_tests": [
+        "tests/test_measure_mutants.py::test_audio_cache_rejects_a_corrupt_coarse_array"
+      ],
+      "mutation": "ignore corruption of the coarse audio array",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/measure/audio_offset.py:448",
+      "id": "M16-cache-source-digest",
+      "killing_tests": [
+        "tests/test_measure_diff_blind.py::test_audio_cache_key_binds_source_content"
+      ],
+      "mutation": "reuse audio arrays after source replacement",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/qualify.py:430",
+      "id": "M17-placement-sort",
+      "killing_tests": [
+        "tests/test_measure_mutants.py::test_load_placements_sorts_members_independent_of_table_order"
+      ],
+      "mutation": "retain placement-table insertion order",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    },
+    {
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/qualify.py:1033",
+      "id": "M18-closure-distribution-sort",
+      "killing_tests": [
+        "tests/test_measure_mutants.py::test_closure_distribution_endpoints_ignore_event_order"
+      ],
+      "mutation": "derive closure endpoints from encounter order",
+      "pytest_returncode": 1,
+      "verdict": "killed"
+    }
+  ],
+  "schema_version": 1,
+  "target_sha256": {
+    "src/pose_estimation/measure/__init__.py": "52a39facb0dff453199b0272d56d624b181b0c89537b901a40f0dcfc224092b3",
+    "src/pose_estimation/measure/audio_offset.py": "37750a68c2d9b76428230a37fb40058327ce4bc1673321483f58555ef94f4a32",
+    "src/pose_estimation/qualify.py": "42a78377e968ead54aef59b952941bf281b56f2d02ebb9fdae0700a54aeaac0d"
+  },
+  "test_command": "python -m pytest -q tests/test_measure.py tests/test_measure_cache.py tests/test_measure_diff_blind.py tests/test_measure_mutants.py tests/test_qualify.py"
+}

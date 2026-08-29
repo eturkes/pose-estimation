@@ -412,6 +412,12 @@ def _file_digest(path: pathlib.Path) -> str:
     return digest.hexdigest()
 
 
+def _facts_digest(facts: dict[str, object]) -> str:
+    """Digest the decode facts, excluding the ``cache`` block that carries this digest."""
+    payload = {key: value for key, value in facts.items() if key != "cache"}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+
+
 def _cache_valid(cache_dir: pathlib.Path, asset_id: str, source_sha256: str) -> bool:
     """Accept a cache only when it holds this source's own complete decode.
 
@@ -422,11 +428,31 @@ def _cache_valid(cache_dir: pathlib.Path, asset_id: str, source_sha256: str) -> 
     which every later load reads as a measurement.  The timing sidecar
     therefore records both the source it decoded and a digest of each array it
     wrote, and any mismatch re-derives the whole set rather than half of it.
+
+    The array digests do not reach the decode facts beside them, and
+    ``source_rate`` is one of those facts that ``sync`` publishes as
+    ``same_audio_rate``.  So the facts carry a digest of themselves minus the
+    block holding it, which is the census self-digest idiom: without it the one
+    published claim in this file is the only content nothing covers.
+
+    A digest also proves only that an array is the one that was written, never
+    that it was written at the rates this build analyses at.  Both rates are
+    therefore part of the cache identity: raising ``COARSE_RATE`` alone leaves
+    every recorded digest correct while the search runs against a coarse array
+    resampled at the old rate.
     """
     full, coarse, timing = cache_paths(cache_dir, asset_id)
     try:
-        recorded = json.loads(timing.read_text(encoding="utf-8")).get("cache", {})
+        facts = json.loads(timing.read_text(encoding="utf-8"))
+        recorded = facts.get("cache", {})
         if recorded.get("source_sha256") != source_sha256:
+            return False
+        if recorded.get("facts_sha256") != _facts_digest(facts):
+            return False
+        if (recorded.get("target_rate_hz"), recorded.get("coarse_rate_hz")) != (
+            TARGET_RATE,
+            COARSE_RATE,
+        ):
             return False
         artifacts = recorded["artifacts"]
         return all(artifacts.get(part.name) == _file_digest(part) for part in (full, coarse))
@@ -466,6 +492,9 @@ def ensure_cached(path: pathlib.Path, cache_dir: pathlib.Path, asset_id: str) ->
         **facts,
         "cache": {
             "source_sha256": source_sha256,
+            "facts_sha256": _facts_digest(facts),
+            "target_rate_hz": TARGET_RATE,
+            "coarse_rate_hz": COARSE_RATE,
             "artifacts": {part.name: _file_digest(part) for part in (full, coarse)},
         },
     }
