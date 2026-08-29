@@ -172,6 +172,17 @@ MAIN's batch ruling on `test-m2u4` phase 1 (80 cases, 26 ambiguities). Each row 
 | A24 | P20's fps authority = the inventory/cv2 header value already published in `assets.csv`. |
 | A25 | P20's residual = per-file maximum, over `WINDOW_SEC` windows, of `abs(r - round(r))` with `r = (t - t[0]) * fs`, computed AFTER 4-decimal rounding. |
 | A26 | **The suite carries two case kinds.** RED cases fail at baseline `6bbd50e` and pass after. CONTROL cases pass at baseline and must stay passing — P04, P11 and P17 are controls, because an unchanged invariant cannot both isolate its predicate and fail baseline. "All red at baseline" binds the red cases alone. |
+| A27 | **C7.06 and C7.07 are vacuous as written and assert absence.** `analysis/clinical_features.R:1261` skips a group whose observed span is under `WINDOW_SEC`, so a sub-1 s clip emits no window and therefore no QC row. Neither case can carry a gap verdict; each asserts that no window row exists. P09's "every clip frame count" is bounded by A13's `n = 58..63` sweep, every member of which spans ≥ 1 s at 30 Hz. |
+| A28 | **Both slacks publish.** A16's `qc_policy_tolerance` carries the estimator slack applied to the gap comparison; a second column `qc_coverage_tolerance` carries the representation slack applied to the coverage comparison. A17 makes P12 bind on `gap_too_long` AND `insufficient_coverage`, and a consumer cannot reproduce the coverage verdict from a slack it never receives. Both are dimensionless relative fractions, constant per file, emitted beside `min_coverage` and `max_gap_sec`. Two added columns are a schema gain under `PRODUCER_VERSION` v3, never a "moved column" under A19. |
+
+### Case-expectation rule
+
+The phase-1 table holds **82 rows**, not the 80 its prose counts; `scripts/check_m2u4_suite_seed.py`
+`CASE_COUNTS` is the settled set. Each row's own `your reading` column is MAIN's ruled expectation,
+**except where an amendment overrides it**. Known overrides: C3.01-C3.06 take A13 + A14 (fixed
+`n = 58..63`, full `qc_status == "pass"`); C5.02 takes A14; C5.20 takes A11 and therefore **fails** as
+`insufficient_coverage`, because coverage keeps the `1e-9` representation slack; C7.02 and C7.03 take
+A06's ≥ 1 s span floor; C7.06 and C7.07 take A27 and assert no window row; C8.01-C8.08 take A22-A25.
 
 ### Amendment to §3 and §4 arising from A11
 
