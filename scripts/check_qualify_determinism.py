@@ -143,6 +143,8 @@ def build_fixture(root: pathlib.Path) -> Inputs:
             "overlap_s": "4.000000000",
             "dur_a": "5.000000000",
             "dur_b": "5.000000000",
+            "audio_rate_a": "48000",
+            "audio_rate_b": "48000",
             "same_audio_rate": "1",
         }
         for index, (capture_id, first, second) in enumerate(

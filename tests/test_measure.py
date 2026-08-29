@@ -38,6 +38,8 @@ def _row(**overrides: str) -> dict[str, str]:
         overlap_s="10.000000000",
         dur_a="20.000000000",
         dur_b="21.000000000",
+        audio_rate_a="48000",
+        audio_rate_b="48000",
         same_audio_rate="1",
     )
     row.update(overrides)

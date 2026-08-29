@@ -101,7 +101,7 @@ def test_audio_cache_rejects_edited_decode_facts(tmp_path: pathlib.Path) -> None
 
     # The arrays and their digests stay untouched: this is an edit that stops
     # at the claim, and source_rate is the claim sync publishes as
-    # same_audio_rate.
+    # audio_rate_a/audio_rate_b, which qualify turns into P29's stratum.
     _, _, timing = audio_offset.cache_paths(cache, asset_id)
     facts = json.loads(timing.read_text(encoding="utf-8"))
     facts["source_rate"] = 48000

@@ -1,49 +1,49 @@
 {
   "baseline_sha256": {
     "flagless": {
-      "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+      "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
       "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-      "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-      "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+      "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+      "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
     },
     "measured": {
-      "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+      "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
       "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-      "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-      "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+      "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+      "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
     }
   },
   "schema_version": 3,
   "source_sha256": {
-    "scripts/check_qualify_determinism.py": "03d5598592e397b321fb491874bc087b2e3d05932727ada7541c55830d711f5b",
+    "scripts/check_qualify_determinism.py": "5e1d5b1245b40302a5289ab517e54537eb84497054b0a5f8df76954771bc0321",
     "scripts/probe_sync_policy.py": "6d22ec323b96b83cd22a848d8e80c36ad03e0a136b2f3dc0c304ce60228d91f5",
     "src/pose_estimation/__init__.py": "de77d850cc0d7695903de638c51dda72a5e03612ebc850e80fb707bc7e6477a2",
     "src/pose_estimation/inventory.py": "66d3ef1dbc852758e8a7a41f9a477035ed5964516312daa6127e14929d13230d",
-    "src/pose_estimation/measure/__init__.py": "52a39facb0dff453199b0272d56d624b181b0c89537b901a40f0dcfc224092b3",
+    "src/pose_estimation/measure/__init__.py": "8fb7990e6976c3b61407e3ff94a554de215fcd5d18ae4c0981fb067abd610e68",
     "src/pose_estimation/measure/audio_offset.py": "37750a68c2d9b76428230a37fb40058327ce4bc1673321483f58555ef94f4a32",
     "src/pose_estimation/measure/detect.py": "7baba972d16d94db83177bcb12875fbd28127c11584f17b15bd8ef7797aa45f9",
     "src/pose_estimation/measure/mebx.py": "3f95181086240b6e917fcedb7d37cfb0305be3b10e5d4a7ca737f8d4ddcecd8f",
     "src/pose_estimation/measure/rigidity.py": "736e779b234dabd97b46d0359839a6bfffcb204633e4ea0bafd099d0a12efe08",
     "src/pose_estimation/measure/scale.py": "38ba43c67ba822c1aafff745edfc6e93b3a4458bc997795a490bcc1a8c7531ed",
     "src/pose_estimation/measure/statuses.py": "821b0f65cd6eb7ac14d97545811b0129e3d0ea25ca0831780759e6302439efc9",
-    "src/pose_estimation/measure/sync.py": "212e680a5a89128ae9babca5db06187296b4f0e913f2c7d191dfe26b63c87a38",
+    "src/pose_estimation/measure/sync.py": "93aa286be1fdab1eebcb385c344ecd062c52290c73a442795b8b70af26f9a15c",
     "src/pose_estimation/measure/visual_offset.py": "80d03893e407187216875af174496af912f2edcd4ceec1bf2618da73cc3a7ff6",
     "src/pose_estimation/multicam.py": "44ce953c623a8fdcecfe6d11048dc4110b92975b13cb38357649953b8421147d",
-    "src/pose_estimation/qualify.py": "42a78377e968ead54aef59b952941bf281b56f2d02ebb9fdae0700a54aeaac0d",
+    "src/pose_estimation/qualify.py": "c324bb41620d139f75eb724fac52aef75136a424b46dc3b3185e2c51f7de592e",
     "src/pose_estimation/sessions.py": "99c6bf2b3c1294330d894271de2423980a34d553cb7010f520ea552ef56bf72b",
     "src/pose_estimation/video_io.py": "fa3572b4bf6e7ba5412771f9aecf2c2629ee56da835169eb9be705ff7fa9c28d",
-    "tests/test_measure.py": "e9485a75b945f78a57ac0c54b6d181590756ca65ed5fafb75d384740ab61634a",
-    "tests/test_qualify.py": "30ce2a4a082612778ac8060f89f5db4ae848a37e93bf82f908543146df378d83",
+    "tests/test_measure.py": "453093e97ca7c4e9d070c1d553bf14887678fddda49873b3ac6331aa5bcbc864",
+    "tests/test_qualify.py": "48de33bca5c23047c36a2b5a5e98ac72e9485ddf397b8cbe9965656c2f8b0663",
     "tests/test_sessions.py": "570ed80320204100c7ed4e790fd9a126048945815dee47185546f00850c1f021"
   },
   "sweeps": [
     {
       "id": "Q01:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "repeat in a fresh process (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -54,10 +54,10 @@
     {
       "id": "Q02:0:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "PYTHONHASHSEED=0 (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -68,10 +68,10 @@
     {
       "id": "Q02:1:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "PYTHONHASHSEED=1 (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -82,10 +82,10 @@
     {
       "id": "Q02:12345:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "PYTHONHASHSEED=12345 (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -96,10 +96,10 @@
     {
       "id": "Q02:random:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "PYTHONHASHSEED=random (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -110,10 +110,10 @@
     {
       "id": "Q03:C:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "LC_ALL=C (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -124,10 +124,10 @@
     {
       "id": "Q03:C.UTF-8:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "LC_ALL=C.UTF-8 (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -138,10 +138,10 @@
     {
       "id": "Q03:en_US.UTF-8:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "LC_ALL=en_US.UTF-8 (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -152,10 +152,10 @@
     {
       "id": "Q03:unset:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "LANG and LC_ALL unset (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -166,10 +166,10 @@
     {
       "id": "Q04:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "shuffled Path.iterdir in a subprocess (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -180,10 +180,10 @@
     {
       "id": "Q05:dotdot:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "all input paths with .. detours (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -194,10 +194,10 @@
     {
       "id": "Q05:relative:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "relative inputs from a different working directory (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -208,10 +208,10 @@
     {
       "id": "Q05:symlinks:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "equivalent symlink spellings for both upstreams and corpus (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -222,10 +222,10 @@
     {
       "id": "Q06:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "different --out directory name (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -236,10 +236,10 @@
     {
       "id": "Q07:UTC:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "TZ=UTC (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -250,10 +250,10 @@
     {
       "id": "Q07:Pacific/Kiritimati:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "TZ=Pacific/Kiritimati (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -264,10 +264,10 @@
     {
       "id": "Q08:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "second late repeat (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -278,10 +278,10 @@
     {
       "id": "Q09:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "umask 077 (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -292,10 +292,10 @@
     {
       "id": "Q10:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "interpreter -O (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -306,10 +306,10 @@
     {
       "id": "Q11:flagless",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
-        "pairs_qc.csv": "f2b8b4c49e2c8694a50722df20fdadbd4f558493766e85c7549134acb17ccfef",
-        "qualification.json": "122200e008587b95595b6b1e6811ed058b5a9abc451b8829cfcd04c9fd585be1"
+        "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
+        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
       },
       "variation": "same-process PyAV demux and publication repeat (flagless)",
       "verdict_assets_qc.csv": "PASS",
@@ -320,10 +320,10 @@
     {
       "id": "Q01:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "repeat in a fresh process (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -334,10 +334,10 @@
     {
       "id": "Q02:0:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "PYTHONHASHSEED=0 (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -348,10 +348,10 @@
     {
       "id": "Q02:1:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "PYTHONHASHSEED=1 (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -362,10 +362,10 @@
     {
       "id": "Q02:12345:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "PYTHONHASHSEED=12345 (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -376,10 +376,10 @@
     {
       "id": "Q02:random:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "PYTHONHASHSEED=random (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -390,10 +390,10 @@
     {
       "id": "Q03:C:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "LC_ALL=C (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -404,10 +404,10 @@
     {
       "id": "Q03:C.UTF-8:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "LC_ALL=C.UTF-8 (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -418,10 +418,10 @@
     {
       "id": "Q03:en_US.UTF-8:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "LC_ALL=en_US.UTF-8 (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -432,10 +432,10 @@
     {
       "id": "Q03:unset:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "LANG and LC_ALL unset (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -446,10 +446,10 @@
     {
       "id": "Q04:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "shuffled Path.iterdir in a subprocess (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -460,10 +460,10 @@
     {
       "id": "Q05:dotdot:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "all input paths with .. detours (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -474,10 +474,10 @@
     {
       "id": "Q05:relative:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "relative inputs from a different working directory (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -488,10 +488,10 @@
     {
       "id": "Q05:symlinks:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "equivalent symlink spellings for both upstreams and corpus (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -502,10 +502,10 @@
     {
       "id": "Q06:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "different --out directory name (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -516,10 +516,10 @@
     {
       "id": "Q07:UTC:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "TZ=UTC (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -530,10 +530,10 @@
     {
       "id": "Q07:Pacific/Kiritimati:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "TZ=Pacific/Kiritimati (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -544,10 +544,10 @@
     {
       "id": "Q08:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "second late repeat (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -558,10 +558,10 @@
     {
       "id": "Q09:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "umask 077 (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -572,10 +572,10 @@
     {
       "id": "Q10:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "interpreter -O (measured)",
       "verdict_assets_qc.csv": "PASS",
@@ -586,10 +586,10 @@
     {
       "id": "Q11:measured",
       "observed_sha256": {
-        "assets_qc.csv": "8c592cf5c5f51156a061c41988e946375a07a14ddad277983e54eedea617e4c9",
+        "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
         "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
-        "pairs_qc.csv": "8023f8ebe6ca14296c5cf7ffb839a9ff8e81044a1870ba1065dcfe6299530ace",
-        "qualification.json": "bf8ef25ff13dfc1f75630a8fa01cd39be2992fdace395cddf58e104cb865ad32"
+        "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
+        "qualification.json": "b1a169d1b1842049fcd58b24787858f333af5829e21a8d4315d64a2898ac802c"
       },
       "variation": "same-process PyAV demux and publication repeat (measured)",
       "verdict_assets_qc.csv": "PASS",

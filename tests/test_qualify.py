@@ -31,15 +31,28 @@ FRAME_SIZE = (64, 48)
 TICKS_PER_SECOND = 600
 
 
-def _write_media(path: pathlib.Path, pts_ticks: list[int]) -> None:
+def _write_media(
+    path: pathlib.Path, pts_ticks: list[int], *, audio_rate: int | None = 48_000
+) -> None:
     """Encode one clip whose presentation timestamps are exactly *pts_ticks*.
 
     The ticks are the whole point: a test that asserts on measured intervals
     needs a file whose intervals were chosen, not inherited from an encoder's
     default cadence.
+
+    A mono audio track is written by default because every canonical asset in
+    the corpus carries one, and P29's stratum is read from it: a silent fixture
+    would exercise the unmeasured branch of every rate predicate and none of
+    the measured one.  ``audio_rate=None`` writes the silent case on purpose.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     with av.open(str(path), mode="w") as container:
+        audio = None
+        if audio_rate is not None:
+            # Layout before any packet is muxed: muxing opens every codec, and
+            # the layout is immutable from then on.
+            audio = container.add_stream("aac", rate=audio_rate)
+            audio.layout = "mono"
         stream = container.add_stream("mpeg4", rate=30)
         stream.width, stream.height = FRAME_SIZE
         stream.pix_fmt = "yuv420p"
@@ -55,6 +68,25 @@ def _write_media(path: pathlib.Path, pts_ticks: list[int]) -> None:
                 container.mux(packet)
         for packet in stream.encode():
             container.mux(packet)
+        if audio is not None:
+            _mux_silence(container, audio)
+
+
+def _mux_silence(container: av.container.OutputContainer, stream: av.audio.AudioStream) -> None:
+    """Mux one silent mono frame, muxed last so the video keeps its own ticks.
+
+    A declared audio stream with no packet never reaches the container, so the
+    fixture would report no rate at all; the frame carries no ``pts`` because
+    the encoder assigns one and a hand-set value cannot be rebased here.
+    """
+    frame = av.AudioFrame.from_ndarray(
+        np.zeros((1, 1024), dtype=np.float32), format="fltp", layout="mono"
+    )
+    frame.rate = stream.rate
+    for packet in stream.encode(frame):
+        container.mux(packet)
+    for packet in stream.encode():
+        container.mux(packet)
 
 
 def _uniform(count: int, step: int = 20) -> list[int]:
@@ -444,17 +476,27 @@ def test_orientation_absent_track_is_flagged_and_publishes_empty_cells(
 def test_orientation_flags_name_the_state(facts: qualify.OrientationFacts, expected: str) -> None:
     """A rotation constant applied to a whole asset is wrong for both states."""
     asset = qualify.AssetRef("a", "c", "above", "t", "s", "1", "x.mov", None)
-    decode = qualify.DecodeFacts(qualify.DECODE_OK, "h264", "m/s", 1, None, None, None, True)
+    decode = qualify.DecodeFacts(
+        qualify.DECODE_OK, "h264", "m/s", 48_000, 1, None, None, None, True
+    )
     assert expected in qualify._asset_flags(asset, decode, facts, frozenset())
 
 
 def test_orientation_a_constant_track_is_not_flagged_as_changed() -> None:
     facts = qualify.OrientationFacts(present=True, values=(1,), changes=0)
     asset = qualify.AssetRef("a", "c", "above", "t", "s", "1", "x.mov", None)
-    decode = qualify.DecodeFacts(qualify.DECODE_OK, "h264", "m/s", 1, None, None, None, True)
+    decode = qualify.DecodeFacts(
+        qualify.DECODE_OK, "h264", "m/s", 48_000, 1, None, None, None, True
+    )
     flags = qualify._asset_flags(asset, decode, facts, frozenset())
     assert "orientation_changed" not in flags
     assert "orientation_absent" not in flags
+
+
+def _assert_asset_cells(rows: list[dict[str, str]]) -> None:
+    qualify._assert_cell_alphabets(
+        rows, qualify.ASSET_CELL_ALPHABETS, qualify.ASSETS_QC_FILENAME, ("asset_id",)
+    )
 
 
 def test_a_cell_that_breaks_its_alphabet_is_refused_rather_than_published() -> None:
@@ -462,10 +504,10 @@ def test_a_cell_that_breaks_its_alphabet_is_refused_rather_than_published() -> N
     row = dict.fromkeys(qualify.ASSETS_QC_COLUMNS, "")
     row["asset_id"] = "a-1"
     row["orientation_values"] = "1|6"
-    qualify._assert_cell_alphabets([row])
+    _assert_asset_cells([row])
     row["orientation_values"] = "1|6\n"
     with pytest.raises(qualify.QualifyError) as raised:
-        qualify._assert_cell_alphabets([row])
+        _assert_asset_cells([row])
     assert raised.value.reason == "cell_alphabet"
 
 
@@ -474,10 +516,163 @@ def test_a_device_config_keeps_its_model_software_separator() -> None:
     row = dict.fromkeys(qualify.ASSETS_QC_COLUMNS, "")
     row["asset_id"] = "a-1"
     row["device_config"] = "iPad (5th generation)/16.6"
-    qualify._assert_cell_alphabets([row])
+    _assert_asset_cells([row])
     row["device_config"] = "iPad/16.6/extra"
     with pytest.raises(qualify.QualifyError):
-        qualify._assert_cell_alphabets([row])
+        _assert_asset_cells([row])
+
+
+def _strat_facts(device_config: str, rate: int | None) -> qualify.DecodeFacts:
+    return qualify.DecodeFacts(
+        qualify.DECODE_OK, "h264", device_config, rate, 1, 0.03, 0.03, 0.03, True
+    )
+
+
+# One component changes per variant, and nothing else does.  That is the whole
+# experiment: a stratum built from a subset of the tuple collapses exactly the
+# variant whose component it dropped.
+_P29_VARIANTS: dict[str, tuple[str, int]] = {
+    "base": ("iPad (5th generation)/16.7", 44_100),
+    "model": ("iPad Air 11-inch (M2)/16.7", 44_100),
+    "os": ("iPad (5th generation)/26.5", 44_100),
+    "rate": ("iPad (5th generation)/16.7", 48_000),
+}
+
+
+def test_sync_qc_is_stratified_by_model_os_and_sample_rate() -> None:
+    """P29: each of model, OS and sample rate alone separates two assets.
+
+    Runs the whole publication path, not the key function: the predicate is
+    about what ``pairs_qc.csv`` and the census carry, and a stratum that exists
+    only inside a helper stratifies nothing.
+    """
+    assets = [
+        qualify.AssetRef(f"a-{index}", "c-1", "above", "t", "l", "1", f"{name}.mov", None)
+        for index, name in enumerate(_P29_VARIANTS, start=1)
+    ]
+    facts = {
+        asset.asset_id: _strat_facts(*value)
+        for asset, value in zip(assets, _P29_VARIANTS.values(), strict=True)
+    }
+    rows = qualify._pair_rows(assets, facts, {})
+
+    published = {row["stratum_a"] for row in rows} | {row["stratum_b"] for row in rows}
+    assert len(published) == len(_P29_VARIANTS)
+    assert published == {f"{config}/{rate}" for config, rate in _P29_VARIANTS.values()}
+    # Dropping the rate merges the two configurations that differ only there,
+    # so the third component is load-bearing rather than decorative.
+    assert len({cell.rsplit("/", 1)[0] for cell in published}) == len(_P29_VARIANTS) - 1
+
+    strata = qualify.build_census([], rows, [])["pairs"]["sync_strata"]
+    # Four distinct strata over one family: every unordered pair is its own
+    # population, and none of them collapsed into another.
+    assert len(strata) == len(rows) == 6
+    assert all(entry["pairs"] == 1 for entry in strata.values())
+    assert "unmeasured" not in strata
+
+
+def test_a_stratum_pair_is_keyed_in_one_order_only() -> None:
+    """asset_a sorts by id, so an a/b-ordered key would halve every population."""
+    left, right = ("m/1", 44_100), ("m/2", 44_100)
+    assets = [
+        qualify.AssetRef("a-1", "c-1", "above", "t", "l", "1", "x.mov", None),
+        qualify.AssetRef("a-2", "c-1", "left", "t", "l", "1", "y.mov", None),
+        qualify.AssetRef("a-3", "c-2", "left", "t", "l", "1", "z.mov", None),
+        qualify.AssetRef("a-4", "c-2", "above", "t", "l", "1", "w.mov", None),
+    ]
+    facts = dict(
+        zip(
+            ("a-1", "a-2", "a-3", "a-4"),
+            (
+                _strat_facts(*left),
+                _strat_facts(*right),
+                _strat_facts(*left),
+                _strat_facts(*right),
+            ),
+            strict=True,
+        )
+    )
+    rows = qualify._pair_rows(assets, facts, {})
+    strata = qualify.build_census([], rows, [])["pairs"]["sync_strata"]
+    assert list(strata) == ["m/1/44100|m/2/44100"]
+    assert strata["m/1/44100|m/2/44100"]["pairs"] == 2
+
+
+def test_a_partial_stratum_is_unmeasured_rather_than_coarser() -> None:
+    """A missing component is not a wider population; it is an uncomparable row."""
+    assert qualify._stratum("m/1", None) == ""
+    assert qualify._stratum("", 48_000) == ""
+    assets = [
+        qualify.AssetRef("a-1", "c-1", "above", "t", "l", "1", "x.mov", None),
+        qualify.AssetRef("a-2", "c-1", "left", "t", "l", "1", "y.mov", None),
+    ]
+    facts = {"a-1": _strat_facts("m/1", None), "a-2": _strat_facts("m/1", 48_000)}
+    rows = qualify._pair_rows(assets, facts, {})
+    assert rows[0]["stratum_a"] == ""
+    assert rows[0]["stratum_b"] == "m/1/48000"
+    assert rows[0]["same_audio_rate"] == ""
+    assert list(qualify.build_census([], rows, [])["pairs"]["sync_strata"]) == ["unmeasured"]
+
+
+def test_a_stratum_cell_that_breaks_its_alphabet_is_refused() -> None:
+    row = dict.fromkeys(qualify.PAIRS_QC_COLUMNS, "")
+    row["asset_a"], row["asset_b"] = "a-1", "a-2"
+    row["stratum_a"] = "iPad (5th generation)/16.7/44100"
+    _assert_pair_cells([row])
+    # A model published with no software string is one field, so its stratum
+    # must stay spellable at one separator.
+    row["stratum_a"] = "iPad/44100"
+    _assert_pair_cells([row])
+    for bad in (
+        "iPad/16.7/44100\n",
+        "iPad/16.7",
+        "iPad/16.7/44100/9",
+        "iPad/16.7/44k",
+        "iPad/16.7/0",
+        "iPad/16.7/044100",
+        "iPad/16.7/-44100",
+    ):
+        row["stratum_a"] = bad
+        with pytest.raises(qualify.QualifyError) as raised:
+            _assert_pair_cells([row])
+        assert raised.value.reason == "cell_alphabet"
+
+
+def _assert_pair_cells(rows: list[dict[str, str]]) -> None:
+    qualify._assert_cell_alphabets(
+        rows, qualify.PAIR_CELL_ALPHABETS, qualify.PAIRS_QC_FILENAME, ("asset_a", "asset_b")
+    )
+
+
+def test_a_sidecar_rate_contradicting_the_header_read_is_refused() -> None:
+    """A relabelled stratum is undetectable downstream, so it fails here."""
+    facts = {"a-1": _strat_facts("m/1", 44_100), "a-2": _strat_facts("m/1", 44_100)}
+    sync: dict[tuple[str, ...], dict[str, str]] = {
+        ("a-1", "a-2"): {"audio_rate_a": "44100", "audio_rate_b": "44100"}
+    }
+    qualify._assert_sidecar_rates(facts, sync)
+    sync[("a-1", "a-2")]["audio_rate_b"] = "48000"
+    with pytest.raises(qualify.QualifyError) as raised:
+        qualify._assert_sidecar_rates(facts, sync)
+    assert raised.value.reason == "audio_rate_disagreement"
+
+
+def test_the_sidecar_rate_check_is_asymmetric_between_a_claim_and_an_abstention() -> None:
+    """A sidecar rate claims the asset carries audio; an empty cell claims nothing."""
+    facts = {"a-1": _strat_facts("m/1", None), "a-2": _strat_facts("m/1", 44_100)}
+    # Header knows the rate, sidecar abstained: nothing is relabelled.
+    abstained: dict[tuple[str, ...], dict[str, str]] = {
+        ("a-2", "a-2"): {"audio_rate_a": "", "audio_rate_b": ""}
+    }
+    qualify._assert_sidecar_rates(facts, abstained)
+    # Sidecar decoded audio the header read cannot find: same contradiction as
+    # a different number, because both sides opened one path.
+    claimed: dict[tuple[str, ...], dict[str, str]] = {
+        ("a-1", "a-2"): {"audio_rate_a": "48000", "audio_rate_b": "44100"}
+    }
+    with pytest.raises(qualify.QualifyError) as raised:
+        qualify._assert_sidecar_rates(facts, claimed)
+    assert raised.value.reason == "audio_rate_disagreement"
 
 
 def _sync_sidecar(
@@ -517,6 +712,8 @@ def _sync_sidecar(
                 "overlap_s": "4.000000000",
                 "dur_a": "5.000000000",
                 "dur_b": "5.000000000",
+                "audio_rate_a": "48000",
+                "audio_rate_b": "48000",
                 "same_audio_rate": "1",
             }
         )
@@ -677,7 +874,7 @@ def test_a_flagless_run_leaves_every_event_axis_cell_unmeasured(tmp_path: pathli
 
 # Recomputed only alongside a GENERATOR_VERSION bump.  Pinning the digest is what
 # turns "did I change the published schema?" from a judgment into a check.
-_SCHEMA_DIGEST = "3b566598b0ba00bc8b4c30727802666f162c80914a3dc6123d43527f4b4f145c"
+_SCHEMA_DIGEST = "e7f4ce9d7cf5ff9eddf1754c890f7245aaf7f88f9db9bdac7aae2268705bbb80"
 
 
 def test_a_schema_change_must_move_the_generator_version() -> None:

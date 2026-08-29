@@ -41,13 +41,15 @@ import av
 
 from . import inventory, measure, sessions
 
-# v2 renamed pairs_qc's `confidence` to `peak_rms` (R9), added the corroborator's
-# three columns, and filled events_qc from the sync axis.  A published set is
-# self-describing only if this moves with the schema: validate_generation refuses
-# a document whose generator_version is not this one, and that refusal is the
-# whole mechanism by which a v1 tree cannot be read as a v2 tree.
+# v3 publishes the exact audio sample rate and the (model, OS, sample_rate)
+# stratum P29 requires; v2 renamed pairs_qc's `confidence` to `peak_rms` (R9),
+# added the corroborator's three columns, and filled events_qc from the sync
+# axis.  A published set is self-describing only if this moves with the schema:
+# validate_generation refuses a document whose generator_version is not this
+# one, and that refusal is the whole mechanism by which a v2 tree cannot be read
+# as a v3 tree.
 # `_SCHEMA_DIGEST` in the suite fails on any column change that skips this bump.
-GENERATOR_VERSION = "v2"
+GENERATOR_VERSION = "v3"
 
 ASSETS_QC_FILENAME = "assets_qc.csv"
 PAIRS_QC_FILENAME = "pairs_qc.csv"
@@ -78,6 +80,11 @@ ASSETS_QC_COLUMNS: tuple[str, ...] = (
     "side",
     "subject_ordinal",
     "device_config",
+    # The third component of P29's stratum, read from the container header, so
+    # a stratum exists with or without a sidecar.  Exact Hz, never a class: the
+    # 44 100/48 000 split tracks the two capture eras, and a boolean says only
+    # that two assets differ without saying which population either sits in.
+    "audio_rate_hz",
     "codec",
     "decode_status",
     "pts_source",
@@ -132,6 +139,15 @@ PAIRS_QC_COLUMNS: tuple[str, ...] = (
     "overlap_s",
     "dur_a",
     "dur_b",
+    # P29's stratum, one cell per side, spelled `model/software/rate_hz`.  The
+    # two booleans below stay -- P28 needs the rate stratum visible for the
+    # priming cancellation to be falsifiable -- and both are now pure functions
+    # of these two cells, so a reader re-derives them instead of trusting them.
+    # An unmodelled per-device latency is a constant inside one stratum pair
+    # and noise across the corpus, which is why the pair, not the corpus, is
+    # the population every offset statistic is quoted over.
+    "stratum_a",
+    "stratum_b",
     "same_device_config",
     "same_audio_rate",
 )
@@ -176,10 +192,20 @@ PLACEMENT_INPUT_COLUMNS: tuple[str, ...] = ("asset_id", "event_id", "placement")
 # Populated cells only.  An unmeasured axis publishes "" precisely so that no
 # alphabet has to admit a sentinel that could be mistaken for a measurement.
 INTEGER_CELL = re.compile(r"[0-9]+")
+# No zero and no leading zero: a rate is positive, and an alphabet that admits
+# a spelling its producer can never emit checks less than it appears to.
+POSITIVE_INTEGER_CELL = re.compile(r"[1-9][0-9]*")
 DECIMAL_CELL = re.compile(r"-?[0-9]+\.[0-9]+")
 FLAG_CELL = re.compile(r"[a-z0-9_]+(\|[a-z0-9_]+)*")
 # The separator is part of the value: device_config is spelled "model/software".
-DEVICE_CONFIG_CELL = re.compile(r"[A-Za-z0-9 ()._-]+(/[A-Za-z0-9 ()._-]+)?")
+_CONFIG_FIELD = r"[A-Za-z0-9 ()._-]+"
+DEVICE_CONFIG_CELL = re.compile(rf"{_CONFIG_FIELD}(/{_CONFIG_FIELD})?")
+# One device_config, then the exact rate.  The field alphabet excludes "/", so
+# the last field is the rate and no model string can borrow a separator to
+# spell a stratum it does not belong to.  Separator count follows
+# device_config's own: a capture era that published a model and no software
+# string is one field, and its stratum must stay spellable.
+STRATUM_CELL = re.compile(rf"{_CONFIG_FIELD}(/{_CONFIG_FIELD})?/[1-9][0-9]*")
 BOOLEAN_CELL = re.compile(r"[01]")
 CODE_LIST_CELL = re.compile(r"[0-9]+(\|[0-9]+)*")
 
@@ -189,6 +215,7 @@ CODE_LIST_CELL = re.compile(r"[0-9]+(\|[0-9]+)*")
 ASSET_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
     "subject_ordinal": INTEGER_CELL,
     "device_config": DEVICE_CONFIG_CELL,
+    "audio_rate_hz": POSITIVE_INTEGER_CELL,
     "frames_decoded": INTEGER_CELL,
     "frames_reported": INTEGER_CELL,
     "pts_dt_median_s": DECIMAL_CELL,
@@ -198,6 +225,16 @@ ASSET_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
     "orientation_values": CODE_LIST_CELL,
     "orientation_changes": INTEGER_CELL,
     "qc_flags": FLAG_CELL,
+}
+
+# The pair cells this tool spells itself.  Every other pair cell arrives from
+# the sidecar, which validated it against its own alphabet; re-deciding those
+# here would let this tool disagree with the record it ingested.
+PAIR_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
+    "stratum_a": STRATUM_CELL,
+    "stratum_b": STRATUM_CELL,
+    "same_device_config": BOOLEAN_CELL,
+    "same_audio_rate": BOOLEAN_CELL,
 }
 
 # The sidecar axes this tool ingests, named exactly as `measure.AXES` names them
@@ -288,6 +325,10 @@ class DecodeFacts:
     status: str
     codec: str
     device_config: str
+    # Read from the audio stream's header, so it survives every decode failure
+    # below it: a container that opens carries its stratum even when no video
+    # timestamp does.
+    audio_rate_hz: int | None
     frames_demuxed: int | None
     dt_median_s: float | None
     dt_p95_s: float | None
@@ -445,6 +486,39 @@ def _device_config(container: av.container.InputContainer) -> str:
     return f"{model}/{software}".strip("/")
 
 
+def _audio_rate(container: av.container.InputContainer) -> int | None:
+    """Return the first audio stream's sample rate, the stratum's third field.
+
+    ``streams.audio[0]`` deliberately, because that is the stream the sync
+    axis decodes: a rate read from any other stream would label the offsets
+    with a rate that never produced one.
+
+    A rate that is absent, non-positive or fractional stays unmeasured rather
+    than aborting the run: every other unreadable container fact on this row
+    publishes a status and an empty cell, and one malformed file must not cost
+    the corpus its evidence set.  Truncating a fractional rate is the one
+    outcome ruled out -- it would spell an exact stratum the file never had.
+    """
+    if not container.streams.audio:
+        return None
+    rate = container.streams.audio[0].rate
+    if rate is None or rate != int(rate) or int(rate) <= 0:
+        return None
+    return int(rate)
+
+
+def _stratum(device_config: str, audio_rate_hz: int | None) -> str:
+    """Return P29's `(model, OS, sample_rate)` cell, or leave it unmeasured.
+
+    Partial is unmeasured: a stratum missing a component is not a coarser
+    stratum, it is a row that cannot be compared with any other, and spelling
+    it anyway would pool rows whose latency populations are unknown.
+    """
+    if not device_config or audio_rate_hz is None:
+        return UNMEASURED
+    return f"{device_config}/{audio_rate_hz}"
+
+
 def _atoms(stream: BinaryIO, end: int) -> list[tuple[bytes, int, int]]:
     """Return ``(kind, body_start, atom_end)`` for each atom in ``[tell, end)``.
 
@@ -598,6 +672,7 @@ def probe_decode(path: pathlib.Path) -> DecodeFacts:
         status=DECODE_OPEN_FAILED,
         codec=UNMEASURED,
         device_config=UNMEASURED,
+        audio_rate_hz=None,
         frames_demuxed=None,
         dt_median_s=None,
         dt_p95_s=None,
@@ -607,14 +682,21 @@ def probe_decode(path: pathlib.Path) -> DecodeFacts:
     try:
         with av.open(str(path)) as container:
             config = _device_config(container)
+            rate = _audio_rate(container)
             if not container.streams.video:
-                return dataclasses.replace(empty, status=DECODE_NO_VIDEO, device_config=config)
+                return dataclasses.replace(
+                    empty, status=DECODE_NO_VIDEO, device_config=config, audio_rate_hz=rate
+                )
             stream = container.streams.video[0]
             codec = stream.codec_context.name or UNMEASURED
             time_base = stream.time_base
             if time_base is None:
                 return dataclasses.replace(
-                    empty, status=DECODE_NO_PTS, codec=codec, device_config=config
+                    empty,
+                    status=DECODE_NO_PTS,
+                    codec=codec,
+                    device_config=config,
+                    audio_rate_hz=rate,
                 )
             pts = [packet.pts for packet in container.demux(stream) if packet.pts is not None]
     except (av.FFmpegError, OSError, ValueError):
@@ -625,6 +707,7 @@ def probe_decode(path: pathlib.Path) -> DecodeFacts:
             status=DECODE_NO_PTS,
             codec=codec,
             device_config=config,
+            audio_rate_hz=rate,
             frames_demuxed=0,
         )
     monotonic = all(earlier <= later for earlier, later in itertools.pairwise(pts))
@@ -636,6 +719,7 @@ def probe_decode(path: pathlib.Path) -> DecodeFacts:
         status=DECODE_OK,
         codec=codec,
         device_config=config,
+        audio_rate_hz=rate,
         frames_demuxed=len(pts),
         dt_median_s=statistics.median(deltas) if deltas else None,
         dt_p95_s=_percentile(deltas, 0.95) if deltas else None,
@@ -706,6 +790,7 @@ def _asset_row(
         "side": asset.side,
         "subject_ordinal": asset.subject_ordinal,
         "device_config": facts.device_config,
+        "audio_rate_hz": _integer(facts.audio_rate_hz),
         "codec": facts.codec,
         "decode_status": facts.status,
         "pts_source": PTS_CONTAINER if measured else UNMEASURED,
@@ -732,20 +817,25 @@ def _asset_row(
     }
 
 
-def _assert_cell_alphabets(rows: list[dict[str, str]]) -> None:
-    """Refuse to publish an asset cell this tool cannot spell.
+def _assert_cell_alphabets(
+    rows: list[dict[str, str]],
+    alphabets: dict[str, re.Pattern[str]],
+    filename: str,
+    key: tuple[str, ...],
+) -> None:
+    """Refuse to publish a cell this tool cannot spell.
 
     ``fullmatch``, never ``match``: ``^...$`` would accept a trailing newline,
     which is exactly how a smuggled cell survives a pattern that looks strict.
     An empty cell always passes, because an unmeasured axis publishes one.
     """
     for row in rows:
-        for column, pattern in ASSET_CELL_ALPHABETS.items():
+        for column, pattern in alphabets.items():
             cell = row[column]
             if cell and not pattern.fullmatch(cell):
                 raise QualifyError(
-                    f"{ASSETS_QC_FILENAME}: {row['asset_id']}: {column} cell {cell!r} "
-                    f"does not match {pattern.pattern}",
+                    f"{filename}: {' '.join(row[name] for name in key)}: "
+                    f"{column} cell {cell!r} does not match {pattern.pattern}",
                     reason="cell_alphabet",
                 )
 
@@ -805,6 +895,7 @@ def _pair_rows(
     absent from this table is a pair no estimator was ever asked about, and
     that is a different claim from an estimator abstaining on it.
     """
+    _assert_sidecar_rates(facts, sync)
     rows: list[dict[str, str]] = []
     for capture_id, first, second in enumerate_pairs(assets):
         left = facts.get(first.asset_id)
@@ -812,6 +903,17 @@ def _pair_rows(
         same_config = (
             _boolean(left.device_config == right.device_config)
             if left is not None and right is not None and left.device_config and right.device_config
+            else UNMEASURED
+        )
+        # Derived here rather than copied from the sidecar, so both booleans
+        # come from the same measurement in both publication modes and stay a
+        # pure function of the strata beside them.  The sidecar's own rates
+        # still have to agree, which is what the assertion above proves.
+        rate_left = left.audio_rate_hz if left is not None else None
+        rate_right = right.audio_rate_hz if right is not None else None
+        same_rate = (
+            _boolean(rate_left == rate_right)
+            if rate_left is not None and rate_right is not None
             else UNMEASURED
         )
         measured = sync.get((first.asset_id, second.asset_id))
@@ -834,8 +936,10 @@ def _pair_rows(
                 "overlap_s": UNMEASURED,
                 "dur_a": UNMEASURED,
                 "dur_b": UNMEASURED,
+                "stratum_a": _stratum(left.device_config if left else "", rate_left),
+                "stratum_b": _stratum(right.device_config if right else "", rate_right),
                 "same_device_config": same_config,
-                "same_audio_rate": UNMEASURED,
+                "same_audio_rate": same_rate,
             }
         )
         if measured is None:
@@ -854,10 +958,48 @@ def _pair_rows(
                 "overlap_s": measured["overlap_s"],
                 "dur_a": measured["dur_a"],
                 "dur_b": measured["dur_b"],
-                "same_audio_rate": measured["same_audio_rate"],
             }
         )
     return rows
+
+
+def _assert_sidecar_rates(
+    facts: dict[str, DecodeFacts], sync: dict[tuple[str, ...], dict[str, str]]
+) -> None:
+    """Refuse a sidecar whose decode rate contradicts this run's header read.
+
+    The stratum published here is read from the container header; the offsets
+    it labels were produced by the sidecar's own decode.  Both name
+    ``streams.audio[0]``, so a disagreement means the two ran against different
+    bytes, and the failure it would otherwise cause is silent and total: every
+    offset in that stratum is filed under a rate that never produced one, which
+    is exactly the structure P29 exists to expose.  Loud, because a relabelled
+    population cannot be detected downstream from the artifact alone.
+
+    The asymmetry is deliberate.  A sidecar cell naming a rate is a positive
+    claim that the asset carries audio, so a header read that finds none
+    contradicts it as squarely as a different number does -- both sides opened
+    the same path and read ``streams.audio[0]``.  An empty sidecar cell is an
+    abstention about that side's own cache, contradicts nothing, and relabels
+    nothing: the stratum published is the header's either way.
+    """
+    for key, row in sync.items():
+        for asset_id, cell in zip(key, (row["audio_rate_a"], row["audio_rate_b"]), strict=True):
+            header = facts.get(asset_id)
+            if not cell or header is None:
+                continue
+            if header.audio_rate_hz is None:
+                raise QualifyError(
+                    f"The sidecar decoded {asset_id} at {cell} Hz and this run's header "
+                    f"read finds no usable audio rate.",
+                    reason="audio_rate_disagreement",
+                )
+            if int(cell) != header.audio_rate_hz:
+                raise QualifyError(
+                    f"The sidecar decoded {asset_id} at {cell} Hz and this run's header "
+                    f"read reports {header.audio_rate_hz} Hz.",
+                    reason="audio_rate_disagreement",
+                )
 
 
 def _spanning_offsets(
@@ -996,6 +1138,7 @@ def build_census(
         "pairs": {
             "rows": len(pair_rows),
             "status": _tally(row["status"] for row in pair_rows),
+            "sync_strata": _sync_strata(pair_rows),
         },
         "events": {
             "rows": len(event_rows),
@@ -1018,6 +1161,35 @@ def build_census(
         "measured_axes": sorted({*LOCAL_AXES, *measured_axes}),
         "unmeasured_axes": sorted(set(SIDECAR_AXES) - measured_axes),
     }
+
+
+def _sync_strata(pair_rows: list[dict[str, str]]) -> dict[str, dict[str, Any]]:
+    """Return the sync statistics grouped by P29's stratum pair.
+
+    The key is the two strata sorted, never the pair's own ``a``/``b`` order:
+    ``asset_a`` sorts by id, so the same two configurations would otherwise
+    split across two keys and halve every population.  A pair missing either
+    stratum is keyed ``unmeasured`` -- a real stratum always carries a ``/``,
+    so the token cannot collide with one.
+
+    Quotable outside the tree: counts and a distribution per configuration
+    pair, naming no asset, no capture and no view.  This is the aggregate P29
+    asks for, because an unmodelled per-device latency is a constant within one
+    stratum pair and is invisible in a corpus-wide distribution.
+    """
+    strata: dict[str, dict[str, Any]] = {}
+    offsets: dict[str, list[float]] = {}
+    for row in pair_rows:
+        left, right = row["stratum_a"], row["stratum_b"]
+        key = "|".join(sorted((left, right))) if left and right else "unmeasured"
+        entry = strata.setdefault(key, {"pairs": 0, "audio_ok": 0})
+        entry["pairs"] += 1
+        if row["status_audio"] == "ok" and row["offset_s"]:
+            entry["audio_ok"] += 1
+            offsets.setdefault(key, []).append(float(row["offset_s"]))
+    for key, entry in strata.items():
+        entry["offset_s"] = _distribution(offsets.get(key, []))
+    return dict(sorted(strata.items()))
 
 
 def _tally(values: Any) -> dict[str, int]:
@@ -1310,8 +1482,11 @@ def run(
         _asset_row(asset, facts[asset.asset_id], orientations[asset.asset_id], axes)
         for asset in assets
     ]
-    _assert_cell_alphabets(asset_rows)
+    _assert_cell_alphabets(asset_rows, ASSET_CELL_ALPHABETS, ASSETS_QC_FILENAME, ("asset_id",))
     pair_rows = _pair_rows(assets, facts, axes.get("sync", {}))
+    _assert_cell_alphabets(
+        pair_rows, PAIR_CELL_ALPHABETS, PAIRS_QC_FILENAME, ("asset_a", "asset_b")
+    )
     event_rows = _event_rows(
         events,
         load_placements(sessions_path),

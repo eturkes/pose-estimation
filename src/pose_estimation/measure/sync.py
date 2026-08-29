@@ -133,8 +133,15 @@ def _estimate(arguments: tuple[PairKey, str, str]) -> dict[str, str]:
         "overlap_s": decimal(peak.overlap_s),
         "dur_a": decimal(dur_a),
         "dur_b": decimal(dur_b),
-        # Recorded so the AAC priming stratum stays visible: the decode path
-        # cancels the rate-dependent bias, and a column keeps that falsifiable.
+        # The exact rate each side decoded at, because P29 stratifies sync QC
+        # by (model, OS, sample_rate) and a boolean names no stratum.  These
+        # are the estimator's own rates, so ``qualify`` can check the rate it
+        # read from the container header against the rate that actually
+        # produced the offset instead of assuming the two agree.
+        "audio_rate_a": "" if rate_a is None else str(rate_a),
+        "audio_rate_b": "" if rate_b is None else str(rate_b),
+        # Kept beside them so P28's priming cancellation stays falsifiable
+        # against a named stratum, and now a pure function of the two cells.
         "same_audio_rate": "" if None in (rate_a, rate_b) else ("1" if rate_a == rate_b else "0"),
     }
 

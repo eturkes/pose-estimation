@@ -126,6 +126,7 @@ and 173 of the 193 events. The rigidity, detect and scale axes are not yet produ
 | ------ | ------- |
 | `asset_id`, `capture_id`, `view`, `task`, `side`, `subject_ordinal` | Registry identity. |
 | `device_config` | The camera model and the operating system version, as `model/software`. |
+| `audio_rate_hz` | The exact audio sample rate, in Hz, from the container header. |
 | `codec` | The video codec name. |
 | `decode_status` | `ok`, `open_failed`, `no_video_stream` or `no_pts`. |
 | `pts_source`, `frames_source` | Measurement provenance. See above. |
@@ -147,7 +148,7 @@ exact dimensional identity in any cell. Every fallback is absent rather than imp
 
 That negative comes from a sample, so no asset publishes a measured `none`. Every asset keeps the
 `scale_unmeasured` flag and two empty cells instead. Read every 3D output from this corpus as
-arbitrary-scale: angles, timing and dimensionless ratios survive; distance, velocity and jerk in
+arbitrary-scale. Angles, timing and dimensionless ratios survive. Distance, velocity and jerk in
 metres do not.
 
 The tool sorts the presentation timestamps before it measures an interval. An HEVC stream demuxes
@@ -192,10 +193,36 @@ different claim from an estimator that abstained. Enumeration is therefore part 
 | `status` | The fused verdict. See the table below. |
 | `drift_ppm`, `drift_se` | The rate fit. No consumer applies a rate term. |
 | `overlap_s`, `dur_a`, `dur_b` | The analysed overlap, and each asset's duration. |
+| `stratum_a`, `stratum_b` | Each side's `(model, OS, sample_rate)` stratum, as `model/software/rate_hz`. |
 | `same_device_config`, `same_audio_rate` | Strata that keep an unmodelled device bias visible. |
 
-Both statistics are raw instrument readings. Never divide a published statistic by the threshold
-that accepts it: a re-ruled threshold then rewrites the statistic while the signal is unchanged.
+Both statistics are raw instrument readings. Never divide a published statistic by its own accept
+threshold. A re-ruled threshold then rewrites the statistic while the signal is unchanged.
+
+### Stratification
+
+Input-to-timestamp latency is unbenchmarked for both iPad models. Such a latency is a constant
+inside one device configuration. It is noise across a corpus that mixes configurations. Sync
+statistics are therefore grouped by the `(model, OS, sample_rate)` tuple.
+
+Each pair carries the stratum of both sides. Both boolean columns beside them are pure functions of
+those two cells. Read a stratum as unmeasured when either component is absent. A partial tuple is
+not a wider population.
+
+`qualification.json` groups the pairs under `pairs.sync_strata`. The key is the two strata sorted,
+so one configuration pair is one population. A pair that is missing either stratum is keyed
+`unmeasured`.
+
+Current corpus: 4 configurations, and each one uses a single sample rate. The rate therefore adds
+no split here. Publish it anyway. A stratum that is assumed instead of measured cannot show when
+that stops being true.
+
+The offsets inside a stratum are dominated by manual camera start times. Do not read a stratum
+median as a device latency.
+
+When a sidecar is supplied, its own decode rate must equal the header rate. The tool refuses to
+publish on any disagreement. Both sides read the first audio stream, so a disagreement means that
+the two ran against different bytes.
 
 ### Fusion
 
@@ -235,7 +262,7 @@ negligible.
 samples in front of the signal. The predicted bias is rate-dependent: 2112 samples is 47.891 ms at
 44 100 Hz and 44.000 ms at 48 000 Hz. A raw untrimmed mixed-rate pair therefore carries a fixed
 **3.891 ms** bias, and 55 of 137 multi-view families mix the two rates. The decode path cancels it.
-PyAV trims the priming samples, so the measured skip is 2112 samples on 379 of 379 assets and the
+PyAV trims the priming samples. The measured skip is 2112 samples on 379 of 379 assets, and the
 first decoded presentation timestamp is 0 on 379 of 379 assets. Quote the measured 0 ms residual.
 Never quote the 3.891 ms prediction as a bias in this artifact.
 
@@ -276,8 +303,8 @@ The tool publishes closure for a three-camera event whose three pairs are all ac
 an empty cell for every other event. A path joins three cameras, but a path cannot close them.
 
 Current corpus: 30 event triangles close, at 5.403 ms median and 30.286 ms maximum. Both figures sit
-inside the 0–33.33 ms rolling-shutter sweep that *Timing limits* states, so closure at this scale
-does not show that the cameras agree to better than one readout.
+inside the 0–33.33 ms rolling-shutter sweep that *Timing limits* states. Closure at this scale
+therefore does not show camera agreement below one readout.
 
 The policy probe in `scripts/probe_sync_policy.py` reports a different closure population. It groups
 by capture family instead of by event, and it accepts on audio alone instead of on the fused verdict.
@@ -340,6 +367,9 @@ The tool refuses an output directory that overlaps any input, in either directio
 replaces the whole output tree.
 
 The tool refuses a non-empty output directory that carries no marker it wrote.
+
+Ownership includes the generator version. A tree from an older version is therefore not this
+version's to replace. Delete that tree yourself before the first run of a new version.
 
 ## Claim boundary
 

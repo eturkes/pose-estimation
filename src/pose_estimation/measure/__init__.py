@@ -89,6 +89,14 @@ SYNC_COLUMNS: tuple[str, ...] = (
     "overlap_s",
     "dur_a",
     "dur_b",
+    # The rate each estimator actually decoded at, not a derived agreement.
+    # P29 stratifies sync QC by (model, OS, sample_rate), and a boolean names
+    # no stratum: two pairs both reading 1 sit in different populations when
+    # one is 44 100 Hz and the other 48 000 Hz.  same_audio_rate stays because
+    # P28's priming cancellation is falsifiable against it, and it is now a
+    # pure function of the two cells beside it.
+    "audio_rate_a",
+    "audio_rate_b",
     "same_audio_rate",
 )
 
@@ -190,9 +198,15 @@ DOMAINS: dict[str, tuple[float, float]] = {
     "overlap_s": (0.0, math.inf),
     "dur_a": (0.0, math.inf),
     "dur_b": (0.0, math.inf),
+    # Bounded above, unlike every other domain here: the integer alphabet caps
+    # no digit count either, and a rate is the one quantity with a physical
+    # ceiling -- no consumer audio device samples above 768 kHz.
+    "audio_rate_a": (1.0, 1_000_000.0),
+    "audio_rate_b": (1.0, 1_000_000.0),
 }
 
 DECIMAL_CELL = re.compile(r"-?[0-9]+\.[0-9]+")
+INTEGER_CELL = re.compile(r"[0-9]+")
 TOKEN_CELL = re.compile(r"[a-z0-9_]+")
 BOOLEAN_CELL = re.compile(r"[01]")
 
@@ -210,6 +224,8 @@ CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
     "overlap_s": DECIMAL_CELL,
     "dur_a": DECIMAL_CELL,
     "dur_b": DECIMAL_CELL,
+    "audio_rate_a": INTEGER_CELL,
+    "audio_rate_b": INTEGER_CELL,
     "same_audio_rate": BOOLEAN_CELL,
     "rigidity_drift_median_px": DECIMAL_CELL,
     "rigidity_drift_p95_px": DECIMAL_CELL,
@@ -341,12 +357,12 @@ def _assert_cells(axis: Axis, rows: list[dict[str, str]]) -> None:
                     f"{axis.table}: {column} cell {cell!r} does not match {pattern.pattern}",
                     reason="cell_alphabet",
                 )
-            # The decimal alphabet caps no digit count, so a spelling it accepts
-            # can still overflow to infinity.  Checked here rather than beside
-            # the bounds because the columns DOMAINS leaves unbounded --
+            # Neither numeric alphabet caps a digit count, so a spelling either
+            # accepts can still overflow to infinity.  Checked here rather than
+            # beside the bounds because the columns DOMAINS leaves unbounded --
             # offset_audio_s, drift_ppm -- are exactly the ones no later check
             # would ever compare against anything.
-            if cell and pattern is DECIMAL_CELL and not math.isfinite(float(cell)):
+            if cell and pattern in (DECIMAL_CELL, INTEGER_CELL) and not math.isfinite(float(cell)):
                 raise MeasureError(
                     f"{axis.table}: {column} carries {cell!r}, which is not a finite number.",
                     reason="cell_overflow",
