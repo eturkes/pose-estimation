@@ -459,14 +459,25 @@ movement_efficiency <- function(x, y, z) {
 #' estimator reading four-decimal timestamps.  Cutting \code{k - 1} gaps leaves
 #' \code{k} runs that no longer telescope into each other, loosening the bound
 #' to \code{k * TIMESTAMP_QUANTUM / S_retained} over the retained exposure.
-#' Both forms stay an order of magnitude inside what grid placement needs
-#' (\code{0.5 / n_intervals}, so no sample crosses a slot boundary), and
-#' \code{trajectory_grid_status()}'s residual measures that directly rather
-#' than inferring it from this bound.
+#' Grid placement is what consumes this error, and it is checked per window,
+#' never per clip, so the lever arm is \code{WINDOW_SEC} and the budget is
+#' \code{GRID_SLOT_TOLERANCE}: a rate error displaces a window's last sample by
+#' \code{WINDOW_SEC * fs * abs(delta_fs / fs)} slots.  Measured margins run
+#' 135x at 30 Hz down to 17x at 119.88 Hz — ample, but only against the
+#' one-second window; the same errors leave 1.686x over a 20 s clip.
+#' \code{trajectory_grid_status()}'s residual measures the displacement
+#' directly rather than inferring it from this bound.
 #'
 #' Two usable intervals are the floor.  A single interval is one rounded
 #' difference, whose relative error is a whole quantum over one frame period —
 #' 0.3% at 30 Hz — which is worse than the estimator this one replaces.
+#'
+#' The gap filter assumes gaps are a minority.  Where they are not, the median
+#' is itself a gap, the filter retains everything and the mean blends: seven
+#' samples at 30 Hz spaced 2,2,2,2,1,1 slots return 18.0018 Hz.  This function
+#' does not fail closed on that, and is not the layer that should —
+#' \code{trajectory_grid_status()} decides whether an estimate describes the
+#' data, and rejects that blend at residual 0.401 against a 0.25 tolerance.
 #'
 #' @param t Numeric vector — timestamps in seconds.
 #' @param magnitude Logical — when \code{TRUE}, read interval magnitudes, so an
@@ -476,6 +487,11 @@ movement_efficiency <- function(x, y, z) {
 #' @return Scalar sampling frequency in Hz, or \code{NA_real_} when
 #'   undeterminable.
 nominal_fs <- function(t, magnitude = FALSE) {
+  # A01 makes `magnitude` logical, and R's `if` would silently accept 1 or
+  # "TRUE" and take the branch anyway — a caller meaning `fs` would get
+  # magnitude semantics with no signal.
+  stopifnot(is.logical(magnitude), length(magnitude) == 1L, !is.na(magnitude))
+
   d <- diff(t[!is.na(t)])
   if (magnitude) d <- abs(d)
   d <- d[is.finite(d) & d > 0]
