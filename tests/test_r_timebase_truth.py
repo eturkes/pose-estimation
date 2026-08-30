@@ -739,9 +739,7 @@ def test_c4_09(producer_corpus: _ProducerCorpus):
     reasons = {row["qc_reason"] for row in rows}
     assert reasons == {"none", "estimator_undefined"}
     assert "invalid_timebase" not in reasons
-    assert all(
-        (row["qc_status"] == "pass") == (row["qc_reason"] == "none") for row in rows
-    )
+    assert all((row["qc_status"] == "pass") == (row["qc_reason"] == "none") for row in rows)
 
 
 # kind: C4.10 = control
@@ -954,11 +952,7 @@ def test_c6_08():
         """
     )
     fs = result["fs"]
-    recovered = (
-        isinstance(fs, float)
-        and math.isfinite(fs)
-        and _relative_error(fs, 30) <= 1e-4
-    )
+    recovered = isinstance(fs, float) and math.isfinite(fs) and _relative_error(fs, 30) <= 1e-4
     assert recovered or result["fault"]
 
 
@@ -1110,6 +1104,17 @@ def test_c8_01():
     for asset in data["assets"]:
         _assert_grid_asset(asset, data["bounds"])
 
+    # A31: header agreement is a reported cross-check, so what binds is that the
+    # artifact's own reported outlier count and worst case reconcile with its
+    # asset rows.  Asserting the bound itself would reject truthful VFR data.
+    aggregate = data["aggregate"]
+    bound = data["bounds"]["p06_rel_err_max"]
+    outliers = [asset for asset in data["assets"] if asset["nominal_fs_rel_err"] > bound]
+    assert aggregate["assets_header_outlier"] == len(outliers)
+    worst = max((asset["nominal_fs_rel_err"] for asset in outliers), default=0.0)
+    assert aggregate["header_outlier_worst_rel_err"] == pytest.approx(worst)
+    assert aggregate["assets_nominal_no_worse_than_legacy"] == len(data["assets"])
+
 
 # kind: C8.02 = red
 def test_c8_02():
@@ -1189,6 +1194,7 @@ def test_c8_07():
         "windows_total",
         "windows_on_grid_nominal",
         "windows_on_grid_median_diff",
+        "terminal_frame_duration_sec",
     }
     assert all(set(asset) == expected_fields for asset in assets)
     assert {asset["codec"] for asset in assets} >= {"h264", "hevc"}
