@@ -1,0 +1,52 @@
+diff --git a/scripts/probe_timebase_grid.py b/scripts/probe_timebase_grid.py
+index 215853f..466591b 100644
+--- a/scripts/probe_timebase_grid.py
++++ b/scripts/probe_timebase_grid.py
+@@ -59,6 +59,7 @@ class AssetResult:
+     n_frames: int
+     duration_sec: float
+     terminal_frame_duration_sec: float
++    terminal_dur_within_interval_range: bool
+     nominal_fs_hz: float
+     nominal_fs_rel_err: float
+     median_diff_fs_hz: float
+@@ -363,6 +364,12 @@ def _decode_asset(asset: Asset, corpus: Path) -> AssetResult:
+     terminal_frame_duration_sec = asset.nominal_duration_sec - duration_sec
+     if not math.isfinite(terminal_frame_duration_sec) or terminal_frame_duration_sec <= 0:
+         raise ProbeError(f"an asset in {asset.device_config} has no terminal frame duration")
++    intervals = _positive_diffs(timestamps)
++    if not intervals:
++        raise ProbeError(f"an asset in {asset.device_config} has no observed frame interval")
++    terminal_dur_within_interval_range = (
++        min(intervals) - 1e-12 <= terminal_frame_duration_sec <= max(intervals) + 1e-12
++    )
+     nominal_fs = _nominal_fs(timestamps)
+     median_diff_fs = _median_diff_fs(timestamps)
+     windows = _window_series(timestamps)
+@@ -372,6 +379,7 @@ def _decode_asset(asset: Asset, corpus: Path) -> AssetResult:
+         n_frames=len(timestamps),
+         duration_sec=duration_sec,
+         terminal_frame_duration_sec=terminal_frame_duration_sec,
++        terminal_dur_within_interval_range=terminal_dur_within_interval_range,
+         nominal_fs_hz=nominal_fs,
+         nominal_fs_rel_err=abs(nominal_fs - header_fps) / header_fps,
+         median_diff_fs_hz=median_diff_fs,
+@@ -403,6 +411,8 @@ def _asset_payload(index: int, result: AssetResult) -> dict[str, Any]:
+         "n_frames": result.n_frames,
+         "duration_sec": _clean(result.duration_sec),
+         "terminal_frame_duration_sec": _clean(result.terminal_frame_duration_sec),
++        "terminal_frame_duration_source": "derived",
++        "terminal_dur_within_interval_range": result.terminal_dur_within_interval_range,
+         "nominal_fs_hz": _clean(result.nominal_fs_hz),
+         "nominal_fs_rel_err": _clean(result.nominal_fs_rel_err),
+         "median_diff_fs_hz": _clean(result.median_diff_fs_hz),
+@@ -461,6 +471,9 @@ def _aggregate_metrics(results: list[AssetResult]) -> dict[str, Any]:
+             result.nominal_fs_rel_err <= result.median_diff_rel_err * (1 + 1e-12)
+             for result in results
+         ),
++        "terminal_dur_within_interval_range": sum(
++            result.terminal_dur_within_interval_range for result in results
++        ),
+     }
+ 
+ 
