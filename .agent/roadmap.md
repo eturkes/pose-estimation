@@ -97,8 +97,20 @@ they filed, rerun the gate, set M2.4 DONE and commit. Both worktrees carry commi
 
 | teammate | worktree | state at handoff | what remains |
 | -------- | -------- | ---------------- | ------------ |
-| `rev-m2u4-3` | `wt/rev-m2u4` | 32 of 73 rows adjudicated through batch 4 (`326717a`), gauge 58%+ | finish the table; open `fail` rows are P01 (fixed since — rescore), P07 + A09 (A34's generalized bound is documented but no test derives `k` or `S_retained`), P18 (docs, fixed since — rescore) |
-| `rev2-m2u4-2` | `wt/rev2-m2u4` | 20 of 33 mutants scored through `5236a28`, gauge 46%+ | finish the campaign; **two accepted findings already**: M07 survived-unencoded (`return(NA_real_)` -> `return(0)`, probably pipeline-equivalent since both call sites guard `fs <= 0`, so kill it at the unit), and M20 survived-encoded with a shipped red test `test_threshold_oracle_uses_published_tolerances` — C5.18 passed when both published tolerance reads were replaced by literals, because the producer values equal them |
+| `rev-m2u4-3` | `wt/rev-m2u4` | **40 of 73** rows adjudicated through batch 5 (`9483165`); P01-P20 + A01-A20 done, A13-A20 all pass on a 19/19 cadence lattice; gauge 78%, checkpoint directed | spawn `rev-m2u4-4` on the same worktree for A21-A35 + X01-X19; open `fail` rows are P07 + A09 (below), and P01 + P18 need rescoring because both were fixed after it scored them |
+| `rev2-m2u4-2` | `wt/rev2-m2u4` | **25 of 33** mutants scored through `5236a28`, gauge 60% | finish 8 mutants, then merge its red tests as cases beyond the frozen 82 |
+
+`rev2-m2u4-2`'s two accepted findings, both already carrying evidence. **M07 survived-unencoded**:
+`return(NA_real_)` -> `return(0)` in `nominal_fs`'s final guard survives every case, and it is
+probably pipeline-equivalent since both call sites guard `fs <= 0` — kill it with a unit assertion on
+the documented `NA_real_` return, not a pipeline case. **M20 survived-encoded**: C5.18 passed when
+both published tolerance reads were replaced by the literals `1e-4` and `1e-9`, because the producer
+values equal them; it shipped `test_threshold_oracle_uses_published_tolerances`, green on MAIN and
+red on the mutant.
+
+**The one open judgment call.** A34's generalized bound `k * TIMESTAMP_QUANTUM / S_retained` is
+stated in the contract and the roxygen, but no test derives `k` or `S_retained`, and A09 also wants
+exact one-ULP rejection control. Decide whether that case lands in M2.4 or in `.agent/polish.md`.
 
 Merge `rev2-m2u4-2`'s red tests as cases beyond the frozen 82: the 82 bind to the phase-1 table, and
 a mutation-derived case has different provenance. Ruling A09/P07's open row is the one judgment call
