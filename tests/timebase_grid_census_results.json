@@ -1,0 +1,185 @@
+{
+  "aggregate": {
+    "assets_header_outlier": 4,
+    "assets_nominal_no_worse_than_legacy": 379,
+    "assets_within_p06_median_diff": 0,
+    "assets_within_p06_nominal": 375,
+    "grid_residual_max_median_diff": 0.493975903617,
+    "grid_residual_max_nominal": 0.0592165802499,
+    "header_outlier_worst_rel_err": 0.000146938338724,
+    "median_diff_rel_err_max": 0.00426245168067,
+    "n_assets": 379,
+    "n_assets_span_ge_min": 379,
+    "nominal_fs_rel_err_max": 0.000146938338724,
+    "strata": {
+      "iPad (5th generation)/16.6": {
+        "median_diff_rel_err_median": 0.00150656151324,
+        "n_assets": 125,
+        "nominal_fs_rel_err_median": 1.31608971346e-06,
+        "windows_on_grid_median_diff": 5781,
+        "windows_on_grid_nominal": 5781,
+        "windows_total": 5781
+      },
+      "iPad (5th generation)/16.7": {
+        "median_diff_rel_err_median": 0.00151063638015,
+        "n_assets": 131,
+        "nominal_fs_rel_err_median": 9.9488404385e-07,
+        "windows_on_grid_median_diff": 8186,
+        "windows_on_grid_nominal": 8266,
+        "windows_total": 8266
+      },
+      "iPad Air 11-inch (M2)/18.1.1": {
+        "median_diff_rel_err_median": 0.00216625310902,
+        "n_assets": 57,
+        "nominal_fs_rel_err_median": 1.20088283317e-06,
+        "windows_on_grid_median_diff": 4447,
+        "windows_on_grid_nominal": 4447,
+        "windows_total": 4447
+      },
+      "iPad Air 11-inch (M2)/26.5": {
+        "median_diff_rel_err_median": 0.00216839355757,
+        "n_assets": 66,
+        "nominal_fs_rel_err_median": 2.68378113443e-06,
+        "windows_on_grid_median_diff": 3157,
+        "windows_on_grid_nominal": 3157,
+        "windows_total": 3157
+      }
+    },
+    "windows_on_grid_median_diff": 21571,
+    "windows_on_grid_nominal": 21651,
+    "windows_total": 21651
+  },
+  "bounds": {
+    "grid_slot_tolerance": 0.25,
+    "min_cadence_span_sec": 1.0,
+    "p06_rel_err_max": 0.0001
+  },
+  "codecs": {
+    "h264": {
+      "assets_header_outlier": 2,
+      "assets_nominal_no_worse_than_legacy": 256,
+      "assets_within_p06_median_diff": 0,
+      "assets_within_p06_nominal": 254,
+      "grid_residual_max_median_diff": 0.493975903617,
+      "grid_residual_max_nominal": 0.0592165802499,
+      "header_outlier_worst_rel_err": 0.000146938338724,
+      "median_diff_rel_err_max": 0.00426245168067,
+      "n_assets": 256,
+      "n_assets_span_ge_min": 256,
+      "nominal_fs_rel_err_max": 0.000146938338724,
+      "windows_on_grid_median_diff": 13967,
+      "windows_on_grid_nominal": 14047,
+      "windows_total": 14047
+    },
+    "hevc": {
+      "assets_header_outlier": 2,
+      "assets_nominal_no_worse_than_legacy": 123,
+      "assets_within_p06_median_diff": 0,
+      "assets_within_p06_nominal": 121,
+      "grid_residual_max_median_diff": 0.0810810810807,
+      "grid_residual_max_nominal": 0.0497098214286,
+      "header_outlier_worst_rel_err": 0.000121585760028,
+      "median_diff_rel_err_max": 0.00223301263565,
+      "n_assets": 123,
+      "n_assets_span_ge_min": 123,
+      "nominal_fs_rel_err_max": 0.000121585760028,
+      "windows_on_grid_median_diff": 7604,
+      "windows_on_grid_nominal": 7604,
+      "windows_total": 7604
+    }
+  },
+  "device_configs": {
+    "iPad (5th generation)/16.6": {
+      "assets_header_outlier": 1,
+      "assets_nominal_no_worse_than_legacy": 125,
+      "assets_within_p06_median_diff": 0,
+      "assets_within_p06_nominal": 124,
+      "grid_residual_max_median_diff": 0.0810810810813,
+      "grid_residual_max_nominal": 0.0510246486046,
+      "header_outlier_worst_rel_err": 0.000144446636671,
+      "median_diff_rel_err_max": 0.00159685096764,
+      "n_assets": 125,
+      "n_assets_span_ge_min": 125,
+      "nominal_fs_rel_err_max": 0.000144446636671,
+      "windows_on_grid_median_diff": 5781,
+      "windows_on_grid_nominal": 5781,
+      "windows_total": 5781
+    },
+    "iPad (5th generation)/16.7": {
+      "assets_header_outlier": 1,
+      "assets_nominal_no_worse_than_legacy": 131,
+      "assets_within_p06_median_diff": 0,
+      "assets_within_p06_nominal": 130,
+      "grid_residual_max_median_diff": 0.493975903617,
+      "grid_residual_max_nominal": 0.0592165802499,
+      "header_outlier_worst_rel_err": 0.000146938338724,
+      "median_diff_rel_err_max": 0.00426245168067,
+      "n_assets": 131,
+      "n_assets_span_ge_min": 131,
+      "nominal_fs_rel_err_max": 0.000146938338724,
+      "windows_on_grid_median_diff": 8186,
+      "windows_on_grid_nominal": 8266,
+      "windows_total": 8266
+    },
+    "iPad Air 11-inch (M2)/18.1.1": {
+      "assets_header_outlier": 0,
+      "assets_nominal_no_worse_than_legacy": 57,
+      "assets_within_p06_median_diff": 0,
+      "assets_within_p06_nominal": 57,
+      "grid_residual_max_median_diff": 0.0810810810807,
+      "grid_residual_max_nominal": 0.0496888124273,
+      "header_outlier_worst_rel_err": 0.0,
+      "median_diff_rel_err_max": 0.00221582020385,
+      "n_assets": 57,
+      "n_assets_span_ge_min": 57,
+      "nominal_fs_rel_err_max": 9.86639846336e-05,
+      "windows_on_grid_median_diff": 4447,
+      "windows_on_grid_nominal": 4447,
+      "windows_total": 4447
+    },
+    "iPad Air 11-inch (M2)/26.5": {
+      "assets_header_outlier": 2,
+      "assets_nominal_no_worse_than_legacy": 66,
+      "assets_within_p06_median_diff": 0,
+      "assets_within_p06_nominal": 64,
+      "grid_residual_max_median_diff": 0.0810810810807,
+      "grid_residual_max_nominal": 0.0497098214286,
+      "header_outlier_worst_rel_err": 0.000121585760028,
+      "median_diff_rel_err_max": 0.00223301263565,
+      "n_assets": 66,
+      "n_assets_span_ge_min": 66,
+      "nominal_fs_rel_err_max": 0.000121585760028,
+      "windows_on_grid_median_diff": 3157,
+      "windows_on_grid_nominal": 3157,
+      "windows_total": 3157
+    }
+  },
+  "generator": "scripts/probe_timebase_grid.py",
+  "generator_version": "v1",
+  "sample": {
+    "n_assets": 379,
+    "seed": 2404,
+    "selection_rule": "full canonical population; deterministic SHA-256(seed,purpose,asset_id) output order",
+    "strata": {
+      "codec": {
+        "h264": 256,
+        "hevc": 123
+      },
+      "device_config": {
+        "iPad (5th generation)/16.6": 125,
+        "iPad (5th generation)/16.7": 131,
+        "iPad Air 11-inch (M2)/18.1.1": 57,
+        "iPad Air 11-inch (M2)/26.5": 66
+      },
+      "rotation": {
+        "0": 341,
+        "180": 10,
+        "270": 1,
+        "90": 27
+      }
+    }
+  },
+  "source_sha256": {
+    "scripts/probe_timebase_grid.py": "00be07295b094ab0e55be456a9b6228753859ee0d616686ad3c5197352ad2d26"
+  }
+}
