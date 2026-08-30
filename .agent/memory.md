@@ -174,6 +174,7 @@ uv run --no-sync ruff check && uv run --no-sync ruff format --check \
 - Tool caches (`.ruff_cache`, `.pytest_cache`, `.ty_cache`, `.coverage`) are cwd-relative → already private per worktree; no extra state paths needed.
 - `videos` is gitignored too, so a fresh worktree cannot see the corpus and every real-data command fails at a missing path rather than at a wrong answer. Link it read-only alongside the R library: `ln -sfn <primary>/videos <worktree>/videos`. Never write through either link.
 - `renv/library/` is gitignored, so a fresh worktree has no R library and every R case SKIPs. Symlink it read-only and the worktree gate becomes fully equivalent: `ln -sfn <primary>/renv/library <worktree>/renv/library` → 469 passed/0 skipped, `tests/test_r_pipeline.py` 25 passed/0 skipped, same as primary. Concurrent worktrees share it safely because R only reads packages; never `renv::install`/`renv::snapshot` through the link.
+- `inventory/` is gitignored and is now the third required link: `ln -sfn <primary>/inventory <worktree>/inventory`. Without it `tests/test_sessions.py::test_p05_real_corpus_headline_counts` SKIPs on the absent registry, and that single skip fails C8.08, whose A32 reconciliation demands zero skipped. `videos` + `renv/library` alone stopped being sufficient once a collection-reconciling case entered the suite. Read-only, like the other two — `inventory/` carries source paths and is as sensitive as the corpus.
 
 ## Session launch cost
 
