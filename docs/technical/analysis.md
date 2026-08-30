@@ -77,7 +77,7 @@ Each row describes one attempted metric in one emitted window. Rows remain when 
 
 The unique key is `video × person_idx × window_start_sec × window_end_sec × metric_id`. The artifact never duplicates estimate values. Read estimates from `<stem>_clinical_3d_windows.csv` by using the shared window key and `metric_id`.
 
-**Fields.** The first 22 fields form the QC record. The nine `ARTIFACT_TAG_COLS` follow them as the final block.
+**Fields.** The first 24 fields form the QC record. The nine `ARTIFACT_TAG_COLS` follow them as the final block. The record widened from 22 to 24 when `qc_policy_tolerance` and `qc_coverage_tolerance` were published between `max_gap_sec` and `qc_status`, so that a consumer reproduces both verdicts from the row alone rather than from a code constant.
 
 | Column | Type | Description |
 |--------|------|-------------|

@@ -44,14 +44,20 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 **Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 OPEN, contract frozen, implementation pending** — see below. M2.5, M2.6 and M2.7 are **unblocked**: M2.3's ruling is made and closed, so their shape is settled — M2.6 exists, and it recovers extrinsics from the subject's own keypoints rather than from scene features (R4). M2.5 stays M2.6's precondition.
 
-### M2.4 — implementation landed, red suite merge pending
+### M2.4 — gate green, two reviews mid-adjudication
 
 Contract at `.agent/archive/contract-m2u4.md`: **20 predicates P01-P20**, 4 invariant surfaces, gate
-identity, an 8-class probe seed, and **34 amendments A01-A34** ruling `test-m2u4`'s phase-1
-ambiguities over its **82 cases**. Baseline `6bbd50e`, gate **1116 passed / 0 skipped**,
-MAIN-verified. The estimator swap, the tolerance split, the schema widening and the golden
-regeneration are implemented; the unit closes when `wt/test-m2u4`'s 82 encoded cases merge and the
-seeded suite goes green against A32's floor.
+identity, an 8-class probe seed, and **35 amendments A01-A35** ruling `test-m2u4`'s phase-1
+ambiguities over its **82 cases**. Baseline `6bbd50e`, whose gate read 1116 passed / 0 skipped.
+
+**Gate green, MAIN-verified: `ruff`, `ruff format`, `ty` clean and `1199 passed` in 988.79 s, with
+collected == passed and zero skipped, xfailed, xpassed, deselected or errored** — A32's
+reconciliation, not a floor. Implementation, tolerance split, schema widening, golden regeneration,
+the 82-case red suite and the corpus artifacts are all merged and green.
+
+**The unit is not closeable yet**: `/session-roadmap` completes a unit on green predicates *and*
+every review row adjudicated. Two reviews are mid-flight and hold the only remaining work. Next
+session harvests them; nothing else is open.
 
 **The defect is larger than a precision improvement — it decides whether the real corpus is
 processable.** `1/median(diff(ts))` carries ~1e-3 relative bias against 4-decimal timestamps, and
@@ -76,7 +82,7 @@ Scope: `analysis/clinical_features.R` is the only production surface, plus its g
 `analysis/data_extraction.R:100-112` and `analysis/arthrose_diag.R:77-100` divide angular change by
 each rounded interval and go to `.agent/polish.md` rather than widening this unit.
 
-**Corpus-scale evidence, 379 assets in 1370 s** (`scout-m2u4-2`). Grid placement under `nominal_fs`
+**Corpus-scale evidence, 379 assets** (`scout-m2u4-2`). Grid placement under `nominal_fs`
 passes **21 651/21 651** windows against **21 571/21 651** legacy, and every one of the 80 legacy
 failures comes from a single 119.97 fps asset — the predicted shape, since the bias grows with frame
 count per unit time. Every asset's `nominal_fs` residual is no worse than legacy's, so the swap costs
@@ -86,7 +92,19 @@ header divides `n_frames` by a duration counting the terminal frame while `nomin
 `n_frames - 1` by the span that omits it — identical under constant frame rate, separating by
 `(terminal_frame_duration - mean_interval) / span` under VFR.
 
-**Wave state, all worktrees retained with named open dependencies.**
+**Next session's whole job.** Harvest the two live reviews, merge their red tests, adjudicate what
+they filed, rerun the gate, set M2.4 DONE and commit. Both worktrees carry committed work.
+
+| teammate | worktree | state at handoff | what remains |
+| -------- | -------- | ---------------- | ------------ |
+| `rev-m2u4-3` | `wt/rev-m2u4` | 32 of 73 rows adjudicated through batch 4 (`326717a`), gauge 58%+ | finish the table; open `fail` rows are P01 (fixed since — rescore), P07 + A09 (A34's generalized bound is documented but no test derives `k` or `S_retained`), P18 (docs, fixed since — rescore) |
+| `rev2-m2u4-2` | `wt/rev2-m2u4` | 20 of 33 mutants scored through `5236a28`, gauge 46%+ | finish the campaign; **two accepted findings already**: M07 survived-unencoded (`return(NA_real_)` -> `return(0)`, probably pipeline-equivalent since both call sites guard `fs <= 0`, so kill it at the unit), and M20 survived-encoded with a shipped red test `test_threshold_oracle_uses_published_tolerances` — C5.18 passed when both published tolerance reads were replaced by literals, because the producer values equal them |
+
+Merge `rev2-m2u4-2`'s red tests as cases beyond the frozen 82: the 82 bind to the phase-1 table, and
+a mutation-derived case has different provenance. Ruling A09/P07's open row is the one judgment call
+left — decide whether a `k`/`S_retained` case lands in this unit or in `.agent/polish.md`.
+
+**Wave-1 state, superseded by the table above; worktrees retained.**
 
 | teammate | branch tip | delivered | open dependency |
 | -------- | ---------- | --------- | --------------- |

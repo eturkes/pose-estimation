@@ -22,7 +22,7 @@ Redacted aggregates only: no filename, path, or subject identifier. All 9 units 
 
 ## U7 — worst cases
 
-Full 379-asset census; residual = per-file maximum across exporter-rounded 1 s windows under `nominal_fs`.
+Full 379-asset census; residual = per-file maximum across exporter-rounded 1 s windows under `nominal_fs`. Durable aggregate: `tests/timebase_grid_census_results.json`.
 
 | rank | stratum | residual | duration_s | what breaks | remaining limit |
 | ---- | ------- | -------- | ---------- | ----------- | --------------- |
@@ -41,17 +41,18 @@ Full 379-asset census; residual = per-file maximum across exporter-rounded 1 s w
 | ---- | ----- |
 | population + strata | population=379 canonical; device configurations=125 iPad5/16.6 + 131 iPad5/16.7 + 57 Air-M2/18.1.1 + 66 Air-M2/26.5; codecs=256 h264 + 123 hevc; rotations=341×0° + 27×90° + 10×180° + 1×270° |
 | sample size + selection rule | n=60; proportional device-config quotas + SHA-256(seed,purpose,asset_id) rank; mandatory coverage=all device/codec/rotation strata + nearest 29.963/29.987 Hz + maximum-fps asset. Sample strata: device=20/20/9/11 in population-table order; codec=40 h264 + 20 hevc; rotation=52×0° + 4×90° + 3×180° + 1×270°. |
-| determinism (seed/order) | PASS; seed=2404; two absent-output runs; `cmp` rc=0; both SHA-256=`11f0076f779241464eff529cef21c76168fa8f1382f658360d5e2d96cd60d1c5`; generator digest embedded + stale-source refusal rc=2 verified |
-| wall time | sample run 1=176.58 s / 266,972 KiB; sample rerun=288.53 s / 260,608 KiB under concurrent decode; full census=1,370.01 s / 278,756 KiB |
+| determinism (seed/order) | PASS; seed=2404; two absent-output sample runs; `cmp` rc=0; both SHA-256=`e95528415772ff122bcd678475431b154f745f89325fa971c9e034661ce709b2`; generator digest embedded + stale-source refusal rc=2 verified |
+| wall time | sample run 1=262.18 s / 266,112 KiB; sample rerun=342.71 s / 261,648 KiB under concurrent census; full census=1,532.27 s / 276,132 KiB; census SHA-256=`5b10af83850822dacc62a6b84c18d877eae5a4ce178312fd0a9e77e9a203a9fc` |
 
 ## U9 — register
 
 | id | verdict | evidence | disposition |
 | -- | ------- | -------- | ----------- |
-| R01 | BLOCKER — P20 header clause false | sample=1/60 above `1e-4`, max=1.10035234739e-4; census=4/379, max=1.46938338724e-4; failures span both codecs + 3 device configs | MAIN must choose: A=retain P06 bound and encode P20 failure; B=amend the real-header clause while retaining synthetic P06. Outcome-based reselection is rejected. |
-| R02 | PASS — P20 grid clause | sample nominal=3,200/3,200; census nominal=21,651/21,651; census maximum residual=0.0592165802499 < 0.25 | Accept the adopted estimator's real-corpus grid evidence. |
-| R03 | PASS — estimator comparison | nominal header error ≤ legacy on 379/379 assets; legacy grid=21,571/21,651; one 119.97 fps asset accounts for all 80 legacy failures | Adoption remains evidence-backed despite R01's overbroad header claim. |
-| R04 | LIMIT — census assurance | committed sample=60 + byte-identical rerun; full census=one redacted ephemeral run | No claim of full-census byte determinism; sample artifact owns P20's durable evidence. |
-| R05 | LIMIT — scope + provenance | probe rounds every decoded non-empty frame; pose detection/export row loss is absent. `source_sha256` binds generator bytes only per frozen schema. | Claims cover decode timebase, not detector sparsity. Regeneration requires the canonical corpus + inventory + qualification inputs. |
+| R01 | PASS — P20 binding grid claim | sample nominal=3,200/3,200 vs legacy=3,120/3,200; census nominal=21,651/21,651 vs legacy=21,571/21,651; census maximum nominal residual=0.0592165802499 < 0.25 | Adopt `nominal_fs`; the single 119.97 fps asset accounts for all 80 legacy failures. |
+| R02 | CROSS-CHECK — header agreement | sample outliers=1/60, worst=1.10035234739e-4; census=4/379, worst=1.46938338724e-4 across both codecs + 3 device configs | No gate. P06's `1e-4` accuracy claim binds synthetic known-cadence timestamps only. |
+| R03 | PASS — endpoint mechanism | worst sample outlier: terminal frame duration=0.0350 s vs observed mean interval≈0.03337 s over 15.0833 s; measured header separation=1.10035e-4 | `terminal_frame_duration_sec` now publishes per asset; A31 is reproducible from the committed sample. |
+| R04 | PASS — estimator dominance | nominal header error ≤ legacy on 60/60 sample assets + 379/379 census assets | The swap costs no measured asset while removing the high-rate grid failure. |
+| R05 | PASS — artifact assurance | sample=60 + byte-identical rerun, SHA-256=`e95528415772ff122bcd678475431b154f745f89325fa971c9e034661ce709b2`; census=379 aggregate-only, SHA-256=`5b10af83850822dacc62a6b84c18d877eae5a4ce178312fd0a9e77e9a203a9fc` | Sample owns rerun determinism; census owns corpus prevalence + codec/config breakdowns. |
+| R06 | LIMIT — scope + provenance | probe rounds every decoded non-empty frame; pose detection/export row loss is absent. `source_sha256` binds generator bytes only per frozen schema. | Claims cover decode timebase, not detector sparsity. Regeneration requires the canonical corpus + inventory + qualification inputs. |
 
 SCOUT-M2U4-2-DONE-1
