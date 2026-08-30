@@ -43,9 +43,9 @@ _OUTPUT_SUFFIXES = {
 _SHARED_VALUES = {
     "coord_space": "world-metric-3d",
     "distance_unit": "m",
-    "producer_version": "v2",
-    "metric_method_version": "v1",
-    "qc_policy_version": "v2",
+    "producer_version": "v3",
+    "metric_method_version": "v2",
+    "qc_policy_version": "v3",
     "provenance_class": "unverified",
 }
 _FRAME_BASE_COLUMNS = (
@@ -194,6 +194,8 @@ _WINDOW_QC_BASE_COLUMNS = (
     "n_required_keypoints_present",
     "min_coverage",
     "max_gap_sec",
+    "qc_policy_tolerance",
+    "qc_coverage_tolerance",
     "qc_status",
     "qc_reason",
 )

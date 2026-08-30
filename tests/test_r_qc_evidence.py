@@ -60,6 +60,8 @@ _QC_COLUMNS = (
     "n_required_keypoints_present",
     "min_coverage",
     "max_gap_sec",
+    "qc_policy_tolerance",
+    "qc_coverage_tolerance",
     "qc_status",
     "qc_reason",
     *_TAG_COLUMNS,
@@ -97,19 +99,27 @@ _EVIDENCE_FIELDS = (
 )
 _MIN_COVERAGE = 0.80
 _MAX_GAP_SEC = 0.10
-_POLICY_TOLERANCE = 1e-9
+# Two slacks with different jobs: the gap comparison divides a slot count by an
+# ESTIMATED cadence and carries the estimator residual, bounded by the export
+# quantum over the guaranteed span; coverage is a ratio of integer counts and
+# carries representation error alone.
+_TIMESTAMP_QUANTUM = 1e-4
+_MIN_CADENCE_SPAN_SEC = 1.0
+_GAP_TOLERANCE = _TIMESTAMP_QUANTUM / _MIN_CADENCE_SPAN_SEC
+_COVERAGE_TOLERANCE = 1e-9
+_GAP_INTERVAL_FACTOR = 1.5
 
 _BASELINE_2D_SHA256 = {
     "2d_csv4dp_clinical.csv": "4b6eb62c5833f45e20b0f9d7972014f131da9737dd6620547ae1e955e001e169",
-    "2d_csv4dp_clinical_windows.csv": "7d3814f852211a7c0ef0815a8ce4fdc434a675f4cc9a76ac41f47732f995e340",
+    "2d_csv4dp_clinical_windows.csv": "e29cac469203c27789312f4ac519df9fc4292de85025e2b23f015178ea5cc641",
     "2d_cumsum_clinical.csv": "ee81990d04b803b0065837a1cef0c7907ded04fac0ca72004c09cc8c82743752",
-    "2d_cumsum_clinical_windows.csv": "a0538b62d9442621ca421d85ef01b00dd79f050c5e81aad2dbcb6f8ac5b2b807",
+    "2d_cumsum_clinical_windows.csv": "fef74b73e1b5de3d1b289557b75b064e2bdf9163d400383ffb07a48acbf0ce2c",
     "2d_idx_clinical.csv": "e717bed3d5a3df4a75929c46a9ef49b86810d40306f6be82739afd5d5e733692",
-    "2d_idx_clinical_windows.csv": "b138183069244fa227ef4898c5db82127e1a2a10118346493d2f45207bd9a8d7",
+    "2d_idx_clinical_windows.csv": "e29cac469203c27789312f4ac519df9fc4292de85025e2b23f015178ea5cc641",
 }
 _BASELINE_3D_NORMALIZED_SHA256 = {
-    "world3d_clinical_3d.csv": "24e1f44eb8036f6ca87b0001a828f9116b33b8aa456238f415a07fcc7be941c9",
-    "world3d_clinical_3d_windows.csv": "d4c2ee605fe9993a9942965997ab7be467660d13fc2913860e649a2bef17b998",
+    "world3d_clinical_3d.csv": "6cdb7ffaded931a5c59db7be6b9ebac6e6331af5fa2ea362ce7423b257546748",
+    "world3d_clinical_3d_windows.csv": "e5bfb9b78aed2c804b4b4e18c62ce8163cf85e50fb27e3f56e03f2121c6eed7f",
 }
 
 pytestmark = pytest.mark.skipif(not _r_available(), reason="R or required R packages unavailable")
@@ -407,6 +417,25 @@ def _metric_estimate(window_rows: list[dict[str, str]], qc_row: dict[str, str]) 
     raise AssertionError(f"orphan QC row: {qc_row}")
 
 
+def _nominal_fs(timestamps: list[float], *, magnitude: bool = False) -> float:
+    """Cadence from four-decimal timestamps, recomputed here rather than read.
+
+    The reciprocal of the median interval carries ~1e-3 relative bias against a
+    quantised timebase: the rounded intervals alternate between two values and
+    the median picks the shorter. Averaging the non-gap intervals cancels the
+    quantisation, and the oracle owns that arithmetic outright so a producer
+    regression cannot hide inside a shared helper.
+    """
+    deltas = [right - left for left, right in itertools.pairwise(timestamps)]
+    if magnitude:
+        deltas = [abs(delta) for delta in deltas]
+    deltas = [delta for delta in deltas if math.isfinite(delta) and delta > 0]
+    if len(deltas) < 2:
+        return math.nan
+    cut = _GAP_INTERVAL_FACTOR * statistics.median(deltas)
+    return 1 / statistics.fmean([delta for delta in deltas if delta <= cut])
+
+
 def _oracle(
     input_rows: list[dict[str, str]],
     window_rows: list[dict[str, str]],
@@ -420,8 +449,7 @@ def _oracle(
         row for row in input_rows if row["video"] == video and row["person_idx"] == person_idx
     ]
     timestamps = [_as_float(row["timestamp_sec"]) for row in group_rows]
-    deltas = [right - left for left, right in itertools.pairwise(timestamps)]
-    fs = 1 / statistics.median(deltas)
+    fs = _nominal_fs(timestamps, magnitude=True)
     rows = [
         row for row in group_rows if window_start <= _as_float(row["timestamp_sec"]) < window_end
     ]
@@ -446,9 +474,9 @@ def _oracle(
         reason = "missing_required_keypoints"
     elif n_valid_frames < 2 or n_valid_intervals < 1:
         reason = "insufficient_observations"
-    elif longest_gap_sec > _MAX_GAP_SEC * (1 + _POLICY_TOLERANCE):
+    elif longest_gap_sec > _MAX_GAP_SEC * (1 + _GAP_TOLERANCE):
         reason = "gap_too_long"
-    elif frame_coverage < _MIN_COVERAGE * (1 - _POLICY_TOLERANCE):
+    elif frame_coverage < _MIN_COVERAGE * (1 - _COVERAGE_TOLERANCE):
         reason = "insufficient_coverage"
     elif not math.isfinite(estimate):
         reason = "estimator_undefined"
@@ -646,6 +674,8 @@ def test_corpus_group_matches_oracle(corpus_run: ProducerRun, case_name: str) ->
         assert row["required_keypoints"] == ",".join(_SOURCE_KEYPOINTS[row["source_group"]])
         _assert_numeric(row["min_coverage"], _MIN_COVERAGE)
         _assert_numeric(row["max_gap_sec"], _MAX_GAP_SEC)
+        _assert_numeric(row["qc_policy_tolerance"], _GAP_TOLERANCE)
+        _assert_numeric(row["qc_coverage_tolerance"], _COVERAGE_TOLERANCE)
 
 
 def test_estimator_undefined_is_lowest_reason(corpus_run: ProducerRun) -> None:
@@ -788,6 +818,8 @@ def test_invalid_timebase_rows_retain_keys_and_na_evidence(
         assert row["required_keypoints"]
         _assert_numeric(row["min_coverage"], _MIN_COVERAGE)
         _assert_numeric(row["max_gap_sec"], _MAX_GAP_SEC)
+        _assert_numeric(row["qc_policy_tolerance"], _GAP_TOLERANCE)
+        _assert_numeric(row["qc_coverage_tolerance"], _COVERAGE_TOLERANCE)
 
 
 def test_fully_reversed_timebase_keeps_the_window(tmp_path: pathlib.Path) -> None:
@@ -842,9 +874,9 @@ def test_qc_identity_tags_and_versions(corpus_run: ProducerRun) -> None:
         "source_sha256": source_hash,
         "coord_space": "world-metric-3d",
         "distance_unit": "m",
-        "producer_version": "v2",
-        "metric_method_version": "v1",
-        "qc_policy_version": "v2",
+        "producer_version": "v3",
+        "metric_method_version": "v2",
+        "qc_policy_version": "v3",
         "metric_qualification": "gap-aware",
         "provenance_class": "unverified",
     }
@@ -1027,21 +1059,54 @@ def test_window_edge_absence_keeps_the_nominal_slot_count(
     assert row["qc_status"] == ("pass" if reason == "none" else "fail")
 
 
-def test_gap_threshold_tolerance_is_load_bearing(corpus_run: ProducerRun) -> None:
-    """A gap on the 0.10 s boundary passes, and needs the relative tolerance.
+def test_gap_boundary_is_exact_under_the_adopted_estimator(corpus_run: ProducerRun) -> None:
+    """A complete 100 Hz grid puts the ten-slot gap exactly on 0.10 s.
 
-    At 100 Hz a ten-frame hole divides out to 0.10000000000000009, which a
-    bare comparison rejects. R-12's tolerance is what keeps a boundary case a
-    boundary case rather than a representation artifact.
+    The reciprocal of the median interval read 99.99999999999991 Hz here and
+    pushed the boundary to 0.10000000000000009, so a representation slack had
+    to rescue it. Averaging the intervals telescopes to an exact 100 Hz, and
+    the boundary case is now a boundary case without any slack at all.
     """
     _, rows = _qc_rows(corpus_run)
     boundary = _row(rows, "gap10_100", "left_wrist_velocity_mean", window_start=0.0)
     measured = _as_float(boundary["longest_gap_sec"])
-    assert measured > _MAX_GAP_SEC
-    assert measured <= _MAX_GAP_SEC * (1 + _POLICY_TOLERANCE)
+    assert measured == _MAX_GAP_SEC
     assert boundary["qc_reason"] != "gap_too_long"
     beyond = _row(rows, "gap11_100", "left_wrist_velocity_mean", window_start=0.0)
     assert beyond["qc_reason"] == "gap_too_long"
+
+
+def test_estimator_slack_is_load_bearing_across_clip_length() -> None:
+    """The gap slack absorbs estimator residual, which clip length drives.
+
+    `nominal_fs` telescopes to span over interval count, and a nominal 30 Hz
+    clip divides exactly only when that count is a multiple of 3. The other
+    two residues leave ~1.7e-5 of relative residual, so a three-slot gap
+    crosses 0.10 s by that much and the representation slack rejects it. A
+    QC verdict that follows clip frame count mod 3 has no physical meaning,
+    which is the whole reason the two slacks are sized apart.
+    """
+    measured = _run_r(
+        """
+        result <- list(rows = lapply(58:63, function(n) {
+          t <- round((seq_len(n) - 1) / 30, 4)
+          fs <- nominal_fs(t, magnitude = TRUE)
+          gap <- 3 / fs
+          list(n = n, gap = gap,
+               reason = qc_reason_for(TRUE, 30L, 29L, gap, 1.0, 1))
+        }))
+        """
+    )["rows"]
+    assert [row["n"] for row in measured] == list(range(58, 64))
+    assert all(row["reason"] == "none" for row in measured), measured
+    gaps = [row["gap"] for row in measured]
+    assert all(gap <= _MAX_GAP_SEC * (1 + _GAP_TOLERANCE) for gap in gaps)
+    # Load-bearing: the representation slack alone rejects the residues that
+    # do not divide, which is exactly the pass/pass/fail cycle being removed.
+    rejected_by_representation_slack = [
+        gap for gap in gaps if gap > _MAX_GAP_SEC * (1 + _COVERAGE_TOLERANCE)
+    ]
+    assert len(rejected_by_representation_slack) == 2, gaps
 
 
 def test_coverage_tolerance_is_pinned_at_the_policy_boundary() -> None:

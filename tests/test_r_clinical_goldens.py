@@ -36,7 +36,7 @@ _OUTPUT_CASES = tuple(
     for dataset, entries in _DATASETS.items()
     for filename, kind in entries
 )
-_BASE_WIDTHS = {"frame": 54, "window": 46, "window_qc": 22}
+_BASE_WIDTHS = {"frame": 54, "window": 46, "window_qc": 24}
 _TAG_COLUMNS = (
     "artifact_kind",
     "source_sha256",

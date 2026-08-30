@@ -39,21 +39,33 @@ def main() -> int:
     # machine-readable rather than inferred from the case's prose.
     kinds = dict(re.findall(r"^#\s*kind:\s*(C\d\.\d\d)\s*=\s*(\w+)", text, re.M))
     unkinded = [c for c in CASES if kinds.get(c) not in KINDS]
-    unfilled = [c for c in CASES if re.search(
-        rf"def {fn_name(c)}\(.*?(?=\ndef |\Z)", text, re.S) and UNFILLED in (
-        re.search(rf"def {fn_name(c)}\(.*?(?=\ndef |\Z)", text, re.S).group(0))]
-    extra = sorted(set(re.findall(r"^def (test_c\d_\d\d)\(", text, re.M))
-                   - {fn_name(c) for c in CASES})
+    unfilled = [
+        c
+        for c in CASES
+        if re.search(rf"def {fn_name(c)}\(.*?(?=\ndef |\Z)", text, re.S)
+        and UNFILLED in (re.search(rf"def {fn_name(c)}\(.*?(?=\ndef |\Z)", text, re.S).group(0))
+    ]
+    extra = sorted(
+        set(re.findall(r"^def (test_c\d_\d\d)\(", text, re.M)) - {fn_name(c) for c in CASES}
+    )
 
-    for label, rows in (("missing", missing), ("unfilled", unfilled),
-                        ("unkinded", unkinded), ("unknown-id", extra)):
+    for label, rows in (
+        ("missing", missing),
+        ("unfilled", unfilled),
+        ("unkinded", unkinded),
+        ("unknown-id", extra),
+    ):
         if rows:
-            print(f"FAIL {label} {len(rows)}: {' '.join(map(str, rows[:12]))}"
-                  f"{' …' if len(rows) > 12 else ''}")
+            print(
+                f"FAIL {label} {len(rows)}: {' '.join(map(str, rows[:12]))}"
+                f"{' …' if len(rows) > 12 else ''}"
+            )
     total_bad = len(missing) + len(unfilled) + len(unkinded) + len(extra)
-    print(f"{len(CASES) - len(missing) - len(unfilled)}/{len(CASES)} encoded, "
-          f"{len([c for c in CASES if kinds.get(c) == 'red'])} red, "
-          f"{len([c for c in CASES if kinds.get(c) == 'control'])} control")
+    print(
+        f"{len(CASES) - len(missing) - len(unfilled)}/{len(CASES)} encoded, "
+        f"{len([c for c in CASES if kinds.get(c) == 'red'])} red, "
+        f"{len([c for c in CASES if kinds.get(c) == 'control'])} control"
+    )
     return 1 if total_bad else 0
 
 

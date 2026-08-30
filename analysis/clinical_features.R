@@ -44,6 +44,17 @@ WINDOW_SEC <- 1.0
 # Frequency cutoff (Hz) for spectral arc length calculation.
 SAL_FREQ_CUTOFF <- 10
 
+# Quantum of the exported timebase: src/pose_estimation/export.py rounds
+# timestamp_sec to four decimals, so each endpoint carries up to half a quantum
+# of rounding error and no estimator reading those timestamps beats a relative
+# error of TIMESTAMP_QUANTUM / span.
+TIMESTAMP_QUANTUM <- 1e-4
+
+# Shortest span over which cadence accuracy is claimed.  It is the window
+# length by construction: a clip too short to emit a window never reaches a
+# published row, so the guarantee domain and the publication domain coincide.
+MIN_CADENCE_SPAN_SEC <- WINDOW_SEC
+
 # An inter-sample interval longer than this multiple of the median is a
 # tracking gap rather than a frame, and is excluded when estimating the
 # nominal frame rate.
@@ -75,17 +86,17 @@ OBSERVATION_CONFIDENCE_GATE <- 0
 # ------------------------------------------------------------------
 
 # Producer layout version — bump when the emitted column set changes.
-PRODUCER_VERSION <- "v2"
+PRODUCER_VERSION <- "v3"
 
 # Metric-definition version — bump when a metric's computation changes.
 # QC evidence is advisory: it never overwrites a computed estimate, so
 # adding it leaves every shipped metric value where it was.
-METRIC_METHOD_VERSION <- "v1"
+METRIC_METHOD_VERSION <- "v2"
 
 # QC-policy version — bump when REPROJ_GATE_PX,
 # TRIANGULATION_ANGLE_GATE_DEG, OBSERVATION_CONFIDENCE_GATE, a window QC
 # threshold or the reason vocabulary change value.
-QC_POLICY_VERSION <- "v2"
+QC_POLICY_VERSION <- "v3"
 
 # Coordinate space and distance unit of the metric-3D outputs.  Per-metric
 # units (m, m/s, deg, dimensionless) are a registry concern, not an
@@ -118,10 +129,19 @@ QUALIFICATION_PHASE  <- "gap-unsafe"
 QC_MIN_COVERAGE <- 0.80
 QC_MAX_GAP_SEC  <- 0.10
 
-# Relative slack on both threshold comparisons.  A gap that divides out to
-# 0.10000000000000009 sits on the 0.10 s boundary rather than beyond it, and
-# a bare comparison would fail it on representation alone.
-QC_POLICY_TOLERANCE <- 1e-9
+# Two slacks, because the two comparisons carry different error.  Coverage is
+# a ratio of integer counts and needs representation slack alone: a share that
+# divides out to 0.7999999999999999 sits on the 0.80 boundary rather than under
+# it.  The gap comparison divides a slot count by an ESTIMATED cadence, so it
+# also carries the estimator residual, which TIMESTAMP_QUANTUM / span bounds
+# four orders of magnitude above IEEE754 slack.  One shared 1e-9 band made the
+# nominal 30 Hz three-slot verdict cycle pass/pass/fail with clip length mod 3,
+# a verdict with no physical meaning; one shared 1e-4 band would instead admit
+# coverage below 0.80 with no estimator justification.  The gap slack stays far
+# below one frame period — 0.10 s * 1e-4 = 1e-5 s against 1/120 = 8.3e-3 s at
+# the fastest supported cadence — so it can never mask a real gap violation.
+QC_COVERAGE_TOLERANCE <- 1e-9
+QC_POLICY_TOLERANCE   <- TIMESTAMP_QUANTUM / MIN_CADENCE_SPAN_SEC
 
 # Primary QC cause, highest precedence first.  One row records one cause;
 # concurrent causes stay reconstructable from the evidence fields, so the
@@ -423,20 +443,43 @@ movement_efficiency <- function(x, y, z) {
 #' Nominal frame rate, robust to timestamp quantisation.
 #'
 #' Exported timestamps are rounded to four decimals (see
-#' \code{src/pose_estimation/export.py}), so \code{1 / median(diff(t))} reads
-#' 30.03 Hz for a 30 fps capture: the rounded intervals alternate 0.0333 and
-#' 0.0334 and the median picks the shorter one.  Averaging the non-gap
-#' intervals cancels the quantisation instead of amplifying it.  Intervals
-#' longer than \code{GAP_INTERVAL_FACTOR} times the median are dropped so that
-#' tracking gaps do not inflate the estimate.
+#' \code{src/pose_estimation/export.py}), so the reciprocal of the median
+#' interval reads 30.03 Hz for a 30 fps capture: the rounded intervals
+#' alternate 0.0333 and 0.0334 and the median picks the shorter one.  The
+#' prose keeps that defect out of code form, so a source scan for a surviving
+#' reciprocal-of-median-diff cadence expression stays decisive.  Averaging the
+#' non-gap intervals cancels the quantisation instead of amplifying it.
+#' Intervals longer than \code{GAP_INTERVAL_FACTOR} times the median are
+#' dropped so that tracking gaps do not inflate the estimate.
+#'
+#' Rounding errors telescope only within one uninterrupted run of retained
+#' intervals.  Over a complete series the mean telescopes to \code{span / n},
+#' the two endpoints carry the whole error, and
+#' \code{abs(delta_fs / fs) <= TIMESTAMP_QUANTUM / span} — the floor for any
+#' estimator reading four-decimal timestamps.  Cutting \code{k - 1} gaps leaves
+#' \code{k} runs that no longer telescope into each other, loosening the bound
+#' to \code{k * TIMESTAMP_QUANTUM / S_retained} over the retained exposure.
+#' Both forms stay an order of magnitude inside what grid placement needs
+#' (\code{0.5 / n_intervals}, so no sample crosses a slot boundary), and
+#' \code{trajectory_grid_status()}'s residual measures that directly rather
+#' than inferring it from this bound.
+#'
+#' Two usable intervals are the floor.  A single interval is one rounded
+#' difference, whose relative error is a whole quantum over one frame period —
+#' 0.3% at 30 Hz — which is worse than the estimator this one replaces.
 #'
 #' @param t Numeric vector — timestamps in seconds.
+#' @param magnitude Logical — when \code{TRUE}, read interval magnitudes, so an
+#'   out-of-order clip still yields its nominal rate.  The default keeps the
+#'   positive-difference contract, so no caller gets magnitude semantics
+#'   implicitly.
 #' @return Scalar sampling frequency in Hz, or \code{NA_real_} when
 #'   undeterminable.
-nominal_fs <- function(t) {
+nominal_fs <- function(t, magnitude = FALSE) {
   d <- diff(t[!is.na(t)])
+  if (magnitude) d <- abs(d)
   d <- d[is.finite(d) & d > 0]
-  if (length(d) == 0) return(NA_real_)
+  if (length(d) < 2L) return(NA_real_)
 
   keep <- d <= GAP_INTERVAL_FACTOR * median(d)
   dt <- mean(d[keep])
@@ -1080,6 +1123,8 @@ window_qc_schema <- function() {
     n_required_keypoints_present = integer(),
     min_coverage                 = double(),
     max_gap_sec                  = double(),
+    qc_policy_tolerance          = double(),
+    qc_coverage_tolerance        = double(),
     qc_status                    = character(),
     qc_reason                    = character()
   )
@@ -1130,7 +1175,7 @@ qc_reason_for <- function(timebase_ok, n_valid_frames, n_valid_intervals,
   if (longest_gap_sec > QC_MAX_GAP_SEC * (1 + QC_POLICY_TOLERANCE)) {
     fired <- c(fired, "gap_too_long")
   }
-  if (frame_coverage < QC_MIN_COVERAGE * (1 - QC_POLICY_TOLERANCE)) {
+  if (frame_coverage < QC_MIN_COVERAGE * (1 - QC_COVERAGE_TOLERANCE)) {
     fired <- c(fired, "insufficient_coverage")
   }
   if (!is.finite(estimate)) fired <- c(fired, "estimator_undefined")
@@ -1212,6 +1257,11 @@ window_qc_rows <- function(vid, pid, ws, we, tracking, traj, estimates,
     n_required_keypoints_present = as.integer(n_valid_frames > 0L),
     min_coverage = QC_MIN_COVERAGE,
     max_gap_sec  = QC_MAX_GAP_SEC,
+    # Both slacks publish, so a consumer reproduces both threshold verdicts
+    # from the row alone.  Withholding either leaves its comparison
+    # underdetermined at the boundary.
+    qc_policy_tolerance   = QC_POLICY_TOLERANCE,
+    qc_coverage_tolerance = QC_COVERAGE_TOLERANCE,
     qc_status    = ifelse(reasons == "none", "pass", "fail"),
     qc_reason    = reasons
   )
@@ -1247,9 +1297,8 @@ compute_window_features <- function(df, frame_features, tracking,
     # and the kernel's grid check is what rules on ordering.  Inferring a
     # signed rate here would drop the clip before any window was keyed, hiding
     # the defect the QC pass exists to publish as invalid_timebase.
-    dt_median <- median(abs(diff(ts)), na.rm = TRUE)
-    if (is.na(dt_median) || dt_median <= 0) next
-    fs <- 1 / dt_median
+    fs <- nominal_fs(ts, magnitude = TRUE)
+    if (!is.finite(fs) || fs <= 0) next
 
     # 3D inputs may have blank timestamps on frames the reference
     # camera missed — guard the window arithmetic against NA.
@@ -1631,9 +1680,11 @@ segment_movements <- function(df, frame_features, tracking,
     n <- length(ts)
     if (n < min_movement_frames) next
 
-    dt_median <- median(diff(ts), na.rm = TRUE)
-    if (is.na(dt_median) || dt_median <= 0) next
-    fs <- 1 / dt_median
+    # Signed intervals, selected explicitly so a later default change cannot
+    # move segmentation silently.  No QC artifact reports this path, so a
+    # descending clip drops here rather than publishing a defect row.
+    fs <- nominal_fs(ts, magnitude = FALSE)
+    if (!is.finite(fs) || fs <= 0) next
 
     for (side in c("left", "right")) {
       wr_x <- as.numeric(sub_df[[bcol(side, "wrist", "x")]])

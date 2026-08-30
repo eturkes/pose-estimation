@@ -62,6 +62,7 @@ CSVs without `_conf` keep finite-coordinate presence semantics.
   - `metric_qualification` states gap semantics in the artifact rather than only here: `gap-aware` on windows (timestamp-aware kernel), `gap-unsafe` on movement phases (still differentiates across holes), `frame-instantaneous` on per-frame values, whose displacements are row-adjacent steps that go NA on a masked sample without checking the interval.
   - `provenance_class` = `unverified`: rig, model and filter identity are absent from `world3d.csv`, so provenance is declared unknown rather than guessed, and a reader refuses to pool across unverified artifacts instead of assuming equivalence.
   - The three version tags are independent. `producer_version` tracks the emitted column set, `metric_method_version` a metric's computation, `qc_policy_version` the gate values (`REPROJ_GATE_PX`, `TRIANGULATION_ANGLE_GATE_DEG`, `OBSERVATION_CONFIDENCE_GATE`). Values are `v<n>`, never bare digits — a bare `1` is guessed `double` by a default `read_csv`, which would re-open the numeric-feature hazard.
+  - **The triplet identifies the producer release, not the individual file.** `attach_artifact_tags()` writes one triplet across every 3D output of a run, so a bump in any of the three moves all 3D files — including a file whose own content is byte-identical to the previous release. Read the tags as "which release emitted this", never as "this file changed". A reader that needs per-file change detection must compare content or hashes; a reader that needs release compatibility compares tags. Per-file version vectors are a deliberate non-goal here, because one triplet per release is what makes a set of 3D artifacts safe to pool.
 - **Typed empty outputs (3D only)**: all three 3D artifacts are always written, carrying the full ordered header with zero data rows when nothing qualifies, which also overwrites any stale file from an earlier run. 2D keeps its skip-if-empty behaviour. CSV carries no type channel — a default `read_csv` of a header-only file returns every column as character — so a reader recovers types by supplying explicit `readr::cols()` collectors, and `window_schema()`/`phase_schema()` are the ordered column owners it builds them from. A zero-row artifact cannot carry tag values; identity binds by stem to the frame artifact, which is non-empty whenever the input has at least one row.
 - Input discovery excludes its own outputs via regex `clinical[_a-z0-9]*|movement_phases[_a-z0-9]*` (digit class covers `_3d`).
 - Window stats use `safe_mean`/`safe_sd` (all-NA → NA, warning-free); CPI now reuses per-frame `trunk_lean_deg` instead of recomputing 2D lean, so it is mode-appropriate automatically.
@@ -100,15 +101,17 @@ The unique key is `video × person_idx × window_start_sec × window_end_sec × 
 | `n_required_keypoints_present` | int | Required keypoints with at least one gate-passed sample in the window |
 | `min_coverage` | float | Literal minimum frame-coverage threshold |
 | `max_gap_sec` | float | Literal maximum gap threshold, in seconds |
+| `qc_policy_tolerance` | float | Relative estimator slack applied to the gap comparison |
+| `qc_coverage_tolerance` | float | Relative representation slack applied to the coverage comparison |
 | `qc_status` | string | `pass` or `fail` |
 | `qc_reason` | string | Precedence-selected primary usability cause |
 | `artifact_kind` | string | Fixed value `window_qc` |
 | `source_sha256` | string | SHA-256 of the input CSV bytes, shared with the other 3D artifacts |
 | `coord_space` | string | Fixed value `world-metric-3d` |
 | `distance_unit` | string | Fixed value `m` |
-| `producer_version` | string | Producer layout identifier; `v2` for this artifact set |
-| `metric_method_version` | string | Metric computation identifier; unchanged at `v1` |
-| `qc_policy_version` | string | QC policy identifier; `v2` for this policy |
+| `producer_version` | string | Producer layout identifier; `v3` for this artifact set |
+| `metric_method_version` | string | Metric computation identifier; `v2` after cadence adoption |
+| `qc_policy_version` | string | QC policy identifier; `v3` for this policy |
 | `metric_qualification` | string | Fixed value `gap-aware` |
 | `provenance_class` | string | Fixed value `unverified` |
 
@@ -156,24 +159,34 @@ The artifact records only the highest-precedence cause. Concurrent support cause
 
 If observed samples flank `k` missing slots, their unobserved span covers `k + 1` intervals. The field reports the missing-slot duration, not that larger span.
 
-The producer estimates `fs` as `1 / median(abs(diff(t)))`. Rounded timestamps can make a nominal 30 fps capture read as about 30.03 Hz.
+The producer estimates `fs` with `nominal_fs(t, magnitude = TRUE)`. That estimator averages the non-gap intervals. The average cancels the four-decimal export rounding.
+
+The reciprocal of the median interval does not cancel that rounding. The earlier estimator read about 30.03 Hz for a nominal 30 fps capture.
 
 The magnitude keeps a cadence for an out-of-order clip. The window is then keyed and reported as `invalid_timebase`. A signed estimate would drop the clip before any window existed.
 
-A three-slot gap then measures about 0.0999 seconds. The policy can therefore decide a nominal 0.10-second boundary inside this cadence drift.
+The estimator needs two usable positive intervals. A single interval carries a whole quantum of rounding error, which is worse than the estimator it replaces.
+
+Accuracy has a floor. Each endpoint carries up to half of the 1e-4 second export quantum, so the relative error obeys `abs(delta_fs / fs) <= 1e-4 / span`. The producer claims that bound for a span of 1 second or more.
 
 **Policy and tolerance.** The shipped thresholds are engineering-provisional. They are not clinically validated.
 
 Each row carries `min_coverage = 0.80` and `max_gap_sec = 0.10`. These literal values make the support-policy result re-derivable without a registry.
 
-The producer compares unrounded values with these relative tolerances:
+Each row also carries two slacks, because the two comparisons carry different error:
 
-- `longest_gap_sec <= max_gap_sec * (1 + 1e-9)`
-- `frame_coverage >= min_coverage * (1 - 1e-9)`
+- `longest_gap_sec <= max_gap_sec * (1 + qc_policy_tolerance)`, with `qc_policy_tolerance = 1e-4`
+- `frame_coverage >= min_coverage * (1 - qc_coverage_tolerance)`, with `qc_coverage_tolerance = 1e-9`
+
+The gap comparison divides a slot count by an estimated cadence, so it carries the estimator residual. The coverage comparison divides two integer counts, so it carries representation error alone.
+
+One shared 1e-9 slack made the nominal 30 Hz three-slot verdict follow the clip length. The verdict cycled pass, pass, fail as the frame count moved through the residues of 3. That result had no physical meaning.
+
+The gap slack stays far below one frame period. It admits 1e-5 seconds against 8.3e-3 seconds at 120 Hz, so it cannot hide a real gap.
 
 The first comparison is inclusive. `interval_coverage` remains evidence and does not gate status.
 
-A policy change must update `qc_policy_version`. This artifact ships with `qc_policy_version = v2`.
+A policy change must update `qc_policy_version`. This artifact ships with `qc_policy_version = v3`.
 
 **Limitations.** `qc_reason` reports metric-usability causes only. It never attributes upstream fusion failures to reprojection, cheirality, triangulation angle, absent source views, or confidence.
 
@@ -288,7 +301,7 @@ On a complete grid every metric reduces to the previous operation order and stay
 
 The movement-phase block (`analysis/clinical_features.R`) still calls the legacy gap-unsafe primitives and is explicitly out of scope for this work.
 
-Known defect, not yet fixed: `fs` is derived per video as `1 / median(diff(timestamp_sec))`, which reads 30.03 Hz for a 30 fps capture because the exporter rounds timestamps to 4 decimals. `nominal_fs()` is the correct estimator and is tested, but adopting it at the call sites would move every shipped metric value, so it awaits its own unit.
+`fs` comes from `nominal_fs()` at every call site. Window enumeration reads interval magnitudes. Movement segmentation reads signed intervals. The estimator averages the non-gap intervals, which cancels the exporter's four-decimal rounding; the reciprocal of the median interval amplified it to about 30.03 Hz for a 30 fps capture.
 
 ### Compensatory Pattern Index (body mode only)
 

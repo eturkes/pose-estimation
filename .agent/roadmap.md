@@ -44,11 +44,14 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 **Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 OPEN, contract frozen, implementation pending** — see below. M2.5, M2.6 and M2.7 are **unblocked**: M2.3's ruling is made and closed, so their shape is settled — M2.6 exists, and it recovers extrinsics from the subject's own keypoints rather than from scene features (R4). M2.5 stays M2.6's precondition.
 
-### M2.4 — contract frozen, implementation is the next dispatch
+### M2.4 — implementation landed, red suite merge pending
 
 Contract at `.agent/archive/contract-m2u4.md`: **20 predicates P01-P20**, 4 invariant surfaces, gate
-identity, an 8-class probe seed, and **26 amendments A01-A26** ruling `test-m2u4`'s phase-1
-ambiguities. Baseline `6bbd50e`, gate **1116 passed / 0 skipped**, MAIN-verified.
+identity, an 8-class probe seed, and **34 amendments A01-A34** ruling `test-m2u4`'s phase-1
+ambiguities over its **82 cases**. Baseline `6bbd50e`, gate **1116 passed / 0 skipped**,
+MAIN-verified. The estimator swap, the tolerance split, the schema widening and the golden
+regeneration are implemented; the unit closes when `wt/test-m2u4`'s 82 encoded cases merge and the
+seeded suite goes green against A32's floor.
 
 **The defect is larger than a precision improvement — it decides whether the real corpus is
 processable.** `1/median(diff(ts))` carries ~1e-3 relative bias against 4-decimal timestamps, and
@@ -67,9 +70,21 @@ it as `qc_policy_tolerance` so a consumer reproduces the verdict from the row. T
 intended and pinned — 30 Hz 3-slot stays `pass`, and 60 Hz 6-slot moves `FAIL` → `pass`, which closes
 the standing `gap6`/`gap7` polish row.
 
-Scope: `analysis/clinical_features.R` only. `src/pose_estimation/` timestamp production and rounding
-stay unchanged; `analysis/data_extraction.R:100-112` and `analysis/arthrose_diag.R:77-100` divide
-angular change by each rounded interval and go to `.agent/polish.md` rather than widening this unit.
+Scope: `analysis/clinical_features.R` is the only production surface, plus its goldens, the R suites,
+`docs/technical/analysis.md` and the new `tests/test_r_timebase_truth.py` seed.
+`src/pose_estimation/` timestamp production and rounding stay unchanged;
+`analysis/data_extraction.R:100-112` and `analysis/arthrose_diag.R:77-100` divide angular change by
+each rounded interval and go to `.agent/polish.md` rather than widening this unit.
+
+**Corpus-scale evidence, 379 assets in 1370 s** (`scout-m2u4-2`). Grid placement under `nominal_fs`
+passes **21 651/21 651** windows against **21 571/21 651** legacy, and every one of the 80 legacy
+failures comes from a single 119.97 fps asset — the predicted shape, since the bias grows with frame
+count per unit time. Every asset's `nominal_fs` residual is no worse than legacy's, so the swap costs
+nothing anywhere. The container-header cross-check disagrees on **4/379**, worst 1.46938e-4, across
+h264 and hevc and 3 of 4 device configs; A31 rules that a reported outlier, not a gate, because the
+header divides `n_frames` by a duration counting the terminal frame while `nominal_fs` divides
+`n_frames - 1` by the span that omits it — identical under constant frame rate, separating by
+`(terminal_frame_duration - mean_interval) / span` under VFR.
 
 **Wave state, all worktrees retained with named open dependencies.**
 
