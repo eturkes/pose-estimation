@@ -596,6 +596,12 @@ def test_c2_15():
         "qc_coverage_tolerance",
         "1e-4",
         "1e-9",
+        # A34: publishing only the one-run denominator understates the bound a
+        # gapped clip actually obeys, so both denominators and the residual
+        # that decides placement stay pinned here.
+        "1e-4 / span",
+        "k * 1e-4 / S_retained",
+        "trajectory_grid_status()",
     ):
         assert token in text
 

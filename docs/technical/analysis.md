@@ -167,7 +167,13 @@ The magnitude keeps a cadence for an out-of-order clip. The window is then keyed
 
 The estimator needs two usable positive intervals. A single interval carries a whole quantum of rounding error, which is worse than the estimator it replaces.
 
-Accuracy has a floor. Each endpoint carries up to half of the 1e-4 second export quantum, so the relative error obeys `abs(delta_fs / fs) <= 1e-4 / span`. The producer claims that bound for a span of 1 second or more.
+Accuracy has a floor. Each endpoint carries up to half of the 1e-4 second export quantum. Rounding errors telescope only inside one uninterrupted run of retained intervals.
+
+One retained run obeys `abs(delta_fs / fs) <= 1e-4 / span`. The producer claims that bound for a span of 1 second or more.
+
+The gap filter drops long intervals, so a clip with gaps keeps `k` separate runs. Those runs do not telescope into each other. The bound then loosens to `k * 1e-4 / S_retained`, where `S_retained` is the retained exposure. A clip with gaps must not use the full endpoint span as the denominator.
+
+Grid placement consumes this error. `trajectory_grid_status()` checks the displacement per window, so the lever arm is `WINDOW_SEC` and the budget is `GRID_SLOT_TOLERANCE`. Measured margins run 135× at 30 Hz down to 17× at 119.88 Hz. The same errors leave 1.686× over a 20-second clip, so this margin is a per-window result and not a whole-clip guarantee. The residual measures the displacement directly and decides whether an estimate describes the data.
 
 **Policy and tolerance.** The shipped thresholds are engineering-provisional. They are not clinically validated.
 
