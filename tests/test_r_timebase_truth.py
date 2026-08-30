@@ -137,11 +137,20 @@ def _assert_gapped_cadence(fps: float, omitted: set[int]) -> None:
     assert error <= _relative_error(legacy, fps) * (1 + 1e-12)
 
 
+def _within_quantization_bound(error: float, bound: float) -> bool:
+    # A09: the slack is exactly one ULP, never an approximate epsilon.
+    return error <= math.nextafter(bound, math.inf)
+
+
 def _assert_quantization_bound(timestamps: list[float], fps: float) -> None:
     actual = _r_fs(timestamps)
     span = abs(timestamps[-1] - timestamps[0])
     bound = 1e-4 / span
-    assert _relative_error(actual, fps) <= math.nextafter(bound, math.inf)
+    assert _within_quantization_bound(_relative_error(actual, fps), bound)
+    # A09 negative control: the float one step beyond the accepted ceiling must
+    # fail the same comparison, so a widened oracle cannot pass unnoticed.
+    ceiling = math.nextafter(bound, math.inf)
+    assert not _within_quantization_bound(math.nextafter(ceiling, math.inf), bound)
 
 
 def _oracle_rate(timestamps: list[float]) -> float:
@@ -318,6 +327,18 @@ def _case_row(
     ]
     assert rows, f"missing QC row for {name}/{metric_id}/{window_start}"
     return rows[0]
+
+
+def _recompute_qc_reason(row: dict[str, str]) -> str:
+    # X12: the consumer oracle reads published evidence only. Touching
+    # `qc_status`/`qc_reason` here would make the row grade itself.
+    gap_limit = float(row["max_gap_sec"]) * (1 + float(row["qc_policy_tolerance"]))
+    coverage_limit = float(row["min_coverage"]) * (1 - float(row["qc_coverage_tolerance"]))
+    if float(row["longest_gap_sec"]) > gap_limit:
+        return "gap_too_long"
+    if float(row["frame_coverage"]) < coverage_limit:
+        return "insufficient_coverage"
+    return "none"
 
 
 @pytest.fixture(scope="module")
@@ -863,16 +884,13 @@ def test_c5_18(producer_corpus: _ProducerCorpus):
         ("coverage_low", "insufficient_coverage"),
     ):
         row = _case_row(producer_corpus, name)
-        gap_limit = float(row["max_gap_sec"]) * (1 + float(row["qc_policy_tolerance"]))
-        coverage_limit = float(row["min_coverage"]) * (1 - float(row["qc_coverage_tolerance"]))
-        if float(row["longest_gap_sec"]) > gap_limit:
-            recomputed = "gap_too_long"
-        elif float(row["frame_coverage"]) < coverage_limit:
-            recomputed = "insufficient_coverage"
-        else:
-            recomputed = "none"
-        assert recomputed == expected == row["qc_reason"]
+        assert _recompute_qc_reason(row) == expected == row["qc_reason"]
         assert row["qc_status"] == ("pass" if expected == "none" else "fail")
+        # X12: label-blind control. The oracle must resolve from evidence with
+        # the labels it is graded against removed, so a rewrite that returns
+        # `qc_reason` fails here by KeyError instead of agreeing with itself.
+        unlabelled = {k: v for k, v in row.items() if k not in ("qc_status", "qc_reason")}
+        assert _recompute_qc_reason(unlabelled) == expected
 
 
 # kind: C5.19 = red
@@ -1254,3 +1272,27 @@ def test_c8_08():
     assert re.search(r"\b1 deselected\b", summary)
     for category in ("failed", "error", "errors", "skipped", "xfailed", "xpassed"):
         assert not re.search(rf"\b\d+ {category}\b", summary), category
+
+
+# ---------------------------------------------------------------------------
+# Post-review additions — outside the frozen 82, so carrying no `kind:` marker
+# ---------------------------------------------------------------------------
+def test_nominal_fs_rejects_nonlogical_mode():
+    # A01's guard had no case in the frozen 82. R's `if` takes the branch for 1
+    # or "TRUE", so a caller meaning `fs` would get magnitude semantics silently.
+    result = _run_r(
+        """
+        t <- c(0, 0.1, 0.2)
+        rejected <- function(value) inherits(
+          try(nominal_fs(t, magnitude=value), silent=TRUE), "try-error"
+        )
+        result <- list(
+          numeric_one=rejected(1),
+          numeric_zero=rejected(0),
+          character_true=rejected("true"),
+          vector=rejected(c(TRUE, FALSE)),
+          missing=rejected(NA)
+        )
+        """
+    )
+    assert all(result.values())
