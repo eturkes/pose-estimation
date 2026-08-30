@@ -42,7 +42,84 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.6 | Calibration recovery | Per-recording-event extrinsics by **bundle adjustment over time-synchronized 2D keypoints** under the per-model intrinsics prior (M2.3 R4) — never scene-feature SfM, which is eliminated by measurement. Held-out reprojection acceptance, explicit scale provenance, bound to the M2.2 instance grain. Consumes M2.5's offsets, so it is gated on M2.5. Must measure per-event pose variety before claiming an extrinsic: subject-only calibration degrades on near-coplanar keypoints and a near-static subject, and the tasks are seated upper-limb movements. |
 | M2.7 | Gated fusion + corpus study | Fusion over qualified recording events, reprojection/gap/throughput/stability/repeatability evidence, claim-bounded report, prospective-capture specification, de-identified regression fixtures. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** — see below. M2.5, M2.6 and M2.7 are **unblocked**: M2.3's ruling is made and closed, so their shape is settled — M2.6 exists, and it recovers extrinsics from the subject's own keypoints rather than from scene features (R4). M2.5 stays M2.6's precondition.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** — see below. **M2.5 OPEN, wave 1 closed and its contract frozen** — see below. M2.6 and M2.7 are **unblocked**: M2.3's ruling is made and closed, so their shape is settled — M2.6 exists, and it recovers extrinsics from the subject's own keypoints rather than from scene features (R4). M2.5 stays M2.6's precondition.
+
+### M2.5 — contract frozen, implementation not started
+
+Contract at `.agent/archive/contract-m2u5.md`: **21 predicates P01-P21**, 5 invariant surfaces, gate
+identity, an 8-class probe seed, one open amendment A01. Baseline `03a6e1c`, whose gate MAIN reran
+green: `ruff`, `ruff format`, `ty` clean and **1201 passed / 0 skipped** in 876.49 s, 1201 outcome
+characters counted from the run.
+
+**The unit's product already exists and is thrown away.** `qualify._spanning_offsets` solves one
+offset per event member and publishes only `graph_connected`, `offset_span_s` and
+`closure_residual_s`. M2.5 promotes that discarded per-camera solution into a published artifact.
+
+**Carrier ruled: widen `qualify`, do not build a fourth publisher.** `map-m2u5` priced both against
+`main`: a new publisher module plus console script plus doc plus suite is `ffcfdfa` = **+1424/−0
+over 5 files** and that is construction alone, before trust-root, crash-state, mutation and
+determinism work; the schema-widening analog is `5e40922` = **+601/−170 over 10 files** with every
+assurance gate already standing. Writing offsets back into `sessions/` is eliminated by a measured
+cycle — `sessions` → `qualify` → alignment → `sessions` — because patching a published manifest moves
+the session tree digest, which invalidates qualification's recorded upstream snapshot, which
+invalidates the alignment input. So alignment ships as `qualification/cameras_qc.csv` at
+`GENERATOR_VERSION` v4, one row per placed asset, 379 rows over 193 events.
+
+**Solver ruled on measurement.** Unweighted least-squares over every accepted edge beats the shipped
+breadth-first tree: it differs by median 0, p95 3.708 ms, **max 10.095 ms = 0.303 nominal frame**,
+moving 60 of 329 solved cameras and 6 of 329 nearest-frame indices across 5 events, all inside the 30
+events carrying a redundant edge. Dropping any one redundant edge moves **0/90 solves** by more than
+one frame. Confidence weighting is **rejected**: Spearman `peak_rms` against absolute audio-visual
+disagreement is **+0.4141** — the wrong sign for a precision weight — and `peak_ratio` is +0.0659, so
+neither is an inverse-variance estimate.
+
+**Reference ruled on totality.** The view hierarchy `above` > `left` > `right` is the only
+semantically meaningful rule total over 193 events (155/24/14). Latest-start is undefined on exactly
+the 20 events whose graph does not connect; `above` alone covers 155/193; highest degree is unique on
+only 69/193; lowest `asset_id` is total but arbitrary.
+
+**Sign proved, not assumed.** A synthetic oracle with a constructed 375 ms lead recovered
+`+0.375000058` s A→B and `−0.375000058` s B→A, antisymmetry error 0, composed through the solve
+within a 0.5 ms tolerance. Published convention: `offset_s = t_camera − t_reference`, positive means
+that camera started earlier, reference exactly `0`, application `t_ref = t_camera − offset_s`. A sign
+flip yields a fully connected, digest-valid artifact whose cameras move twice as far apart in time,
+and no structural check can see it.
+
+**No per-camera uncertainty is publishable.** 74 connected two-camera events and 11 connected
+three-camera trees carry **0 residual degrees of freedom** — 85 of the 115 connected multi-camera
+events. Only the 30 closed triangles reach 1 df, where correlated acoustic and rolling-shutter bias
+violates the model and closure is structurally bias-blind. Event-level closure stays the published
+self-consistency statistic.
+
+**Wave-1 state. Both worktrees retained; nothing merged into the primary tree yet.**
+
+| teammate | branch tip | delivered | open dependency |
+| -------- | ---------- | --------- | --------------- |
+| `map-m2u5` | (primary, read-only) | 14/14 surface map, 30 numbered doc obligations O01-O30, both sizing analogs verified on `main` | none, harvested |
+| `res-m2u5` | (primary, read-only) | 8/8 prior art; no cross-pipeline standard exists, and seconds beat frames as the published unit | none, harvested |
+| `spike-m2u5-solve` | `a742c53` | 10/10 rows + `scripts/probe_alignment_solver.py`, every number rerunnable | differential oracle for MAIN's solve, and the source of A01's measurement |
+| `spike-m2u5-carrier` | `ff18b97` | report never flushed; MAIN preserved its uncommitted alternative-B prototype, 44 lines giving the v4 `cameras_qc` shape | starting shape for P01-P03 |
+
+**The one open ruling, A01.** P07 publishes the reference's connected component and marks the rest
+`unreachable`, against `spike-m2u5-solve` Q08, which wanted every member of a failed event nulled.
+All 20 failures split into exactly 2 components — 10 two-camera events with 0 accepted edges and 10
+three-camera events with 1 — so P07 only pays where the view-hierarchy reference sits inside the
+two-camera component. **That count is unmeasured**; if it is 0, P07 collapses into Q08's
+recommendation. The retained spike worktree already enumerates the component structure, so this is
+one query against `q08_unconnected_events`, not a new investigation.
+
+**Next session's whole job.** Rule A01 from the retained probe, then run wave 2 — `test-m2u5` phase 1
+against the frozen contract, `rev`/`rev2` prep, and MAIN's implementation of P01-P21 in the primary
+tree. `spike-m2u5-carrier`'s `ff18b97` is the starting diff.
+
+**Sizing, recorded for PLANNING.** One window bought wave 1 alone: four teammates, the surface map,
+the numerical rulings, the prior art, the carrier ruling and the frozen contract — and no
+implementation. `main=` 87% 208K/240K at wave-1 close, so M2.5 needs at least a second window for
+wave 2 plus implementation, and the review loop after that. The pattern is now three units deep:
+**M2.1, M2.3 and M2.4 each overran a one-window plan, and each overran on adversarial surface rather
+than on line count.** M2.5 was planned as one unit in the M2 plan and is at minimum a three-window
+unit — 21 predicates over a schema bump, a solver replacement, a 379-row corpus republish and a
+determinism regeneration.
 
 ### M2.4 — gate green, review adjudication closing
 
@@ -220,7 +297,7 @@ Contract frozen at `.agent/archive/contract-m2u3.md` — **39 predicates P01-P39
 **M2.2 → M2.3 handoff.** `pose-estimation-sessions` publishes `sessions/` from `inventory/` and never walks the corpus: **193 events over 382 assets** — 58 one-camera, 84 two-camera, 51 three-camera; 186 `family` and 7 `unresolved`; 379 placed and 3 held out. Each event directory holds one `session.json` and one `cam-*` symlink per camera, `discover_sessions` returns all 193, and the tree regenerates byte-identically under a changed locale, hash seed, time zone and `--out` name. Every consumer calls `validate_generation(out, inventory_dir=…)` before reading a row: the two-argument form is the only check that catches a registry rebuilt under a tree which still looks internally consistent. Shipped surface → `docs/technical/sessions.md`; contract and rulings → `.agent/archive/contract-m2u2.md`, `.agent/archive/rulings-m2u2.md`.
 
 - **The 7 unresolved families are M2.3's to resolve or to leave.** `take_resolution = "unresolved"` asserts no multi-camera event, so each of their assets is its own single-camera event and their run counts understate the true grouping. Nothing in the tree infers take membership from a filename, a file order, a duration, a frame count, or a creation time; M2.3's decode evidence is the first thing that could.
-- **`sync_offset` is 0 and unmeasured on every camera, and no manifest declares `calibration`.** Both fields exist and assert nothing. M2.5 and M2.6 fill them.
+- **`sync_offset` is 0 and unmeasured on every camera, and no manifest declares `calibration`.** Both fields exist and assert nothing. **M2.5 does not fill `sync_offset`** — its contract P16 keeps the manifest field as the legacy integer pre-roll trim and publishes alignment as `qualification/cameras_qc.csv` instead, because writing a derived offset back into a registry-derived manifest closes a publisher cycle. M2.6 still fills `calibration`.
 - **Nothing is decoded yet.** The generator asks the filesystem whether each listed path is a regular file and stops there, so container facts still come from M2.1's cv2 probe alone.
 - **Two distinct orientation policies, and only the probe's is explicit.** `probe_container` sets `CAP_PROP_ORIENTATION_AUTO=1` and records `CAP_PROP_ORIENTATION_META` + `CAP_PROP_ORIENTATION_AUTO` (`src/pose_estimation/video_io.py:243-254`); every decode path relies on the backend default instead, which happens to be auto-rotate, so frames arrive upright by convention rather than by assertion. The hazard is that a rotated view has different image geometry from its siblings, not that frames are sideways. **7 assets change orientation mid-clip** (`[1,8]`, `[1,6,8]`×2, `[3,6]`, `[1,6]`×2, `[1,3,6]`) and 3 carry no orientation track at all — a single display matrix cannot express either case, so a per-asset rotation constant is wrong for 10 of 379.
 - Decoder/tool matrix: **cv2 + PyAV** (`av>=17.1.0`, `pyproject.toml:35`; measured 18.1.0). `ffmpeg`, `ffprobe` and `exiftool` remain absent. PyAV supplies true PTS, creation timestamps, audio tracks and Apple `mebx` metadata; the metadata axis is already measured off it.
