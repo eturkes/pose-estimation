@@ -1296,3 +1296,24 @@ def test_nominal_fs_rejects_nonlogical_mode():
         """
     )
     assert all(result.values())
+
+
+def test_threshold_oracle_uses_published_tolerances():
+    # M20: the oracle must read both published tolerance fields, not just the
+    # thresholds. Each case is decided only by the tolerance term being applied.
+    base = {
+        "max_gap_sec": "0.1",
+        "min_coverage": "0.8",
+        "longest_gap_sec": "0",
+        "frame_coverage": "1",
+        "qc_policy_tolerance": "0.0001",
+        "qc_coverage_tolerance": "0.000000001",
+    }
+    assert (
+        _recompute_qc_reason({**base, "longest_gap_sec": "0.12", "qc_policy_tolerance": "0.5"})
+        == "none"
+    )
+    assert (
+        _recompute_qc_reason({**base, "frame_coverage": "0.7", "qc_coverage_tolerance": "0.25"})
+        == "none"
+    )

@@ -42,7 +42,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.6 | Calibration recovery | Per-recording-event extrinsics by **bundle adjustment over time-synchronized 2D keypoints** under the per-model intrinsics prior (M2.3 R4) — never scene-feature SfM, which is eliminated by measurement. Held-out reprojection acceptance, explicit scale provenance, bound to the M2.2 instance grain. Consumes M2.5's offsets, so it is gated on M2.5. Must measure per-event pose variety before claiming an extrinsic: subject-only calibration degrades on near-coplanar keypoints and a near-static subject, and the tasks are seated upper-limb movements. |
 | M2.7 | Gated fusion + corpus study | Fusion over qualified recording events, reprojection/gap/throughput/stability/repeatability evidence, claim-bounded report, prospective-capture specification, de-identified regression fixtures. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 OPEN, implementation merged and green, review adjudication closing** — see below. M2.5, M2.6 and M2.7 are **unblocked**: M2.3's ruling is made and closed, so their shape is settled — M2.6 exists, and it recovers extrinsics from the subject's own keypoints rather than from scene features (R4). M2.5 stays M2.6's precondition.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** — see below. M2.5, M2.6 and M2.7 are **unblocked**: M2.3's ruling is made and closed, so their shape is settled — M2.6 exists, and it recovers extrinsics from the subject's own keypoints rather than from scene features (R4). M2.5 stays M2.6's precondition.
 
 ### M2.4 — gate green, review adjudication closing
 
@@ -55,17 +55,33 @@ collected == passed and zero skipped, xfailed, xpassed, deselected or errored** 
 reconciliation, not a floor. Implementation, tolerance split, schema widening, golden regeneration,
 the 82-case red suite and the corpus artifacts are all merged and green.
 
-That gate number was measured at `09e8dab`. `3061bd9` added one post-review case, so the decisive
-rerun is pending and the count becomes 1200.
+That 1199 was measured at `09e8dab`. Two post-review cases landed since, so the **decisive rerun
+reads `ruff`, `ruff format`, `ty` clean and 1200 collected = 1200 passed, zero skipped, xfailed,
+xpassed or errored** — outcome characters counted from the run and the count confirmed by an
+independent `--collect-only`. `scripts/check_m2u4_suite_seed.py` still reports **82/82 encoded,
+29 red, 53 control**: post-review cases carry no `kind:` marker, so the frozen census is untouched.
+The final case merged after that run makes the next count 1201.
 
-`rev-m2u4-3` closed at **73 rows, 61 pass, 12 fail**. Four failures are fixed in-unit at `3061bd9`
-— X12's label-fed oracle, A09's contiguous one-ULP control, X17's two over-cap M2.4 sentences, and
-the uncovered `magnitude` guard. Eight are deferred to `.agent/polish.md` with acceptance checks:
-A21/X16, A34/X01/P07/A09-generalized, X10, X09, X14, and X17's three pre-existing sentences.
+**Both reviews adjudicated.** `rev-m2u4-3`: 73 rows, 61 pass, 12 fail. `rev2-m2u4-2`: 33 rows —
+23 mutants killed, M07 survived-unencoded, M20 survived with a credential now merged and green,
+7 sweeps stable, D06 ruled `varied-contract-conflict` (a sweep over byte-distinct inputs cannot
+demand an identical `source_sha256`; raw QC is byte-identical across three orders once that
+mandated tag is excluded, alpha 300/300, beta 108/108).
 
-**The unit is not closeable yet**: `/session-roadmap` completes a unit on green predicates *and*
-every review row adjudicated. Remaining work is `rev2-m2u4-2`'s last mutants, one scoped re-review
-round on the four in-unit fixes, the decisive gate rerun, and worktree removal.
+Fixed in-unit: X12's label-fed oracle, A09's contiguous one-ULP control, X17's two over-cap M2.4
+sentences, A34's documentation half, the uncovered `magnitude` guard, and M20's tolerance-read pin.
+Deferred with acceptance checks: A21/X16, A34/X01/P07/A09-generalized, X10, X09, X14, X17's three
+pre-existing sentences, and M07.
+
+Not gated by this unit, and deliberately so: the generalized bound `k*q/S_retained` has no oracle
+deriving `k` or `S_retained`. Its consumer is the grid residual, which `trajectory_grid_status()`
+measures directly at 21,651/21,651 windows against 21,571/21,651 legacy — an unpinned inequality
+whose only consumer is separately measured is not a gate.
+
+`main=` 89% 215K/240K (implementation plus the full review harvest; the unit ran past the one-window
+aim across a compaction boundary). `mate=` 100% 240K/240K (`rev-m2u4-3`, saturated at hand-off, so
+its one re-review round on the in-unit fixes never ran — the fixes rest on demonstrated mutant kills
+and the decisive gate instead). All six worktrees and every `wt/*` branch are removed.
 
 **The defect is larger than a precision improvement — it decides whether the real corpus is
 processable.** `1/median(diff(ts))` carries ~1e-3 relative bias against 4-decimal timestamps, and
