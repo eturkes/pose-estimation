@@ -1,10 +1,10 @@
 # M2.6 acceptance contract — calibration recovery
 
-**Status: F0 CLOSED NEGATIVE (§11b), and the one repair route it left open is closed negative too
-(A15). §1-§6 bind as the record of the route that was tested.** F1-F3
-in §7 are moot as written — they configure a publisher for extrinsics the corpus cannot yield — and
-stay for the record until the user rules M2.6's replacement scope. The predicate list §8 is frozen
-mid-draft for the same reason. Baseline `41efc55`, gate **1284 passed / 0 skipped / rc=0 in
+**Status: F0 CLOSED NEGATIVE (§11b), the one repair route it left open is closed negative too (A15),
+and the publishing fork is ruled F1a (A16). §1-§6 bind as the record of the route that was tested.**
+§7's F1 options survive only through A16's ruling — they were written to configure a publisher for
+extrinsics the corpus cannot yield, and F1a is repurposed to publish the negative instead. F2-F3 stay
+moot, for the record. The predicate list §8 is frozen mid-draft for the same reason. Baseline `41efc55`, gate **1284 passed / 0 skipped / rc=0 in
 873.00 s**, MAIN-measured.
 
 ## §1 Scope + grain
@@ -435,6 +435,23 @@ within one subject **and** one viewing geometry is estimable only per event, the
 route had to escape. Unrun and named: whether a per-event double-centered bias-and-pose solve
 recovers known extrinsics on the synthetic control — it would refine the claim from "no transferable
 bias exists" to "identifiable in principle, unverifiable here", and would not reopen the route.
+
+**A16 — F1 ruled F1a, because the negative is a corpus-level ruling and not 193 per-event verdicts.**
+§7 left F1a/F1b/F1c open on "measured cost, not tidiness"; the closing measurement changes what is
+being published and so decides it on shape rather than cost. The events split three ways — **58**
+one-camera events where geometry never applied, **20** multi-camera events that are not eligible, and
+**115** eligible ones — and within those 115 the per-event refusal evidence is uneven: rotation cycle
+closure needs three cameras so it exists for at most **41**, held-out epipolar support was measurable
+on **4/9** pilot pairs, and the transfer probe measures a *population* property. **A full per-event
+refusal table was never built.** Writing `geom_unqualified` onto 115 rows would therefore assert a
+per-event verdict that was mostly not measured per event. F1a's separate `calibration/` publisher is
+the honest home for a ruling, and `events_qc.geom_qualified` staying `UNMEASURED` is **correct** under
+it, because the per-event axis genuinely never measured those rows. F1b would need a per-event
+evidence field separating "directly refused" from "covered by the corpus ruling" — more than it was
+scoped for — and F1c's one-solver argument was maintenance across a geometry axis that would keep
+evolving; **a terminal negative has no such future on this corpus**, so that justification lapses.
+The `publication.py` extraction row in `.agent/polish.md` no longer collides: F1a adds a fourth
+publisher, which raises that row's value without depending on it. Executed in M2.7.
 
 ## §11 Probe-corpus seed
 

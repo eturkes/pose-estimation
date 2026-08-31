@@ -339,3 +339,21 @@ uv run --no-sync ruff check && uv run --no-sync ruff format --check \
 - Budget: full cold index = ~12 s (109 files, 7 language servers), warm ~6 s. A launch stalling far past that means one file is eating an LS request timeout (`serena_config.yml` `tool_timeout` 240 − 5 = 235 s each) → `.serena/logs/indexing.txt` names the file.
 - `**/*.Rmd` is excluded in `.serena/project.yml` for exactly that reason (R LS never answers `documentSymbol` for R Markdown; `.R` files are unaffected at ~4 files/s). Reach `analysis/analysis_summary.Rmd` by `Read`/`rg`; Serena's symbol + search tools do not see it.
 - Serena's own session start is repo-independent (~3.5 s, dominated by the bash LS) and asynchronous — it never blocks the MCP handshake.
+
+- **`../rehab` = M2's single planned consumer, and its conventions are binding on any artifact this
+  repo publishes for it.** Separate git repo, dashboard over the hospital SCI database. Sole raw
+  source `data/raw/ALL_SCIDATA.csv` (**cp932**, Japanese headers); `schema/columns.yaml` declares every
+  column as `raw`/`ja`/`en`/`short_ja`/`short_en`/`group`/`role`(`id`|`feature`|`outcome`|`meta`)/
+  `dtype`/`unit`/`range`/`levels`/`description`, expanded by `src/rehab_sci/schema.py`, which states
+  it carries no patient data. `missing_sentinels: ["_","","NA","NT","ND"]`. **Bilingual ja/en labels
+  are a requirement, not a nicety** — a monolingual export is not consumable there. `data/processed/`
+  is empty, so no landing convention exists yet and one must be proposed.
+- **The pose↔rehab join key exists in neither repo.** This side keys on `video` + `person_idx`
+  (`export.py:89`) = a within-video person index, not an identity; `../rehab` keys on `IDNumber`
+  (patient ID) + `TIMES`/`TIME_Name`. Any map between them is identifying by construction and
+  collides with M2's redacted-aggregates-only rule → **rule where the linkage lives before designing
+  any delivery artifact**, because it decides subject-keyed rows vs de-identified aggregates.
+- **The 2D clinical feature path already exists and is golden-pinned**, so a 2D delivery unit is
+  delivery + schema work, never feature development: `analysis/clinical_features.R` with six goldens
+  (`2d_csv4dp_*`, `2d_cumsum_*`, `2d_idx_*`, each plus `_windows`). M2.4's `nominal_fs()` adoption
+  already corrected the cadence underneath every rate-based feature.
