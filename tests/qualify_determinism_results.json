@@ -35,7 +35,7 @@
     "src/pose_estimation/sessions.py": "f5c573a6c23c265ffa407ae77063ca86a95c8981a42783d0225e3c97b8479c9d",
     "src/pose_estimation/video_io.py": "fa3572b4bf6e7ba5412771f9aecf2c2629ee56da835169eb9be705ff7fa9c28d",
     "tests/test_measure.py": "9e7a077dc191664af8cd2ea40c78258194da1afb6dd2bfee1dc9cb11233c17a4",
-    "tests/test_qualify.py": "a3db7ec9e3f01793d20fa4bc2e6e1ebf49db4e20b50079850d1da9f5afef17a8",
+    "tests/test_qualify.py": "fe8b29845cd1e8685f87d1487d10441d9c0447028163a7c0d2be5756c63f936b",
     "tests/test_sessions.py": "570ed80320204100c7ed4e790fd9a126048945815dee47185546f00850c1f021"
   },
   "sweeps": [

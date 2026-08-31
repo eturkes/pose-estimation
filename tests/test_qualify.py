@@ -1095,11 +1095,18 @@ def test_m2u5_p20_committed_determinism_evidence_matches_its_sources() -> None:
 
 
 def test_m2u5_x02_x04_active_solver_census_names_the_p07_population() -> None:
-    """The tree comparison denominator is every published offset, not the retired 329 subset."""
+    """Each solver count names the population it was measured over.
+
+    The original defect was the label, not the number: 329 counts cameras inside
+    a graph-connected event and `probe_alignment_solver.py` compares exactly
+    those, so "329 solved cameras" conflated the two populations while "60 of
+    355" would state a derivation as a measurement.
+    """
     root = pathlib.Path(__file__).resolve().parents[1]
     roadmap = (root / ".agent/roadmap.md").read_text(encoding="utf-8")
     assert "moving 60 of 329 solved cameras" not in roadmap
-    assert "moving 60 of 355" in roadmap
+    assert "moving 60 of the 329 cameras the probe compares" in roadmap
+    assert "unchanged over the full 355" in roadmap
 
 
 def test_m2u5_x10_solver_instructions_follow_the_human_facing_register() -> None:

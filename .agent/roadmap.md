@@ -77,10 +77,12 @@ pair of same-shaped counts three times.
 
 **Solver ruled on measurement.** Unweighted least-squares over every accepted edge beats the shipped
 breadth-first tree: it differs by median 0, p95 3.708 ms, **max 10.095 ms = 0.303 nominal frame**,
-moving 60 of 355 published offsets and 6 nearest-frame indices across 5 events, all inside the 30
-events carrying a redundant edge. The denominator is the P07 population, not the retired 329
-cameras-inside-a-graph-connected-event count: the 26 offsets P07 recovers sit in single-edge
-components, where a tree solve and a least-squares solve coincide, so none of them can move. Dropping
+moving 60 of the 329 cameras the probe compares and 6 nearest-frame indices across 5 events, all
+inside the 30 events carrying a redundant edge. **329 is the probe's own population** — every camera
+in a graph-connected event, which is what `scripts/probe_alignment_solver.py` reports as
+`cameras_compared` — and never a count of solved cameras. The 26 further offsets P07 publishes sit in
+single-edge components, where a tree solve and a least-squares solve coincide, so the mover count is
+unchanged over the full 355. Dropping
 any one redundant edge moves **0/90 solves** by more than one frame. Confidence weighting is
 **rejected**: Spearman `peak_rms` against absolute audio-visual disagreement is **+0.4141** — the
 wrong sign for a precision weight — and `peak_ratio` is +0.0659, so neither is an inverse-variance
@@ -119,6 +121,8 @@ findings**, worst offset delta 3.333e-10 s.
 **Gate.** `ruff`, `ruff format`, `ty` clean; decisive gate **1284 passed / 0 skipped** in 771.92 s,
 primary tree, package path printed before collection. The v4 republish is byte-identical to the
 shipped tree across all five artifacts, so the row-order fix changed no published byte.
+`scripts/probe_alignment_solver.py` and `scripts/orc_cameras_qc.py` both ship here, so every solver
+and census number above reruns from committed state rather than from a worktree.
 
 `main=` 90% 215K/240K. `mate=` 90% 216K/240K (`rev2-m2u5`).
 
