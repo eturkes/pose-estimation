@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and now **ruled**: publish the negative through a new `calibration/` publisher (F1a), re-scope M2.7 to a no-3D corpus study, and add **M2.8 — 2D clinical feature delivery**, whose artifact is tailored to the single known consumer `../rehab` and stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are now PLANNED into 7 units** — M2.7.1-M2.7.4 and M2.8.1-M2.8.3, all OPEN, none BLOCKED, lowest OPEN unit = M2.7.1. M2.7 publishes the negative through a new `calibration/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Goal:** turn 382 uncontrolled clips into an addressable, measured corpus; establish by evidence whether 3D reconstruction is recoverable from it; then execute that ruling under a claim boundary the data can carry.
 
@@ -41,21 +41,113 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.5 | Cross-view alignment | One float `offset_s` per camera against the event reference, no rate term (M2.3 R5); per-recording-event `sync_qc` evidence. |
 | M2.6 | Calibration recovery | **Planned result unreachable — F0 closed negative.** Extrinsics by BA over time-synchronized 2D keypoints was the route (scene-feature SfM already eliminated by measurement); the corpus carries 15-20 px systematic cross-view keypoint bias, which no estimator and no keypoint subset repairs. Shipped instead: the measurement closing it, `scripts/probe_calibration_bias.py`. **Ruled: publish the negative through F1a**, executed in M2.7. |
 | M2.6b | Bias-modeling repair | **User-funded, closed negative at its gate (G0).** The one repair route A14 left open — a joint bias-and-pose parameterization under an identifiability constraint. Its premise is a bias with fewer degrees of freedom than the data, which needs the bias to be shared across events. Measured absent at every grouping. Shipped: `scripts/probe_bias_transfer.py`. |
-| M2.7 | Corpus study, no 3D | **Re-scoped by ruling; fusion is cut.** Publishes the M2.6/M2.6b negative through a new `calibration/` publisher (F1a) as a corpus-level ruling, the claim-bounded report, the prospective-capture specification, and de-identified regression fixtures. Fusion, reprojection and triangulation-angle evidence die with the extrinsics. |
-| M2.8 | 2D clinical feature delivery | Apply the existing golden-pinned 2D path in `analysis/clinical_features.R` over the qualified corpus and publish one consumable artifact **shaped for `../rehab`** — its bilingual column schema, its identifier vocabulary, its missing sentinels. Stops at this repo's boundary; integration into `../rehab` is that repo's work. |
+| M2.7.1 | `calibration/` publisher (F1a) | Corpus-level negative ruling published beside `qualification/`, never patching it. One corpus row + evidence pointers to the two committed probes. |
+| M2.7.2 | De-identified regression fixtures | Idempotently generated fixtures for one valid generation plus the contract/integrity failure matrix; a privacy scan proves no corpus identifier reaches them. |
+| M2.7.3 | Claim-bounded negative report | Human-facing report stating exactly what the two probes decide, with a claim matrix mapping every conclusion to evidence and to permitted/prohibited wording. |
+| M2.7.4 | Prospective capture specification | The future calibrated acquisition that can reopen 3D. Specified, never run. |
+| M2.8.1 | Corpus-run preconditions + instrumented pilot | Two measured blockers fixed, CFR fallback rate instrumented, stratified pilot green — before the 6.5 h run is funded. |
+| M2.8.2 | Full corpus 2D run | ~6.5 h resumable run over 379 assets; per-asset clinical features plus a manifest giving every asset an explicit disposition. |
+| M2.8.3 | Cohort aggregate publisher + bilingual descriptor | 12 `(task, side)` cohort rows, no subject rows; append-ready `columns.yaml` fragment with full `ja`/`en` labels. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7 re-scoped**, **M2.8 new**: the 3D spine is gone and the 2D line is the delivery path.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1-M2.7.4 and M2.8.1-M2.8.3 OPEN**, planned this window: the 3D spine is gone, the negative gets published, and the 2D line delivers cohort aggregates.
 
-### M2.8 — 2D clinical feature delivery, shaped for one known consumer
+### M2.7 — publish the closed-negative 3D ruling — PLANNED, 4 units
 
-**Ruled, not yet planned.** Scope source for the next PLANNING window; no contract exists.
+**F1a ships as the FIFTH copy of the publisher idiom, and the extraction is deliberately declined.**
+`src/pose_estimation/publication.py` (polish, pri 3/M) anticipated exactly this trigger, and M2.7 is
+the trigger. It is still refused: extraction touches three shipped publishers whose mutation gates
+are pinned to them, its own acceptance bar demands all three published trees stay byte-identical, and
+it is blocked behind the pri-1 row recording that `scripts/run_inventory_mutations.py` cannot replay
+from committed state (recorded target `inventory.py` `96a6d0…` against committed `66d3ef…`).
+Refactoring three working publishers is not the shortest path to publishing a negative. The polish row
+stands; this ruling is why, so it is not re-litigated each window.
 
-**The 2D path already exists and is gated.** `analysis/clinical_features.R` publishes 2D clinical
-features today, pinned by six committed goldens — `2d_csv4dp_*`, `2d_cumsum_*`, `2d_idx_*`, each with
-its `_windows` companion. M2.4 replaced `1/median(diff(ts))` with `nominal_fs()` at the call sites,
-so the cadence underneath every rate-based feature is already the corrected one. **M2.8 applies an
-existing pipeline over the qualified corpus; it does not build a feature line.** Price it as delivery
-plus schema, not as feature development.
+**Sizing against M2.5, the nearest publisher actual (22 files / 4761 insertions / 4 windows).** F1a is
+smaller than that analog for one structural reason: **M2.5's four windows bought a 379-row solved
+artifact with a least-squares solver, a reference-selection rule, and a census that had to be
+recounted; F1a publishes ONE corpus-level row plus evidence pointers, and owns no estimator.** The
+publisher machinery — ownership, atomic swap, digests, alphabets, consumer boundary — is the whole
+cost, and it is a known idiom with four worked examples. `map-m2` extracted that contract as a
+seven-point checklist with per-publisher anchors and found **no safe literal common denominator**:
+`qualify` is the whole-tree oracle, `measure` the marker-parsing oracle, and copying `inventory` or
+`sessions` inherits known trust-root gaps. Build from `qualify`.
+
+**Hard carrier constraints, measured this window and non-negotiable.** `events_qc.geom_qualified`,
+`events_qc.qualified` and `assets_qc.scale_ref_class` are **blank by design**; the sentinels live in
+`events_qc.reason` (`geom_unmeasured` on 193/193) and `assets_qc.qc_flags` (`scale_unmeasured` on
+379/379). So F1a **publishes beside `qualification/` and never patches it**, `session.json` stays
+unpatchable, `sync_offset` is never written, and no per-event geometry verdict is emitted.
+
+| id | tier | spine result | sizing |
+| -- | ---- | ------------ | ------ |
+| M2.7.1 | kernel | `calibration/` publisher: contract + validator, canonical tree, integrity + consumer boundary, ownership + atomic publication. Accepts one corpus row and the probe-evidence rows; rejects every event/asset/capture/subject key. | 2-3 windows |
+| M2.7.2 | data | De-identified regression fixtures: one valid generation + the smallest contract/integrity failure matrix, each negative failing for its named predicate. Privacy scan proves no corpus filename, path, subject token or row-level statistic. | 1 window |
+| M2.7.3 | docs | Claim-bounded negative report. Claim matrix maps every conclusion to evidence and to permitted/prohibited wording. Excludes clinical validity, absolute metric accuracy, marker equivalence, other-detector impossibility, and prospective-capture impossibility. | 1 window |
+| M2.7.4 | docs | Prospective capture specification, 20 normative sections. Five non-negotiables: intrinsic/extrinsic calibration, synchronization residuals, orientation/drift control, traceable metric scale, identifiable-video governance. Specified, never run. | 1-2 windows |
+
+**Order.** M2.7.1 gates M2.7.2 and M2.7.3 (the report releases only against a validated generation).
+M2.7.4 is independent of all three and parallelizable from the start.
+
+### M2.8 — 2D cohort aggregate delivery — PLANNED, 3 units
+
+**USER RULED: cohort aggregates only.** No per-subject rows, no patient identifier, no join column, no
+join template, and deliberately no join to `../rehab`. The user chose this with the non-consumability
+tradeoff stated. The join surface is **cut**; `analysis/make_templates.R`'s operator-filled
+`sessions.csv` pattern is not extended, and the two pri-1 polish rows serving that path stay deferred.
+
+**The ruling SHRINKS the consumer delta rather than only making it safer.** `res-m2-1` priced full
+ingest into `../rehab` at one untracked table plus six tracked files, whose three heaviest items are
+the authorized identifier map, a join-validating loader, and the dataset merge. A cohort artifact
+carries no `IDNumber`/`TIMES`, so **all three vanish** and the delta falls to its two cheapest items:
+land a table, append descriptors.
+
+**The aggregate is well-conditioned, measured.** `(task, side)` = **12 cohort cells** over tasks
+`cap coin glass key nut peg` x sides `l r`, each holding **15 or 16 distinct subjects**, one family
+per subject per cell; 188 = 12 x 16 - 4 absent. **Zero cells below 5 subjects**, so no small-cell
+suppression is needed at that grain. A finer grain — adding `view` — shrinks cells and reopens the
+question, so the published grain is a contract decision, not a convenience.
+
+**Consumer shape, measured against `../rehab` as it stands.** Deliver an **append-ready
+`columns.yaml` descriptor fragment** (`group: pose`, `role: feature`, full `ja` + `en`, dtype/range/
+unit); a separate `schema/pose_features.yaml` is worse, because it forces a `schema.py` load/merge
+change. **`short_ja`/`short_en` do not exist** anywhere in that repo — comment-only aspiration, absent
+from descriptors, from `ColumnSpec` and from dashboard code — so the earlier "optional short labels"
+premise is retired. `ui_strings.yaml` carries 395 keys, every one exactly `ja`+`en`, 0 missing arms;
+a column's label belongs in its descriptor while pose-specific headings belong in `ui_strings.yaml`.
+Fonts ship as **10 subset WOFF2 faces**, so new Japanese glyphs plausibly force a consumer-side font
+rebuild — keep new JA text inside existing coverage and state the risk in the delivery note.
+`data/processed/` is gitignored and pyarrow is installed, so Parquet is natural and CSV acceptable.
+
+| id | tier | spine result | sizing |
+| -- | ---- | ------------ | ------ |
+| M2.8.1 | kernel | Corpus-run preconditions + instrumented pilot. Fix `--output-dir` (`run.py:663-668`); make the three silent-drop guards (`analysis/clinical_features.R:1294,1300,1305`) emit a keyed QC row; instrument the CFR fallback rate; stratified pilot spanning both codecs, all four device configs and all four rotations. | 1-2 windows |
+| M2.8.2 | data | Full corpus 2D run, ~6.5 h, resumable. Per-asset clinical features plus a run manifest giving every one of the 379 assets an explicit disposition, so no asset is silently absent from a denominator. | 1-2 windows |
+| M2.8.3 | kernel | Cohort aggregate publisher + append-ready bilingual descriptor. 12 `(task, side)` rows, `n_subjects`/`n_events`, per-feature distribution statistics. | 2 windows |
+
+**M2.8.1 exists because M2.6 recorded why it must.** "Where a milestone's spine rests on an unmeasured
+empirical assumption, the feasibility probe is its own unit with its own budget." M2.8's spine assumes
+the 2D path runs clean over 379 real assets; **it has only ever run over 12 preliminary clips from the
+retired `videos/initial/` tree**. Two blockers are already measured rather than suspected, and both
+are silent: `--output-dir` is ignored in native rtmlib session mode, which is the entry point M2
+drives the corpus through, so a 6.5 h run lands somewhere other than where it was asked; and three
+enumerator guards drop a whole person with **zero rows and no record**, which for a cohort aggregate
+moves `n_subjects`/`n_events` with nothing saying so. Funding the run before these close is the exact
+mistake M2.6 paid three windows to learn.
+
+**What the 2D path already gives, so it is priced as delivery and not development.**
+`analysis/clinical_features.R` is pinned by six committed goldens (`2d_csv4dp_*`, `2d_cumsum_*`,
+`2d_idx_*`, each with a `_windows` companion), and M2.4 already replaced `1/median(diff(ts))` with
+`nominal_fs()` at the call sites, so the cadence under every rate-based feature is the corrected one.
+
+**Corpus readiness, measured.** 379 canonical assets, `decode_status = ok` on **379/379**;
+`frames_decoded == frames_reported` on **379/379**, totalling **337 090 frames**; `detect_rate` mean
+**0.9899**, median 1.0, min 0.3333, with 367/379 at >= 0.90. **Container PTS reordering is not a
+risk**: `pts_monotonic = 0` on 123/379, but `SourceClock.timestamp()`
+(`src/pose_estimation/video_io.py:28-77`) guarantees strictly-increasing timestamps — a regressing or
+repeated `cv2.CAP_PROP_POS_MSEC` falls back to `idx/fps`, then a second guard forces `last + 1/fps`.
+The open predicate is the **CFR fallback rate**, which M2.8.1 instruments; 123 is an upper bound on
+exposure, since qualification measured PyAV demux order while the run path reads cv2 presentation
+order.
 
 **What the negative leaves standing, and it is more than the 2D line.** M2.1 inventory (`capture_id`,
 container facts), M2.2 sessions (193 events / 382 assets), M2.3 qualification (379 assets), M2.4
@@ -63,27 +155,34 @@ timebase truth, M2.5 alignment (`offset_s`, realized residual median 6.31 ms —
 no 3D, since it supports cross-view comparison and best-view selection per event), and the
 `measurements/` sidecar. Only the extrinsics line died.
 
-**Tailoring, measured against `../rehab` rather than guessed.** That repo is the sole planned
-consumer: a dashboard over `data/raw/ALL_SCIDATA.csv` (cp932), driven by `schema/columns.yaml` with
-`src/rehab_sci/schema.py` as its bilingual registry. Binding consequences for the artifact:
-- **Bilingual by requirement.** Every published column needs `ja` and `en` display labels, optional
-  `short_ja`/`short_en` for dense charts. A monolingual export is not consumable there.
-- **Column descriptor idiom** = `raw`, `ja`, `en`, `group`, `role` (`id`|`feature`|`outcome`|`meta`),
-  `dtype`, `unit`, `range`, `levels`, `description`. Pose features enter as a new `group` with
-  `role: feature`.
-- **Missing sentinels** = `["_", "", "NA", "NT", "ND"]` — rehab's, not this repo's.
-- **Schema carries no patient data** (`schema.py` docstring). Keep the descriptor separable from the
-  table so the same posture holds here.
-- `data/processed/` is empty, so no landing convention is established yet; M2.8 must propose one
-  rather than conform to one.
+**Registry facts that bind the descriptor** (`res-m2-1`, measured, superseding the earlier summary).
+`schema/columns.yaml` = 67 direct descriptors + 152 family-expanded = **219 `ColumnSpec`**; observed
+key union `{raw, ja, en, group, role, dtype, unit, range, levels}`, six required. Groups today =
+`demographics id injury isncsci isncsci_motor isncsci_sensory meta scim`; roles =
+`feature id meta outcome`; dtypes = `categorical datetime numeric ordinal`. `missing_sentinels` =
+`["_", "", "NA", "NT", "ND"]`. **A new `group: pose` string enters automatically** — `load_schema()`
+enforces required keys by `KeyError` alone, with no unique-raw check and no enum check, and duplicate
+raw names silently keep the last. **Schema rows alone do not make fields into dashboard features**:
+`ADMISSION_FEATURES`/`NUMERIC_FEATURES`/`CATEGORICAL_FEATURES` are hard-coded at
+`../rehab/src/rehab_sci/data/dataset.py:40-107`. `schema.py` carries no patient data, so the
+descriptor stays separable from the table and the same posture holds here.
 
-**Blocker to rule before planning: the join key does not exist in either repo.** This side keys on
-`video` + `person_idx` (`export.py:89`) — a within-video person index, not an identity. `../rehab`
-keys on `IDNumber` (patient ID) and `TIMES`/`TIME_Name`. **No map between them exists in either
-repo**, and any such map is identifying by construction, which cuts against M2's standing rule that
-outputs carry redacted aggregates only. Decide where that linkage lives and who holds it — most
-likely hospital-side, outside both repos — before designing the artifact, because the answer decides
-whether M2.8 publishes subject-keyed rows or de-identified aggregates with a documented join column.
+**Planning record.** One window. Wave 1 = `map-m2` (publisher idiom + F1a shape; stopped at 97%
+saturation, 6/10 sections, harvested), `res-m2-1` (`../rehab` study, 8/8, complete), `res-m2-2`
+(prospective-capture research). Wave 2 = `plan-m2`, which drafted an **8-unit split for M2.7 alone**;
+MAIN arbitrated it to 4. **Wave 3 `planrev-m2` was NOT funded** — MAIN reached context reserve first,
+so the split carries no adversarial review and its sizing is MAIN's alone. That is the one soft spot
+in this plan: treat every window estimate as untested, and let M2.7.1's own wave-1 map correct it.
+
+**Two sizing data for the next PLANNING window.** (1) **A planning agent splits by risk, not by
+value.** `plan-m2` produced a defensible 8-unit M2.7 from the every-unit-overran record, but F1a
+publishes one corpus row and owns no estimator, while the M2.5 analog it was sized against bought a
+379-row solved artifact with a solver. **Size a publisher by what it computes, not by the idiom it
+reuses.** (2) **MAIN out-measured the wave again**, for the third consecutive window: the cohort-cell
+census, corpus readiness, sizing archaeology, the sentinel verification and the PTS resolution were
+all MAIN scripts, and the PTS question had already cost `map-m2` most of a window when MAIN answered
+it in two reads. **On a planning window, delegate the reading and the external research; keep every
+script-derivable census in MAIN's hands.**
 
 **Out of scope, explicitly.** Editing `../rehab`. Integration is that repo's work under its own
 `CLAUDE.md` and roadmap. M2.8 ends at a published artifact plus its schema descriptor.
@@ -321,9 +420,11 @@ that is a different unit from M2.6 as planned and this ruling does not fund it.
 
 **Wave state.** `res-m2u6-3` (this window) answered Q01-Q03 of 5 at 32% before MAIN stopped it at
 reserve; Q04 (accuracy vs camera angular separation) and Q05 (published negatives, closure precision
-in practice) are unowed → `.scratch/agents/res-m2u6-3.md`. Retained from window 2 with their branches and worktrees:
-`wt/spike-m2u6-ba`, `wt/spike-m2u6-sweep` — **their named open dependency was F0, which is now
-closed, so both are free to remove unless the replacement scope claims them.** Wave-1 reports
+in practice) are unowed → `.scratch/agents/res-m2u6-3.md`. **`wt/spike-m2u6-ba` and
+`wt/spike-m2u6-sweep` are REMOVED** — worktrees and branches both, at the M2 plan close. Their named
+open dependency was F0, now closed, and the M2.7/M2.8 scope does not claim them; the evidence they
+held re-derives from committed state, since shipped `scripts/probe_calibration_bias.py` carries all
+four arms (`control`/`structure`/`ba`/`subset`) that produced A09-A13. Wave-1 reports
 preserved: `.scratch/agents/map-m2u6.md` (12-section map, 110-row anchored checklist, S12 unfilled),
 `res-m2u6.md` (Q05-Q08 unowed). Caches survive at `.scratch/calibration-observability/` (8 frames)
 and `.scratch/calib-obs-f32/` (32 frames); both are gitignored and regenerate from the committed

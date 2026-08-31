@@ -340,19 +340,44 @@ uv run --no-sync ruff check && uv run --no-sync ruff format --check \
 - `**/*.Rmd` is excluded in `.serena/project.yml` for exactly that reason (R LS never answers `documentSymbol` for R Markdown; `.R` files are unaffected at ~4 files/s). Reach `analysis/analysis_summary.Rmd` by `Read`/`rg`; Serena's symbol + search tools do not see it.
 - Serena's own session start is repo-independent (~3.5 s, dominated by the bash LS) and asynchronous — it never blocks the MCP handshake.
 
-- **`../rehab` = M2's single planned consumer, and its conventions are binding on any artifact this
-  repo publishes for it.** Separate git repo, dashboard over the hospital SCI database. Sole raw
-  source `data/raw/ALL_SCIDATA.csv` (**cp932**, Japanese headers); `schema/columns.yaml` declares every
-  column as `raw`/`ja`/`en`/`short_ja`/`short_en`/`group`/`role`(`id`|`feature`|`outcome`|`meta`)/
-  `dtype`/`unit`/`range`/`levels`/`description`, expanded by `src/rehab_sci/schema.py`, which states
-  it carries no patient data. `missing_sentinels: ["_","","NA","NT","ND"]`. **Bilingual ja/en labels
-  are a requirement, not a nicety** — a monolingual export is not consumable there. `data/processed/`
-  is empty, so no landing convention exists yet and one must be proposed.
-- **The pose↔rehab join key exists in neither repo.** This side keys on `video` + `person_idx`
-  (`export.py:89`) = a within-video person index, not an identity; `../rehab` keys on `IDNumber`
-  (patient ID) + `TIMES`/`TIME_Name`. Any map between them is identifying by construction and
-  collides with M2's redacted-aggregates-only rule → **rule where the linkage lives before designing
-  any delivery artifact**, because it decides subject-keyed rows vs de-identified aggregates.
+- **`../rehab` = M2's single planned consumer, and its conventions bind any artifact this repo
+  publishes for it.** Separate git repo, dashboard over the hospital SCI database. Sole raw source
+  `data/raw/ALL_SCIDATA.csv` (**cp932**, Japanese headers). `schema/columns.yaml` = **67 direct
+  descriptors + 152 family-expanded = 219 `ColumnSpec`**; observed key union
+  `{raw, ja, en, group, role, dtype, unit, range, levels}`, six required. **`short_ja`/`short_en`/
+  `description` are a comment-only aspiration — ZERO literal descriptors carry them**, and short
+  labels are absent from `ColumnSpec` and from dashboard code, so dense charts reuse the full labels.
+  Groups `demographics id injury isncsci isncsci_motor isncsci_sensory meta scim`; roles
+  `feature id meta outcome`; dtypes `categorical datetime numeric ordinal`.
+  `missing_sentinels: ["_","","NA","NT","ND"]`. **Bilingual ja/en is a requirement** —
+  `ui_strings.yaml` holds 395 keys, every one exactly `ja`+`en`, 0 missing arms; `ui_str()` resolves
+  lang → `ja` → `en` → key; the dashboard defaults to `ja`.
+- **Appending a group is cheap; making it a FEATURE is not.** `load_schema()` enforces required keys
+  by `KeyError` alone — no unique-raw check, no enum check — and duplicate raw names silently keep
+  the last, so a new `group: pose` enters automatically. But schema rows alone do nothing:
+  `ADMISSION_FEATURES`/`NUMERIC_FEATURES`/`CATEGORICAL_FEATURES` are hard-coded at
+  `../rehab/src/rehab_sci/data/dataset.py:40-107`. **Deliver an append-ready `columns.yaml` fragment**;
+  a separate `schema/pose_features.yaml` is worse, forcing a `schema.py` load/merge change. Fonts ship
+  as **10 SUBSET WOFF2 faces** (`scripts/02_build_fonts.py`), so new Japanese glyphs plausibly force a
+  consumer-side font rebuild. `data/processed/` is gitignored and pyarrow is installed → Parquet is
+  natural, CSV acceptable. Grain = **episode × assessment occasion**: 1200 × 26 = 31 200 raw rows,
+  893 × 26 = 23 218 clean; `TIMES` = ordinal 1-26, `TIME_Name` = 26 levels `0day 72h … 10y discharge`.
+- **The pose↔rehab join is CUT by user ruling — M2.8 publishes cohort aggregates only.** No
+  per-subject rows, no patient identifier, no join column, no join template. The ruling SHRINKS the
+  consumer delta rather than only making it safer: full ingest was priced at one untracked table plus
+  six tracked files, whose three heaviest items are the authorized identifier map, a join-validating
+  loader and the dataset merge — a cohort artifact carries no `IDNumber`/`TIMES`, so all three vanish.
+  Do not re-plan a join surface; `analysis/make_templates.R`'s operator-filled `sessions.csv` pattern
+  is not extended.
+- **Cohort aggregation is well-conditioned at `(task, side)`**: 12 cells over `cap coin glass key nut
+  peg` × `l r`, each **15-16 distinct subjects**, one family per subject per cell, 188 = 12×16 − 4
+  absent. **Zero cells below 5**, so no small-cell suppression at that grain; a finer grain (adding
+  `view`) shrinks cells and reopens it.
+- **Container PTS reordering cannot reach the R layer.** `pts_monotonic = 0` on 123/379 assets, but
+  `SourceClock.timestamp()` (`src/pose_estimation/video_io.py:28-77`) guarantees strictly-increasing
+  timestamps — a regressing or repeated `cv2.CAP_PROP_POS_MSEC` falls back to `idx/fps`, then a second
+  guard forces `last + 1/fps`. The open predicate is the **CFR fallback RATE**, unmeasured. 123 is an
+  upper bound: qualification measured PyAV demux order, the run path reads cv2 presentation order.
 - **The 2D clinical feature path already exists and is golden-pinned**, so a 2D delivery unit is
   delivery + schema work, never feature development: `analysis/clinical_features.R` with six goldens
   (`2d_csv4dp_*`, `2d_cumsum_*`, `2d_idx_*`, each plus `_windows`). M2.4's `nominal_fs()` adoption
