@@ -207,3 +207,52 @@ Filled by MAIN's batch rulings on the `test-m2u5` phase-1 table.
   published offsets is a defect — the same population-conflation trap this project already carries
   for its two closure statistics and its two "families connected" figures. Recount:
   `.scratch/p19_census.py`.
+
+- **A03 — batch ruling on `test-m2u5`'s phase-1 ambiguities Q01-Q14.** Accepted as recommended:
+  **Q02** (`is_reference` spells `[01]`, matching every existing CSV boolean), **Q03** (`offset_s` is
+  fixed nine decimals through `_decimal`; the reference publishes `0.000000000` rather than `0` or an
+  empty cell, and a solver-returned negative zero normalises, so the bytes depend on the corpus and
+  never on rounding), **Q06** (`numpy.linalg.lstsq(..., rcond=None)` plus the nine-decimal rendering
+  are part of the byte contract; the rank check and the negative-zero normalisation join them),
+  **Q09** (the unweighted-solve rationale carries its Spearman figures in both the solver docstring
+  and `docs/technical/qualification.md`), **Q10** (P12 governs the applied alignment model and
+  `cameras_qc` alone; `pairs_qc`'s `drift_ppm`/`drift_se` diagnostics shipped at P29 and stay),
+  **Q11** (`offset_span_s` is published for two or more reachable rows and left empty for a singleton
+  or a reference-only component), **Q13** (documentation states that qualification publishes audio
+  alignment now and that fusion integration remains unapplied, never implying consumption), and
+  **Q14** (the timing-language scan covers every shipped human-facing document plus the alignment and
+  qualification solver comments, excluding frozen archives).
+
+  Ruled against the recommendation, with reasons:
+
+  - **Q01 — `offset_status` is `{reference, solved, unreachable, unmeasured}`, not `{ok, unreachable}`.**
+    The column exists so a reader tallies the table on one cell instead of inferring from an empty
+    `offset_s` what an empty cell cannot say, which requires it to be a total partition. `unmeasured`
+    is not optional: a run without the sync axis publishes every camera row with no alignment at all,
+    where `ok` is false and `unreachable` asserts a measured negative that was never measured.
+    `reference` separates the gauge pin — a definitional zero — from `solved`, an estimate; a consumer
+    asking "is this number evidence" then reads one column rather than joining `is_reference`.
+  - **Q04 — row order is `(event_id, asset_id)`, not `(event_id, camera_name, asset_id)`.**
+    `asset_id` is the row's primary key and `load_placements` already sorts on it. `camera_name` is a
+    *derived* label, so leading with it would make published byte order depend on a naming decision:
+    renaming cameras would reorder the file while no measurement moved. The two orders agree on this
+    corpus and disagree in principle, which is exactly when the principle decides.
+  - **Q05 — an accepted-status pair row carrying an unusable `offset_s` aborts publication.**
+    Dropping the edge and letting cameras fall out as `unreachable` would publish a measured negative
+    to describe a producer defect, making a broken sidecar indistinguishable from a genuinely
+    disconnected event. Raise `QualifyError` before solving.
+  - **Q08 — `sync_status` is `{connected, unconnected}` plus the table's own empty unmeasured cell,
+    not the token `unmeasured`.** `events_qc` already spells an unrun axis as an empty cell in
+    `graph_connected`, `closure_residual_s`, `offset_span_s` and its three qualification flags, and
+    `reason` names the unmeasured axes in words. Spelling one column differently would make the table
+    inconsistent with itself. `cameras_qc.offset_status` takes the opposite ruling for the opposite
+    reason: it is the only column in that table that can explain an empty `offset_s`, and it has no
+    `reason` column to lean on. The column sits immediately after `graph_connected` as recommended.
+  - **Q12 — P15 is satisfied by derivation plus an independent test, with no producer-side
+    consistency assertion.** `_event_rows` reads `graph_connected`, `sync_status` and `offset_span_s`
+    back out of the published camera rows, so the two tables cannot disagree by construction and an
+    assertion comparing them could never fail. A check that cannot fail is worse than no check,
+    because it reads as coverage. The assurance is the independent test that reparses both CSVs.
+    `validate_generation` keeps its documented keyless-digest boundary.
+  - **Q07 — closed by A02.** `C53` asserted P19's superseded `329`/`50` and is retired; `C54`'s
+    `reference_rows=193`, `nonempty_offset_s=355`, `empty_offset_s=24` is the corpus oracle.
