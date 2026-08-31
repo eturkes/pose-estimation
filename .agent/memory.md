@@ -92,6 +92,20 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 
 - **"Families connected" names at least two different statistics — always say which.** P38's 122/137 quantifies over *one camera per view*: a family counts when some one-asset-per-view selection is spanned by **cross-view** accepted pairs, which is what M2.6 consumes, since a family holding two files of one view needs only one and a same-view edge carries no cross-view geometry. Whole-family connectivity (every asset joined, same-view edges counted) gives **121** on the identical 210 accepted pairs. Both are in `scripts/probe_sync_policy.py` as `families_view_recoverable` and `families_all_assets_connected`. A one-family gap between a port and its spike is this, not an estimator defect — check the rule before opening an investigation. The visual spike's 26/137 still matches neither and is an open register row.
 
+## Frozen contracts carry stale numbers
+
+- **A contract's stated census can be derived under a rule a later predicate replaced — re-derive
+  every census at implementation time rather than trusting the frozen text.** M2.5's P19 published
+  "329 offsets / 50 not" while its own P07 mandated partial publication, whose true census is
+  **355 / 24** over 379 rows. 329 is a real number naming a different population — cameras inside a
+  graph-connected event — so the defect was invisible to every consistency check that treated it as a
+  count. The recount cost one broadcast to four live teammates; waiting for review would have cost a
+  wrong published artifact. Whenever one predicate changes which rows exist, grep the contract for
+  every number quantifying over rows and recompute each one.
+- **Name the population beside the count, always.** This project has now hit the same trap three
+  times: two closure statistics over different event sets, two "families connected" figures, and now
+  329-vs-355. A bare count is the shape of defect that survives review.
+
 ## Multi-agent traps
 
 - **A superseded ruling in a shared file poisons every downstream artifact.** M2.2's rulings file kept A07 and A12 after two later rulings replaced them; the test teammate conformed to the file, and its suite read as a regression against correct code. Amend a ruling in place, in the same turn as the code it rules — a "later rulings win" note at the bottom is not enough, because the table is what gets read.

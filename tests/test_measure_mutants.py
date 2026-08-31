@@ -28,7 +28,9 @@ def test_single_camera_event_has_no_offset_span() -> None:
         "views": "above",
     }
 
-    [row] = qualify._event_rows([event], {"event-1": ["asset-b"]}, [], sync_measured=True)
+    [row] = qualify._event_rows(
+        [event], {"event-1": ["asset-b"]}, camera_rows=[], directed={}, sync_measured=True
+    )
 
     assert row["graph_connected"] == "1"
     assert row["offset_span_s"] == qualify.UNMEASURED
@@ -76,11 +78,18 @@ def test_load_placements_sorts_members_independent_of_table_order(
 
 def test_closure_distribution_endpoints_ignore_event_order() -> None:
     event_rows = [
-        {"n_cameras": "3", "sync_qualified": "1", "closure_residual_s": value}
+        {
+            "n_cameras": "3",
+            "sync_status": qualify.SYNC_CONNECTED,
+            "sync_qualified": "1",
+            "closure_residual_s": value,
+        }
         for value in ("0.300000000", "0.100000000", "0.200000000")
     ]
 
-    distribution = qualify.build_census([], [], event_rows)["events"]["closure_residual_s"]
+    distribution = qualify.build_census(
+        asset_rows=[], pair_rows=[], camera_rows=[], event_rows=event_rows
+    )["events"]["closure_residual_s"]
 
     assert distribution is not None
     assert distribution["min"] == 0.1

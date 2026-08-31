@@ -38,33 +38,46 @@ from fractions import Fraction
 from typing import Any, BinaryIO
 
 import av
+import numpy as np
 
 from . import inventory, measure, sessions
 
-# v3 publishes the exact audio sample rate and the (model, OS, sample_rate)
-# stratum P29 requires; v2 renamed pairs_qc's `confidence` to `peak_rms` (R9),
-# added the corroborator's three columns, and filled events_qc from the sync
-# axis.  A published set is self-describing only if this moves with the schema:
-# validate_generation refuses a document whose generator_version is not this
-# one, and that refusal is the whole mechanism by which a v2 tree cannot be read
-# as a v3 tree.
+# v4 adds cameras_qc: the per-camera alignment the solver already computed and
+# threw away.  v3 published the exact audio sample rate and the (model, OS,
+# sample_rate) stratum P29 requires; v2 renamed pairs_qc's `confidence` to
+# `peak_rms` (R9), added the corroborator's three columns, and filled events_qc
+# from the sync axis.  A published set is self-describing only if this moves
+# with the schema: validate_generation refuses a document whose
+# generator_version is not this one, and that refusal is the whole mechanism by
+# which a v3 tree cannot be read as a v4 tree.  Ownership includes the version,
+# so the first v4 run needs the v3 tree removed by hand.
 # `_SCHEMA_DIGEST` in the suite fails on any column change that skips this bump.
-GENERATOR_VERSION = "v3"
+GENERATOR_VERSION = "v4"
 
 ASSETS_QC_FILENAME = "assets_qc.csv"
 PAIRS_QC_FILENAME = "pairs_qc.csv"
+CAMERAS_QC_FILENAME = "cameras_qc.csv"
 EVENTS_QC_FILENAME = "events_qc.csv"
 QUALIFICATION_FILENAME = "qualification.json"
 
-CSV_FILENAMES: tuple[str, ...] = (ASSETS_QC_FILENAME, PAIRS_QC_FILENAME, EVENTS_QC_FILENAME)
+CSV_FILENAMES: tuple[str, ...] = (
+    ASSETS_QC_FILENAME,
+    PAIRS_QC_FILENAME,
+    CAMERAS_QC_FILENAME,
+    EVENTS_QC_FILENAME,
+)
+
+# Filled below, once every column tuple exists.  One mapping serves the writer,
+# the generation digests and the suite's schema pin, so a table added to the set
+# cannot reach publication while staying invisible to the check that decides
+# whether GENERATOR_VERSION had to move.
+CSV_COLUMNS: dict[str, tuple[str, ...]] = {}
 
 # The marker digests the census that carries it, so the key set is closed for
 # the same reason sessions' is: an added or renamed key means a different
 # writer, and no digest inside the document catches that.
 GENERATION_KEYS: tuple[str, ...] = (
-    ASSETS_QC_FILENAME,
-    PAIRS_QC_FILENAME,
-    EVENTS_QC_FILENAME,
+    *CSV_FILENAMES,
     "census",
     "tree",
     "inventory",
@@ -152,12 +165,39 @@ PAIRS_QC_COLUMNS: tuple[str, ...] = (
     "same_audio_rate",
 )
 
+# The unit's product.  One row per placed asset, so a camera with no offset is
+# published as a row that says so and never as an absent row: a reader counting
+# rows gets the event's real camera count either way, and the reason a camera
+# carries no alignment is a cell rather than an inference from a gap (P04).
+CAMERAS_QC_COLUMNS: tuple[str, ...] = (
+    "event_id",
+    "asset_id",
+    # The session tree's own per-event cell, copied rather than re-derived.
+    "camera_name",
+    # The registry's semantic cell.  Both are published because they answer
+    # different questions -- which camera slot of this event, and which view
+    # label the corpus gave the file -- and a consumer that assumes they agree
+    # should be able to check rather than assume.
+    "view",
+    # offset_s = t_camera - t_reference for one shared instant.  Positive means
+    # this camera started earlier.  Apply as t_ref = t_camera - offset_s (P09).
+    # Empty exactly when offset_status is not a solved one.
+    "offset_s",
+    "offset_status",
+    "is_reference",
+    "reference_camera",
+)
+
 EVENTS_QC_COLUMNS: tuple[str, ...] = (
     "event_id",
     "capture_id",
     "n_cameras",
     "views",
     "graph_connected",
+    # P07's second cell: `graph_connected = 0` says the event has a camera the
+    # reference cannot reach, and this says so in the vocabulary a consumer
+    # reads, so a partially solved event can never be read as an aligned one.
+    "sync_status",
     "closure_residual_s",
     "offset_span_s",
     "sync_qualified",
@@ -165,6 +205,16 @@ EVENTS_QC_COLUMNS: tuple[str, ...] = (
     "qualified",
     "reason",
 )
+
+CSV_COLUMNS.update(
+    {
+        ASSETS_QC_FILENAME: ASSETS_QC_COLUMNS,
+        PAIRS_QC_FILENAME: PAIRS_QC_COLUMNS,
+        CAMERAS_QC_FILENAME: CAMERAS_QC_COLUMNS,
+        EVENTS_QC_FILENAME: EVENTS_QC_COLUMNS,
+    }
+)
+assert tuple(CSV_COLUMNS) == CSV_FILENAMES, "Every published table needs its column tuple."
 
 # The registry's columns this tool reads, plus reported_frame_count: the header
 # claim P11 compares a measurement against belongs to the registry generation,
@@ -187,7 +237,7 @@ EVENT_INPUT_COLUMNS: tuple[str, ...] = (
 # capture family cannot supply it: a view-conflict family resolves to several
 # single-camera events, so any family-wide member list credits each of them
 # with cameras it does not hold.
-PLACEMENT_INPUT_COLUMNS: tuple[str, ...] = ("asset_id", "event_id", "placement")
+PLACEMENT_INPUT_COLUMNS: tuple[str, ...] = ("asset_id", "event_id", "placement", "camera_name")
 
 # Populated cells only.  An unmeasured axis publishes "" precisely so that no
 # alphabet has to admit a sentinel that could be mistaken for a measurement.
@@ -241,6 +291,26 @@ PAIR_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
     "same_audio_rate": BOOLEAN_CELL,
 }
 
+# A camera slot name, `cam-` plus the view token the session tree spelled.  The
+# prefix is imported rather than retyped so a rename in the publisher that owns
+# it cannot leave this alphabet quietly accepting the old spelling.
+CAMERA_NAME_CELL = re.compile(rf"{re.escape(sessions.CAMERA_PREFIX)}[a-z0-9]+")
+STATUS_CELL = re.compile(r"[a-z_]+")
+
+# `camera_name` and `view` are absent for the reason the asset table's identity
+# columns are: they arrive validated from the session tree and the registry, and
+# re-deciding their alphabet here would let this tool disagree with its input.
+# `reference_camera` IS here, because which camera holds that role is this
+# tool's own decision rather than an ingested cell.
+CAMERA_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
+    "offset_s": DECIMAL_CELL,
+    "offset_status": STATUS_CELL,
+    "is_reference": BOOLEAN_CELL,
+    "reference_camera": CAMERA_NAME_CELL,
+}
+
+EVENT_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {"sync_status": STATUS_CELL}
+
 # The sidecar axes this tool ingests, named exactly as `measure.AXES` names them
 # so a census axis name and a manifest key can never drift apart.
 SIDECAR_ASSET_AXES: tuple[str, ...] = ("detect", "rigidity", "scale")
@@ -272,6 +342,37 @@ PAIR_STATUSES: frozenset[str] = frozenset(
 
 # A pair qualifies on audio acceptance that the corroborator did not veto.
 QUALIFIED_PAIR_STATUSES: frozenset[str] = frozenset({PAIR_OK_CORROBORATED, PAIR_OK_UNCORROBORATED})
+
+# Why a camera row does or does not carry an offset.  Closed, and a total
+# partition of the published rows, so a reader tallies the table on this one
+# column instead of inferring from an empty cell what an empty cell cannot say.
+OFFSET_REFERENCE = "reference"
+OFFSET_SOLVED = "solved"
+# Outside the reference's connected component: the accepted edges do not join
+# this camera to the event's reference, so no offset exists to publish (P07).
+OFFSET_UNREACHABLE = "unreachable"
+# No sync axis ran, so the question was never asked.  Distinct from
+# `unreachable`, which is a measured negative.
+OFFSET_UNMEASURED = "unmeasured"
+
+OFFSET_STATUSES: frozenset[str] = frozenset(
+    {OFFSET_REFERENCE, OFFSET_SOLVED, OFFSET_UNREACHABLE, OFFSET_UNMEASURED}
+)
+# Statuses whose row carries a number.  The reference is one of them: its zero
+# is the gauge pin, published as a value rather than as a blank, because P08
+# requires a reader to check it.
+OFFSET_SOLVED_STATUSES: frozenset[str] = frozenset({OFFSET_REFERENCE, OFFSET_SOLVED})
+
+SYNC_CONNECTED = "connected"
+SYNC_UNCONNECTED = "unconnected"
+SYNC_STATUSES: frozenset[str] = frozenset({SYNC_CONNECTED, SYNC_UNCONNECTED})
+
+# P08's reference rule, in precedence order.  Total over the corpus's 193 events
+# at 155/24/14, which is why it wins: latest-start is undefined on exactly the
+# 20 events whose graph does not connect, and highest degree is unique on only
+# 69.  The fallback below the hierarchy keeps it total for a view token this
+# tuple does not name, so a grammar migration cannot leave an event refless.
+VIEW_HIERARCHY: tuple[str, ...] = ("above", "left", "right")
 
 # One frame at the corpus's nominal cadence.  Two estimates further apart than
 # this describe different events, which is a contradiction rather than noise;
@@ -473,6 +574,19 @@ def load_placements(sessions_dir: pathlib.Path) -> dict[str, list[str]]:
         placed_in[asset_id] = event_id
         members.setdefault(event_id, []).append(asset_id)
     return {event_id: sorted(ids) for event_id, ids in members.items()}
+
+
+def load_camera_names(sessions_dir: pathlib.Path) -> dict[str, str]:
+    """Return each placed asset's camera slot name, as the session tree spelled it.
+
+    A second read of one small table rather than a wider return from
+    ``load_placements``, whose shape is pinned by committed mutants: widening it
+    would move a frozen surface to save one traversal of 379 rows.
+    """
+    rows = _read_table(sessions_dir / sessions.PLACEMENTS_FILENAME, PLACEMENT_INPUT_COLUMNS)
+    return {
+        row["asset_id"]: row["camera_name"] for row in rows if row["placement"] == sessions.PLACED
+    }
 
 
 def _device_config(container: av.container.InputContainer) -> str:
@@ -1015,46 +1129,12 @@ def _assert_sidecar_rates(
                 )
 
 
-def _spanning_offsets(
-    members: list[str], directed: dict[tuple[str, str], float]
-) -> dict[str, float] | None:
-    """Solve one offset per member against the lowest id, or None when unjoined.
+def _directed_edges(pair_rows: list[dict[str, str]]) -> dict[tuple[str, str], float]:
+    """Every accepted pair as both of its directed readings.
 
-    Breadth-first over accepted edges alone, so a camera reachable directly
-    takes its own measured edge rather than an accumulated path.  Where a
-    triangle does not close, which edges carry the solution changes it, so the
-    traversal is fixed rather than incidental; ``closure_residual_s`` publishes
-    exactly the disagreement between the two routes.
-    """
-    if not members:
-        return None
-    solved = {members[0]: 0.0}
-    frontier = [members[0]]
-    while frontier:
-        current = frontier.pop(0)
-        for other in members:
-            if other in solved or (current, other) not in directed:
-                continue
-            solved[other] = solved[current] + directed[(current, other)]
-            frontier.append(other)
-    return solved if len(solved) == len(members) else None
-
-
-def _event_rows(
-    events: list[dict[str, str]],
-    members_by_event: dict[str, list[str]],
-    pair_rows: list[dict[str, str]],
-    *,
-    sync_measured: bool,
-) -> list[dict[str, str]]:
-    """One row per session event, carrying the sync axis where it ran.
-
-    ``views`` is the session tree's own per-event cell rather than a re-derived
-    one: the capture family of a view-conflict event holds views that event
-    does not, and re-deriving published text is how the two spellings drift.
-
-    Every cell below the identity block stays unmeasured without the sidecar,
-    which is what keeps a flagless run byte-identical to every earlier one.
+    Reversing a pair negates its offset, exactly.  That antisymmetry is the
+    sign convention's whole content at the edge level: it is what makes the
+    solve independent of which asset the sidecar happened to call `a`.
     """
     directed: dict[tuple[str, str], float] = {}
     for row in pair_rows:
@@ -1063,6 +1143,165 @@ def _event_rows(
         offset = float(row["offset_s"])
         directed[(row["asset_a"], row["asset_b"])] = offset
         directed[(row["asset_b"], row["asset_a"])] = -offset
+    return directed
+
+
+def _reached(members: list[str], directed: dict[tuple[str, str], float], root: str) -> set[str]:
+    """The members accepted edges join to *root*, *root* included."""
+    reached = {root}
+    frontier = [root]
+    while frontier:
+        current = frontier.pop()
+        for other in members:
+            if other not in reached and (current, other) in directed:
+                reached.add(other)
+                frontier.append(other)
+    return reached
+
+
+def _view_reference(members: list[str], views: dict[str, str]) -> str:
+    """P08's reference: highest view in the hierarchy, lowest asset id on a tie.
+
+    Total by construction.  The hierarchy answers 193 of 193 events on this
+    corpus; the fallback answers an event whose views the hierarchy does not
+    name, so a grammar migration can never leave an event without a reference.
+    """
+    for view in VIEW_HIERARCHY:
+        candidates = [asset_id for asset_id in members if views.get(asset_id) == view]
+        if candidates:
+            return min(candidates)
+    return min(members)
+
+
+def _solve_offsets(
+    component: set[str], directed: dict[tuple[str, str], float], reference: str
+) -> dict[str, float]:
+    """Least-squares ``x_b - x_a = offset_s`` over accepted edges, reference pinned at 0.
+
+    Unweighted, and that is a measurement rather than a default: Spearman
+    correlation of the published ``peak_rms`` against absolute audio-visual
+    disagreement is +0.4141, the wrong sign for a precision weight, so a
+    weighted solve would dress an uncalibrated number as an inverse variance.
+
+    Least squares over every accepted edge rather than a breadth-first tree.
+    The two differ by a median of 0 and a max of 10.095 ms = 0.303 nominal
+    frames, on the 30 events carrying a redundant edge; where they differ, this
+    one distributes the closure residual over the evidence instead of charging
+    it to whichever edge a traversal happened to take.
+    """
+    unknowns = sorted(asset_id for asset_id in component if asset_id != reference)
+    if not unknowns:
+        return {reference: 0.0}
+    column = {asset_id: index for index, asset_id in enumerate(unknowns)}
+    # Each undirected edge once, in a fixed order, so the design matrix is a
+    # function of the component rather than of dict insertion order.
+    edges = sorted(pair for pair in directed if pair[0] < pair[1] and set(pair) <= component)
+    design = np.zeros((len(edges), len(unknowns)), dtype=np.float64)
+    observed = np.empty(len(edges), dtype=np.float64)
+    for index, (first, second) in enumerate(edges):
+        if first != reference:
+            design[index, column[first]] = -1.0
+        if second != reference:
+            design[index, column[second]] = 1.0
+        observed[index] = directed[(first, second)]
+    solution, _, rank, _ = np.linalg.lstsq(design, observed, rcond=None)
+    if rank != len(unknowns):
+        # An incidence system over a connected component is rank-deficient by
+        # exactly 1, and pinning the reference removes it, so full column rank
+        # here is a theorem.  A short rank means the component search and the
+        # edge set disagree about connectivity, which is a defect in this file
+        # rather than a property of the corpus.
+        raise QualifyError(
+            f"The alignment system for {reference} is rank {rank} against "
+            f"{len(unknowns)} unknowns over a component this tool called connected.",
+            reason="alignment_rank",
+        )
+    # `+ 0.0` normalises a negative zero the solver can return, which would
+    # otherwise publish "-0.000000000" and make the bytes depend on rounding
+    # rather than on the corpus.
+    return {
+        reference: 0.0,
+        **{name: float(value) + 0.0 for name, value in zip(unknowns, solution, strict=True)},
+    }
+
+
+def _camera_rows(
+    events: list[dict[str, str]],
+    members_by_event: dict[str, list[str]],
+    camera_names: dict[str, str],
+    views: dict[str, str],
+    directed: dict[tuple[str, str], float],
+    *,
+    sync_measured: bool,
+) -> list[dict[str, str]]:
+    """One row per placed asset of every event: the unit's published product.
+
+    Without the sync axis the alignment cells are all unmeasured, including
+    ``is_reference``.  Naming a reference is a gauge choice inside a solve, so
+    publishing one where nothing was solved would restate the very claim this
+    unit exists to remove -- an alignment field that asserts something no
+    measurement supports.
+    """
+    rows: list[dict[str, str]] = []
+    for event in sorted(events, key=lambda item: item["event_id"]):
+        members = members_by_event.get(event["event_id"], [])
+        solved: dict[str, float] = {}
+        reference = ""
+        if sync_measured and members:
+            reference = _view_reference(members, views)
+            solved = _solve_offsets(_reached(members, directed, reference), directed, reference)
+        for asset_id in members:
+            if not sync_measured:
+                status = OFFSET_UNMEASURED
+            elif asset_id == reference:
+                status = OFFSET_REFERENCE
+            elif asset_id in solved:
+                status = OFFSET_SOLVED
+            else:
+                status = OFFSET_UNREACHABLE
+            rows.append(
+                {
+                    "event_id": event["event_id"],
+                    "asset_id": asset_id,
+                    "camera_name": camera_names.get(asset_id, ""),
+                    "view": views.get(asset_id, ""),
+                    "offset_s": _decimal(solved.get(asset_id)),
+                    "offset_status": status,
+                    "is_reference": _boolean(asset_id == reference if sync_measured else None),
+                    "reference_camera": camera_names.get(reference, "") if reference else "",
+                }
+            )
+    return rows
+
+
+def _event_rows(
+    events: list[dict[str, str]],
+    members_by_event: dict[str, list[str]],
+    *,
+    camera_rows: list[dict[str, str]],
+    directed: dict[tuple[str, str], float],
+    sync_measured: bool,
+) -> list[dict[str, str]]:
+    """One row per session event, carrying the sync axis where it ran.
+
+    ``views`` is the session tree's own per-event cell rather than a re-derived
+    one: the capture family of a view-conflict event holds views that event
+    does not, and re-deriving published text is how the two spellings drift.
+
+    Connectivity and span are read back out of ``cameras_qc``'s own cells rather
+    than re-solved here, so the two tables cannot disagree about an event (P13).
+
+    Every cell below the identity block stays unmeasured without the sidecar,
+    which is what keeps a flagless run byte-identical to every earlier one.
+    """
+    offsets_by_event: dict[str, list[float]] = {}
+    unreachable_by_event: dict[str, int] = {}
+    for camera in camera_rows:
+        event_id = camera["event_id"]
+        if camera["offset_status"] in OFFSET_SOLVED_STATUSES:
+            offsets_by_event.setdefault(event_id, []).append(float(camera["offset_s"]))
+        elif camera["offset_status"] == OFFSET_UNREACHABLE:
+            unreachable_by_event[event_id] = unreachable_by_event.get(event_id, 0) + 1
     rows: list[dict[str, str]] = []
     for event in sorted(events, key=lambda item: item["event_id"]):
         row = {
@@ -1071,6 +1310,7 @@ def _event_rows(
             "n_cameras": event["n_cameras"],
             "views": event["views"],
             "graph_connected": UNMEASURED,
+            "sync_status": UNMEASURED,
             "closure_residual_s": UNMEASURED,
             "offset_span_s": UNMEASURED,
             "sync_qualified": UNMEASURED,
@@ -1082,38 +1322,48 @@ def _event_rows(
         if not sync_measured:
             continue
         members = members_by_event.get(event["event_id"], [])
-        solved = _spanning_offsets(members, directed)
-        # P19 quantifies over the event's own cameras, so a one-camera event is
+        connected = not unreachable_by_event.get(event["event_id"], 0)
+        # P14 quantifies over the event's own cameras, so a one-camera event is
         # connected: it carries no alignment to fail.  Geometry is what refuses
         # a single camera, and geometry answers on its own axis.
-        row["graph_connected"] = _boolean(solved is not None)
+        row["graph_connected"] = _boolean(connected)
+        row["sync_status"] = SYNC_CONNECTED if connected else SYNC_UNCONNECTED
         row["sync_qualified"] = row["graph_connected"]
-        if solved is not None and len(members) > 1:
-            row["offset_span_s"] = _decimal(max(solved.values()) - min(solved.values()))
+        solved_offsets = offsets_by_event.get(event["event_id"], [])
+        if len(solved_offsets) > 1:
+            # The spread of the component that was solved, which equals the
+            # event's own spread exactly when `sync_status` is `connected`.  On
+            # a partially solved event it covers the reference's component
+            # alone, and `sync_status` is the cell that says so.
+            row["offset_span_s"] = _decimal(max(solved_offsets) - min(solved_offsets))
         if len(members) == 3:
             first, second, third = members
             triangle = ((first, second), (second, third), (first, third))
             if all(edge in directed for edge in triangle):
                 # A cocycle: acoustic propagation delay cancels identically
                 # around the triangle, so this certifies self-consistency and
-                # never accuracy (P16).
+                # never accuracy (P11).
                 row["closure_residual_s"] = _decimal(
                     abs(directed[triangle[0]] + directed[triangle[1]] - directed[triangle[2]])
                 )
-        blockers = (
-            ["geom_unmeasured"] if solved is not None else ["sync_unqualified", "geom_unmeasured"]
-        )
+        blockers = ["geom_unmeasured"] if connected else ["sync_unqualified", "geom_unmeasured"]
         row["reason"] = "|".join(blockers)
     return rows
 
 
 def build_census(
+    *,
     asset_rows: list[dict[str, str]],
     pair_rows: list[dict[str, str]],
+    camera_rows: list[dict[str, str]],
     event_rows: list[dict[str, str]],
     measured_axes: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """Return the redaction-safe aggregate census.
+
+    Keyword-only, and that is load-bearing: the four tables share one type, so
+    a positional swap is invisible to the checker and would publish a census
+    that contradicts the artifact it describes.
 
     Counts, distributions and status tallies only.  No asset id, no capture id,
     no view label bound to either, no path and no timestamp: this is the one
@@ -1153,9 +1403,20 @@ def build_census(
             "status": _tally(row["status"] for row in pair_rows),
             "sync_strata": _sync_strata(pair_rows),
         },
+        "cameras": {
+            "rows": len(camera_rows),
+            "offset_status": _tally(row["offset_status"] for row in camera_rows),
+            "is_reference": _tally(row["is_reference"] for row in camera_rows),
+            # The published offsets, reference zeros included.  Arbitrary scale
+            # never touches time, so these seconds are quotable as measured.
+            "offset_s": _distribution(
+                [float(row["offset_s"]) for row in camera_rows if row["offset_s"]]
+            ),
+        },
         "events": {
             "rows": len(event_rows),
             "n_cameras": _tally(row["n_cameras"] for row in event_rows),
+            "sync_status": _tally(row["sync_status"] for row in event_rows),
             "sync_qualified": _tally(row["sync_qualified"] for row in event_rows),
             # Self-consistency, never accuracy (P16).  It is quotable because it
             # is a distribution over triangles and names none of them.
@@ -1315,6 +1576,7 @@ def _build(
     staging: pathlib.Path,
     asset_rows: list[dict[str, str]],
     pair_rows: list[dict[str, str]],
+    camera_rows: list[dict[str, str]],
     event_rows: list[dict[str, str]],
     *,
     upstream_inventory: dict[str, Any],
@@ -1323,20 +1585,27 @@ def _build(
     measured_axes: frozenset[str] = frozenset(),
 ) -> None:
     staging.mkdir(parents=True)
-    tables = (
-        (ASSETS_QC_FILENAME, ASSETS_QC_COLUMNS, asset_rows),
-        (PAIRS_QC_FILENAME, PAIRS_QC_COLUMNS, pair_rows),
-        (EVENTS_QC_FILENAME, EVENTS_QC_COLUMNS, event_rows),
-    )
-    for name, columns, rows in tables:
+    rows_by_table = {
+        ASSETS_QC_FILENAME: asset_rows,
+        PAIRS_QC_FILENAME: pair_rows,
+        CAMERAS_QC_FILENAME: camera_rows,
+        EVENTS_QC_FILENAME: event_rows,
+    }
+    for name, columns in CSV_COLUMNS.items():
         (staging / name).write_text(
-            inventory.render_csv(columns, rows), encoding="utf-8", newline=""
+            inventory.render_csv(columns, rows_by_table[name]), encoding="utf-8", newline=""
         )
-    census = build_census(asset_rows, pair_rows, event_rows, measured_axes)
+    census = build_census(
+        asset_rows=asset_rows,
+        pair_rows=pair_rows,
+        camera_rows=camera_rows,
+        event_rows=event_rows,
+        measured_axes=measured_axes,
+    )
     census["generation"] = {
-        ASSETS_QC_FILENAME: _digest_bytes(staging / ASSETS_QC_FILENAME),
-        PAIRS_QC_FILENAME: _digest_bytes(staging / PAIRS_QC_FILENAME),
-        EVENTS_QC_FILENAME: _digest_bytes(staging / EVENTS_QC_FILENAME),
+        # Keyed off the published tuple, so a table added to the set without a
+        # digest is impossible rather than merely caught.
+        **{name: _digest_bytes(staging / name) for name in CSV_FILENAMES},
         # Catches what the per-file digests cannot: a file added to the set.
         "tree": tree_digest(staging),
         "inventory": dict(upstream_inventory),
@@ -1500,12 +1769,27 @@ def run(
     _assert_cell_alphabets(
         pair_rows, PAIR_CELL_ALPHABETS, PAIRS_QC_FILENAME, ("asset_a", "asset_b")
     )
-    event_rows = _event_rows(
+    members_by_event = load_placements(sessions_path)
+    directed = _directed_edges(pair_rows)
+    camera_rows = _camera_rows(
         events,
-        load_placements(sessions_path),
-        pair_rows,
+        members_by_event,
+        load_camera_names(sessions_path),
+        {asset.asset_id: asset.view for asset in assets},
+        directed,
         sync_measured="sync" in axes,
     )
+    _assert_cell_alphabets(
+        camera_rows, CAMERA_CELL_ALPHABETS, CAMERAS_QC_FILENAME, ("event_id", "asset_id")
+    )
+    event_rows = _event_rows(
+        events,
+        members_by_event,
+        camera_rows=camera_rows,
+        directed=directed,
+        sync_measured="sync" in axes,
+    )
+    _assert_cell_alphabets(event_rows, EVENT_CELL_ALPHABETS, EVENTS_QC_FILENAME, ("event_id",))
 
     staging = out.with_name(f"{out.name}.staging.{os.getpid()}")
     retiring = out.with_name(f"{out.name}.retiring.{os.getpid()}")
@@ -1516,6 +1800,7 @@ def run(
             staging,
             asset_rows,
             pair_rows,
+            camera_rows,
             event_rows,
             upstream_inventory=inventory_census.get("generation", {}),
             upstream_sessions=sessions_census,

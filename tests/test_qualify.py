@@ -616,7 +616,9 @@ def test_sync_qc_is_stratified_by_model_os_and_sample_rate() -> None:
     # so the third component is load-bearing rather than decorative.
     assert len({cell.rsplit("/", 1)[0] for cell in published}) == len(_P29_VARIANTS) - 1
 
-    strata = qualify.build_census([], rows, [])["pairs"]["sync_strata"]
+    strata = qualify.build_census(asset_rows=[], pair_rows=rows, camera_rows=[], event_rows=[])[
+        "pairs"
+    ]["sync_strata"]
     # Four distinct strata over one family: every unordered pair is its own
     # population, and none of them collapsed into another.
     assert len(strata) == len(rows) == 6
@@ -646,7 +648,9 @@ def test_a_stratum_pair_is_keyed_in_one_order_only() -> None:
         )
     )
     rows = qualify._pair_rows(assets, facts, {})
-    strata = qualify.build_census([], rows, [])["pairs"]["sync_strata"]
+    strata = qualify.build_census(asset_rows=[], pair_rows=rows, camera_rows=[], event_rows=[])[
+        "pairs"
+    ]["sync_strata"]
     assert list(strata) == ["m/1/44100|m/2/44100"]
     assert strata["m/1/44100|m/2/44100"]["pairs"] == 2
 
@@ -664,7 +668,11 @@ def test_a_partial_stratum_is_unmeasured_rather_than_coarser() -> None:
     assert rows[0]["stratum_a"] == ""
     assert rows[0]["stratum_b"] == "m/1/48000"
     assert rows[0]["same_audio_rate"] == ""
-    assert list(qualify.build_census([], rows, [])["pairs"]["sync_strata"]) == ["unmeasured"]
+    assert list(
+        qualify.build_census(asset_rows=[], pair_rows=rows, camera_rows=[], event_rows=[])["pairs"][
+            "sync_strata"
+        ]
+    ) == ["unmeasured"]
 
 
 def test_a_stratum_cell_that_breaks_its_alphabet_is_refused() -> None:
@@ -812,11 +820,18 @@ def test_p19_an_event_is_sync_qualified_when_accepted_pairs_join_its_cameras(
     )
     row = _rows(out / qualify.EVENTS_QC_FILENAME)[0]
     assert row["graph_connected"] == "1"
+    assert row["sync_status"] == qualify.SYNC_CONNECTED
     assert row["sync_qualified"] == "1"
-    # Solved against the lowest id, taking the measured edge over an accumulated
-    # path: 0, 0.1, 0.31.  The path would give 0.30, and the 10 ms between the
-    # two is exactly what closure_residual_s publishes.
-    assert row["offset_span_s"] == "0.310000000"
+    # The triangle does not close: 0.1 + 0.2 = 0.3 against a measured 0.31.
+    # Least squares distributes that 10 ms over all three edges rather than
+    # charging it to whichever edge a traversal reached last, so the solved
+    # offsets are 0, 0.103333333, 0.306666667 and the span is the third of
+    # them.  The retired breadth-first tree published 0.310000000 here, and the
+    # difference between the two numbers is the whole of the P05 solver change.
+    assert row["offset_span_s"] == "0.306666667"
+    # P13: closure is a function of the accepted edge set alone, so the solver
+    # change leaves it exactly where it was.
+    assert row["closure_residual_s"] == "0.010000000"
     # Geometry has not run, so the event is still not qualified overall.
     assert row["qualified"] == ""
     assert row["reason"] == "geom_unmeasured"
@@ -927,7 +942,7 @@ def test_a_flagless_run_leaves_every_event_axis_cell_unmeasured(tmp_path: pathli
 
 # Recomputed only alongside a GENERATOR_VERSION bump.  Pinning the digest is what
 # turns "did I change the published schema?" from a judgment into a check.
-_SCHEMA_DIGEST = "e7f4ce9d7cf5ff9eddf1754c890f7245aaf7f88f9db9bdac7aae2268705bbb80"
+_SCHEMA_DIGEST = "26689f7a96b31b2c7af972cbd9354f7c9a016ec2a525649d0af90c9c4f7fd6a3"
 
 
 def test_a_schema_change_must_move_the_generator_version() -> None:
@@ -939,14 +954,9 @@ def test_a_schema_change_must_move_the_generator_version() -> None:
     changes and the version does not, so the columns are digested here and the
     digest is recomputed only with the bump.
     """
-    payload = "\n".join(
-        "|".join(columns)
-        for columns in (
-            qualify.ASSETS_QC_COLUMNS,
-            qualify.PAIRS_QC_COLUMNS,
-            qualify.EVENTS_QC_COLUMNS,
-        )
-    )
+    # Every published table, in publication order, so a table added to the set
+    # is digested here without this test being edited to notice it.
+    payload = "\n".join("|".join(qualify.CSV_COLUMNS[name]) for name in qualify.CSV_FILENAMES)
     assert hashlib.sha256(payload.encode()).hexdigest() == _SCHEMA_DIGEST, (
         "The published column set changed. Bump qualify.GENERATOR_VERSION, then "
         "recompute _SCHEMA_DIGEST, then republish the corpus and regenerate "

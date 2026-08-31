@@ -308,7 +308,7 @@ def test_d12_multiple_audio_streams_publish_the_selected_first_rate(
 
 
 def test_schema_bump_closes_all_three_p29_tables() -> None:
-    assert qualify.GENERATOR_VERSION == "v3"
+    assert qualify.GENERATOR_VERSION == "v4"
     assert "audio_rate_hz" in qualify.ASSETS_QC_COLUMNS
     assert {"stratum_a", "stratum_b", "same_device_config", "same_audio_rate"} <= set(
         qualify.PAIRS_QC_COLUMNS
@@ -371,7 +371,7 @@ def _pair_row(**values: str) -> dict[str, str]:
 def _sync_stratum_record(
     pair_rows: list[dict[str, str]], key: str
 ) -> tuple[dict[str, Any] | None, str]:
-    census = qualify.build_census([], pair_rows, [])
+    census = qualify.build_census(asset_rows=[], pair_rows=pair_rows, camera_rows=[], event_rows=[])
     pairs = cast(dict[str, Any], census["pairs"])
     strata = cast(dict[str, dict[str, Any]], pairs.get("sync_strata", {}))
     return strata.get(key), json.dumps(census, sort_keys=True)

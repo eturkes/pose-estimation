@@ -186,8 +186,24 @@ collecting one test. Baseline `03a6e1c` = **1201 passed / 0 skipped** in 876.49 
 
 Filled by MAIN's batch rulings on the `test-m2u5` phase-1 table.
 
-Open at freeze, carried into wave 2:
+- **A01 — ruled, P07 stands.** The conditional measurement is **6, not 0**. All 20 unconnected
+  events split into exactly 2 components: 10 two-camera events with 0 accepted edges, and 10
+  three-camera events with 1. In **6 of those 10** the view-hierarchy reference sits inside the
+  two-camera component — in all 6 the joined pair is `above|right` and the isolated camera is `left`,
+  which is the corpus's most-often-missing camera showing up again. In the other 4 the reference is
+  the isolated camera. So P07 recovers 6 cameras that `spike-m2u5-solve` Q08 would have nulled, its
+  condition holds, and it does not collapse into Q08's recommendation. Recount:
+  `.scratch/a01_query.py`, whose 173/193 `graph_connected` agrees with the published `events_qc`.
 
-- **A01 (open).** P07's conditional measurement above. `spike-m2u5-solve`'s retained worktree already
-  enumerates the component structure of all 20 failures, so this is one query against
-  `scripts/probe_alignment_solver.py` `q08_unconnected_events`, not a new investigation.
+- **A02 — ruled, P19's census is corrected; P07 is unchanged.** P19 stated "329 carrying an offset
+  and 50 not". That is the **all-or-nothing** count — cameras sitting inside a graph-connected event
+  (58 singletons + 74×2 + 41×3 = 329) — carried forward from the solved-camera figure and never
+  recomputed against P07's partial publication. Under P07 the census is **355 rows carrying an
+  offset and 24 publishing `unreachable`**, 355 + 24 = 379: 355 = 193 event references at exactly
+  `0` + 162 solved non-reference cameras; 24 = 10 (two-camera unconnected) + 6 (three-camera,
+  reference in the pair) + 8 (three-camera, reference isolated). `graph_connected` stays 173/193, so
+  P14 is untouched. **329 keeps a meaning and must stay named apart**: it is `events_qc`'s
+  population, never `cameras_qc`'s. A publication or document that spells 329 as the number of
+  published offsets is a defect — the same population-conflation trap this project already carries
+  for its two closure statistics and its two "families connected" figures. Recount:
+  `.scratch/p19_census.py`.
