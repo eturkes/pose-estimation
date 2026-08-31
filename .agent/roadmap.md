@@ -42,159 +42,91 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.6 | Calibration recovery | Per-recording-event extrinsics by **bundle adjustment over time-synchronized 2D keypoints** under the per-model intrinsics prior (M2.3 R4) — never scene-feature SfM, which is eliminated by measurement. Held-out reprojection acceptance, explicit scale provenance, bound to the M2.2 instance grain. Consumes M2.5's offsets, so it is gated on M2.5. Must measure per-event pose variety before claiming an extrinsic: subject-only calibration degrades on near-coplanar keypoints and a near-static subject, and the tasks are seated upper-limb movements. |
 | M2.7 | Gated fusion + corpus study | Fusion over qualified recording events, reprojection/gap/throughput/stability/repeatability evidence, claim-bounded report, prospective-capture specification, de-identified regression fixtures. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** — see below. **M2.5 OPEN, wave 1 closed and its contract frozen** — see below. M2.6 and M2.7 are **unblocked**: M2.3's ruling is made and closed, so their shape is settled — M2.6 exists, and it recovers extrinsics from the subject's own keypoints rather than from scene features (R4). M2.5 stays M2.6's precondition.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** — see below. **M2.5 DONE** — see below. M2.6 and M2.7 are **unblocked**: M2.3's ruling is made and closed, so their shape is settled — M2.6 exists, and it recovers extrinsics from the subject's own keypoints rather than from scene features (R4). M2.5 stays M2.6's precondition.
 
-### M2.5 — wave 2 harvested, implementation partial
+### M2.5 — DONE
 
-**Both open rulings are closed on measurement.**
+**Product.** `qualification/cameras_qc.csv` at `GENERATOR_VERSION` v4, P03's eight columns, one row per
+placed asset: **379 rows over 193 events = 355 carrying an offset + 24 `unreachable`**. `events_qc`
+gains `sync_status`. Offsets come from gauge-fixed unweighted least squares over accepted edges
+(`QUALIFIED_PAIR_STATUSES`), restricted to the reference's connected component. `graph_connected`,
+`sync_status` and `offset_span_s` are read back out of the published camera rows, so the two tables
+cannot disagree; `graph_connected` stays 173/193. Alignment ships here rather than in `sessions/`
+because writing offsets back into a registry-derived manifest closes a measured `sessions` → `qualify`
+→ alignment → `sessions` digest cycle.
 
-**A01 ruled: P07 stands.** The conditional count is **6, not 0**. All 20 unconnected events split into
-exactly 2 components — 10 two-camera events with 0 accepted edges, 10 three-camera events with 1 — and
-in **6 of those 10** the view-hierarchy reference sits inside the two-camera component. In all 6 the
-joined pair is `above|right` and the isolated camera is `left`, the corpus's most-often-missing camera
-appearing again. In the other 4 the reference is isolated. P07 therefore recovers 6 cameras that
-`spike-m2u5-solve` Q08 would have nulled, and does not collapse into Q08's recommendation.
+**M2.6 consumes this.** Offsets live in `cameras_qc.csv` alone. Manifests keep `sync_offset: 0`, the
+legacy integer pre-roll trim in the fusion reader's frame domain. The fusion frame reader does not
+apply the published offsets — that is later work, recorded in `docs/technical/validation.md`.
 
-**A02 ruled: P19's census was wrong, P07 is unchanged.** P19 said "329 carrying an offset and 50 not".
-That is the **all-or-nothing** count — cameras inside a graph-connected event, 58 singletons + 74×2 +
-41×3 = 329 — carried forward from the solved-camera figure and never recomputed against P07's partial
-publication. The correct census is **379 rows = 355 carrying an offset + 24 `unreachable`**: 355 = 193
-event references at exactly `0` + 162 solved non-reference cameras; 24 = 10 + 6 + 8 across the twenty
-unconnected events. `graph_connected` stays 173/193, so P14 is untouched. **329 keeps a meaning and
-must stay named apart** — it is `events_qc`'s population, never `cameras_qc`'s, the same
-population-conflation trap this project already carries for its two closure statistics and its two
-"families connected" figures. `orc-m2u5` derived 355/24 independently and filed the same contradiction
-before being told, so the correction has two sources.
+**Sign proved, not assumed.** `offset_s = t_camera − t_reference`; positive means that camera started
+earlier; reference exactly `0`; application `t_ref = t_camera − offset_s`. A synthetic 375 ms lead
+recovered `+0.375000058` A→B and `−0.375000058` B→A, antisymmetry error 0. A sign flip yields a fully
+connected, digest-valid artifact whose cameras move twice as far apart in time, and no structural
+check can see it.
 
-**Implementation, primary tree.** `qualification/cameras_qc.csv` ships at `GENERATOR_VERSION` v4 with
-P03's eight columns; `events_qc` gains `sync_status`; the discarded breadth-first solve is replaced by
-gauge-fixed unweighted least squares over accepted edges, restricted to the reference's connected
-component. `graph_connected`, `sync_status` and `offset_span_s` are all read back out of the published
-camera rows, so P13's two tables cannot disagree. Supporting changes: a `CSV_COLUMNS` mapping now
-drives the writer, the generation digests and the suite's schema pin together, so a table added to the
-set cannot reach publication while staying invisible to the version check; `build_census` went
-keyword-only because its four same-typed row lists made a positional swap invisible to the checker.
+**Reference ruled on totality.** View hierarchy `above` > `left` > `right`, tie-broken by lowest
+`asset_id` — the only semantically meaningful rule total over 193 events (155/24/14). Latest-start is
+undefined on exactly the 20 unconnected events; `above` alone covers 155/193; highest degree is unique
+on only 69/193.
 
-**Landed and green: `ruff`, `ruff format`, `ty` clean, and the decisive gate at 1201 passed / 0
-skipped in 736.63 s, primary tree.** That run is the second attempt and the first valid one: the
-first exited 0 against `.scratch/worktrees/orc-m2u5`'s baseline `pose_estimation` because the shell
-cwd had persisted into that worktree, so **every gate invocation now prints the imported package path
-before collecting** — `/run/host/…/pose-estimation/src/pose_estimation/__init__.py` is the proof the
-count belongs to the primary tree. Three pins moved with the schema and each move is the intended signal, not a retune:
-`_SCHEMA_DIGEST` recomputed over all four tables, `test_schema_bump_closes_all_three_p29_tables` to
-v4, and P19's span assertion from `0.310000000` to `0.306666667` — that pair of numbers **is** the P05
-solver change, since the fixture's triangle misses closure by 10 ms and least squares distributes it
-instead of charging it to the last edge a traversal reached. The same test now also pins
-`closure_residual_s` at `0.010000000`, which is P13's claim that closure is a function of the accepted
-edge set alone.
-
-**Outstanding, in dependency order.** P16's `sessions.render_manifest` pin; P17/P18's documentation
-obligations (O09, O11, O24, O25 + the `cameras_qc` schema, sign convention and application transform
-in `docs/technical/qualification.md`); the real-corpus v4 republish, which needs `rm -rf qualification/`
-first because ownership includes the generator version; P20's determinism regeneration behind its own
-`rm -f tests/qualify_determinism_results.json`; `test-m2u5` phase 2; `rev`/`rev2` phase 2; and
-`diff-m2u5`. **MAIN's own count of 355/24 is not yet measured against a v4 republish** — it is derived
-from `.scratch/p19_census.py` over the v3 inputs, and `orc-m2u5` agrees, but the shipped artifact has
-not been produced.
-
-**`orc-m2u5` is the differential oracle and its numbers are the acceptance targets.** 379 rows / 193
-events / 355 offsets / 24 `unreachable`; 193/193 events with exactly one reference; 193/193 reference
-offsets exactly `0`; reference views 155/24/14; least-squares residual over the 30 redundant-edge
-events median 1.801 ms, p95 7.761 ms, **max 10.095 ms**, matching the spike's figure exactly; 0/355
-cameras differ from a breadth-first solve by more than one frame while **60 differ at all**; 20
-unconnected events with component sizes 1×30 and 2×10; **6** partial multi-camera solutions. Two of
-its findings are new. **5 of the 201 accepted pairs are cross-event** — a view-conflict family holds
-more than one event, so a within-family pair can straddle two of them, leaving 196 event-local edges;
-MAIN's solver excludes them by construction because it only ever considers members of one event.
-And **P03-P09 do not determine output bytes**: the contract names only `unreachable`, leaving the
-reachable token, the row order and the float format open. MAIN chose `reference`/`solved` as a finer
-partition than the oracle's single `solved`, `(event_id, asset_id)` order, and the file's existing
-9-decimal `_decimal`; the oracle chose `solved`, the same order, and `.17g`, so the two agree
-semantically and differ in float spelling alone.
-
-**Sizing, recorded for PLANNING.** A second full window bought both rulings, the wave-2 dispatch, the
-carrier and solver implementation, and the schema-pin reconciliation — and no republish, no docs and
-no red suite. `main=` 85% 205K/240K at close. M2.5 is now confirmed at three-plus windows against a
-one-unit plan, matching M2.1, M2.3 and M2.4: **every one of them overran on adversarial surface rather
-than on line count.** One new datum for the sizing model: the contract itself carried a defect that
-only a recount exposed, so **a frozen contract's stated censuses need re-deriving at implementation
-time, not trusting** — A02 cost a correction broadcast to four live teammates and would have cost a
-wrong published artifact had the recount waited for review.
-
-### M2.5 — frozen contract, superseded rulings above
-
-Contract at `.agent/archive/contract-m2u5.md`: **21 predicates P01-P21**, 5 invariant surfaces, gate
-identity, an 8-class probe seed, and amendments **A01 and A02 both ruled** in the section above.
-Baseline `03a6e1c`, whose gate MAIN reran green: `ruff`, `ruff format`, `ty` clean and **1201 passed /
-0 skipped** in 876.49 s, 1201 outcome characters counted from the run.
-
-**The unit's product already exists and is thrown away.** `qualify._spanning_offsets` solves one
-offset per event member and publishes only `graph_connected`, `offset_span_s` and
-`closure_residual_s`. M2.5 promotes that discarded per-camera solution into a published artifact.
-
-**Carrier ruled: widen `qualify`, do not build a fourth publisher.** `map-m2u5` priced both against
-`main`: a new publisher module plus console script plus doc plus suite is `ffcfdfa` = **+1424/−0
-over 5 files** and that is construction alone, before trust-root, crash-state, mutation and
-determinism work; the schema-widening analog is `5e40922` = **+601/−170 over 10 files** with every
-assurance gate already standing. Writing offsets back into `sessions/` is eliminated by a measured
-cycle — `sessions` → `qualify` → alignment → `sessions` — because patching a published manifest moves
-the session tree digest, which invalidates qualification's recorded upstream snapshot, which
-invalidates the alignment input. So alignment ships as `qualification/cameras_qc.csv` at
-`GENERATOR_VERSION` v4, one row per placed asset, 379 rows over 193 events.
+**Two populations, permanently named apart: 379 / 355 / 24, never 329 / 50.** 329 is `events_qc`'s
+population — cameras inside a graph-connected event — and 355 is `cameras_qc`'s offset-bearing rows.
+`scripts/check_cameras_qc_census.py` pins both side by side, because this project has now conflated a
+pair of same-shaped counts three times.
 
 **Solver ruled on measurement.** Unweighted least-squares over every accepted edge beats the shipped
 breadth-first tree: it differs by median 0, p95 3.708 ms, **max 10.095 ms = 0.303 nominal frame**,
-moving 60 of 329 solved cameras and 6 of 329 nearest-frame indices across 5 events, all inside the 30
-events carrying a redundant edge. Dropping any one redundant edge moves **0/90 solves** by more than
-one frame. Confidence weighting is **rejected**: Spearman `peak_rms` against absolute audio-visual
-disagreement is **+0.4141** — the wrong sign for a precision weight — and `peak_ratio` is +0.0659, so
-neither is an inverse-variance estimate.
-
-**Reference ruled on totality.** The view hierarchy `above` > `left` > `right` is the only
-semantically meaningful rule total over 193 events (155/24/14). Latest-start is undefined on exactly
-the 20 events whose graph does not connect; `above` alone covers 155/193; highest degree is unique on
-only 69/193; lowest `asset_id` is total but arbitrary.
-
-**Sign proved, not assumed.** A synthetic oracle with a constructed 375 ms lead recovered
-`+0.375000058` s A→B and `−0.375000058` s B→A, antisymmetry error 0, composed through the solve
-within a 0.5 ms tolerance. Published convention: `offset_s = t_camera − t_reference`, positive means
-that camera started earlier, reference exactly `0`, application `t_ref = t_camera − offset_s`. A sign
-flip yields a fully connected, digest-valid artifact whose cameras move twice as far apart in time,
-and no structural check can see it.
+moving 60 of 355 published offsets and 6 nearest-frame indices across 5 events, all inside the 30
+events carrying a redundant edge. The denominator is the P07 population, not the retired 329
+cameras-inside-a-graph-connected-event count: the 26 offsets P07 recovers sit in single-edge
+components, where a tree solve and a least-squares solve coincide, so none of them can move. Dropping
+any one redundant edge moves **0/90 solves** by more than one frame. Confidence weighting is
+**rejected**: Spearman `peak_rms` against absolute audio-visual disagreement is **+0.4141** — the
+wrong sign for a precision weight — and `peak_ratio` is +0.0659, so neither is an inverse-variance
+estimate.
 
 **No per-camera uncertainty is publishable.** 74 connected two-camera events and 11 connected
 three-camera trees carry **0 residual degrees of freedom** — 85 of the 115 connected multi-camera
 events. Only the 30 closed triangles reach 1 df, where correlated acoustic and rolling-shutter bias
 violates the model and closure is structurally bias-blind. Event-level closure stays the published
-self-consistency statistic.
+self-consistency statistic, labelled self-consistency and never accuracy.
 
-**Worktree state. All six retained, every one clean and committed; nothing merged into the primary
-tree, which carries MAIN's own implementation instead.**
+**Rulings.** Contract and all three amendments at `.agent/archive/contract-m2u5.md`. **A01**: P07
+stands — 6 of the 10 three-camera failures hold the view-hierarchy reference inside the two-camera
+component, so partial publication recovers cameras `spike-m2u5-solve` Q08 would have nulled. **A02**:
+P19's frozen census was derived under a rule P07 replaced; recomputed to 355/24. **A03**: 14 phase-1
+readings batch-ruled, with Q01, Q04, Q05, Q08 and Q12 ruled against.
 
-| teammate | branch tip | delivered | what remains |
-| -------- | ---------- | --------- | ------------ |
-| `map-m2u5` | (primary, read-only) | 14/14 surface map, 30 numbered doc obligations O01-O30, both sizing analogs verified on `main` | harvested |
-| `res-m2u5` | (primary, read-only) | 8/8 prior art; no cross-pipeline standard exists, and seconds beat frames as the published unit | harvested |
-| `spike-m2u5-solve` | `a742c53` | 10/10 rows + `scripts/probe_alignment_solver.py` | second oracle; its max 10.095 ms independently reproduced by `orc-m2u5` |
-| `spike-m2u5-carrier` | `ff18b97` | 44-line v4 `cameras_qc` prototype | consumed; MAIN's shipped shape supersedes it |
-| `orc-m2u5` | `b061bdf` | 18/18 rows + `scripts/orc_cameras_qc.py`, sharing no solver line with `qualify` | rerun against MAIN's v4 republish → `diff-m2u5` |
-| `rev-m2u5` | `3a0a6b8` | 38/38 check set fixed pre-diff: P01-P21, S1-S5, X01-X12, each with a named acceptance command, all `pending` | phase 2 = adjudicate against MAIN's diff |
-| `rev2-m2u5` | `ee2d175` | 33/33 catalogue fixed blind: M01-M25 mutants + D01-D08 sweeps, each with its expected red | phase 2 = run the campaign |
-| `test-m2u5` | `e9590a4` | phase 1 partial — **36 unfilled cells of 85 rows**, P16-P20 enumerated last | successor finishes the table, then MAIN batch-rules it into amendments |
+**Review closed.** `rev-m2u5-2` 38/38 rows, `rev2-m2u5` 33/33, `doc-m2u5` 14/14, `test-m2u5-2` 55/55
+cases; both registers empty. Accepted findings and their fixes: **C09** cell alphabets built from the
+status frozensets, because `[a-z_]+` is a shape that accepted every token the partition excludes;
+**C31** `peak_ratio` +0.0659 added to the solver docstring; **D06** `_canonical(rows, key)` fixes
+pairs/cameras/events row order at the publish site, with `assets_qc` ruled exempt in registry order
+and pinned by a new D09 row; **P20** determinism regenerated; **X02/X04** the 329→355 denominator
+above; **X10** a 27-word two-action instruction split. **C46, C47 and C49 were ruled test defects** —
+the docs state the required facts, and C49's regex fired on the very disclaimer O24 asked for.
 
-`rev-m2u5`'s check set is the cheapest thing in the wave to consume: every row already names the exact
-`pytest` invocation that decides it, so phase 2 is adjudication rather than design. Its X rows go
-past the contract's own predicates — a sign-flipped artifact whose recomputed digests still validate,
-`offset_span_s` computed from serialized rather than hidden-precision floats, a v3 tree neither
-readable nor deletable by v4, and an exhaustive small-graph differential oracle over every connected
-simple graph through four cameras.
+**Campaign gates, every one credited by MAIN's own rerun.** `scripts/run_m2u5_mutations.py` **25
+mutants / 25 killed / 0 survived**. `scripts/check_m2u5_determinism.py` **D06-D09 all PASS, 0
+failures** across flagless and measured modes, with both negative controls firing — `cameras_qc` FAILs
+in both modes without `_canonical`, and D09 FAILs when asset rows are sorted.
+`scripts/check_qualify_determinism.py` **40/40 sweeps, 19/19 tamper classes**.
+`scripts/check_cameras_qc_census.py` **21/21**, plus a 379-row differential against
+`scripts/orc_cameras_qc.py` — an implementation sharing no solver line with `qualify` — at **0
+findings**, worst offset delta 3.333e-10 s.
 
-**Next session's job.** Spawn `test-m2u5-2` on the retained worktree to close the last 36 cells, batch-
-rule that table into amendments, then finish the outstanding list above — P16, the docs, the v4
-republish, P20's regeneration — and run both review phase 2s plus `diff-m2u5`. The census to hold
-every artifact to is **379 / 355 / 24**, never 329 / 50.
+**Gate.** `ruff`, `ruff format`, `ty` clean; decisive gate **1284 passed / 0 skipped** in 771.92 s,
+primary tree, package path printed before collection. The v4 republish is byte-identical to the
+shipped tree across all five artifacts, so the row-order fix changed no published byte.
 
-Wave 1 alone cost `main=` 87% 208K/240K, which is where the three-plus-window estimate came from.
+`main=` 90% 215K/240K. `mate=` 90% 216K/240K (`rev2-m2u5`).
+
+**Sizing, recorded for PLANNING.** Four windows against a one-unit plan; the fourth bought review
+harvest, six accepted findings and the campaign reruns alone. M2.1, M2.3 and M2.4 overran the same
+way — **on adversarial surface, never on line count**. Two new data: a frozen contract's stated
+censuses need re-deriving at implementation time rather than trusting (A02), and a diff-blind suite's
+documentation cases arrive pinned to invented phrasings, costing one adjudication round each.
 
 ### M2.4 — gate green, review adjudication closing
 

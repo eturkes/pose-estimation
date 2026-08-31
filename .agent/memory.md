@@ -47,6 +47,30 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
   `ValueError: dict contains fields not in fieldnames` when it lags the schema. Its `SOURCE_FILES`
   tuple is the tripwire's whole reach: a new module that shapes the published bytes is invisible to
   it until listed, so every module added to `measure.AXES` joins that tuple in the same commit.
+- **Regeneration is a fixpoint, so it must be the last action before the commit.** `tests/test_qualify.py`
+  sits in `SOURCE_FILES` *and* holds
+  `test_m2u5_p20_committed_determinism_evidence_matches_its_sources`, which compares every recorded
+  `source_sha256` against current bytes. Adding one test after regenerating therefore re-breaks the
+  evidence the regeneration just produced. Land every source and test edit first, regenerate once,
+  commit. The 40-sweep run costs minutes, so a late red suite harvest pays for it twice.
+- **`scripts/run_m2u5_mutations.py` mutates the primary tree's `src/` in place.** It restores under
+  `try/finally` and verifies the restored digests, so an interrupted run is safe, but a *concurrent*
+  reader sees mutated source: a mid-run `grep` reported `GENERATOR_VERSION = "v3"`. Never run it
+  beside anything that reads or edits `src/`, and re-read a surprising source line after it exits.
+  Same shape as `scripts/run_inventory_mutations.py`.
+- **A cell alphabet must be the token set, never a shape that resembles it.** `STATUS_CELL =
+  re.compile(r"[a-z_]+")` guarded both `offset_status` and `sync_status` and accepted every lowercase
+  token the two partitions exclude, so an invented status would have published cleanly through a
+  check whose whole job was refusing one. `_token_alphabet(frozenset)` builds the pattern from the
+  constant set, which also makes a token added to a partition reach its alphabet automatically. The
+  tell: an alphabet expressed as a character class where the contract names an enumeration.
+- **Published row order is contract-bearing, and two tables answer to different rules.**
+  `_canonical(rows, key)` sorts `pairs_qc`/`cameras_qc`/`events_qc` at the publish site so their order
+  is a function of the rows rather than of a loader's return order. `assets_qc.csv` is deliberately
+  exempt: it publishes in registry order, which groups a capture's assets for a reader, while
+  `asset_id` is a content hash whose ordering means nothing — `check_m2u5_determinism.py`'s D09 pins
+  that instead. Permuting a loader's already-canonical return is fault injection past a validated
+  postcondition, so the campaign leaves `load_assets` unwrapped by design.
 - **A published artifact must not contradict its own census.** Ingesting the sync axis filled
   `pairs_qc.csv` and left all 193 `events_qc.csv` rows at `sync_unmeasured` while
   `qualification.json` claimed the axis measured. After wiring any axis into one table, grep the

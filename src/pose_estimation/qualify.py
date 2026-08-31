@@ -296,21 +296,16 @@ PAIR_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
 # prefix is imported rather than retyped so a rename in the publisher that owns
 # it cannot leave this alphabet quietly accepting the old spelling.
 CAMERA_NAME_CELL = re.compile(rf"{re.escape(sessions.CAMERA_PREFIX)}[a-z0-9]+")
-STATUS_CELL = re.compile(r"[a-z_]+")
 
-# `camera_name` and `view` are absent for the reason the asset table's identity
-# columns are: they arrive validated from the session tree and the registry, and
-# re-deciding their alphabet here would let this tool disagree with its input.
-# `reference_camera` IS here, because which camera holds that role is this
-# tool's own decision rather than an ingested cell.
-CAMERA_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
-    "offset_s": DECIMAL_CELL,
-    "offset_status": STATUS_CELL,
-    "is_reference": BOOLEAN_CELL,
-    "reference_camera": CAMERA_NAME_CELL,
-}
 
-EVENT_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {"sync_status": STATUS_CELL}
+def _token_alphabet(tokens: frozenset[str]) -> re.Pattern[str]:
+    """Build a cell alphabet that is the token set, not a shape resembling it.
+
+    A shape pattern such as ``[a-z_]+`` accepts every token the set excludes, so
+    a status this tool never means to write would publish cleanly (P03).
+    """
+    return re.compile("|".join(re.escape(token) for token in sorted(tokens)))
+
 
 # The sidecar axes this tool ingests, named exactly as `measure.AXES` names them
 # so a census axis name and a manifest key can never drift apart.
@@ -367,6 +362,24 @@ OFFSET_SOLVED_STATUSES: frozenset[str] = frozenset({OFFSET_REFERENCE, OFFSET_SOL
 SYNC_CONNECTED = "connected"
 SYNC_UNCONNECTED = "unconnected"
 SYNC_STATUSES: frozenset[str] = frozenset({SYNC_CONNECTED, SYNC_UNCONNECTED})
+
+# Declared below the status sets rather than beside the other alphabets so each
+# pattern IS the frozenset above it and a token added to a partition cannot
+# leave its alphabet stale.  `camera_name` and `view` are absent for the reason
+# the asset table's identity columns are: they arrive validated from the session
+# tree and the registry, and re-deciding their alphabet here would let this tool
+# disagree with its input.  `reference_camera` IS here, because which camera
+# holds that role is this tool's own decision rather than an ingested cell.
+CAMERA_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {
+    "offset_s": DECIMAL_CELL,
+    "offset_status": _token_alphabet(OFFSET_STATUSES),
+    "is_reference": BOOLEAN_CELL,
+    "reference_camera": CAMERA_NAME_CELL,
+}
+
+# An event that ran no sync axis publishes an empty cell rather than a token
+# (A03/Q08), and `_assert_cell_alphabets` passes every empty cell.
+EVENT_CELL_ALPHABETS: dict[str, re.Pattern[str]] = {"sync_status": _token_alphabet(SYNC_STATUSES)}
 
 # P08's reference rule, in precedence order.  Total over the corpus's 193 events
 # at 155/24/14, which is why it wins: latest-start is undefined on exactly the
@@ -945,6 +958,18 @@ def _asset_row(
     }
 
 
+def _canonical(rows: list[dict[str, str]], key: tuple[str, ...]) -> list[dict[str, str]]:
+    """Order rows by the identity columns their table is published under.
+
+    Row order is contract-bearing (A03/Q04), so it has to be a function of the
+    rows rather than of the order a loader happened to return -- the same reason
+    ``_solve_offsets`` fixes its edge order instead of trusting dict insertion.
+    Every loader feeding this module already returns a canonical order; sorting
+    here is what makes the published order independent of that promise.
+    """
+    return sorted(rows, key=lambda row: tuple(row[name] for name in key))
+
+
 def _assert_cell_alphabets(
     rows: list[dict[str, str]],
     alphabets: dict[str, re.Pattern[str]],
@@ -1194,9 +1219,10 @@ def _solve_offsets(
     """Least-squares ``x_b - x_a = offset_s`` over accepted edges, reference pinned at 0.
 
     Unweighted, and that is a measurement rather than a default: Spearman
-    correlation of the published ``peak_rms`` against absolute audio-visual
-    disagreement is +0.4141, the wrong sign for a precision weight, so a
-    weighted solve would dress an uncalibrated number as an inverse variance.
+    correlation against absolute audio-visual disagreement is +0.4141 for the
+    published ``peak_rms`` and +0.0659 for ``peak_ratio``, both the wrong sign
+    for a precision weight, so a weighted solve would dress an uncalibrated
+    number as an inverse variance.
 
     Least squares over every accepted edge rather than a breadth-first tree.
     The two differ by a median of 0 and a max of 10.095 ms = 0.303 nominal
@@ -1352,7 +1378,10 @@ def _event_rows(
             # alone, and `sync_status` is the cell that says so.
             row["offset_span_s"] = _decimal(max(solved_offsets) - min(solved_offsets))
         if len(members) == 3:
-            first, second, third = members
+            # Sorted, so the residual is a function of the member set: `abs`
+            # hides a permuted triangle's sign flip, which makes an unordered
+            # unpack look invariant while depending on the caller's order.
+            first, second, third = sorted(members)
             triangle = ((first, second), (second, third), (first, third))
             if all(edge in directed for edge in triangle):
                 # A cocycle: acoustic propagation delay cancels identically
@@ -1775,34 +1804,46 @@ def run(
     }
     facts = {asset_id: probe_decode(path) for asset_id, path in paths.items()}
     orientations = {asset_id: probe_orientation(path) for asset_id, path in paths.items()}
+    # Registry order, deliberately not `_canonical`: it groups a capture's assets
+    # together for a reader, while `asset_id` is a content hash whose order says
+    # nothing.  The order is still a function of input bytes, because the
+    # registry is a digest-validated artifact this tool reads in file order.
     asset_rows = [
         _asset_row(asset, facts[asset.asset_id], orientations[asset.asset_id], axes)
         for asset in assets
     ]
     _assert_cell_alphabets(asset_rows, ASSET_CELL_ALPHABETS, ASSETS_QC_FILENAME, ("asset_id",))
-    pair_rows = _pair_rows(assets, facts, axes.get("sync", {}))
+    pair_rows = _canonical(
+        _pair_rows(assets, facts, axes.get("sync", {})), ("capture_id", "asset_a", "asset_b")
+    )
     _assert_cell_alphabets(
         pair_rows, PAIR_CELL_ALPHABETS, PAIRS_QC_FILENAME, ("asset_a", "asset_b")
     )
     members_by_event = load_placements(sessions_path)
     directed = _directed_edges(pair_rows)
-    camera_rows = _camera_rows(
-        events,
-        members_by_event,
-        load_camera_names(sessions_path),
-        {asset.asset_id: asset.view for asset in assets},
-        directed,
-        sync_measured="sync" in axes,
+    camera_rows = _canonical(
+        _camera_rows(
+            events,
+            members_by_event,
+            load_camera_names(sessions_path),
+            {asset.asset_id: asset.view for asset in assets},
+            directed,
+            sync_measured="sync" in axes,
+        ),
+        ("event_id", "asset_id"),
     )
     _assert_cell_alphabets(
         camera_rows, CAMERA_CELL_ALPHABETS, CAMERAS_QC_FILENAME, ("event_id", "asset_id")
     )
-    event_rows = _event_rows(
-        events,
-        members_by_event,
-        camera_rows=camera_rows,
-        directed=directed,
-        sync_measured="sync" in axes,
+    event_rows = _canonical(
+        _event_rows(
+            events,
+            members_by_event,
+            camera_rows=camera_rows,
+            directed=directed,
+            sync_measured="sync" in axes,
+        ),
+        ("event_id",),
     )
     _assert_cell_alphabets(event_rows, EVENT_CELL_ALPHABETS, EVENTS_QC_FILENAME, ("event_id",))
 

@@ -316,9 +316,9 @@ Example: `cam-above` is the reference at `0.000000000 s`; `cam-right` publishes
 
 Accepted edges = `pairs_qc.status` exactly in `{ok_corroborated, ok_uncorroborated}`.
 `visual_only` is never usable; estimators are never averaged; the visual estimate is never a
-fallback value. Restrict the system to the reference's connected component, then solve unweighted
-`x_b − x_a = offset_s`, gauge-fixed by pinning the reference at `0`, through
-`numpy.linalg.lstsq(..., rcond=None)`.
+fallback value. Restrict the system to the reference's connected component. Then solve unweighted
+`x_b − x_a = offset_s` with `numpy.linalg.lstsq(..., rcond=None)`. Pinning the reference at `0`
+fixes the gauge.
 
 ### Weighting + path comparison
 

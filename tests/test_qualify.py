@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import struct
 import subprocess
 import sys
@@ -1079,3 +1080,37 @@ def test_placement_loader_admits_an_unplaced_repeat_of_a_placed_asset(
     monkeypatch.setattr(qualify, "_read_table", lambda _path, _columns: rows)
 
     assert qualify.load_placements(tmp_path) == {"event-1": ["asset-a"]}
+
+
+def test_m2u5_p20_committed_determinism_evidence_matches_its_sources() -> None:
+    """A result file cannot evidence source bytes whose recorded digest is stale."""
+    root = pathlib.Path(__file__).resolve().parents[1]
+    result = json.loads((root / "tests/qualify_determinism_results.json").read_text())
+    mismatches = [
+        name
+        for name, recorded in result["source_sha256"].items()
+        if hashlib.sha256((root / name).read_bytes()).hexdigest() != recorded
+    ]
+    assert mismatches == []
+
+
+def test_m2u5_x02_x04_active_solver_census_names_the_p07_population() -> None:
+    """The tree comparison denominator is every published offset, not the retired 329 subset."""
+    root = pathlib.Path(__file__).resolve().parents[1]
+    roadmap = (root / ".agent/roadmap.md").read_text(encoding="utf-8")
+    assert "moving 60 of 329 solved cameras" not in roadmap
+    assert "moving 60 of 355" in roadmap
+
+
+def test_m2u5_x10_solver_instructions_follow_the_human_facing_register() -> None:
+    """Human-facing instructions carry one action and at most 20 words per sentence."""
+    root = pathlib.Path(__file__).resolve().parents[1]
+    text = (root / "docs/technical/qualification.md").read_text(encoding="utf-8")
+    sentence = next(
+        part
+        for part in re.split(r"(?<=[.!?])\s+", text.replace("\n", " "))
+        if part.startswith("Restrict the system")
+    )
+    words = re.findall(r"[A-Za-z0-9_]+(?:[-'][A-Za-z0-9_]+)*", sentence)
+    assert ", then " not in sentence
+    assert len(words) <= 20
