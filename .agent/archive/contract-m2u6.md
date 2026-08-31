@@ -378,6 +378,19 @@ estimator/initialization) and one is confirmed by measurement (cross-view keypoi
 bias, 15-20 px systematic at 1080p). Two independent repair routes are priced and refused: a better
 estimator (A12) and a cleaner keypoint subset (A13).
 
+**A14 — the literature corroborates the mechanism and names the one repair route (`res-m2u6-3`).**
+Malleson, Collomosse & Hilton, IJCV 128 (2020), §3.3.2 Eq. 17-18 models a per-camera keypoint offset
+explicitly, **calls the discrepancy "systematic bias"**, measures offsets reaching **6.5 cm**, and
+reports its zero-offset arm at **1.22x** the full model's global pose error. At this corpus's ~2 m
+working distance and fx 1553-1873 px, 6.5 cm is 50-61 px — so M2.6's measured 15-20 px systematic
+component is modest against published values rather than anomalous. Separately, **none of the located
+keypoint-extrinsic methods models signed view-dependent bias**: Lee et al. use a Gaussian per-joint
+detector sigma plus RANSAC and an observation mask, Pätzold et al. a heatmap-derived 2x2 covariance.
+Both model **noise**, which is the wrong estimator for a fixed offset — and that is exactly why A12's
+robust BA moved the estimate further from truth rather than closer. The single live repair route is
+therefore a joint bias-and-pose parameterization with an identifiability constraint, which is a
+different unit from M2.6 as planned and is not funded by this ruling.
+
 **Bound of the negative, stated as precisely as the positive would have been.** It bounds extrinsic
 recovery from **RTMW-L keypoints** on **this corpus** at 1080p under **per-model intrinsic priors**.
 It does not bound a keypoint source with lower cross-view bias, a detector trained for multi-view

@@ -134,8 +134,20 @@ cameras** (80 two-camera + 41 three-camera) — the ceiling. 115 `sync_status = 
 deliverable as scoped and cascades to M2.7, whose spine is fusion over recovered extrinsics. Nothing
 below is chosen.
 
-**Wave state.** `res-m2u6-3` (this window) ran the literature question on cross-view keypoint bias →
-`.scratch/agents/res-m2u6-3.md`. Retained from window 2 with their branches and worktrees:
+**The literature corroborates it and names the one repair route (A14).** Malleson, Collomosse &
+Hilton, IJCV 128 (2020) §3.3.2 Eq. 17-18 models a per-camera keypoint offset explicitly, **calls the
+discrepancy "systematic bias"**, measures offsets reaching **6.5 cm** (50-61 px at this corpus's ~2 m
+and fx 1553-1873), and reports its zero-offset arm at **1.22x** the full model's global pose error —
+so M2.6's measured 15-20 px systematic component is modest against published values. **None of the
+located keypoint-extrinsic methods models signed view-dependent bias**: Lee et al. use a Gaussian
+per-joint sigma plus RANSAC, Pätzold et al. a heatmap covariance. Both model **noise**, the wrong
+estimator for a fixed offset — which is why A12's robust BA moved further from truth, not closer. The
+one live repair route is a joint bias-and-pose parameterization under an identifiability constraint;
+that is a different unit from M2.6 as planned and this ruling does not fund it.
+
+**Wave state.** `res-m2u6-3` (this window) answered Q01-Q03 of 5 at 32% before MAIN stopped it at
+reserve; Q04 (accuracy vs camera angular separation) and Q05 (published negatives, closure precision
+in practice) are unowed → `.scratch/agents/res-m2u6-3.md`. Retained from window 2 with their branches and worktrees:
 `wt/spike-m2u6-ba`, `wt/spike-m2u6-sweep` — **their named open dependency was F0, which is now
 closed, so both are free to remove unless the replacement scope claims them.** Wave-1 reports
 preserved: `.scratch/agents/map-m2u6.md` (12-section map, 110-row anchored checklist, S12 unfilled),
