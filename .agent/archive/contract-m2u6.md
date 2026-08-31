@@ -1,6 +1,7 @@
 # M2.6 acceptance contract — calibration recovery
 
-**Status: F0 CLOSED NEGATIVE (§11b). §1-§6 bind as the record of the route that was tested.** F1-F3
+**Status: F0 CLOSED NEGATIVE (§11b), and the one repair route it left open is closed negative too
+(A15). §1-§6 bind as the record of the route that was tested.** F1-F3
 in §7 are moot as written — they configure a publisher for extrinsics the corpus cannot yield — and
 stay for the record until the user rules M2.6's replacement scope. The predicate list §8 is frozen
 mid-draft for the same reason. Baseline `41efc55`, gate **1284 passed / 0 skipped / rc=0 in
@@ -398,6 +399,42 @@ consistency, a joint bias-and-pose parameterization under an identifiability con
 specified, or any prospectively calibrated capture. The bias is a property of the detector's notion
 of each joint from each viewpoint, so it is the detector and the viewpoint separation — not the
 solver and not the sample size — that a future attempt must change.
+
+**A15 — the repair route A14 named is closed negative at its premise (M2.6b), on the full eligible
+population.** The user funded it; `scripts/probe_bias_transfer.py` refused it in one window without
+building an estimator. The route needs a bias carrying fewer degrees of freedom than the data — a
+per-event field is 2xCxK = **390 free parameters against 11 pose DoF** with no anchor, the
+exactly-degenerate case A14/Q03 named — and its only two sources are transfer across events or
+Malleson's external anchor, which no retrospective corpus can acquire. Measured over **all 115
+eligible events** (74 two-camera + 41 three-camera, 32 frames each, det-CPU/pose-NPU) yielding **178
+camera pairs over 103 events**, residual median 17.04 px: A10's statistic re-split across EVENTS
+gives **r median 0.0108 over 4341 comparisons** against that same corpus's permutation null of
+**0.0051** (n=4692) and a within-event ceiling of **0.8138** (129/178 pairs above 0.5). Stricter
+groupings do not move it: same device-model pair 0.0102 (n=2738), same task 0.0103 (n=1071), same
+subject **-0.0296** (n=275) — the subject grouping was the last live variant, since subject anatomy
+would pool ~7 events per field, and it is the one that goes negative. Per view pair: `above|left`
+0.0311 (n=1207), `above|right` -0.0029 (n=1858), `left|right` 0.0117 (n=1276). Calibrated
+references, 3 field draws each, through the real masks with per-event jittered rigs: shared image
+bias 8/32 px **0.9662 / 0.7632**, shared 3D anatomical bias (Malleson's own parameterization)
+20/40/80 mm **0.9411 / 0.2192 / 0.6264**; under 0.6 m and 1.2 m rig jitter 8 px holds **0.9236 /
+0.7961** and 32 px **0.6429 / 0.1799**; per-event bias **-0.0106 / 0.0052**; noise **0.0159 /
+0.0303**. Shared arms 0.180-0.966, non-shared arms -0.011-0.030, corpus -0.030-0.031 — no overlap,
+corpus inside the non-shared band. The shared arms are **not monotone in magnitude** (field
+realization dominates at 3 draws), so the power claim rests on the **0.180 floor**, not any single
+arm. Magnitude correlation is **0.1499 pooled and 0.1462 within subject** (null -0.0324, per-event-
+bias reference -0.0033): the same keypoints are hard everywhere, at every grouping, while the offset
+DIRECTION is redrawn every event — which is also why A13 found no transferable keypoint subset, and
+a difficulty ranking cannot be subtracted from a coordinate. **A second refusal stands independent
+of that measurement**: a joint multi-camera parameterization makes rotation cycle closure an
+algebraic identity of the solve rather than a check — the reason A02 kept A12's poses independent —
+and P05 prohibits held-out reprojection as accuracy, so the built model would have no acceptance
+statistic on this corpus. A per-event joint solve **could be built and never credited here**. Power
+bound: the synthetic arms span neither subject-to-subject anatomical variation nor the 7 assets that
+change orientation mid-clip; that limit cuts toward the negative, since a bias transferring only
+within one subject **and** one viewing geometry is estimable only per event, the degenerate case the
+route had to escape. Unrun and named: whether a per-event double-centered bias-and-pose solve
+recovers known extrinsics on the synthetic control — it would refine the claim from "no transferable
+bias exists" to "identifiable in principle, unverifiable here", and would not reopen the route.
 
 ## §11 Probe-corpus seed
 

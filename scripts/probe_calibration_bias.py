@@ -66,11 +66,15 @@ ANATOMICAL_BIAS_SWEEP_MM = (5.0, 10.0, 20.0, 40.0, 80.0, 160.0)
 # --- synthetic rig ------------------------------------------------------------------------------
 
 
-def _rig(rng: np.random.Generator) -> list[tuple[np.ndarray, np.ndarray]]:
-    """World->camera (R, t) for above/left/right at corpus-like separations, jittered per event."""
+def _rig(rng: np.random.Generator, jitter_m: float = 0.25) -> list[tuple[np.ndarray, np.ndarray]]:
+    """World->camera (R, t) for above/left/right at corpus-like separations, jittered per event.
+
+    The draw count is independent of `jitter_m`, so every arm sees the same rig sequence for a seed,
+    and the default reproduces the A09-A13 arms exactly.
+    """
     nominal = np.array([[0.0, 1.60, 1.20], [-1.60, 0.90, 1.10], [1.60, 0.90, 1.10]])
     poses = []
-    for position in nominal + rng.uniform(-0.25, 0.25, size=(3, 3)):
+    for position in nominal + rng.uniform(-jitter_m, jitter_m, size=(3, 3)):
         forward = -position / np.linalg.norm(position)
         right = np.cross(forward, np.array([0.0, 1.0, 0.0]))
         right /= np.linalg.norm(right)
@@ -112,6 +116,9 @@ def synthesize(
     sigma_px: float = 0.0,
     image_bias_px: float = 0.0,
     anatomical_bias_mm: float = 0.0,
+    bias_field: np.ndarray | None = None,
+    anatomical_field: np.ndarray | None = None,
+    rig_jitter_m: float = 0.25,
     seed: int,
 ) -> tuple[np.ndarray, np.ndarray, list[tuple[np.ndarray, np.ndarray]]]:
     """Normalized observations under a known rig.
@@ -119,19 +126,23 @@ def synthesize(
     `anatomical_bias_mm` is the hypothesised mechanism: a per-(camera, keypoint) offset fixed in the
     BODY frame, so the same joint means a different physical point to each camera and rides that
     disagreement through every frame. `image_bias_px` is its image-fixed counterpart, and `sigma_px`
-    is zero-mean measurement noise.
+    is zero-mean measurement noise. Both draw a fresh field per call, so each event gets its own
+    bias; `bias_field` (px, `(cameras, keypoints, 2)`) and `anatomical_field` (metres,
+    `(cameras, keypoints, 3)`) supply one field instead, which is what makes a bias shared ACROSS
+    events representable. The rig and structure draws precede both, so the same seed yields the same
+    event geometry whether or not a field is supplied.
     """
     rng = np.random.default_rng(seed)
     cameras, frames, keypoints = mask.shape
-    poses = _rig(rng)
+    poses = _rig(rng, rig_jitter_m)
     world = _structure(frames, rng)
     focals = np.array([_fx(models[c], int(sizes[c, 0]), int(sizes[c, 1])) for c in range(cameras)])
-    flat = rng.normal(0.0, image_bias_px, (cameras, keypoints, 2)) if image_bias_px > 0 else None
-    solid = (
-        rng.normal(0.0, anatomical_bias_mm / 1000.0, (cameras, keypoints, 3))
-        if anatomical_bias_mm > 0
-        else None
-    )
+    flat = bias_field if bias_field is not None else None
+    if flat is None and image_bias_px > 0:
+        flat = rng.normal(0.0, image_bias_px, (cameras, keypoints, 2))
+    solid = anatomical_field if anatomical_field is not None else None
+    if solid is None and anatomical_bias_mm > 0:
+        solid = rng.normal(0.0, anatomical_bias_mm / 1000.0, (cameras, keypoints, 3))
     observed = np.empty((cameras, frames, keypoints, 2))
     for camera in range(cameras):
         width, height = int(sizes[camera, 0]), int(sizes[camera, 1])
@@ -374,6 +385,9 @@ def pair_structure(event, left, right) -> dict[str, Any] | None:
     )
     covered = np.isfinite(pooled_means)
     return {
+        # `keypoint_bias_px` is the vector `probe_bias_transfer.py` correlates BETWEEN events; it is
+        # returned here so both statistics come off one pose fit and one estimator path.
+        "keypoint_bias_px": pooled_means,
         "split_r": float(np.corrcoef(a, b)[0, 1]),
         "median_abs_px": float(np.median(np.abs(combined))),
         "keypoints": int(usable.sum()),
@@ -417,7 +431,7 @@ def arm_structure(cache: Path) -> dict[str, Any]:
         print(json.dumps(results[-1]), flush=True)
 
     events = load_events(cache, cameras=3)
-    arms: list[tuple[str, dict[str, float]]] = [
+    arms: list[tuple[str, dict[str, Any]]] = [
         (f"synth noise sigma={value}px", {"sigma_px": value}) for value in (2.0, 8.0, 32.0)
     ]
     arms += [(f"synth image-bias {value}px", {"image_bias_px": value}) for value in (8.0, 32.0)]

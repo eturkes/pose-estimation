@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 IN-PROGRESS with F0 closed negative and its remaining scope awaiting a user ruling; M2.7 OPEN and affected by that ruling. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 IN-PROGRESS with F0 closed negative; M2.6b, the user-funded repair route, closed negative at its gate; the replacement scope for both, and M2.7's, awaits a user ruling. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Goal:** turn 382 uncontrolled clips into an addressable, measured corpus; establish by evidence whether 3D reconstruction is recoverable from it; then execute that ruling under a claim boundary the data can carry.
 
@@ -40,9 +40,139 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.4 | Timebase truth | Adopt `nominal_fs()` at the call sites; regenerate goldens; per-file cadence replaces the `1/median(diff(ts))` estimate. |
 | M2.5 | Cross-view alignment | One float `offset_s` per camera against the event reference, no rate term (M2.3 R5); per-recording-event `sync_qc` evidence. |
 | M2.6 | Calibration recovery | **Planned result unreachable — F0 closed negative.** Extrinsics by BA over time-synchronized 2D keypoints was the route (scene-feature SfM already eliminated by measurement); the corpus carries 15-20 px systematic cross-view keypoint bias, which no estimator and no keypoint subset repairs. Shipped instead: the measurement closing it, `scripts/probe_calibration_bias.py`. Replacement scope pending a user ruling. |
+| M2.6b | Bias-modeling repair | **User-funded, closed negative at its gate (G0).** The one repair route A14 left open — a joint bias-and-pose parameterization under an identifiability constraint. Its premise is a bias with fewer degrees of freedom than the data, which needs the bias to be shared across events. Measured absent at every grouping. Shipped: `scripts/probe_bias_transfer.py`. |
 | M2.7 | Gated fusion + corpus study | Fusion over qualified recording events, reprojection/gap/throughput/stability/repeatability evidence, claim-bounded report, prospective-capture specification, de-identified regression fixtures. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 IN-PROGRESS, F0 closed negative** — extrinsic recovery is measured unachievable on this corpus, so the unit's remaining scope is a user decision, see below. **M2.7 is affected**: its spine is fusion over recovered extrinsics, which do not exist.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 IN-PROGRESS, F0 closed negative** — extrinsic recovery is measured unachievable on this corpus, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7 is affected**: its spine is fusion over recovered extrinsics, which do not exist.
+
+### M2.6b — G0 CLOSED NEGATIVE; the bias does not transfer, so there is nothing to model
+
+**The user funded the one repair route A14 left open, and it is refused by measurement in one
+window, at its premise, before an estimator was built.** Route = a joint bias-and-pose
+parameterization under an identifiability constraint, Malleson-style (IJCV 128, 2020 §3.3.2). Probe
+`scripts/probe_bias_transfer.py`, reading the same caches and reusing `pair_structure` verbatim, so
+the instrument is A10's.
+
+**G0 — is the bias shared across recording events?** The route needs a bias with fewer degrees of
+freedom than the data. A per-event bias field is 2 x C x K = **390 free parameters against 11 pose
+DoF with no external anchor** — A14/Q03's exactly-degenerate case. The only two ways to reduce it are
+sharing across events, or Malleson's anchor (already-calibrated cameras plus ground-truth optical
+bone transforms), which no retrospective corpus can acquire. So the whole route rests on transfer.
+
+**Measured on the FULL eligible population, not a sample.** `--stratum-events 25` collected all
+**115 eligible events** (74 two-camera + 41 three-camera) at 32 frames, det-CPU / pose-NPU, yielding
+**178 camera pairs over 103 events**; 12 events yield no usable pair. Residual magnitude median
+**17.04 px**. A09-A13's 22-event sample is no longer a limit on this unit's negative.
+
+**A10's statistic, re-split across EVENTS instead of frame blocks, reads the null — and the contrast
+sharpens on the full population.** Within-event ceiling rises to **r median 0.8138, 129/178 pairs
+above 0.5**, so the bias is *more* clearly reproducible inside an event here than in the 39-pair
+sample (0.7029). Between events it is gone, at four successively stricter groupings:
+
+| grouping | n | signed r | above 0.5 |
+| -------- | - | -------- | --------- |
+| same view pair | 4341 | **0.0108** | 787 |
+| + same device-model pair | 2738 | 0.0102 | 527 |
+| + same task | 1071 | 0.0103 | 189 |
+| + same subject | 275 | **-0.0296** | 52 |
+| keypoints permuted (null) | 4692 | 0.0051 | 185 |
+
+Per view pair: `above|left` 0.0311 (n=1207), `above|right` -0.0029 (n=1858), `left|right` 0.0117
+(n=1276). **The corpus sits at its own permutation null on a statistic returning 0.81 within an
+event**, and the subject grouping — the last live variant, since a subject-anatomy bias would pool
+that subject's ~7 events per field — is the one that goes negative.
+
+**Calibrated references separate completely, and the corpus is on the wrong side of the gap.** Every
+synthetic arm runs the identical statistic through the real cache's validity masks, image sizes and
+device models, with the rig re-jittered per event so the correlation is measured across different
+camera placements exactly as the corpus one is, and each arm pools **3 independent field draws**
+because one draw is one realization of the mechanism.
+
+- **Shared** bias fields — the repairable mechanism: image-fixed 8 px **0.9662**, 32 px **0.7632**;
+  Malleson's own parameterization, a constant 3D per-(camera, keypoint) offset, at 20/40/80 mm
+  **0.9411 / 0.2192 / 0.6264**. Under rig jitter widened to 0.6 m and 1.2 m — far past any plausible
+  placement change — 8 px holds **0.9236 / 0.7961** and 32 px **0.6429 / 0.1799**.
+- **Not shared**: per-event bias 8/32 px **-0.0106 / 0.0052**; zero-mean noise 8/32 px
+  **0.0159 / 0.0303**.
+- Shared arms span **0.180-0.966**; non-shared arms span **-0.011-0.030**; the corpus spans
+  **-0.030-0.031** across five groupings. No overlap, and the corpus sits inside the non-shared band.
+  The shared arms are **not monotone in magnitude** — field realization dominates at 3 draws, which
+  is why the claim rests on the 0.180 floor across every shared arm rather than on any single value.
+
+**The magnitude split names what the corpus does share, and it is not correctable.** Correlating
+|residual| instead of signed residual gives **0.1499** pooled against a permutation null of -0.0324
+and a per-event-bias reference of -0.0033, and it stays at **0.1462** within subject and 0.2191 on
+`left|right`. So **the same keypoints are hard everywhere, at every grouping, while the direction of
+the offset is redrawn every event.** A difficulty ranking is not a correctable offset — magnitude
+cannot be subtracted from a coordinate — which is also why A13 found no keypoint subset that
+transfers.
+
+**Bound of the negative.** It bounds a bias model keyed on any of view pair, device-model pair, task
+or subject, measured through signed epipolar residuals over the full eligible population. Its power
+is established by the synthetic arms, which hold r >= 0.180 under the corpus's own masks and 1.2 m
+placement jitter; those arms do not span subject-to-subject anatomical variation or the 7 assets that
+change orientation mid-clip. That limit cuts toward the negative rather than away from it: a bias
+transferring only within one subject **and** one viewing geometry is estimable only per event, which
+is the degenerate case the route had to escape.
+
+**A second refusal, independent of G0, and it survives even if a per-event solve is identifiable.**
+Under a joint multi-camera parameterization, rotation cycle closure is an algebraic identity of the
+solve, not a check — the same reason contract A02 kept A12's pairwise BA poses independent. The
+corpus offers no other acceptance statistic: held-out reprojection on the solve's own keypoints is
+self-consistency and is prohibited as accuracy (P05, Pätzold et al.), and cross-event transfer, the
+one out-of-sample target that would have replaced closure, is what G0 measures absent. **A per-event
+joint solve could therefore be built and could never be credited on this corpus.**
+
+**Unrun, and named.** Whether a per-event double-centered bias-and-pose solve recovers known
+extrinsics on the synthetic control is not measured — the parameter count argues it is degenerate,
+and G0 plus the acceptance gap make it undecidable on the corpus either way, so it was not built.
+That is the one arm a future attempt could still run, and it would refine the claim from "no
+transferable bias exists" to "identifiable in principle, unverifiable here"; it would not reopen the
+route.
+
+**Two caches, kept apart on purpose.** `.scratch/calib-obs-f32/` holds the 22-event
+`--stratum-events 2` sample and is A09-A13's population — verified after the widening to still return
+39 pairs / r 0.7029 / 26 above 0.5 / 20.773 px / variance fraction 0.4327, matching M2.6's record
+exactly. `.scratch/calib-obs-wide/` holds all 115 and is M2.6b's. Both are gitignored and regenerate
+from the committed probe; the split is by `_event_key` over the deterministic selection, so it is
+reproducible rather than a manual sort. `scripts/probe_calibration_observability.py` gained
+`--stratum-events` (default 2 unchanged) to make the wide population re-derivable; the sample is a
+hash-ranked prefix, so raising it only ADDS events to the selection — the 22 narrow entries are a
+strict subset of the 115 wide ones by cache key. It does **not** make entries reusable: measured,
+`stratum_events` joins the cache fingerprint (2 -> `2b84d350…`, 25 -> `d427f95f…`), and `load_event`
+rejects a mismatch, so raising the value re-collects the entire sample. Separate `--cache`
+directories are the mechanism, not a convenience. Deferred to polish: the binding is over-broad,
+since no cached per-event value depends on how many events were selected.
+
+**Gate at close.** `ruff check`, `ruff format --check`, `ty check` all rc=0. Decisive suite
+**1284 passed / 0 skipped / rc=0** in 1232.97 s, unmoved from the `41efc55` baseline — correct for a
+window shipping one probe and no production surface. A first gate run failed
+`tests/test_r_timebase_truth.py::test_c8_08` on `subprocess.TimeoutExpired` while the 115-event
+collection held the CPU; **never run the gate beside a decode/inference sweep** — the R cases carry
+subprocess timeouts that CPU contention alone can blow. Re-verified alone. The suite predates one
+later `--stratum-events` help-text edit; `rg -l` over `tests/` finds no reference to any of the three
+probes, so no case can observe it, and the three static checks reran green on the final bytes.
+
+**The whole M2.6b record re-derives from the shipped probe.**
+`probe_bias_transfer.py --cache .scratch/calib-obs-wide` returns 178 pairs / 103 events, signed r
+0.0108 (n=4341) with 787 above 0.5, within-event 0.8138 (129/178), residual median 17.038 px,
+magnitude 0.1499 pooled / 0.1462 within subject / -0.0324 null, and every synthetic arm at the value
+recorded above. Re-derivation is the acceptance for these numbers, since the cache is gitignored and
+no test covers a probe.
+
+**One claim of this unit was refuted by its own scale-up and is recorded rather than quietly fixed.**
+On the 22-event cache the within-subject magnitude correlation read 0.0025, which supported "the
+shared difficulty is between-subject". On all 115 it reads **0.1462**, indistinguishable from the
+pooled 0.1499 — shared keypoint difficulty is present *within* subject too. The signed result is
+unchanged at every grouping; only that secondary reading moved. Same lesson as A02: **a number
+measured on a sample gets re-derived at scale, not carried forward.**
+
+**Sizing, recorded for PLANNING.** One window, one probe, one fork closed. **The new datum: a repair
+route names a premise, and the premise is cheaper to test than the repair.** The route needed a bias
+with fewer degrees of freedom than the data; that reduces to transfer or to an external anchor, and
+transfer was one re-split of a statistic already shipped. No estimator was written. Where a funded
+route rests on a structural precondition, **measure the precondition first and budget the estimator
+only after it survives.**
 
 ### M2.6 — F0 CLOSED NEGATIVE; the unit's scope is a user decision
 
@@ -130,9 +260,9 @@ cameras** (80 two-camera + 41 three-camera) — the ceiling. 115 `sync_status = 
 1.0000 / min 0.7083. **64 of 121 events have every offset-bearing camera `rigid`.** Ruled:
 `unmeasurable` does not disqualify on its own.
 
-**Open decision, and it is the user's** — see the session report. F0's negative removes M2.6's
-deliverable as scoped and cascades to M2.7, whose spine is fusion over recovered extrinsics. Nothing
-below is chosen.
+**The user ruled: fund the repair route.** That became M2.6b, which closed it negative at its own
+gate. M2.6 keeps `geom_unmeasured` on all 193 rows and its replacement scope is open again, now with
+one fewer option.
 
 **The literature corroborates it and names the one repair route (A14).** Malleson, Collomosse &
 Hilton, IJCV 128 (2020) §3.3.2 Eq. 17-18 models a per-camera keypoint offset explicitly, **calls the

@@ -363,7 +363,10 @@ def plan_summary(inputs: Inputs, selection: Selection) -> dict[str, Any]:
             ),
         },
         "sample": {
-            "rule": "up to two fixed-hash-ranked eligible events per nonempty task x camera-count stratum",
+            "rule": (
+                f"up to {STRATUM_EVENTS} fixed-hash-ranked eligible events per nonempty "
+                "task x camera-count stratum"
+            ),
             "nonempty_strata": len(selection.strata),
             "events": len(selection.sample),
             "events_by_camera_count": dict(
@@ -1586,6 +1589,18 @@ def _parser(root: Path) -> argparse.ArgumentParser:
         default=FRAMES_PER_EVENT,
         help="synchronized frames sampled per event; joins the cache fingerprint",
     )
+    parser.add_argument(
+        "--stratum-events",
+        type=int,
+        default=STRATUM_EVENTS,
+        help=(
+            "events sampled per (task, camera count) stratum; the sample is a hash-ranked prefix, "
+            "so raising it only ADDS events to the selection. It joins the cache fingerprint, so a "
+            "raised value invalidates EVERY existing entry and re-collects the whole sample: "
+            "collect a wider population into its own --cache directory. It also re-draws the "
+            "3-event pilot, so keep the default to reproduce the pilot results"
+        ),
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("plan", help="print the deterministic census and sample plan")
     collect_parser = subparsers.add_parser("collect", help="collect or resume keypoint caches")
@@ -1604,10 +1619,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parser(root).parse_args(argv)
     if args.frames_per_event < 2:
         raise SystemExit("--frames-per-event must be at least 2")
+    if args.stratum_events < 1:
+        raise SystemExit("--stratum-events must be at least 1")
     # Set once here rather than threaded through 18 read sites. `load_inputs` folds the value into
     # the cache fingerprint, so two densities occupy separate cache namespaces instead of colliding.
-    global FRAMES_PER_EVENT
+    global FRAMES_PER_EVENT, STRATUM_EVENTS
     FRAMES_PER_EVENT = args.frames_per_event
+    STRATUM_EVENTS = args.stratum_events
     cache = _safe_cache(root, args.cache)
     inputs = load_inputs(
         args.corpus,

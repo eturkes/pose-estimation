@@ -151,6 +151,58 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
   per-model intrinsic priors; it does not bound a different keypoint source or a calibrated capture.
   **The detector and the viewpoint separation are what a future attempt must change — not the solver
   and not the sample size.** `scripts/probe_calibration_bias.py`, contract §11b A09-A13.
+- **The cross-view keypoint bias is a per-RECORDING property, not a global (view, keypoint) field, so
+  there is nothing for a bias model to estimate.** Measured over the **full eligible population** —
+  all 115 events, 178 pairs, 103 events yielding a pair. Same statistic as A10, split across events
+  instead of frame blocks: per-keypoint mean signed epipolar residual vectors correlated between
+  DISTINCT events sharing an ordered view pair give **r median 0.011 (n=4341)** against that corpus's
+  own permutation null of **0.005** and a within-event ceiling of **0.814** (129/178 above 0.5).
+  Stricter groupings do not rescue it — same device-model pair 0.010 (n=2738), same task 0.010
+  (n=1071), same subject **-0.030** (n=275). Calibrated references through the real masks with
+  per-event jittered rigs, 3 field draws each: shared image bias 8/32 px **0.966 / 0.763**, shared 3D
+  anatomical bias (Malleson's own parameterization) 20/40/80 mm **0.941 / 0.219 / 0.626**, holding
+  **>= 0.180** even at 1.2 m rig jitter; per-event bias **-0.011 / 0.005**; noise **0.016 / 0.030**.
+  Shared arms 0.180-0.966, non-shared arms -0.011-0.030, corpus inside the non-shared band; the
+  shared arms are not monotone in magnitude because field realization dominates at 3 draws, so quote
+  the 0.180 floor rather than any single arm. **Correlating |residual| instead gives 0.150 pooled and
+  0.146 within subject: the same keypoints are hard everywhere, at every grouping, while the offset
+  DIRECTION is redrawn every event — and a difficulty ranking cannot be subtracted from a
+  coordinate.** `scripts/probe_bias_transfer.py`.
+- **Two observability caches, and they are not interchangeable.** `.scratch/calib-obs-f32/` = the
+  22-event `--stratum-events 2` sample that every A09-A13 number is measured on;
+  `.scratch/calib-obs-wide/` = all 115 eligible events. `--stratum-events` selects a hash-ranked
+  prefix, so widening only ADDS events to the selection (22 ⊂ 115 by cache key, verified), but it
+  joins the cache fingerprint (2 → `2b84d350…`, 25 → `d427f95f…`) and `load_event` rejects a
+  mismatch, so widening IN PLACE re-collects everything. **Always collect a wider population into
+  its own `--cache` directory, then re-verify the narrow cache still reproduces its record.**
+- **`probe_calibration_bias.py` reads the cache with NO fingerprint check** — its own
+  `load_event(path)` takes no fingerprint and validates nothing, unlike the observability module's
+  two-argument version. Every M2.6/M2.6b number is a replay of whatever `.npz` files sat in the named
+  directory, so **the directory name is the entire provenance guard**, and the stored value could not
+  serve as one anyway: all 137 entries across both caches carry the single `meta.fingerprint`
+  `084174f403dae02f`, which distinguishes neither population. Editing
+  `probe_calibration_observability.py` at all changes `_source_digest()` and so the live fingerprint,
+  leaving both caches stale for `collect` (re-collection = full sweep) while staying readable by the
+  analysis probes. Point an analysis at a directory whose population you just counted.
+- **Replay reproduces the M2.6b record exactly, so re-derive rather than trust a recorded number.**
+  `probe_bias_transfer.py --cache .scratch/calib-obs-wide` returns 178 pairs / 103 events, signed r
+  0.0108 (n=4341), within-event 0.8138 (129/178), residual median 17.038 px, magnitude 0.1499 pooled
+  / 0.1462 within subject, and every synthetic arm. It streams line-delimited JSON per arm and its
+  final `print` emits only the sorted key list — the numbers are the earlier lines, not the last one.
+- **Never run the gate beside a decode or inference sweep.** `tests/test_r_timebase_truth.py::test_c8_08`
+  drives a subprocess with a timeout; CPU contention from a concurrent collection alone is enough to
+  raise `subprocess.TimeoutExpired` and fail a suite that is green when run alone.
+- **A joint multi-camera solve destroys the only acceptance statistic this corpus has.** Rotation
+  cycle closure is an algebraic identity of a solve that parameterizes all three poses together —
+  which is why contract A02 kept A12's pairwise BA poses independent. Held-out reprojection on the
+  solve's own keypoints is self-consistency and prohibited as accuracy, and cross-event transfer is
+  measured absent. So a per-event bias-and-pose model could be built and never credited here. **Check
+  what a parameterization does to the acceptance statistic before adopting it**, not after.
+- **Test a repair's premise before building the repair.** The funded route was a joint bias-and-pose
+  parameterization; its premise is a bias with fewer DoF than the data, which needs either transfer
+  across events or Malleson's external anchor (calibrated cameras + optical bone transforms — never
+  available retrospectively). One re-split of an existing statistic refuted the premise in one window
+  and no estimator was written. **A repair route names a premise; find it, and measure that.**
 - **Calibrate the instrument against known ground truth BEFORE interpreting any result from it.** Two
   windows were spent narrowing hypotheses against an uncalibrated instrument. The synthetic positive
   control — known extrinsics driven through the real cache's own validity masks, sizes, models and
