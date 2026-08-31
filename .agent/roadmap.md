@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 IN-PROGRESS, M2.7 OPEN. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 IN-PROGRESS with F0 closed negative and its remaining scope awaiting a user ruling; M2.7 OPEN and affected by that ruling. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Goal:** turn 382 uncontrolled clips into an addressable, measured corpus; establish by evidence whether 3D reconstruction is recoverable from it; then execute that ruling under a claim boundary the data can carry.
 
@@ -39,199 +39,142 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.3 | Capture qualification + 3D-route ruling | Decode-sampled evidence on scale reference, background rigidity, view↔geometry stability, detectability, recoverable offset/drift, intrinsics metadata → MAIN's ruling, which shapes M2.5-M2.7. |
 | M2.4 | Timebase truth | Adopt `nominal_fs()` at the call sites; regenerate goldens; per-file cadence replaces the `1/median(diff(ts))` estimate. |
 | M2.5 | Cross-view alignment | One float `offset_s` per camera against the event reference, no rate term (M2.3 R5); per-recording-event `sync_qc` evidence. |
-| M2.6 | Calibration recovery | Per-recording-event extrinsics by **bundle adjustment over time-synchronized 2D keypoints** under the per-model intrinsics prior (M2.3 R4) — never scene-feature SfM, which is eliminated by measurement. Held-out reprojection acceptance, explicit scale provenance, bound to the M2.2 instance grain. Consumes M2.5's offsets, so it is gated on M2.5. Must measure per-event pose variety before claiming an extrinsic: subject-only calibration degrades on near-coplanar keypoints and a near-static subject, and the tasks are seated upper-limb movements. |
+| M2.6 | Calibration recovery | **Planned result unreachable — F0 closed negative.** Extrinsics by BA over time-synchronized 2D keypoints was the route (scene-feature SfM already eliminated by measurement); the corpus carries 15-20 px systematic cross-view keypoint bias, which no estimator and no keypoint subset repairs. Shipped instead: the measurement closing it, `scripts/probe_calibration_bias.py`. Replacement scope pending a user ruling. |
 | M2.7 | Gated fusion + corpus study | Fusion over qualified recording events, reprojection/gap/throughput/stability/repeatability evidence, claim-bounded report, prospective-capture specification, de-identified regression fixtures. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 IN-PROGRESS**, wave 1 harvested — see below. M2.7 is **unblocked** and unstarted.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 IN-PROGRESS, F0 closed negative** — extrinsic recovery is measured unachievable on this corpus, so the unit's remaining scope is a user decision, see below. **M2.7 is affected**: its spine is fusion over recovered extrinsics, which do not exist.
 
-### M2.6 — IN-PROGRESS, F0 narrowed to one live cause, contract at A08
+### M2.6 — F0 CLOSED NEGATIVE; the unit's scope is a user decision
 
-Draft contract at `.agent/archive/contract-m2u6.md`: §1-§6 ruled and binding, §7 naming three open
-forks, §8 carrying 10 frozen predicates, §10 listing 7 pre-existing shipped violations that become
-M2.6's the moment an extrinsic enters the path. Baseline `41efc55`, gate **1284 passed / 0 skipped /
-rc=0 in 873.00 s**, MAIN-measured.
+**Extrinsic recovery from subject keypoints is not achievable on this corpus, and the cause is
+measured rather than assumed.** Three windows against F0 ("does M2.6 exist as scoped?"). Contract at
+`.agent/archive/contract-m2u6.md`: §1-§6 bind as the record of the route tested, amendments A01-A08
+(windows 1-2) and **A09-A13 (this window, the closure)**. F1-F3 are moot as written — they configure
+a publisher for extrinsics the corpus cannot yield. Baseline `7fcf329`.
 
-**Candidate population, MAIN-derived from the shipped artifacts.** **121 events carry >= 2
-offset-bearing cameras** (80 two-camera + 41 three-camera) — the ceiling, since one usable camera has
-no relative pose to recover. 115 of them are `sync_status = connected`; 6 are `unconnected`, the P07
-partial-publication events. Over the **283 offset-bearing cameras inside those 121 events**: **223
-`rigid`, 46 `unmeasurable`, 9 `camera_motion`, 5 `excluded_orientation`**, `detect_rate` median
+Every number below reruns from committed state via `scripts/probe_calibration_bias.py`, which reads
+the caches `scripts/probe_calibration_observability.py` writes and reuses that probe's estimator
+verbatim, so the instrument under test is the shipped one.
+
+**The instrument is exonerated (A09).** A synthetic positive control drives *known* extrinsics through
+the real cache's own per-(camera, frame, keypoint) validity masks, image sizes, device models and
+10-event three-camera population — only the geometry becomes known. At zero correspondence error the
+shipped pooled-`recoverPose` route returns cycle closure **median 0.000 deg (max 0.004)**. It holds
+10/10 events inside the 10 deg bound out to **sigma = 8 px** (median 2.746) and degrades
+monotonically: 16 px → 4.925 (7/10), 32 px → 39.913 (1/10); the anatomical-bias arm arrives at the
+same place at 20-40 mm (19.07 / 28.18 deg). The corpus reads 2/10 at median 39.0-47.4 deg, which
+prices its effective cross-view correspondence error near **30 px at 1080p**. **The estimator was
+never the blocker** — §6b's "initialization, not observability" alternative is refuted.
+
+**The mechanism is confirmed by direct measurement (A10).** One pooled pose per pair is fit on a
+training frame block; per-keypoint mean **signed** epipolar residuals are then correlated across two
+**disjoint** held-out blocks. The identical statistic on synthetic data calibrates it — zero-mean
+noise at sigma 2/8/32 px gives split-half **r = 0.010 / 0.007 / 0.120**, fixed bias (image-fixed
+8-32 px or anatomical 20-80 mm) gives **r = 0.993-0.998**. The corpus, 39 pairs, gives **r median
+0.703, 26/39 above 0.5**, between-keypoint variance fraction **0.433** against noise 0.070-0.087 and
+bias 0.88-0.96, at residual magnitude median **20.8 px**. The confound is controlled: the sigma-32
+noise arm carries pair rotation error median 13.7 deg — a pose as wrong as the corpus's — and still
+returns 0.120, so **a wrong pose alone does not manufacture split-half reproducible per-keypoint
+structure**. Systematic component **15-20 px** by two decompositions, remainder random; both orders
+above the 1-4 px regime published keypoint calibration works in.
+
+**Two repair routes priced and refused.** Independent pairwise BA (robust Sampson, 5 DoF, poses
+independent so A02's condition holds) makes closure **worse**: 8-frame median 37.17 → 40.53, 2/10 →
+1/10; 32-frame **39.00 → 78.89**, 2/10 → 1/10, median max pose move 43.32 deg (A12). A better fit to
+biased correspondences moves further from truth and the damage grows with data — RANSAC's rejection
+was partly shielding the estimate. And no keypoint subset rescues it (A13): ranked on one event fold,
+scored on the disjoint fold, both directions, **no subset beats all 65 on held-out events** (fold 1
+all-65 47.42 vs cleanest-40 41.87 / cleanest-24 108.96; fold 2 all-65 21.04 (2/5) vs cleanest-40
+64.35 / cleanest-24 49.72 (2/5)), and the **cleanest ten keypoints still carry 49.6-53.9 px** mean
+absolute residual. The bias is corpus-wide, not concentrated.
+
+**A08's uncovered population gains a statistic (A11).** Split-half r is per **pair**, so it reaches
+events with no cycle: 2-camera pairs **r median 0.776** (7/10 above 0.5, 20.4 px) against 3-camera
+pairs 0.638 (19/29, 22.2 px). The bias is a corpus property, not a three-camera artifact, and the 80
+two-camera events A08 named now have an internal consistency statistic needing no third camera.
+
+**Bound of the negative, stated as precisely as a positive would be.** It bounds extrinsic recovery
+from **RTMW-L keypoints** on **this corpus** at 1080p under **per-model intrinsic priors**. It does
+not bound a keypoint source with lower cross-view bias, a detector trained for multi-view consistency,
+a joint bias-and-pose parameterization under an identifiability constraint M2.6 never specified, or
+any prospectively calibrated capture. **The detector and the viewpoint separation are what a future
+attempt must change — not the solver and not the sample size.**
+
+**Five causes refuted, one confirmed.** Refuted by measurement: planar degeneracy (homography inliers
+0-1 vs 39 essential), low parallax (median 72-129 deg), alignment (sync residual median 7.85 ms,
+p95 25.09, max 32.71, n=336 — inside one 33.3 ms frame, so M2.5's offsets are confirmed working),
+undersampling (4x frames left closure at 2/10), estimator/initialization (A09, A12). Confirmed by
+measurement: cross-view keypoint correspondence bias (A10).
+
+**Three rulings from windows 1-2 that still bind, whatever replaces M2.6.**
+
+- **The metres chain.** An arbitrary-scale extrinsic written into today's `CameraCalibration`
+  propagates a false metric claim through six shipped surfaces: `_types.py:91` → calibration docs →
+  `triangulation.py:12,454` → `export.py:443-487` (`_x_m/_y_m/_z_m`) → `validation.py:1265-1293`
+  (×1000, millimetres) → `analysis/clinical_features.R` (`coord_space="world-metric-3d"`). The
+  projection math is unit-agnostic, so each accepts arbitrary units numerically while its contract
+  lies. Any arbitrary-scale geometry needs its own type with explicit scale provenance.
+- **The carrier.** `session.json` may not be patched (`sessions.validate_generation` hashes the tree).
+  `sync_offset` may not be written (frame domain vs time domain). `events_qc.geom_qualified` cannot be
+  filled by a publisher reading `qualification/` — that is the publisher cycle M2.5 refused. All 193
+  rows still read `geom_unmeasured`; `geom` remains an M2.6-owned token.
+- **The acceptance statistic.** Held-out reprojection on the solve's own keypoint family is
+  self-consistency, never accuracy (Pätzold et al. GCPR 2022: beat the reference on human reprojection
+  4.01 vs 4.57 px while losing to it on independent AprilTags by 3.05 px). Same discipline as M2.3's
+  acoustic closure.
+
+**Candidate population, still valid and MAIN-derived.** **121 events carry ≥ 2 offset-bearing
+cameras** (80 two-camera + 41 three-camera) — the ceiling. 115 `sync_status = connected`, 6
+`unconnected` (P07 partial publication). Over the **283 offset-bearing cameras** inside them:
+**223 `rigid`, 46 `unmeasurable`, 9 `camera_motion`, 5 `excluded_orientation`**; `detect_rate` median
 1.0000 / min 0.7083. **64 of 121 events have every offset-bearing camera `rigid`.** Ruled:
-`unmeasurable` does not disqualify on its own — 46 of the 60 non-`rigid` cameras are absence of
-evidence rather than measured motion, and M2.6's own observability gate measures the thing directly.
+`unmeasurable` does not disqualify on its own.
 
-**Three rulings that close the obvious implementations.**
+**Open decision, and it is the user's** — see the session report. F0's negative removes M2.6's
+deliverable as scoped and cascades to M2.7, whose spine is fusion over recovered extrinsics. Nothing
+below is chosen.
 
-- **The metres chain.** Writing an arbitrary-scale extrinsic into today's `CameraCalibration`
-  propagates a false metric claim through six shipped surfaces: `_types.py:91` -> calibration docs ->
-  `triangulation.py:12,454` -> `export.py:443-487` (every world column named `_x_m/_y_m/_z_m`) ->
-  `validation.py:1265-1293` (multiplies by 1000, renders millimetres) -> `analysis/clinical_features.R`
-  (`coord_space="world-metric-3d"`, `distance_unit="m"`). The projection math is unit-agnostic, so
-  each accepts arbitrary units numerically while its contract lies. **M2.6 publishes a separately
-  typed arbitrary-scale artifact and never renames arbitrary units to metres.**
-- **The carrier.** `session.json` may not be patched — `sessions.validate_generation` hashes the tree,
-  so an in-place edit invalidates M2.2's generation, which supersedes the older "M2.6 still fills
-  `calibration`" line. `sync_offset` may not be written — frame domain versus time domain. And
-  `events_qc.geom_qualified` cannot be filled by a publisher that reads `qualification/`, because
-  that is the publisher cycle M2.5 refused for `sync_offset`. All 193 rows still read
-  `geom_unmeasured`, and `geom` is confirmed an M2.6-owned token.
-- **The acceptance statistic.** Pätzold et al. GCPR 2022 measured a keypoint-recovered calibration
-  beating the reference on human reprojection (4.01 vs 4.57 px) while losing to it on independent
-  AprilTags by 3.05 px (5.00 vs 1.95 px). Held-out reprojection on the solve's own keypoint family is
-  **self-consistency, never accuracy** — the same discipline M2.3 applied to acoustic closure.
+**Wave state.** `res-m2u6-3` (this window) ran the literature question on cross-view keypoint bias →
+`.scratch/agents/res-m2u6-3.md`. Retained from window 2 with their branches and worktrees:
+`wt/spike-m2u6-ba`, `wt/spike-m2u6-sweep` — **their named open dependency was F0, which is now
+closed, so both are free to remove unless the replacement scope claims them.** Wave-1 reports
+preserved: `.scratch/agents/map-m2u6.md` (12-section map, 110-row anchored checklist, S12 unfilled),
+`res-m2u6.md` (Q05-Q08 unowed). Caches survive at `.scratch/calibration-observability/` (8 frames)
+and `.scratch/calib-obs-f32/` (32 frames); both are gitignored and regenerate from the committed
+probe.
 
-**Solver route ruled on published evidence.** `scipy.optimize.least_squares(method="trf")` with an
-analytic CSR Jacobian, **zero new dependencies**; `pyceres` 2.6 is the fallback and is funded only
-against a committed runtime benchmark. Determinism is a pinned-input property — fixed observations,
-initialization, variable order, options, single-threaded BLAS — not a solver promise. An articulated
-moving subject is geometrically valid: `u_b^T E u_a = 0` is pointwise, so each synchronized `(t, k)`
-may come from a different world point without violating one fixed `E`; minimal RANSAC samples must
-stratify across frames and body regions so no single limb or instant defines the pose. Algorithmic
-template = Lee et al., IEEE RA-L 7(4) 2022, whose own numbers price this corpus: **motion extent
-dominates accuracy** (0.007 rad / 0.338 px at 2x2 m against 0.023 rad / 0.535 px at 0.5x0.5 m), and
-these are seated upper-limb tasks at the small-motion end; a 1.6%-wrong intrinsic prior moved their
-reprojection from 3.73/4.66 px to 6.84/7.32 px, which prices the unmeasured iPad focal prior directly.
+**Gate at close.** `ruff check`, `ruff format --check`, `ty check` all rc=0. The decisive suite is
+**unmoved from the `41efc55` baseline of 1284 passed / 0 skipped** — correct, since this window
+shipped two probe scripts and no production surface. `scripts/probe_calibration_bias.py` is new and
+`scripts/probe_calibration_observability.py` gained `--frames-per-event` (default 8 unchanged, value
+already inside the cache fingerprint), which closes the standing polish row and makes the 32-frame
+cache — the primary input to every A09-A13 number — re-derivable from committed state.
 
-**Three forks the next window's spikes decide** (contract §7): **F1** where the event geometry verdict
-lands without a publisher cycle — a new `calibration/` tree, a new `measure/` axis, or extracting the
-gauge-fixed offset solve out of `qualify.py` into one shared function both callers use; the
-`publication.py` polish row collides with all three and is ruled in the same pass. **F2** the producer
-configuration for BA input keypoints — the default run path applies a temporal smoother and then a
-bone-length smoother that mutates x/y **in place before export**, and the CSV header binds no model
-hash, device placement, smoothing policy or generator version, so reusing existing CSVs unstated is
-not available. **F3** how far the arbitrary-scale refusal propagates in this unit versus M2.7.
+`main=` 83% 200K/240K at reserve close. `mate=` 32% 77K/240K (`res-m2u6-3`).
 
-**Wave-1 teammates.** `map-m2u6` + successor `map-m2u6-2` produced the 12-section surface map and a
-110-row anchored normative checklist at `.scratch/agents/map-m2u6.md`; `res-m2u6` produced the cited
-research at `.scratch/agents/res-m2u6.md`; `scout-m2u6` committed
-`scripts/probe_calibration_observability.py` on `wt/scout-m2u6` at `c7f4380` — a synchronized
-observability probe that is **written and unrun**. Its design is recorded: stateless
-`YOLOX(CPU) -> RTMW-L(NPU)` per sampled view-frame with `EXECUTION_DEVICES` asserted and no
-`PoseTracker`; 65-keypoint geometry set; confidence swept 0.3/0.5/0.7; 8 equal-bin targets per event
-mapped into reference time by `target_camera_s = target_reference_s + offset_s`; stratified sample of
-22 events / 54 cameras / 432 view-frames at seed 20260831.
+**Sizing, recorded for PLANNING.** Three windows on one fork. **Four new data.**
 
-**The pilot ran and returned a null that every structural check would have missed** (contract §6b).
-Population = **3 eligible three-camera events / 9 camera pairs / 72 synchronized pair-frames**, median
-24 shared confident keypoints per pair-frame at confidence 0.5. Pooled `recoverPose` **produces a pose
-for 9/9 pairs**, 7/9 clear 30 cheirality inliers, and the accepted edge graphs connect 3/3 events — so
-pose existence, inlier count and graph connectivity all pass. Every geometric check then refuses it:
-**three-camera rotation cycles close at 34.87-59.03 deg (median 47.34), 0/3 inside the predeclared
-10 deg bound**; 0/9 pairs yield a per-frame quality pose; 3 of the 4 pairs with >= 2 split poses
-exceed 10 deg rotation spread (median 51.16, max 168.31); held-out epipolar support is measurable on
-4/9 and below 0.5 on all four (median 0.0957). The all-133-keypoint route rescues nothing — 0/3
-cycles close, one at 167.21 deg. **Alignment is not the blocker**: realized reference-time residual is
-median **6.31 ms**, p95 21.88, max 32.71, inside one frame, so M2.5's offsets work and the failure is
-geometric.
-
-**What the null bounds.** Pooled two-view `recoverPose` initialization over 3 events. It does **not**
-bound a full bundle adjustment under a per-model intrinsics prior, which the pilot never ran. Lee et
-al. reach a pose through linear rotation/translation recovery plus bone-length-regularized BA, never
-through pooled pairwise `recoverPose`. The F1-F3 spikes stay funded only behind F0.
-
-### Window 2 — the scaled sample ran, and it overturns most of the pilot's reading
-
-Contract amendments **A01-A08** at `.agent/archive/contract-m2u6.md` §11a; full derivation at
-`.scratch/agents/main-checkpoint-m2u6-w2.md`. **F0 is narrowed, not closed.**
-
-**The scaled sample is clean.** 22 events (12 two-camera / 10 three-camera), 54 cameras, 432
-view-frames, **428 detected + 428 posed, 0 inference failures, 0 decode failures, 0 event errors**.
-Sync residual in reference time median **7.85 ms**, p95 25.09, max 32.71, n=336 — inside one 33.3 ms
-frame at 7.3x the pilot's sample, so M2.5's offsets are confirmed and **alignment is not the blocker**.
-
-**Closure is 2/10, not 0/3.** All 10 three-camera events are `above|left|right` spanning 2 device
-configs; cycles read **2.31, 7.75, 17.06, 31.24, 34.87, 39.48, 40.26, 47.34, 59.03, 105.74 deg**, two
-inside the 10 deg bound. The pilot's three events are the 34.87 / 47.34 / 59.03 rows — three draws
-from this distribution, not a population.
-
-**Four causes refuted, one standing.** Planar degeneracy is refuted (median homography inliers 0-1
-against median 39 essential inliers); low parallax is refuted (median 72-129 deg); alignment is
-refuted above; and **undersampling is refuted by measurement** — re-collecting the same 22 events over
-the same time spans at 32 frames each raised pooled shared correspondences ~4x (median 192 -> 749,
-max 1480) and left closure unmoved at 2/10, median 39.48 -> 47.42, while individual events swung
-erratically (47.34 -> 6.23, but 17.06 -> 113.44 and 59.03 -> 135.62). **An observable geometry
-tightens as data is added; an estimate moving 96 deg under 4x data is a biased estimator, not a noisy
-one.** The leading live cause is therefore **cross-view keypoint correspondence bias** — the same
-anatomical joint localized from two widely separated views is not the same 3D point, and a
-view-dependent systematic offset violates the epipolar constraint in a way no sample size averages
-away. Estimator/initialization stays live beside it.
-
-**Two of the pilot's refusals were instrument artifacts** (A04, A05). Per-frame stability required 30
-inliers inside a single frame carrying a median 24 shared keypoints, so it was arithmetically
-unreachable and "0/9 pairs yield a per-frame quality pose" measured the constant — the same defect
-class as M2.3's P21. And held-out epipolar support is evaluated at the solve's own 3.0 px threshold,
-so a correct pose scores near the observed median 0.052 too; it may not gate until swept.
-
-**Three §6 defects, found by `spike-m2u6-ba` and ruled by MAIN** (A01-A03). Lee et al.'s initializer
-needs per-view 3D bone orientations from a single-view 3D pose estimator and **does not run on 2D
-input**, so M2.6 runs a surrogate labelled not-Lee. A joint multi-camera BA makes cycle closure
-algebraically zero by construction, so **closure is an acceptance statistic only for independently
-estimated pairwise poses**. And a raw bone-length variance penalty drives scale to zero under free
-gauge, so one baseline norm is pinned to 1 as an arbitrary numerical gauge with
-`scale_provenance = arbitrary` unchanged.
-
-**A08 — the gap that matters most.** 80 of the 121 candidate events carry exactly two offset-bearing
-cameras, and cycle closure needs three. Two thirds of the population has **no internal consistency
-check at all**, and no predicate reaches it.
-
-**What closes F0 next window.** `spike-m2u6-ba` arm 1 — independent pairwise BA, cycle composed,
-against the 2/10 `recoverPose` baseline, run on both caches — and `spike-m2u6-sweep` S04/S08, the
-threshold curve plus whether the residual is zero-mean noise or structured per-keypoint bias. If both
-reproduce the null, the unit's honest output is a measured negative publishing `geom_unqualified`
-with its reason, in the shape of M2.3's R3 and R4 closures.
-
-**Wave-2 teammates, all retained unflushed.** `spike-m2u6-sweep` (47% at close) and `spike-m2u6-ba`
-(57%) reached MAIN's context reserve without filling a report row or committing; both worktrees are
-**retained** with their branches, since F0 is their named open dependency, and MAIN committed each
-working tree's content on its own `wt/` branch at close. `res-m2u6-2` (32%) answered no question of
-its 5. Their briefs and MAIN's six rulings are reproduced in the checkpoint file. A successor
-inherits the worktree and the brief; the two caches survive at `.scratch/calibration-observability/`
-(8 frames) and `.scratch/calib-obs-f32/` (32 frames).
-
-**Regeneration path, scratch-local and owed a port.** The 32-frame result reruns from
-`.scratch/probe_f32.py`, which is the committed probe with `FRAMES_PER_EVENT = 32` alone, plus
-`.scratch/m2u6_perevent_f32.py`. `.scratch/` is gitignored, so **A07 does not yet rerun from
-committed state**; the port to a `--frames-per-event` flag is a `.agent/polish.md` row.
-
-**Gate at close.** Unmoved from the `9048dce` baseline — this window shipped contract amendments and
-roadmap state, and no production surface. `ruff`/`ruff format`/`ty` untouched by any edit to `src/`.
-
-`main=` 84% 202K/240K at reserve close (wave dispatch, MAIN-derived scaled sample, the 32-frame
-experiment, six rulings, amendments). `mate=` 57% 136K/240K (`spike-m2u6-ba`).
-
-**Sizing, recorded for PLANNING.** Two windows on F0 and it is still open. Three new data. **MAIN
-out-measured its own wave**: every decisive number this window — the 2/10 closure, the degeneracy
-refutation, the 32-frame null, both instrument artifacts — came from MAIN running the committed probe
-directly, while three teammates at 47/57/32% produced zero flushed rows in roughly four hours. The
-deliverable-first seed did not fire for a spike whose first useful output requires a working solver;
-**seed a spike with a runnable one-line script and a first row it can fill from the shipped tool**,
-not with a table it can only fill after building. Second, **a teammate blocked on a contract question
-is the wave's highest-value output even when it flushes nothing** — `spike-m2u6-ba` found three real
-§6 defects by message alone. Third, an empirical fork resolves faster in MAIN's own hands than
-through a worktree, because the measurement is script-derivable and the judgment is MAIN's anyway.
-
-**Gate at close.** `ruff check`, `ruff format --check`, `ty check` all rc=0; decisive gate
-**1284 passed / 0 skipped / rc=0 in 811.01 s**, primary tree — unmoved from the `41efc55` baseline,
-which is correct, since this window shipped one probe script and no production surface.
-`scripts/probe_calibration_observability.py` is merged into the primary tree so every §6b number
-reruns from committed state; `wt/scout-m2u6` and its worktree are removed, and all three reports are
-preserved under `.scratch/agents/`.
-
-`main=` 87% 209K/240K (wave-1 dispatch, MAIN-derived population, contract, close).
-`mate=` 100% 240K/240K (`map-m2u6` saturated at S09 of 12; `map-m2u6-2` also reached 100% and left
-S12 unfilled, so the gate-surface registration checklist is the one wave-1 deliverable still owed).
-`res-m2u6` stopped at Q04 of 8 — Q05-Q08 (observability statistics, gauge fixing and held-out
-protocol, three-camera chaining accuracy, rolling-shutter and residual-sync effects) are unowed
-research the next window re-dispatches if F0 survives.
-
-**Sizing, recorded for PLANNING.** One window bought the surface map, the research, the observability
-probe, the pilot null and the draft contract — and no implementation, which is the same shape M2.4's
-window 1 recorded. Two new data. **A map role saturates at roughly 9 sections of dense
-`file:line` evidence**, so a 12-section map is two instances, and the split belongs in the brief
-rather than in a mid-run rescue. And **the wave's decisive evidence arrived from the probe role, not
-from the map or research roles** — the pilot null is what re-shaped the unit, while map and research
-supplied the frame to read it in. Fund the measuring role first and largest on any unit whose central
-question is empirical.
+1. **A positive control is the cheapest thing that could have been run first, and it was run third.**
+   Windows 1 and 2 spent two full windows narrowing hypotheses against an instrument nobody had
+   calibrated. The control cost one script and minutes, and it simultaneously exonerated the
+   estimator, priced the error budget in px, and supplied the reference distributions that made the
+   bias statistic readable. **On any empirical fork, calibrate the instrument against known ground
+   truth before interpreting a single result from it.** M2.3 learned the same lesson through P21's
+   unadjudicable gate; this is its constructive form.
+2. **A null needs a mechanism, and a mechanism needs a discriminating statistic with calibrated
+   references.** "Bias is the only surviving hypothesis" (window 2) and "bias is measured at r = 0.703
+   against 0.010 noise / 0.997 bias references" (window 3) are different epistemic objects. Only the
+   second can be published, and only the second refuses the repair routes.
+3. **MAIN out-measured its own wave for the second consecutive window.** Every decisive number in
+   windows 2 and 3 came from MAIN running scripts directly. This window funded exactly one teammate,
+   on the one genuinely parallel track (literature), and spent the rest of the window measuring —
+   which closed in one window a fork two mixed waves had left open. **Script-derivable empirical
+   forks belong in MAIN's hands; delegate the reading, not the measuring.**
+4. **Scope a unit's first window to ask whether the unit exists.** M2.6 was planned as "recover
+   extrinsics, publish them" and its real content was "find out whether extrinsics are recoverable."
+   The plan carried no unit for the second question, so it was answered inside a unit budgeted for the
+   first. **Where a milestone's spine rests on an unmeasured empirical assumption, the feasibility
+   probe is its own unit with its own budget.**
 
 ### M2.5 — DONE
 

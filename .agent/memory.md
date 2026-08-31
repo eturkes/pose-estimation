@@ -138,6 +138,34 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
   by bone-length-regularized bundle adjustment under a per-model intrinsics prior, which is the
   published route (Lee et al., IEEE RA-L 7(4) 2022) and which the pilot never ran. State the unrun
   arm explicitly beside every negative.
+- **Extrinsic recovery from subject keypoints is CLOSED NEGATIVE on this corpus, and the cause is
+  measured.** Cross-view keypoint correspondence bias: per-keypoint mean signed epipolar residuals
+  reproduce at split-half **r = 0.703** across disjoint held-out frame blocks (39 pairs), against
+  calibrated references of **0.010-0.120** for zero-mean noise and **0.993-0.998** for fixed bias;
+  residual magnitude median **20.8 px**, systematic component **15-20 px** at 1080p, an order above
+  the 1-4 px regime published keypoint calibration works in. Refuted as causes: planar degeneracy,
+  low parallax, alignment, undersampling, estimator/initialization. Two repairs priced and refused —
+  independent pairwise BA makes closure **worse** (median 39.0 → 78.9 deg, damage growing with data,
+  the biased-estimator signature), and no low-bias keypoint subset beats all 65 on held-out events
+  (cleanest ten still 49.6-53.9 px). The negative bounds RTMW-L keypoints on this corpus under
+  per-model intrinsic priors; it does not bound a different keypoint source or a calibrated capture.
+  **The detector and the viewpoint separation are what a future attempt must change — not the solver
+  and not the sample size.** `scripts/probe_calibration_bias.py`, contract §11b A09-A13.
+- **Calibrate the instrument against known ground truth BEFORE interpreting any result from it.** Two
+  windows were spent narrowing hypotheses against an uncalibrated instrument. The synthetic positive
+  control — known extrinsics driven through the real cache's own validity masks, sizes, models and
+  event population, so only the geometry becomes known — cost one script and returned cycle closure
+  **median 0.000 deg** at zero correspondence error. That single number exonerated the estimator,
+  priced the error budget in px (10/10 events close out to sigma = 8 px; the corpus's 2/10 needs
+  ~30 px), and supplied the reference distributions that made the bias statistic readable at all.
+  A null is not interpretable until the instrument's response to a known input is known.
+- **A statistic that discriminates needs calibrated references, not just a suggestive value.** "Bias
+  is the only surviving hypothesis" and "bias measured at r = 0.703 against 0.010 noise / 0.997 bias
+  references" are different epistemic objects; only the second refuses repair routes or gets
+  published. Where a diagnostic is invented, run it on synthetic data spanning both mechanisms across
+  the magnitude range that brackets the real value, and check the confound explicitly — here the
+  sigma-32 noise arm carries a pose as wrong as the corpus's and still returns 0.120, which is what
+  proves a wrong pose alone does not manufacture the structure.
 - **Held-out reprojection on the solve's own keypoints is self-consistency, never accuracy.** Pätzold
   et al., GCPR 2022 measured a keypoint-recovered calibration beating the reference calibration on
   human reprojection (4.01 vs 4.57 px) while losing to it on independent AprilTags by 3.05 px (5.00 vs

@@ -1580,6 +1580,12 @@ def _parser(root: Path) -> argparse.ArgumentParser:
     parser.add_argument(
         "--cache", type=Path, default=root / ".scratch" / "calibration-observability"
     )
+    parser.add_argument(
+        "--frames-per-event",
+        type=int,
+        default=FRAMES_PER_EVENT,
+        help="synchronized frames sampled per event; joins the cache fingerprint",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("plan", help="print the deterministic census and sample plan")
     collect_parser = subparsers.add_parser("collect", help="collect or resume keypoint caches")
@@ -1596,6 +1602,12 @@ def _parser(root: Path) -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     root = Path(__file__).resolve().parents[1]
     args = _parser(root).parse_args(argv)
+    if args.frames_per_event < 2:
+        raise SystemExit("--frames-per-event must be at least 2")
+    # Set once here rather than threaded through 18 read sites. `load_inputs` folds the value into
+    # the cache fingerprint, so two densities occupy separate cache namespaces instead of colliding.
+    global FRAMES_PER_EVENT
+    FRAMES_PER_EVENT = args.frames_per_event
     cache = _safe_cache(root, args.cache)
     inputs = load_inputs(
         args.corpus,

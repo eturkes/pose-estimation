@@ -1,8 +1,10 @@
 # M2.6 acceptance contract — calibration recovery
 
-**Status: DRAFT, wave-1 frozen parts only.** §1-§6 are ruled and bind. §7 names three open forks that
-`spike-m2u6-*` decides next window; the predicate list §8 closes when they do. Baseline `41efc55`,
-gate **1284 passed / 0 skipped / rc=0 in 873.00 s**, MAIN-measured.
+**Status: F0 CLOSED NEGATIVE (§11b). §1-§6 bind as the record of the route that was tested.** F1-F3
+in §7 are moot as written — they configure a publisher for extrinsics the corpus cannot yield — and
+stay for the record until the user rules M2.6's replacement scope. The predicate list §8 is frozen
+mid-draft for the same reason. Baseline `41efc55`, gate **1284 passed / 0 skipped / rc=0 in
+873.00 s**, MAIN-measured.
 
 ## §1 Scope + grain
 
@@ -315,6 +317,74 @@ is zero-mean noise or structured bias).
 candidate events carry exactly two offset-bearing cameras; closure needs three. Their only internal
 statistic is held-out support, which A05 shows is currently uninformative. This governs two thirds of
 the candidate population and the predicate list does not reach it.
+
+## §11b Amendments A09-A13 — window 3, F0 CLOSED NEGATIVE
+
+All five are MAIN measurements from `scripts/probe_calibration_bias.py`, which reruns every number
+below from committed state against the caches `scripts/probe_calibration_observability.py` writes.
+Each arm reuses the observability probe's estimator verbatim, so the instrument under test is the
+shipped one.
+
+**A09 — the instrument is exonerated and the estimator hypothesis is refuted.** A synthetic positive
+control drives known extrinsics through the REAL cache's own per-(camera, frame, keypoint) validity
+masks, image sizes, device models and 10-event three-camera population, so only the geometry becomes
+known. At zero correspondence error the shipped pooled-`recoverPose` route returns cycle closure
+**median 0.000 deg (max 0.004)** and pair rotation error median 0.000. Closure holds 10/10 events
+inside the 10 deg bound out to **sigma = 8 px** (median 2.746) and degrades monotonically:
+sigma 16 -> 4.925 (7/10), sigma 32 -> 39.913 (1/10). The anatomical-bias arm reaches the same place
+at 20-40 mm (19.07 / 28.18 deg). **§6b's alternative reading — that initialization rather than
+observability failed — is refuted. The estimator is exact when correspondence is exact**, and the
+corpus's 2/10 at median 39.0-47.4 deg prices its effective correspondence error near 30 px at 1080p.
+
+**A10 — the residual is structured per-keypoint bias, measured rather than inferred.** One pooled
+pose per pair is fit on a training frame block; per-keypoint mean SIGNED epipolar residuals are then
+correlated across two DISJOINT held-out blocks. The identical statistic on synthetic data calibrates
+it: zero-mean noise at sigma 2/8/32 px gives split-half **r = 0.010 / 0.007 / 0.120**; fixed bias,
+image-fixed 8-32 px or anatomical 20-80 mm, gives **r = 0.993-0.998**. The corpus, 39 pairs, gives
+**r median 0.703, 26/39 above 0.5**, between-keypoint variance fraction **0.433** against noise
+0.070-0.087 and bias 0.88-0.96, at residual magnitude median **20.8 px**. The confound is controlled:
+the sigma-32 noise arm carries pair rotation error median 13.7 deg — a pose as wrong as the corpus's
+— and still returns 0.120, so **a wrong pose alone does not manufacture split-half reproducible
+per-keypoint structure**. Two decompositions put the systematic component at **15-20 px** with the
+remainder random, both orders above the 1-4 px regime published keypoint calibration works in.
+Cross-view keypoint correspondence bias is now confirmed by measurement, not held as the surviving
+hypothesis.
+
+**A11 — A08's uncovered population gains a statistic.** Split-half r is a PER-PAIR quantity, so it
+reaches events with no cycle: **2-camera pairs r median 0.776** (7/10 above 0.5, residual 20.4 px)
+against **3-camera pairs 0.638** (19/29, 22.2 px). The bias is a corpus property rather than a
+three-camera artifact, and the 80 two-camera events A08 names now have an internal consistency
+statistic that needs no third camera.
+
+**A12 — independent pairwise BA makes closure worse, which is the biased-estimator signature.**
+Robust Sampson refinement over the 5 relative-pose DoF from each pair's `recoverPose` initialization,
+poses estimated independently so A02's condition for treating closure as evidence holds. 8-frame
+cache: median **37.17 -> 40.53 deg**, 2/10 -> **1/10**. 32-frame cache: median **39.00 -> 78.89 deg**,
+2/10 -> **1/10**, median max pose move 43.32 deg. A better fit to biased correspondences moves
+further from the truth, and the damage grows with data — RANSAC's rejection was partly shielding the
+estimate. **F0's last estimator arm is closed negative.**
+
+**A13 — no keypoint subset rescues it.** Keypoints are ranked by mean absolute epipolar residual on
+one fold of events and closure is scored on the DISJOINT fold, both directions, so the subset is
+never selected on the outcome it is graded against. No subset beats all 65 keypoints on held-out
+events: fold 1 all-65 median 47.42 (0/5) against cleanest-40 41.87, cleanest-32 52.62, cleanest-24
+108.96; fold 2 all-65 21.04 (2/5) against cleanest-40 64.35, cleanest-32 122.23, cleanest-24 49.72
+(2/5). The cleanest ten keypoints still carry **49.6 / 53.9 px** mean absolute residual. **The bias is
+corpus-wide rather than concentrated, so no clean subset exists to restrict the solve to.**
+
+**F0 — CLOSED NEGATIVE.** Extrinsic recovery from subject keypoints is not achievable on this corpus.
+Five causes are refuted by measurement (planar degeneracy, low parallax, alignment, undersampling,
+estimator/initialization) and one is confirmed by measurement (cross-view keypoint correspondence
+bias, 15-20 px systematic at 1080p). Two independent repair routes are priced and refused: a better
+estimator (A12) and a cleaner keypoint subset (A13).
+
+**Bound of the negative, stated as precisely as the positive would have been.** It bounds extrinsic
+recovery from **RTMW-L keypoints** on **this corpus** at 1080p under **per-model intrinsic priors**.
+It does not bound a keypoint source with lower cross-view bias, a detector trained for multi-view
+consistency, a joint bias-and-pose parameterization under an identifiability constraint M2.6 has not
+specified, or any prospectively calibrated capture. The bias is a property of the detector's notion
+of each joint from each viewpoint, so it is the detector and the viewpoint separation — not the
+solver and not the sample size — that a future attempt must change.
 
 ## §11 Probe-corpus seed
 
