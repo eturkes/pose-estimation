@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1, M2.2, M2.3 DONE; M2.4-M2.7 remain. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 IN-PROGRESS, M2.7 OPEN. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Goal:** turn 382 uncontrolled clips into an addressable, measured corpus; establish by evidence whether 3D reconstruction is recoverable from it; then execute that ruling under a claim boundary the data can carry.
 
@@ -42,7 +42,121 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.6 | Calibration recovery | Per-recording-event extrinsics by **bundle adjustment over time-synchronized 2D keypoints** under the per-model intrinsics prior (M2.3 R4) — never scene-feature SfM, which is eliminated by measurement. Held-out reprojection acceptance, explicit scale provenance, bound to the M2.2 instance grain. Consumes M2.5's offsets, so it is gated on M2.5. Must measure per-event pose variety before claiming an extrinsic: subject-only calibration degrades on near-coplanar keypoints and a near-static subject, and the tasks are seated upper-limb movements. |
 | M2.7 | Gated fusion + corpus study | Fusion over qualified recording events, reprojection/gap/throughput/stability/repeatability evidence, claim-bounded report, prospective-capture specification, de-identified regression fixtures. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** — see below. **M2.5 DONE** — see below. M2.6 and M2.7 are **unblocked**: M2.3's ruling is made and closed, so their shape is settled — M2.6 exists, and it recovers extrinsics from the subject's own keypoints rather than from scene features (R4). M2.5 stays M2.6's precondition.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 IN-PROGRESS**, wave 1 harvested — see below. M2.7 is **unblocked** and unstarted.
+
+### M2.6 — IN-PROGRESS, wave 1 harvested, contract drafted
+
+Draft contract at `.agent/archive/contract-m2u6.md`: §1-§6 ruled and binding, §7 naming three open
+forks, §8 carrying 10 frozen predicates, §10 listing 7 pre-existing shipped violations that become
+M2.6's the moment an extrinsic enters the path. Baseline `41efc55`, gate **1284 passed / 0 skipped /
+rc=0 in 873.00 s**, MAIN-measured.
+
+**Candidate population, MAIN-derived from the shipped artifacts.** **121 events carry >= 2
+offset-bearing cameras** (80 two-camera + 41 three-camera) — the ceiling, since one usable camera has
+no relative pose to recover. 115 of them are `sync_status = connected`; 6 are `unconnected`, the P07
+partial-publication events. Over the **283 offset-bearing cameras inside those 121 events**: **223
+`rigid`, 46 `unmeasurable`, 9 `camera_motion`, 5 `excluded_orientation`**, `detect_rate` median
+1.0000 / min 0.7083. **64 of 121 events have every offset-bearing camera `rigid`.** Ruled:
+`unmeasurable` does not disqualify on its own — 46 of the 60 non-`rigid` cameras are absence of
+evidence rather than measured motion, and M2.6's own observability gate measures the thing directly.
+
+**Three rulings that close the obvious implementations.**
+
+- **The metres chain.** Writing an arbitrary-scale extrinsic into today's `CameraCalibration`
+  propagates a false metric claim through six shipped surfaces: `_types.py:91` -> calibration docs ->
+  `triangulation.py:12,454` -> `export.py:443-487` (every world column named `_x_m/_y_m/_z_m`) ->
+  `validation.py:1265-1293` (multiplies by 1000, renders millimetres) -> `analysis/clinical_features.R`
+  (`coord_space="world-metric-3d"`, `distance_unit="m"`). The projection math is unit-agnostic, so
+  each accepts arbitrary units numerically while its contract lies. **M2.6 publishes a separately
+  typed arbitrary-scale artifact and never renames arbitrary units to metres.**
+- **The carrier.** `session.json` may not be patched — `sessions.validate_generation` hashes the tree,
+  so an in-place edit invalidates M2.2's generation, which supersedes the older "M2.6 still fills
+  `calibration`" line. `sync_offset` may not be written — frame domain versus time domain. And
+  `events_qc.geom_qualified` cannot be filled by a publisher that reads `qualification/`, because
+  that is the publisher cycle M2.5 refused for `sync_offset`. All 193 rows still read
+  `geom_unmeasured`, and `geom` is confirmed an M2.6-owned token.
+- **The acceptance statistic.** Pätzold et al. GCPR 2022 measured a keypoint-recovered calibration
+  beating the reference on human reprojection (4.01 vs 4.57 px) while losing to it on independent
+  AprilTags by 3.05 px (5.00 vs 1.95 px). Held-out reprojection on the solve's own keypoint family is
+  **self-consistency, never accuracy** — the same discipline M2.3 applied to acoustic closure.
+
+**Solver route ruled on published evidence.** `scipy.optimize.least_squares(method="trf")` with an
+analytic CSR Jacobian, **zero new dependencies**; `pyceres` 2.6 is the fallback and is funded only
+against a committed runtime benchmark. Determinism is a pinned-input property — fixed observations,
+initialization, variable order, options, single-threaded BLAS — not a solver promise. An articulated
+moving subject is geometrically valid: `u_b^T E u_a = 0` is pointwise, so each synchronized `(t, k)`
+may come from a different world point without violating one fixed `E`; minimal RANSAC samples must
+stratify across frames and body regions so no single limb or instant defines the pose. Algorithmic
+template = Lee et al., IEEE RA-L 7(4) 2022, whose own numbers price this corpus: **motion extent
+dominates accuracy** (0.007 rad / 0.338 px at 2x2 m against 0.023 rad / 0.535 px at 0.5x0.5 m), and
+these are seated upper-limb tasks at the small-motion end; a 1.6%-wrong intrinsic prior moved their
+reprojection from 3.73/4.66 px to 6.84/7.32 px, which prices the unmeasured iPad focal prior directly.
+
+**Three forks the next window's spikes decide** (contract §7): **F1** where the event geometry verdict
+lands without a publisher cycle — a new `calibration/` tree, a new `measure/` axis, or extracting the
+gauge-fixed offset solve out of `qualify.py` into one shared function both callers use; the
+`publication.py` polish row collides with all three and is ruled in the same pass. **F2** the producer
+configuration for BA input keypoints — the default run path applies a temporal smoother and then a
+bone-length smoother that mutates x/y **in place before export**, and the CSV header binds no model
+hash, device placement, smoothing policy or generator version, so reusing existing CSVs unstated is
+not available. **F3** how far the arbitrary-scale refusal propagates in this unit versus M2.7.
+
+**Wave-1 teammates.** `map-m2u6` + successor `map-m2u6-2` produced the 12-section surface map and a
+110-row anchored normative checklist at `.scratch/agents/map-m2u6.md`; `res-m2u6` produced the cited
+research at `.scratch/agents/res-m2u6.md`; `scout-m2u6` committed
+`scripts/probe_calibration_observability.py` on `wt/scout-m2u6` at `c7f4380` — a synchronized
+observability probe that is **written and unrun**. Its design is recorded: stateless
+`YOLOX(CPU) -> RTMW-L(NPU)` per sampled view-frame with `EXECUTION_DEVICES` asserted and no
+`PoseTracker`; 65-keypoint geometry set; confidence swept 0.3/0.5/0.7; 8 equal-bin targets per event
+mapped into reference time by `target_camera_s = target_reference_s + offset_s`; stratified sample of
+22 events / 54 cameras / 432 view-frames at seed 20260831.
+
+**The pilot ran and returned a null that every structural check would have missed** (contract §6b).
+Population = **3 eligible three-camera events / 9 camera pairs / 72 synchronized pair-frames**, median
+24 shared confident keypoints per pair-frame at confidence 0.5. Pooled `recoverPose` **produces a pose
+for 9/9 pairs**, 7/9 clear 30 cheirality inliers, and the accepted edge graphs connect 3/3 events — so
+pose existence, inlier count and graph connectivity all pass. Every geometric check then refuses it:
+**three-camera rotation cycles close at 34.87-59.03 deg (median 47.34), 0/3 inside the predeclared
+10 deg bound**; 0/9 pairs yield a per-frame quality pose; 3 of the 4 pairs with >= 2 split poses
+exceed 10 deg rotation spread (median 51.16, max 168.31); held-out epipolar support is measurable on
+4/9 and below 0.5 on all four (median 0.0957). The all-133-keypoint route rescues nothing — 0/3
+cycles close, one at 167.21 deg. **Alignment is not the blocker**: realized reference-time residual is
+median **6.31 ms**, p95 21.88, max 32.71, inside one frame, so M2.5's offsets work and the failure is
+geometric.
+
+**What the null bounds.** Pooled two-view `recoverPose` initialization over 3 events. It does **not**
+bound a full bundle adjustment under a per-model intrinsics prior, which the pilot never ran; the
+scaled 22-event sample was still running at wave close. Lee et al. reach a pose through linear
+rotation/translation recovery plus bone-length-regularized BA, never through pooled pairwise
+`recoverPose`, and 24 shared points on a seated subject sits at the small-motion end where their own
+numbers already degrade. **Fork F0 is therefore the next window's first question — is M2.6's route
+unobservable, or was only its initialization naive — and it is answered by running BA, not by
+arguing.** If the scaled sample reproduces the pilot, the unit's honest output is a measured negative
+publishing `geom_unqualified` with its reason, in the shape of M2.3's R3 and R4 closures, rather than
+a calibration nobody can trust. The F1-F3 spikes stay funded only behind F0.
+
+**Gate at close.** `ruff check`, `ruff format --check`, `ty check` all rc=0; decisive gate
+**1284 passed / 0 skipped / rc=0 in 811.01 s**, primary tree — unmoved from the `41efc55` baseline,
+which is correct, since this window shipped one probe script and no production surface.
+`scripts/probe_calibration_observability.py` is merged into the primary tree so every §6b number
+reruns from committed state; `wt/scout-m2u6` and its worktree are removed, and all three reports are
+preserved under `.scratch/agents/`.
+
+`main=` 87% 209K/240K (wave-1 dispatch, MAIN-derived population, contract, close).
+`mate=` 100% 240K/240K (`map-m2u6` saturated at S09 of 12; `map-m2u6-2` also reached 100% and left
+S12 unfilled, so the gate-surface registration checklist is the one wave-1 deliverable still owed).
+`res-m2u6` stopped at Q04 of 8 — Q05-Q08 (observability statistics, gauge fixing and held-out
+protocol, three-camera chaining accuracy, rolling-shutter and residual-sync effects) are unowed
+research the next window re-dispatches if F0 survives.
+
+**Sizing, recorded for PLANNING.** One window bought the surface map, the research, the observability
+probe, the pilot null and the draft contract — and no implementation, which is the same shape M2.4's
+window 1 recorded. Two new data. **A map role saturates at roughly 9 sections of dense
+`file:line` evidence**, so a 12-section map is two instances, and the split belongs in the brief
+rather than in a mid-run rescue. And **the wave's decisive evidence arrived from the probe role, not
+from the map or research roles** — the pilot null is what re-shaped the unit, while map and research
+supplied the frame to read it in. Fund the measuring role first and largest on any unit whose central
+question is empirical.
 
 ### M2.5 — DONE
 

@@ -116,6 +116,44 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 
 - **"Families connected" names at least two different statistics — always say which.** P38's 122/137 quantifies over *one camera per view*: a family counts when some one-asset-per-view selection is spanned by **cross-view** accepted pairs, which is what M2.6 consumes, since a family holding two files of one view needs only one and a same-view edge carries no cross-view geometry. Whole-family connectivity (every asset joined, same-view edges counted) gives **121** on the identical 210 accepted pairs. Both are in `scripts/probe_sync_policy.py` as `families_view_recoverable` and `families_all_assets_connected`. A one-family gap between a port and its spike is this, not an estimator defect — check the rule before opening an investigation. The visual spike's 26/137 still matches neither and is an open register row.
 
+## Geometry recovery from subject keypoints
+
+- **Structural checks and geometric checks disagree, and only the geometric ones are evidence.**
+  M2.6's pilot ran pooled two-view `recoverPose` over synchronized human keypoints on 3 three-camera
+  events / 9 pairs / 72 pair-frames: a pose came out for **9/9** pairs, **7/9** cleared 30 cheirality
+  inliers, and the accepted edge graphs connected **3/3** events. Every one of those is a structural
+  property. Then the three-camera rotation cycles closed at **34.87-59.03 deg (median 47.34)** against
+  a predeclared 10 deg bound — **0/3** — with 0/9 pairs yielding a per-frame quality pose, split-pose
+  rotation spread median 51.16 deg (max 168.31), and held-out epipolar support below 0.5 on all 4
+  pairs where it was measurable. A gate keyed on pose existence, inlier count or graph connectivity
+  publishes this as recovered extrinsics. **Cycle closure and temporal stability are the cheapest
+  checks that refuse it; run them before believing any pose.** Probe ships at
+  `scripts/probe_calibration_observability.py`.
+- **Alignment was not the blocker and the probe proved it separately.** Realized reference-time
+  residual over the same sampled frames is median **6.31 ms**, p95 21.88, max 32.71 — inside one
+  33.3 ms frame. Always separate the sync residual from the geometry verdict; otherwise a geometric
+  null gets misread as an alignment defect and re-opens a closed unit.
+- **A null bounds the route it ran, never the route it skipped.** That pilot bounds *pooled pairwise
+  `recoverPose` initialization*. It says nothing about linear rotation/translation recovery followed
+  by bone-length-regularized bundle adjustment under a per-model intrinsics prior, which is the
+  published route (Lee et al., IEEE RA-L 7(4) 2022) and which the pilot never ran. State the unrun
+  arm explicitly beside every negative.
+- **Held-out reprojection on the solve's own keypoints is self-consistency, never accuracy.** Pätzold
+  et al., GCPR 2022 measured a keypoint-recovered calibration beating the reference calibration on
+  human reprojection (4.01 vs 4.57 px) while losing to it on independent AprilTags by 3.05 px (5.00 vs
+  1.95 px). Same discipline as M2.3's acoustic closure: an in-family statistic certifies consistency
+  and cannot certify correctness.
+- **Writing an arbitrary-scale extrinsic into `CameraCalibration` falsifies six shipped surfaces.**
+  `_types.py:91` calls `tvec` metres, and the claim propagates: calibration docs ->
+  `triangulation.py:12,454` -> `export.py:443-487` (world columns named `_x_m/_y_m/_z_m`) ->
+  `validation.py:1265-1293` (multiplies by 1000, renders millimetres) -> `analysis/clinical_features.R`
+  (`coord_space="world-metric-3d"`, `distance_unit="m"`). The projection math is unit-agnostic, so
+  every stage accepts arbitrary units numerically while its contract lies. Any arbitrary-scale
+  geometry needs its own type with explicit scale provenance.
+- **`session.json` is unpatchable after publication** — `sessions.validate_generation` hashes the
+  tree, so an in-place manifest edit turns a valid generation invalid. Any later unit that wants to
+  add a field republishes the tree or publishes beside it.
+
 ## Frozen contracts carry stale numbers
 
 - **A contract's stated census can be derived under a rule a later predicate replaced — re-derive
