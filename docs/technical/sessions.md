@@ -115,7 +115,7 @@ Rules that the manifest must keep:
 - **The camera name starts with `cam-`.** The glob path matches `cam*`, so the tree stays discoverable when a manifest is absent, and both paths report the same camera names.
 - **The link name ends with a lowercase suffix.** Discovery matches lowercase suffixes only, and 380 of 382 sources end `.MOV`.
 - **The link target is relative.** The container and the host reach this checkout through different absolute paths.
-- **`sync_offset` is 0 and unmeasured.** It asserts nothing about starts or rates. M2.5 owns alignment.
+- **`sync_offset` stays `0` and unmeasured.** It is the legacy integer pre-roll trim in the fusion reader's frame domain. `qualification/cameras_qc.csv` separately publishes the authoritative time-domain audio alignment. The fusion frame reader does not apply those `offset_s` values.
 - **No manifest declares `calibration`.** A default reference would bind calibration before evidence exists.
 
 ## Artifacts

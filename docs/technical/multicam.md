@@ -67,11 +67,11 @@ When the manifest is absent, `discover_session()` falls back to glob-discovered 
 
 ## Synchronization model
 
-Software sync only (no hardware genlock assumed). Three layers:
+Software sync only (no hardware genlock assumed). Two reader paths + one published-but-unapplied evidence surface:
 
 1. **Recorder-aligned (default).** Assume cameras share frame indices. `sync_offset=0` for all.
 2. **Manifest-declared integer offsets.** `session.json:cameras[*].sync_offset` skips N pre-roll frames on an earlier-starting camera.
-3. **Audio cross-correlation.** FUTURE — `--sync-strategy audio` will compute offsets from the audio tracks.
+3. **Audio cross-correlation (published, unapplied).** `qualification/cameras_qc.csv` carries sub-frame `offset_s` values from the audio estimator. The fusion frame reader does not consume them; it still applies only `sync_offset`.
 
 `iter_synchronized_frames()` yields a `SessionFrame` per *logical* frame index (post-offset). Cameras that exhaust early end the iteration when any one camera is done.
 

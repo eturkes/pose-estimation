@@ -20,7 +20,7 @@ pose-estimation-qualify \
 The command exits 0 on success. It exits 2 when it refuses to publish. A refusal prints one message
 and no path.
 
-Omit `--measurements` to publish the expensive axes unmeasured. Both modes publish the same four
+Omit `--measurements` to publish the expensive axes unmeasured. Both modes publish the same five
 files with the same columns. The flag adds one key to the generation block, and it fills the cells
 that the sidecar supplies.
 
@@ -68,12 +68,14 @@ nothing. An omitted row is the normal state of an axis that is still in producti
 
 ## Outputs
 
-The tool publishes four files into `--out`. The directory is patient-adjacent. Never commit it.
+The tool publishes five files into `--out`. The directory is patient-adjacent. Never commit it.
+The schema is `GENERATOR_VERSION` v4.
 
 | File | Grain |
 | ---- | ----- |
 | `assets_qc.csv` | One row for each canonical asset. |
 | `pairs_qc.csv` | One row for each asset pair inside a capture family. |
+| `cameras_qc.csv` | One row for each placed camera inside a recording event. |
 | `events_qc.csv` | One row for each recording event. |
 | `qualification.json` | Aggregates, and the generation marker. |
 
@@ -109,9 +111,10 @@ The tool measures the timebase and orientation axes itself, on every run. It ing
 detect, scale and sync axes from the sidecar. An axis that the sidecar manifest does not name stays
 unmeasured.
 
-The sync axis reaches two tables. `pairs_qc.csv` carries the per-pair verdict. `events_qc.csv`
-carries the per-event verdict that the accepted pairs support. Without `--measurements`, every
-sync cell in both tables stays empty.
+The sync axis reaches three tables. `pairs_qc.csv` carries the per-pair measurement + fused
+verdict; `cameras_qc.csv` carries per-camera alignment + reachability; `events_qc.csv` carries
+per-event connectivity + verdict. Without `--measurements`, pair rows carry `status = unmeasured`,
+camera rows carry `offset_status = unmeasured`, and event sync cells stay empty.
 
 An axis that the manifest names with zero rows counts as measured. Its producer completed and found
 nothing to record. Coverage of one asset is a different question, and `qc_flags` answers it.
@@ -273,6 +276,71 @@ PyAV trims the priming samples. The measured skip is 2112 samples on 379 of 379 
 first decoded presentation timestamp is 0 on 379 of 379 assets. Quote the measured 0 ms residual.
 Never quote the 3.891 ms prediction as a bias in this artifact.
 
+## `cameras_qc.csv`
+
+Authoritative time-domain alignment, one row per placed asset of every recording event. Rows sort
+by `(event_id, asset_id)`. This table publishes evidence only: the fusion frame reader does not
+consume `offset_s`; its applied path still uses integer `session.json:cameras[*].sync_offset`.
+
+| Column | Meaning |
+| ------ | ------- |
+| `event_id` | Recording-event identity from the session tree. |
+| `asset_id` | Placed-asset identity; the row key inside its event. |
+| `camera_name` | Camera slot from the session tree. |
+| `view` | Semantic view from the registry. |
+| `offset_s` | Seconds, fixed nine decimals. Empty when the row carries no offset. |
+| `offset_status` | Total status over every published row; meanings below. |
+| `is_reference` | `1` or `0` when measured; empty when unmeasured. Exactly one row per measured event carries `1`. |
+| `reference_camera` | Camera name every row of a measured event points at; empty when unmeasured. |
+
+| `offset_status` | Meaning |
+| --------------- | ------- |
+| `reference` | Gauge pin: a definitional zero, not an estimate. |
+| `solved` | Unweighted least-squares estimate. |
+| `unreachable` | Accepted edges do not join this camera to the event reference. |
+| `unmeasured` | The sync axis did not run. |
+
+### Sign + application
+
+One indivisible convention for one shared instant:
+
+- `offset_s = t_camera − t_reference`.
+- Positive `offset_s` means that camera started earlier.
+- Apply it as `t_ref = t_camera − offset_s`.
+
+Example: `cam-above` is the reference at `0.000000000 s`; `cam-right` publishes
+`0.375000000 s`. A shared instant at `t_camera = 5.375000000 s` maps to
+`t_ref = 5.000000000 s`; `cam-right` started 375 ms earlier.
+
+### Solver
+
+Accepted edges = `pairs_qc.status` exactly in `{ok_corroborated, ok_uncorroborated}`.
+`visual_only` is never usable; estimators are never averaged; the visual estimate is never a
+fallback value. Restrict the system to the reference's connected component, then solve unweighted
+`x_b − x_a = offset_s`, gauge-fixed by pinning the reference at `0`, through
+`numpy.linalg.lstsq(..., rcond=None)`.
+
+### Weighting + path comparison
+
+Unweighted = measured choice, not a default. Spearman correlation of published `peak_rms` against
+absolute audio-visual disagreement = **+0.4141**; `peak_ratio` = **+0.0659**. Both have the wrong
+sign for a precision weight. Weighting would dress an uncalibrated number as an inverse variance.
+
+Least squares vs a breadth-first tree solve over the 30 events carrying a redundant edge: median
+difference = 0; max = **10.095 ms**. **60 of 355 cameras** differ at all; **0** differ by more than
+one frame. Where they differ, least squares distributes the closure residual over the evidence
+instead of charging it to whichever edge a traversal happened to take.
+
+### Reference + census
+
+Reference = view hierarchy `above` > `left` > `right`, tie-broken by lowest `asset_id`. Corpus total
+by reference view = **155 / 24 / 14**. The rule is total over all 193 events.
+
+Corpus = **379 rows over 193 events: 355 carrying an offset, 24 `unreachable`**. The 355 comprise
+193 event references at exactly `0.000000000` + 162 solved non-reference cameras. The 24 comprise
+10 two-camera unconnected + 6 three-camera with the reference inside the accepted pair + 8
+three-camera with the reference isolated. `graph_connected` remains **173/193**.
+
 ## `events_qc.csv`
 
 One row covers one recording event from the session tree. `qualified` states whether the event is
@@ -282,6 +350,7 @@ eligible for 3D work. `reason` names every axis that blocks it.
 | ------ | ------- |
 | `event_id`, `capture_id`, `n_cameras`, `views` | Event identity, copied from the session tree. |
 | `graph_connected` | `1` when accepted pairs join every camera of the event. |
+| `sync_status` | Immediately follows `graph_connected`: `connected`, `unconnected`, or empty when the sync axis did not run. |
 | `closure_residual_s` | The three-camera closure residual, in seconds. |
 | `offset_span_s` | The spread of the solved camera offsets, in seconds. |
 | `sync_qualified` | `1` when the sync axis accepts the event. |
@@ -293,9 +362,10 @@ The tool reads event membership from the session tree `placements.csv`. It never
 from the capture family. A view-conflict family becomes several single-camera events, so a
 family-wide member list gives each of those events cameras that it does not hold.
 
-The tool solves one offset for each camera. It starts at the lowest asset id, and it walks accepted
-pairs only. A camera that one accepted pair reaches directly keeps that measured offset. The tool
-does not accumulate a longer path over a direct measurement.
+The tool derives `graph_connected`, `sync_status` and `offset_span_s` from the published
+`cameras_qc.csv` rows. Any unreachable camera publishes `sync_status = unconnected` beside
+`graph_connected = 0`; a partial solve can never read as an aligned event. On that event,
+`offset_span_s` covers the reference's reachable component and `sync_status` qualifies its scope.
 
 A one-camera event is connected. It carries no alignment that can fail. The geometry axis is what
 refuses a single camera.

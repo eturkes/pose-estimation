@@ -50,16 +50,18 @@ origin. The deployed default is `cam1`.
   rolling-shutter banding under mains-frequency lights. Even illumination
   across the volume keeps the 2D detection confidence above the floor on
   every camera.
-- **Shutter and sync.** The rig has no hardware genlock, and the sync is
-  software-only (`docs/technical/multicam.md`). Use a **global-shutter**
-  camera if one is available, because a rolling shutter smears fast motion
-  and desynchronizes the rows. Align the clips in one of two ways. Give all
-  cameras a
-  shared visual cue at the start, for example a clap. Then trim the clips
-  with the per-camera `sync_offset` in `session.json`. As an alternative,
-  start all recorders together and trust the frame-index alignment.
-  Sub-frame desynchronization degrades the reprojection on fast motion. The
-  frame-count parity check of the QA gate is the proxy for desynchronization.
+- **Shutter and synchronization.** The rig has no hardware genlock. Its frame
+  reader uses software synchronization (`docs/technical/multicam.md`). Use a
+  **global-shutter** camera when one is available. A rolling shutter smears
+  fast motion and shifts rows in time. Give all cameras one shared visual cue,
+  such as a clap. Trim only whole-frame pre-roll with
+  `session.json:cameras[*].sync_offset`. Alternatively, start all recorders
+  together and use frame-index alignment. These methods are coarse capture
+  setup. They do not establish sub-frame synchronization. The QA frame-count
+  parity check detects gross duration or start differences only. It does not
+  prove temporal alignment. `qualification/cameras_qc.csv` publishes the
+  measured audio offsets. The fusion frame reader does not apply those offsets
+  yet.
 
 ---
 
@@ -159,10 +161,9 @@ For the thresholds and the rationale, see `docs/technical/validation.md`.
       wider and solve again.
 - [ ] **ChArUco detection.** Each camera has enough usable board views,
       above the intrinsic floor.
-- [ ] **Frame-count parity.** The cameras recorded approximately equal frame
-      counts, which proxies the desynchronization. A large mismatch means that
-      one
-      camera dropped frames or started late.
+- [ ] **Frame-count parity.** Treat similar counts as coarse capture QA only.
+      A large mismatch can mean that one camera dropped frames or started late.
+      Similar counts do not prove temporal alignment.
 - [ ] **Subject 2D detection.** Every camera tracks the subject in most
       frames, and the low-confidence fraction stays inside the band.
 

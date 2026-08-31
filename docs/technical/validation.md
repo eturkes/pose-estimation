@@ -149,7 +149,7 @@ It assesses three failure surfaces, reusing the harness building blocks
 | `QAReport` section | What it measures |
 |--------------------|------------------|
 | `calibration` (`CalibrationQA`) | Solved/loaded reprojection RMS + per-camera (`CharucoCameraQA`): board-detection count, detection rate, and **FOV coverage** (fraction of a `COVERAGE_GRID` = (8, 6) image grid the pooled board corners touched). Coverage + detection need the raw ChArUco *session directory*; a `calibration.json` file (or `None`) yields RMS only. |
-| `parity` (`ParityQA`) | Raw per-camera frame counts + `disparity` = (max−min)/max — a software-sync **desync proxy** (`multicam.md`: no genlock). Zero-frame cameras remain in the calculation and cannot disappear from the denominator. |
+| `parity` (`ParityQA`) | Raw per-camera frame counts + `disparity` = (max−min)/max → coarse capture QA for gross duration/start mismatch, never proof of temporal alignment. Zero-frame cameras remain in the calculation and cannot disappear from the denominator. |
 | `subject` (`SubjectQA`) | Per-camera 2D detection rate + low-confidence fraction on the subject clip, measured against source-derived expected post-sync frames (same three-way tracking source as `run_validation`; degrades to *unassessed* rather than raising when no CSVs/backend are available). |
 
 `QAReport.verdict()` grades against `QA_THRESHOLDS` (capture-specific) plus
@@ -171,7 +171,7 @@ captures; the first cleared real session recalibrates them (bump
 | `calibration.min_charuco_frames` (hard floor) | — | < `MIN_INTRINSIC_FRAMES` (8) | — | Below the solver's intrinsic-frame minimum the calibration cannot solve. Discrete FAIL guard. |
 | `calibration.worst_charuco_detection_rate` | 0.30 | 0.10 | min | Board detected / total frames, worst camera. Capture-style dependent (a fast varied sweep detects in fewer frames yet constrains geometry better), so lenient — the frame floor is the real sufficiency gate. |
 | `calibration.worst_board_coverage` | 0.60 | 0.35 | min | FOV-grid occupancy, worst camera. A centre-bound board weakly constrains oblique-camera intrinsics and couples focal-length error into stereo translation. |
-| `parity.frame_count_disparity` | 0.05 | 0.20 | max | (max−min)/max raw frame counts. Declared `sync_offset`s trim pre-roll, so a few frames is normal; a large mismatch signals a dropped/desynced recording. |
+| `parity.frame_count_disparity` | 0.05 | 0.20 | max | (max−min)/max raw frame counts. Whole-frame `sync_offset` trims pre-roll; parity is coarse capture QA only. Large mismatch signals drops or gross start mismatch; small disparity does not establish sub-frame alignment. |
 | `subject.worst_detection_rate` | 0.80 | 0.50 | min | The subject should track in most expected source frame-keypoint slots. Missing rows and zero-confidence carry count as misses. |
 | `subject.worst_low_confidence_fraction` | 0.20 | 0.40 | max | Shared `THRESHOLDS.max_low_confidence_fraction`. |
 
@@ -190,7 +190,7 @@ stability) only.
 | 2D bone-length constraints under foreshortening | **Known-approximate** | `BoneLengthSmoother` constrains 2D limbs that foreshorten under projection; `--no-constraints` disables it. 3D fusion does not suffer this, but 2D inputs feeding fusion still do. | Inherent to 2D; mitigated by 3D fusion + redundancy. |
 | World-frame "up" assumption (trunk metrics) | **Assumption** | Trunk lean/rotation assume world −y = vertical, true only if the `world_frame` camera is level (`multicam.md`, `analysis.md`). A tilted reference camera biases all trunk angles. | Mitigated by `../capture_protocol.md` (level + verify the world camera, manual checklist item — the QA gate cannot see it); a gravity/level reference would close it fully. |
 | Single-person fusion | **Scope limit** | Fusion uses `person_idx == 0` only; multi-subject scenes are out of scope (`multicam.md`). Two people in frame → only one fuses. | Future cross-camera person matching (not roadmapped). |
-| Synchronization | **Software-only** | No hardware genlock; sync is recorder-aligned or integer `sync_offset` frames (`multicam.md`). Sub-frame desync degrades reprojection on fast motion; audio-xcorr sync is FUTURE. | Partially caught: `qa_check` frame-count-parity desync proxy + `../capture_protocol.md` sync procedure. Sub-frame desync still unmodelled (audio-xcorr FUTURE). |
+| Synchronization | **Measured, unapplied** | No hardware genlock. `qualification/cameras_qc.csv` publishes audio-xcorr sub-frame offsets; fusion still applies only recorder alignment or integer `sync_offset`. Fast-motion reprojection can therefore retain the unapplied offsets. | Apply published `offset_s` in the fusion frame reader. Frame-count parity remains coarse capture QA, not alignment evidence. |
 | Throughput budget | **Provisional** | `throughput_fps` denominator includes one-time solve + R, so it is a coarse regression signal, not a real-time SLA. Graded *informational*. | Multi-session per-device performance study. |
 | Thresholds calibrated on synthetic data only | **Provisional** | Bands are literature- or engineering-grounded but unproven on real captures; near-exact synthetic fusion sits far inside every band. | First cleared capture, then multi-session recalibration. |
 

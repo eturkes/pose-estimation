@@ -508,8 +508,15 @@ def render_manifest(event: Event) -> str:
         "cameras": [
             {
                 "name": camera.name,
-                # Unmeasured placeholder.  M2.5 owns alignment; a zero here
-                # asserts nothing about starts or rates.
+                # Always the literal zero, never a value derived from an
+                # offset.  This is the legacy integer pre-roll trim in the
+                # fusion reader's *frame* domain; the authoritative alignment is
+                # `qualification/cameras_qc.csv`'s time-domain `offset_s`, which
+                # the fusion reader does not apply.  Merging the two quantities
+                # would round a sub-frame time onto a frame index and lose the
+                # published evidence.  Removal was priced and refused: `multicam`
+                # reads an absent field as 0, so dropping it moves the zero from
+                # explicit to implicit and costs a 193-manifest republish.
                 "sync_offset": 0,
                 "view": camera.view,
                 "asset_id": camera.asset_id,
