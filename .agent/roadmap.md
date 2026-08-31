@@ -44,7 +44,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 **Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 IN-PROGRESS**, wave 1 harvested — see below. M2.7 is **unblocked** and unstarted.
 
-### M2.6 — IN-PROGRESS, wave 1 harvested, contract drafted
+### M2.6 — IN-PROGRESS, F0 narrowed to one live cause, contract at A08
 
 Draft contract at `.agent/archive/contract-m2u6.md`: §1-§6 ruled and binding, §7 naming three open
 forks, §8 carrying 10 frozen predicates, §10 listing 7 pre-existing shipped violations that become
@@ -125,15 +125,90 @@ median **6.31 ms**, p95 21.88, max 32.71, inside one frame, so M2.5's offsets wo
 geometric.
 
 **What the null bounds.** Pooled two-view `recoverPose` initialization over 3 events. It does **not**
-bound a full bundle adjustment under a per-model intrinsics prior, which the pilot never ran; the
-scaled 22-event sample was still running at wave close. Lee et al. reach a pose through linear
-rotation/translation recovery plus bone-length-regularized BA, never through pooled pairwise
-`recoverPose`, and 24 shared points on a seated subject sits at the small-motion end where their own
-numbers already degrade. **Fork F0 is therefore the next window's first question — is M2.6's route
-unobservable, or was only its initialization naive — and it is answered by running BA, not by
-arguing.** If the scaled sample reproduces the pilot, the unit's honest output is a measured negative
-publishing `geom_unqualified` with its reason, in the shape of M2.3's R3 and R4 closures, rather than
-a calibration nobody can trust. The F1-F3 spikes stay funded only behind F0.
+bound a full bundle adjustment under a per-model intrinsics prior, which the pilot never ran. Lee et
+al. reach a pose through linear rotation/translation recovery plus bone-length-regularized BA, never
+through pooled pairwise `recoverPose`. The F1-F3 spikes stay funded only behind F0.
+
+### Window 2 — the scaled sample ran, and it overturns most of the pilot's reading
+
+Contract amendments **A01-A08** at `.agent/archive/contract-m2u6.md` §11a; full derivation at
+`.scratch/agents/main-checkpoint-m2u6-w2.md`. **F0 is narrowed, not closed.**
+
+**The scaled sample is clean.** 22 events (12 two-camera / 10 three-camera), 54 cameras, 432
+view-frames, **428 detected + 428 posed, 0 inference failures, 0 decode failures, 0 event errors**.
+Sync residual in reference time median **7.85 ms**, p95 25.09, max 32.71, n=336 — inside one 33.3 ms
+frame at 7.3x the pilot's sample, so M2.5's offsets are confirmed and **alignment is not the blocker**.
+
+**Closure is 2/10, not 0/3.** All 10 three-camera events are `above|left|right` spanning 2 device
+configs; cycles read **2.31, 7.75, 17.06, 31.24, 34.87, 39.48, 40.26, 47.34, 59.03, 105.74 deg**, two
+inside the 10 deg bound. The pilot's three events are the 34.87 / 47.34 / 59.03 rows — three draws
+from this distribution, not a population.
+
+**Four causes refuted, one standing.** Planar degeneracy is refuted (median homography inliers 0-1
+against median 39 essential inliers); low parallax is refuted (median 72-129 deg); alignment is
+refuted above; and **undersampling is refuted by measurement** — re-collecting the same 22 events over
+the same time spans at 32 frames each raised pooled shared correspondences ~4x (median 192 -> 749,
+max 1480) and left closure unmoved at 2/10, median 39.48 -> 47.42, while individual events swung
+erratically (47.34 -> 6.23, but 17.06 -> 113.44 and 59.03 -> 135.62). **An observable geometry
+tightens as data is added; an estimate moving 96 deg under 4x data is a biased estimator, not a noisy
+one.** The leading live cause is therefore **cross-view keypoint correspondence bias** — the same
+anatomical joint localized from two widely separated views is not the same 3D point, and a
+view-dependent systematic offset violates the epipolar constraint in a way no sample size averages
+away. Estimator/initialization stays live beside it.
+
+**Two of the pilot's refusals were instrument artifacts** (A04, A05). Per-frame stability required 30
+inliers inside a single frame carrying a median 24 shared keypoints, so it was arithmetically
+unreachable and "0/9 pairs yield a per-frame quality pose" measured the constant — the same defect
+class as M2.3's P21. And held-out epipolar support is evaluated at the solve's own 3.0 px threshold,
+so a correct pose scores near the observed median 0.052 too; it may not gate until swept.
+
+**Three §6 defects, found by `spike-m2u6-ba` and ruled by MAIN** (A01-A03). Lee et al.'s initializer
+needs per-view 3D bone orientations from a single-view 3D pose estimator and **does not run on 2D
+input**, so M2.6 runs a surrogate labelled not-Lee. A joint multi-camera BA makes cycle closure
+algebraically zero by construction, so **closure is an acceptance statistic only for independently
+estimated pairwise poses**. And a raw bone-length variance penalty drives scale to zero under free
+gauge, so one baseline norm is pinned to 1 as an arbitrary numerical gauge with
+`scale_provenance = arbitrary` unchanged.
+
+**A08 — the gap that matters most.** 80 of the 121 candidate events carry exactly two offset-bearing
+cameras, and cycle closure needs three. Two thirds of the population has **no internal consistency
+check at all**, and no predicate reaches it.
+
+**What closes F0 next window.** `spike-m2u6-ba` arm 1 — independent pairwise BA, cycle composed,
+against the 2/10 `recoverPose` baseline, run on both caches — and `spike-m2u6-sweep` S04/S08, the
+threshold curve plus whether the residual is zero-mean noise or structured per-keypoint bias. If both
+reproduce the null, the unit's honest output is a measured negative publishing `geom_unqualified`
+with its reason, in the shape of M2.3's R3 and R4 closures.
+
+**Wave-2 teammates, all retained unflushed.** `spike-m2u6-sweep` (47% at close) and `spike-m2u6-ba`
+(57%) reached MAIN's context reserve without filling a report row or committing; both worktrees are
+**retained** with their branches, since F0 is their named open dependency, and MAIN committed each
+working tree's content on its own `wt/` branch at close. `res-m2u6-2` (32%) answered no question of
+its 5. Their briefs and MAIN's six rulings are reproduced in the checkpoint file. A successor
+inherits the worktree and the brief; the two caches survive at `.scratch/calibration-observability/`
+(8 frames) and `.scratch/calib-obs-f32/` (32 frames).
+
+**Regeneration path, scratch-local and owed a port.** The 32-frame result reruns from
+`.scratch/probe_f32.py`, which is the committed probe with `FRAMES_PER_EVENT = 32` alone, plus
+`.scratch/m2u6_perevent_f32.py`. `.scratch/` is gitignored, so **A07 does not yet rerun from
+committed state**; the port to a `--frames-per-event` flag is a `.agent/polish.md` row.
+
+**Gate at close.** Unmoved from the `9048dce` baseline — this window shipped contract amendments and
+roadmap state, and no production surface. `ruff`/`ruff format`/`ty` untouched by any edit to `src/`.
+
+`main=` 84% 202K/240K at reserve close (wave dispatch, MAIN-derived scaled sample, the 32-frame
+experiment, six rulings, amendments). `mate=` 57% 136K/240K (`spike-m2u6-ba`).
+
+**Sizing, recorded for PLANNING.** Two windows on F0 and it is still open. Three new data. **MAIN
+out-measured its own wave**: every decisive number this window — the 2/10 closure, the degeneracy
+refutation, the 32-frame null, both instrument artifacts — came from MAIN running the committed probe
+directly, while three teammates at 47/57/32% produced zero flushed rows in roughly four hours. The
+deliverable-first seed did not fire for a spike whose first useful output requires a working solver;
+**seed a spike with a runnable one-line script and a first row it can fill from the shipped tool**,
+not with a table it can only fill after building. Second, **a teammate blocked on a contract question
+is the wave's highest-value output even when it flushes nothing** — `spike-m2u6-ba` found three real
+§6 defects by message alone. Third, an empirical fork resolves faster in MAIN's own hands than
+through a worktree, because the measurement is script-derivable and the judgment is MAIN's anyway.
 
 **Gate at close.** `ruff check`, `ruff format --check`, `ty check` all rc=0; decisive gate
 **1284 passed / 0 skipped / rc=0 in 811.01 s**, primary tree — unmoved from the `41efc55` baseline,

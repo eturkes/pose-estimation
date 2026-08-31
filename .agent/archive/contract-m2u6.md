@@ -244,6 +244,78 @@ an extrinsic enters the path.
 7. `docs/technical/qualification.md:122-124` still says detect and rigidity are unproduced; the
    validated marker lists both as measured, with only `scale` unmeasured.
 
+## §11a Amendments A01-A07 — window 2, F0 measurement
+
+All seven bind and supersede the §6/§6b text they name. A01-A03 are `spike-m2u6-ba` findings ruled by
+MAIN; A04-A07 are MAIN measurements over the scaled sample.
+
+**A01 — §6's algorithmic template does not run on 2D input.** Lee et al. §III-A factorizes per-camera
+3D bone orientations produced by a single-view 3D pose estimator; §III-B uses 2D rays only after
+those rotations exist. §6 names the paper as the template without recording that dependency. Ruled:
+M2.6 runs a **surrogate initializer**, labelled in every artifact as not-Lee, with the reason stated.
+Option A — adding a monocular 3D-pose model — is refused: §6 forbids new dependencies, and monocular
+lifting carries its own scale and pose ambiguity, so it adds an error source rather than removing one.
+
+**A02 — cycle closure is an acceptance statistic ONLY for independently estimated pairwise poses.** A
+joint multi-camera BA parameterizes one global `R_c` per camera, so `R_20` against `R_21 R_10` closes
+to floating-point zero by construction, for a converged and an unconverged solve alike. Rotation
+averaging over the camera graph has the same effect. Post-joint-BA closure may be reported, and must
+be labelled non-evidential. Discriminating statistics for any gauge-coupled arm are frame-disjoint
+held-out reprojection and split-half independent-solve pose spread.
+
+**A03 — a raw bone-length variance penalty cannot coexist with free scale.** Reprojection is
+invariant under `(X, t) -> s(X, t)`, so any positive raw bone penalty drives `s -> 0`. Ruled: fix one
+baseline norm to 1 as an arbitrary NUMERICAL gauge — that is §4's unmeasurable similarity scalar
+pinned rather than measured. `scale_provenance = arbitrary` is unchanged and the unit baseline is
+never named or implied to be a physical length. Scale-normalized bone dispersion is the reported
+sensitivity arm.
+
+**A04 — §6b's per-frame stability refusal measured a constant, not the scene.** `frame_estimates`
+requires `recover_inliers >= MIN_POSE_INLIERS = 30` inside ONE frame
+(`scripts/probe_calibration_observability.py:1033-1040`), while a frame carries a median 24 shared
+`calibration65` keypoints. Achievable inliers cannot exceed the shared count, so the check is
+arithmetically unreachable for that keypoint set; observed `frame_poses` median 0 / max 1 over 42
+pairs confirms it. Same defect class as M2.3's P21. **"0/9 pairs yield a per-frame quality pose" is
+retired as evidence.** Any per-frame stability predicate must carry an inlier floor a single frame
+can reach, or use the split-pose statistic instead.
+
+**A05 — §6b's held-out epipolar refusal is evaluated at the solve's own threshold.** Held-out support
+is measured at `RANSAC_THRESHOLD_PX = 3.0`, the same constant that selected the inliers. Median
+0.052 over 19-20 measurable pairs. Under plausible cross-view keypoint correspondence error a correct
+pose scores similarly, so the statistic does not currently discriminate and may not gate. Sweeping it
+is a precondition for gating on it — the standing project rule that a gate constant must never double
+as an instrument parameter.
+
+**A06 — the pilot's 0/3 is superseded by 2/10.** Over the scaled sample, all 10 three-camera events
+are `above|left|right` spanning 2 device configs, and cycles read **2.31, 7.75, 17.06, 31.24, 34.87,
+39.48, 40.26, 47.34, 59.03, 105.74 deg — 2/10 inside the 10 deg bound**. The pilot's three events are
+the 34.87 / 47.34 / 59.03 rows. Planar degeneracy is refuted (median homography inliers 0-1 against
+median 39 essential inliers) and low parallax is refuted (median 72-129 deg). **§6b's "every
+geometric check refuses it" no longer holds as stated.**
+
+**A07 — undersampling is refuted, and the refutation is the strongest observability evidence held.**
+Re-collecting the same 22 events over the same time spans at 32 frames per event raised pooled shared
+correspondences ~4x (median 192 -> 749, max 1480) and did **not** improve closure: 2/10 inside 10 deg
+either way, median 39.48 -> 47.42. Per event it swung erratically — 47.34 -> 6.23, 17.06 -> 113.44,
+59.03 -> 135.62. An observable geometry tightens as data is added; an estimate moving 96 deg under 4x
+data is a **biased** estimator, not a noisy one. The between-event correlation of closure with shared
+count that MAIN recorded earlier in the window does not survive within-event resampling and is
+retired.
+
+**Standing after A01-A07.** Refuted as the cause of the null: planar degeneracy, low parallax,
+undersampling, alignment (sync residual median 7.85 ms, p95 25.09, max 32.71, n=336, inside one
+frame). Live: **cross-view keypoint correspondence bias** — the same anatomical joint localized from
+two widely separated views is not the same 3D point, and a view-dependent systematic offset violates
+the epipolar constraint in a way no sample size averages away — and estimator/initialization.
+**F0 is not closed.** It closes on `spike-m2u6-ba` arm 1 (independent pairwise BA, cycle composed,
+against the 2/10 baseline) and `spike-m2u6-sweep` S04/S08 (threshold curve, and whether the residual
+is zero-mean noise or structured bias).
+
+**A08 — two-camera events admit no cycle check at all, and no predicate covers them.** 80 of the 121
+candidate events carry exactly two offset-bearing cameras; closure needs three. Their only internal
+statistic is held-out support, which A05 shows is currently uninformative. This governs two thirds of
+the candidate population and the predicate list does not reach it.
+
 ## §11 Probe-corpus seed
 
 Classes an M2.6 suite must cover, seeded now so `test-m2u6` is diff-blind against them: two-camera
