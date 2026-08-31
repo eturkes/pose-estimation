@@ -26,6 +26,7 @@ import dataclasses
 import hashlib
 import itertools
 import json
+import math
 import os
 import pathlib
 import re
@@ -1140,7 +1141,21 @@ def _directed_edges(pair_rows: list[dict[str, str]]) -> dict[tuple[str, str], fl
     for row in pair_rows:
         if row["status"] not in QUALIFIED_PAIR_STATUSES:
             continue
-        offset = float(row["offset_s"])
+        try:
+            offset = float(row["offset_s"])
+        except ValueError:
+            offset = math.nan
+        if not math.isfinite(offset):
+            # An accepted status and an unusable number contradict each other,
+            # which is a producer defect rather than a corpus fact.  Dropping
+            # the edge would publish `unreachable` -- a measured negative -- and
+            # leave a broken sidecar indistinguishable from an event whose
+            # cameras genuinely do not connect (A03/Q05).
+            raise QualifyError(
+                f"pair {row['asset_a']}|{row['asset_b']} is {row['status']} but carries "
+                f"offset_s {row['offset_s']!r}, which is not a finite number.",
+                reason="alignment_edge",
+            )
         directed[(row["asset_a"], row["asset_b"])] = offset
         directed[(row["asset_b"], row["asset_a"])] = -offset
     return directed

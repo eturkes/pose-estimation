@@ -2,20 +2,22 @@
   "baseline_sha256": {
     "flagless": {
       "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-      "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+      "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+      "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
       "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-      "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+      "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
     },
     "measured": {
       "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-      "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+      "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+      "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
       "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-      "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+      "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
     }
   },
   "schema_version": 3,
   "source_sha256": {
-    "scripts/check_qualify_determinism.py": "5e1d5b1245b40302a5289ab517e54537eb84497054b0a5f8df76954771bc0321",
+    "scripts/check_qualify_determinism.py": "d5fa0e3d4bafb258c4760261c793e8dde13070032da9282948063a5dd3ba4244",
     "scripts/probe_sync_policy.py": "6d22ec323b96b83cd22a848d8e80c36ad03e0a136b2f3dc0c304ce60228d91f5",
     "src/pose_estimation/__init__.py": "de77d850cc0d7695903de638c51dda72a5e03612ebc850e80fb707bc7e6477a2",
     "src/pose_estimation/inventory.py": "66d3ef1dbc852758e8a7a41f9a477035ed5964516312daa6127e14929d13230d",
@@ -29,11 +31,11 @@
     "src/pose_estimation/measure/sync.py": "93aa286be1fdab1eebcb385c344ecd062c52290c73a442795b8b70af26f9a15c",
     "src/pose_estimation/measure/visual_offset.py": "80d03893e407187216875af174496af912f2edcd4ceec1bf2618da73cc3a7ff6",
     "src/pose_estimation/multicam.py": "44ce953c623a8fdcecfe6d11048dc4110b92975b13cb38357649953b8421147d",
-    "src/pose_estimation/qualify.py": "4db4b3d6576bc2bc1f7b29da7791d9358f512a08996b71073657568fff1eaf87",
+    "src/pose_estimation/qualify.py": "626915cfb9bbf7516d29f68fcdf119dd89a1e65f5cdbe35caf6112eb3d165912",
     "src/pose_estimation/sessions.py": "99c6bf2b3c1294330d894271de2423980a34d553cb7010f520ea552ef56bf72b",
     "src/pose_estimation/video_io.py": "fa3572b4bf6e7ba5412771f9aecf2c2629ee56da835169eb9be705ff7fa9c28d",
     "tests/test_measure.py": "9e7a077dc191664af8cd2ea40c78258194da1afb6dd2bfee1dc9cb11233c17a4",
-    "tests/test_qualify.py": "bd16ba56c74164cc13e0315dd47c792cf5d57711c874ebb6d6e8ec765f251faa",
+    "tests/test_qualify.py": "f9464eacc9491912926911e5202158b09d25ecd117110cbf9c9dfefba9842fbd",
     "tests/test_sessions.py": "570ed80320204100c7ed4e790fd9a126048945815dee47185546f00850c1f021"
   },
   "sweeps": [
@@ -41,12 +43,14 @@
       "id": "Q01:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "repeat in a fresh process (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -55,12 +59,14 @@
       "id": "Q02:0:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "PYTHONHASHSEED=0 (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -69,12 +75,14 @@
       "id": "Q02:1:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "PYTHONHASHSEED=1 (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -83,12 +91,14 @@
       "id": "Q02:12345:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "PYTHONHASHSEED=12345 (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -97,12 +107,14 @@
       "id": "Q02:random:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "PYTHONHASHSEED=random (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -111,12 +123,14 @@
       "id": "Q03:C:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "LC_ALL=C (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -125,12 +139,14 @@
       "id": "Q03:C.UTF-8:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "LC_ALL=C.UTF-8 (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -139,12 +155,14 @@
       "id": "Q03:en_US.UTF-8:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "LC_ALL=en_US.UTF-8 (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -153,12 +171,14 @@
       "id": "Q03:unset:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "LANG and LC_ALL unset (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -167,12 +187,14 @@
       "id": "Q04:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "shuffled Path.iterdir in a subprocess (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -181,12 +203,14 @@
       "id": "Q05:dotdot:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "all input paths with .. detours (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -195,12 +219,14 @@
       "id": "Q05:relative:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "relative inputs from a different working directory (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -209,12 +235,14 @@
       "id": "Q05:symlinks:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "equivalent symlink spellings for both upstreams and corpus (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -223,12 +251,14 @@
       "id": "Q06:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "different --out directory name (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -237,12 +267,14 @@
       "id": "Q07:UTC:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "TZ=UTC (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -251,12 +283,14 @@
       "id": "Q07:Pacific/Kiritimati:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "TZ=Pacific/Kiritimati (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -265,12 +299,14 @@
       "id": "Q08:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "second late repeat (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -279,12 +315,14 @@
       "id": "Q09:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "umask 077 (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -293,12 +331,14 @@
       "id": "Q10:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "interpreter -O (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -307,12 +347,14 @@
       "id": "Q11:flagless",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "15bc2d412559c7e5fa0e24ee41da9b795c4ec3d68786240780b21026f1cf0b24",
+        "cameras_qc.csv": "24d24ca16cf5859bc0be7731de76ce18f446b688e9b1d1616a576025b7dec77f",
+        "events_qc.csv": "a1427ceab74d1bbfe71d7a3ed084c5356a7a55445c904155a1cd4cc674a50941",
         "pairs_qc.csv": "d2304e4fd7556acee002cb9accc60ef65fd9205c4035775a1719e03e1a52a9d6",
-        "qualification.json": "6bb9a7a8e7320fed8b7970e565a635f56a01d9f33e7671859d22d7803a63c70d"
+        "qualification.json": "7e054bef902165dfde7f35668824e2f499060c3ada248a02f86412c809496de2"
       },
       "variation": "same-process PyAV demux and publication repeat (flagless)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -321,12 +363,14 @@
       "id": "Q01:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "repeat in a fresh process (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -335,12 +379,14 @@
       "id": "Q02:0:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "PYTHONHASHSEED=0 (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -349,12 +395,14 @@
       "id": "Q02:1:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "PYTHONHASHSEED=1 (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -363,12 +411,14 @@
       "id": "Q02:12345:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "PYTHONHASHSEED=12345 (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -377,12 +427,14 @@
       "id": "Q02:random:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "PYTHONHASHSEED=random (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -391,12 +443,14 @@
       "id": "Q03:C:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "LC_ALL=C (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -405,12 +459,14 @@
       "id": "Q03:C.UTF-8:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "LC_ALL=C.UTF-8 (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -419,12 +475,14 @@
       "id": "Q03:en_US.UTF-8:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "LC_ALL=en_US.UTF-8 (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -433,12 +491,14 @@
       "id": "Q03:unset:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "LANG and LC_ALL unset (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -447,12 +507,14 @@
       "id": "Q04:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "shuffled Path.iterdir in a subprocess (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -461,12 +523,14 @@
       "id": "Q05:dotdot:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "all input paths with .. detours (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -475,12 +539,14 @@
       "id": "Q05:relative:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "relative inputs from a different working directory (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -489,12 +555,14 @@
       "id": "Q05:symlinks:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "equivalent symlink spellings for both upstreams and corpus (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -503,12 +571,14 @@
       "id": "Q06:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "different --out directory name (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -517,12 +587,14 @@
       "id": "Q07:UTC:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "TZ=UTC (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -531,12 +603,14 @@
       "id": "Q07:Pacific/Kiritimati:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "TZ=Pacific/Kiritimati (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -545,12 +619,14 @@
       "id": "Q08:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "second late repeat (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -559,12 +635,14 @@
       "id": "Q09:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "umask 077 (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -573,12 +651,14 @@
       "id": "Q10:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "interpreter -O (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"
@@ -587,12 +667,14 @@
       "id": "Q11:measured",
       "observed_sha256": {
         "assets_qc.csv": "ccd2ab98eb11dd5bde9c26b4be5566639d013fc83a9f2bfe7fa5d38e1579b642",
-        "events_qc.csv": "57691abe07329b3e3914e7a2f5b594280794c8e2e6c34a6d023c1e7e9b149e26",
+        "cameras_qc.csv": "40371a9c9e8a7ef4b8b23431478fc916637dca69911b18f600576f45a43aac91",
+        "events_qc.csv": "b0cc5f2785896c913697a3be3aa4970d2ba132fbf0f44d8168989fa0bf54d9a5",
         "pairs_qc.csv": "013c42c0c0c6e905e78035005e256b3407d6ae8ffc520aa91b0bda69d375950a",
-        "qualification.json": "822c88c88d3b757d5f3c7226dcaf155156483b4c5e1fdb1cfb879351c430b124"
+        "qualification.json": "aacaa2b68d129d543f589ccb91ad84c125c5ff0cd46dd7f26cb2990b2d914583"
       },
       "variation": "same-process PyAV demux and publication repeat (measured)",
       "verdict_assets_qc.csv": "PASS",
+      "verdict_cameras_qc.csv": "PASS",
       "verdict_events_qc.csv": "PASS",
       "verdict_pairs_qc.csv": "PASS",
       "verdict_qualification.json": "PASS"

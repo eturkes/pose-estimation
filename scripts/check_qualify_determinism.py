@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Prove that qualification artifacts depend only on their declared inputs.
 
-Each sweep runs the committed publisher in a subprocess. It compares all four
+Each sweep runs the committed publisher in a subprocess. It compares all five
 published files with one synthetic baseline by SHA-256. The fixture exercises
 PyAV demux, the QuickTime atom walk, non-uniform PTS formatting, two upstreams,
 and multi-key census tallies without reading patient-adjacent data. A child
@@ -30,7 +30,20 @@ from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 TESTS = ROOT / "tests"
-ARTIFACTS = ("assets_qc.csv", "pairs_qc.csv", "events_qc.csv", "qualification.json")
+ARTIFACTS = (
+    "assets_qc.csv",
+    "pairs_qc.csv",
+    "events_qc.csv",
+    "cameras_qc.csv",
+    "qualification.json",
+)
+# Spelled out rather than imported from `qualify`: a checker that reads its
+# expectations out of the module under test cannot notice a renamed table.
+# Named rather than indexed, because a table added to ARTIFACTS would otherwise
+# move which file each tamper sweep edits or deletes.
+TAMPER_EDIT = "assets_qc.csv"
+TAMPER_DELETE = "pairs_qc.csv"
+MARKER = "qualification.json"
 SOURCE_FILES = (
     "scripts/check_qualify_determinism.py",
     "scripts/probe_sync_policy.py",
@@ -418,8 +431,8 @@ def tamper_verdicts(
         copy = work / f"tamper-{index:02d}"
         shutil.copytree(out, copy)
         actual_inputs = inputs
-        assets = copy / ARTIFACTS[0]
-        marker = copy / ARTIFACTS[-1]
+        assets = copy / TAMPER_EDIT
+        marker = copy / MARKER
         if label == "edited CSV cell":
             lines = assets.read_bytes().splitlines(keepends=True)
             row = bytearray(lines[1])
@@ -429,7 +442,7 @@ def tamper_verdicts(
         elif label == "edited census value":
             _rewrite_marker(marker, "census_value")
         elif label == "deleted CSV":
-            (copy / ARTIFACTS[1]).unlink()
+            (copy / TAMPER_DELETE).unlink()
         elif label == "added file":
             (copy / "unexpected.bin").write_bytes(b"x")
         elif label == "removed generation key":
@@ -474,7 +487,7 @@ def tamper_verdicts(
     ):
         copy = work / f"tamper-mode-{mutation}"
         shutil.copytree(source, copy)
-        _rewrite_marker(copy / ARTIFACTS[-1], mutation)
+        _rewrite_marker(copy / MARKER, mutation)
         verdicts[label] = verdict(copy, inputs, "reject")
 
     verdicts["validated sync cell changed after validation"] = ingestion_cache_verdict(
