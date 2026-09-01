@@ -88,7 +88,32 @@ unpatchable, `sync_offset` is never written, and no per-event geometry verdict i
 **Order.** M2.7.1 gates M2.7.2 and M2.7.3 (the report releases only against a validated generation).
 M2.7.4 is independent of all three and parallelizable from the start.
 
-#### M2.7.1 — OPEN, window 2 of 2-3: publisher shipped and green, campaigns + docs remain
+#### M2.7.1 — OPEN, window 3 spent: first real run, four defects fixed, campaigns still seeds
+
+**Window 3 dispatched the adversarial wave and closed four defects.** Four teammates in one block:
+`rev-m2u71` (N01-N80 conformance), `rev2-m2u71` (both campaigns), `rev3-m2u71` (claim soundness,
+C01-C15 + D01-D06 + A01-A06), `doc-m2u71` (six documentation surfaces). **`rev3-m2u71` closed
+27/27 — 16 pass, 11 fail — and `doc-m2u71` drafted 6/6.** `rev-m2u71` (30/80) and `rev2-m2u71`
+(36/81) were still filling at MAIN's reserve; **their worktrees and `wt/` branches are retained**,
+and window 4 revives both by `SendMessage` rather than funding successors. Full state, tips, the
+eight unadjudicated rulings and the close-order recipe → `.scratch/agents/main-checkpoint-m2u71-w3.md`.
+
+**Four defects fixed with committed acceptance checks; suite 76 → 80 cases.** (1) **N10, severe** —
+`run()` opened by removing the same-pid `retiring` sibling, and pids are reused, so it could delete
+the sole complete generation a kill left between the two renames. That is the exact state the
+post-swap comment says the sweep is ordered to protect. The sibling is now restored to `out` before
+ownership is judged. (2) **N14** — `_remove` used `rmtree(ignore_errors=True)`, which swallows
+`NotADirectoryError`, so a regular file at either sibling path blocked the staging mkdir and the
+swap. (3) **C01/C11** — the marker's `CLAIMS` are correctly qualified, but the module docstring
+dropped RTMW-L, 1080p and the per-model intrinsic prior; an unscoped negative contradicts C11's own
+exclusion. (4) **`main()`** caught `CalibrationQcError` and `qualify.QualifyError` alone, so a
+tampered registry or session tree reached the operator as a traceback; `sessions.SessionsError` and
+`inventory.InventoryError` join the handler.
+
+**The teammate-conclusion rule earned a second datum.** `rev-m2u71`'s N10 red test asserted the
+generation survives **at the retiring path**; restoring it to `out` is the stronger outcome, so the
+committed case asserts that instead. **A reviewer's red test encodes one acceptable outcome, not the
+only one — adjudicate the requirement, then write the acceptance check.**
 
 **Window 2 shipped the publisher.** `src/pose_estimation/calibration_qc.py` (~780 lines),
 `tests/test_calibration_qc.py` **74 cases, all green**, CLI `pose-estimation-calibration-qc`
@@ -195,8 +220,15 @@ the frozen text before building on it.**
 nothing else moved — then **1360 passed / 0 skipped / rc=0** in 1018.37 s after the
 `_read_capture` fix and its two cases. Both runs in the primary tree, alone.
 
-`main=` 100% 240K/240K (implementation plus harvest; the unit ran past the one-window aim across a
-compaction boundary). `mate=` 68% 164K/240K (`map-m2u71-2`).
+`main=` window 2 100% 240K/240K, window 3 93% 222K/240K at reserve close. `mate=` 72% 173K/240K
+(`rev3-m2u71`; `doc-m2u71` 67%, `rev-m2u71` 64%, `rev2-m2u71` 63% at close).
+
+**Sizing datum, and it is the expensive one.** All four teammates reached 44-52% context with **zero
+cells flushed and zero commits**, then filled 30-100% of their tables within one poll of a single
+flush directive. The seeds were committed and runnable before dispatch, the grade command was named,
+and the batch size was stated — and none of that started the flush on its own. **A deliverable-first
+brief buys the recovery, not the cadence: budget one flush directive per wave at roughly the
+half-context mark and send it before the counters are flat twice.**
 
 ### M2.8 — 2D cohort aggregate delivery — PLANNED, 3 units
 
