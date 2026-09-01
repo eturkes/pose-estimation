@@ -6,6 +6,11 @@ grade a capture before you trust its clinical metrics. The automated gate is
 `pose-estimation-validate --qa-only` (see `docs/technical/validation.md` →
 *qa_check*). This document is the human procedure behind that gate.
 
+**Which document governs which capture.** This protocol governs a capture recorded with the
+tooling this repository ships. A future acquisition built for calibrated 3D is governed by
+`docs/prospective_capture.md` instead. That specification requires hardware and metrology beyond
+these commands, so do not read it as an amendment to this protocol.
+
 Two recordings make one study session:
 
 1. **Calibration session.** You sweep the ChArUco board through the volume.

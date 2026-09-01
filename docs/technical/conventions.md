@@ -43,7 +43,8 @@ mutated bytes.
 
 Both registers + the human-facing/code-surface rule live in `CLAUDE.md` `Authoring`; this section owns the repo inventory alone. ASD-STE100 applies to this surface:
 
-- `README.md`, `docs/capture_protocol.md`, `docs/calibration_finding.md` — the shipped docs. `docs/technical/` is internal → agent register, as is every artifact left unlisted here.
+- `README.md`, `docs/capture_protocol.md`, `docs/calibration_finding.md`,
+  `docs/prospective_capture.md` — the shipped docs. `docs/technical/` is internal → agent register, as is every artifact left unlisted here.
 - `analysis/analysis_summary.Rmd` prose outside chunks; operator-visible `cat`/`message`/`warning`/`stop` text + rendered plot/table labels in `analysis/*.R`.
 - `argparse` `help=`/`description=`/`epilog=` and console `print()` text under `src/pose_estimation/` + `scripts/`; every Markdown renderer — `validation.py` `_render_markdown`/`_render_qa_markdown`, `scripts/run_report.py`, `scripts/benchmarks/aggregate.py`.
 

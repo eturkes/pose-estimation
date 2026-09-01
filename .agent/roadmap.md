@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7.1-M2.7.3 DONE; M2.7.4 and M2.8.1-M2.8.3 OPEN, none BLOCKED, lowest OPEN unit = M2.7.4. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7 DONE (M2.7.1-M2.7.4); M2.8.1-M2.8.3 OPEN, none BLOCKED, lowest OPEN unit = M2.8.1. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Review carry-over — M2's MILESTONE-REVIEW must not re-review M2.1-M2.7.2.** Those units closed under the earlier regime, which ran `rev`/`rev2` inside WORK-UNIT: their check sets are fully adjudicated and recorded per unit below (`rev-m2u4-3` 73 rows + `rev2-m2u4-2` 33, M2.5's 38/33/14/55, M2.7.1's 45, and the `.agent/archive/rulings-m2u*.md` tables). Those rulings bind, and only new evidence reopens one. Seed `.agent/review-m2.md` from the units reviewed under neither regime plus the two milestone-scoped lenses that no unit could run — cross-unit integration and the `audit-m2` claim replay. Units from M2.7.3 on carry no in-unit judgment review and need their full check sets.
 
@@ -51,9 +51,9 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.8.2 | Full corpus 2D run | ~6.5 h resumable run over 379 assets; per-asset clinical features plus a manifest giving every asset an explicit disposition. |
 | M2.8.3 | Cohort aggregate publisher + bilingual descriptor | 12 `(task, side)` cohort rows, no subject rows; append-ready `columns.yaml` fragment with full `ja`/`en` labels. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3 DONE** in one — the human-facing report and the checker pinning both prose copies of the claim set. **M2.7.4 and M2.8.1-M2.8.3 OPEN**: the 3D spine is gone, the negative is published, and the 2D line delivers cohort aggregates.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3 DONE** in one — the human-facing report and the checker pinning both prose copies of the claim set. **M2.7.4 DONE** in one — the 20-section prospective capture specification and its 13-predicate checker, closing M2.7. **M2.8.1-M2.8.3 OPEN**: the 3D spine is gone, the negative is published, and the 2D line delivers cohort aggregates.
 
-### M2.7 — publish the closed-negative 3D ruling — IN-PROGRESS, 4 units, M2.7.1-M2.7.3 DONE
+### M2.7 — publish the closed-negative 3D ruling — DONE, 4 units
 
 **F1a ships as the FIFTH copy of the publisher idiom, and the extraction is deliberately declined.**
 `src/pose_estimation/publication.py` (polish, pri 3/M) anticipated exactly this trigger, and M2.7 is
@@ -85,7 +85,7 @@ unpatchable, `sync_offset` is never written, and no per-event geometry verdict i
 | M2.7.1 | kernel | `calibration_qc/` publisher: contract + validator, canonical tree, integrity + consumer boundary, ownership + atomic publication. Accepts one corpus row and the probe-evidence rows; rejects every event/asset/capture/subject key. | **DONE**; 3 windows estimated, **4 spent** — contract + publisher (1-2), adversarial wave (3), rulings + campaigns + docs (4) |
 | M2.7.2 | data | De-identified regression fixtures: one valid generation + the smallest contract/integrity failure matrix, each negative failing for its named predicate. Privacy scan proves no corpus filename, path, subject token or row-level statistic. | **DONE**; 2 spent — contract + validator + graded seed (1), generator + 63-entry tree + 26 negatives + suite wiring (2) |
 | M2.7.3 | docs | Claim-bounded negative report. Claim matrix maps every conclusion to evidence and to permitted/prohibited wording. Excludes clinical validity, absolute metric accuracy, marker equivalence, other-detector impossibility, and prospective-capture impossibility. | **DONE**; 1 estimated, **1 spent** — the only M2.7 unit to close on its estimate |
-| M2.7.4 | docs | Prospective capture specification, 20 normative sections. Five non-negotiables: intrinsic/extrinsic calibration, synchronization residuals, orientation/drift control, traceable metric scale, identifiable-video governance. Specified, never run. | 1-2 windows |
+| M2.7.4 | docs | Prospective capture specification, 20 normative sections. Five non-negotiables: intrinsic/extrinsic calibration, synchronization residuals, orientation/drift control, traceable metric scale, identifiable-video governance. Specified, never run. | **DONE**; 1-2 estimated, **1 spent** |
 
 **Order.** M2.7.1 gates M2.7.2 and M2.7.3 (the report releases only against a validated generation).
 M2.7.4 is independent of all three and parallelizable from the start.
@@ -105,6 +105,77 @@ reporting checklist, no universal clinical reprojection threshold, no board-to-v
 generic Japanese video-retention period, and no published millisecond sync figure for
 OpenCap/Pose2Sim/Anipose — M2.7.4 must label those as local decisions, never as standards. The report
 is teammate research, so it is attention-directing until MAIN validates a citation it acts on.
+
+#### M2.7.4 — DONE. `docs/prospective_capture.md` plus the 13-predicate checker that grades it
+
+**Contract frozen at `.agent/archive/contract-m2u74.md`** — 8 design decisions, 13 predicates
+P01-P13, a 9-case negative-control seed, 3 amendments A01-A03. Tier `docs`, so assurance = `doc` +
+consistency pass; the pass ships as a committed checker rather than as one session's reading.
+
+**D01, the design fork, was a document-siting question ruled from the two documents' scopes.**
+`docs/capture_protocol.md` already exists and is the operating procedure for *this repo's shipped
+tooling* — `pose-estimation-calibrate board|capture|solve`, `--qa-only`, `charuco.py`'s 6x9 /
+`DICT_4X4_250` / 40 mm board, and an extrinsic topology solving direct pairs against one world
+camera. The prospective specification requires what that tooling does not support: 8 cameras,
+120 fps, global shutter, a wired trigger, traceable scale and sealed held-out targets. Merging them
+would make a shipped operational document state requirements its own commands cannot meet, so F1a's
+idiom applies again — **publish beside, never patch**. D02 then pins a scope banner in *both*
+directions, because two overlapping normative capture documents drift, and M2.7.3 measured exactly
+that on a document nothing referenced.
+
+**The unit's product is one document, so its whole assurance is the checker.** Thirteen predicates:
+the 20-section spine with frozen ids and titles (P01), five required fields per section (P02), the
+five non-negotiables bound to their sections and stating `MUST` (P03), no prohibited paraphrase
+(P04), the five measured absences each labelled a local decision (P05), every citation carrying a
+URL or DOI with none listed-but-uncited (P06), backticked repo paths resolving (P07), no corpus
+identifier (P08), human-register registration (P09), the bidirectional banner (P10), no execution
+claim plus the unrun status stated exactly once (P11), suite wiring (P12), and an ASD-STE100
+sentence bound at 25 words (P13). **All 9 negative controls fire**, each naming its own predicate,
+document restored byte-identical.
+
+**P03 caught a defect invisible to a reading pass, and that is the predicate earning its place.**
+S11 (Intrinsic calibration) shipped written entirely in imperatives, which the human register
+prefers — and stated **no** `MUST`, while N1 binds it as a non-negotiable. Imperative prose reads as
+obligation to a person and states none to a checker. Repaired in place (A03).
+
+**A01 corrects the frozen contract: P04 is scoped to the specification alone.** As frozen it ranged
+over `capture_protocol.md` too, which already carries *"This clinical-validity gap stays open"* —
+and `_fold` flattens `-`, so that reads as the prohibited needle `clinical validity`. The sentence
+concedes a gap, which is the opposite of the overreach the needle exists to catch. **A needle list
+ranged over a surface it was not written for buys a false positive, not coverage**; rewording a DONE
+unit's shipped human-facing document to satisfy it would have been scope creep. P10 pins the banner
+directly instead.
+
+**The one teammate found a real fidelity defect in MAIN's shipped text.** S13 attributed to NIST a
+requirement NIST does not make: traceability is an unbroken chain to a *stated reference* with
+documented uncertainty at every link, and TN 2156 §5.3.3 allows SI **or** another specified
+reference. The text now separates the standard from this study's choice of the SI metre, and adds
+§5.2.4's rule that a certificate number alone does not prove traceability. Two further
+over-attributions were trimmed — Anipose's sync routes live in its FAQ rather than the paper, and
+BioCV publishes zone statistics rather than a spatial error map, so the S10 sentinel value is now
+marked as set by this study.
+
+**Gate at close.** `ruff check`, `ruff format --check`, `ty check` all rc=0. Decisive suite
+**1472 passed / 0 skipped / rc=0** in 1429.12 s, primary tree: 1459 + the 13 predicate cases, so
+collection moved by exactly the new file.
+
+**Wave.** One teammate, `res-m2u74-2`, verifying the citations the specification carries as external
+authority — the one genuinely parallel, bulk track on a unit whose research was already banked.
+**Sizing datum, and it is the fifth consecutive window with this shape:** MAIN authored the whole
+normative surface, and the teammate's value was concentrated in the four rows where a source did not
+say what the report claimed. **On a `docs` unit, delegate source verification and keep the
+authoring** — the inverse of the map-shaped delegation that has returned near-zero value since
+M2.7.1. `main=` 84% 202K/240K. `mate=` 46% 111K/240K (`res-m2u74-2`, stopped at MAIN's reserve).
+
+**Coverage limit, stated as a fact about the verification and not about the specification.**
+`res-m2u74-2` filled **16 of 20** rows before MAIN reached reserve: 11 `confirmed`, 5 `partly`, and
+**V17-V20 unverified** — the absences under L2 (no universal clinical reprojection threshold), L3
+(no board-to-volume ratio), L4 (no generic Japanese retention period) and L5 (no published
+millisecond sync figure). L1 is `confirmed`. Every `partly` finding was applied before close. The
+four open rows fail in the **conservative** direction: the specification already labels each of
+those thresholds a local decision, so a standard that does exist would mean the document understates
+its authority rather than overclaims it. Re-running the four is a MILESTONE-REVIEW `audit` row, not
+a reopened unit. Report retained at `.scratch/agents/res-m2u74-2.md`.
 
 #### M2.7.3 — DONE. `docs/calibration_finding.md` plus the checker pinning both prose claim copies
 

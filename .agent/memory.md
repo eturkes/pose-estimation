@@ -329,6 +329,42 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 - The report re-derives nothing: `python scripts/check_claim_report.py` is 9 predicates in under a
   second, driven identically from `tests/test_claim_report.py` through `runpy`.
 
+## Prospective capture specification — two capture documents, and which governs which
+
+- **`docs/prospective_capture.md` governs a FUTURE calibrated acquisition; `docs/capture_protocol.md`
+  governs a capture made with the tooling this repo ships.** Neither amends the other, and both carry
+  the banner `Which document governs which capture.` naming the other. The split is forced: the
+  specification requires 8 cameras, 120 fps, global shutter, a wired trigger, traceable scale and
+  sealed held-out targets, none of which `pose-estimation-calibrate` supports. Merging them would
+  make a shipped operational document state requirements its own commands cannot meet.
+- **`python scripts/check_prospective_capture.py` = 13 predicates in under a second**, driven
+  identically from `tests/test_prospective_capture.py` through `runpy`. It owns the section spine
+  (20 frozen ids + titles), the five per-section fields, the `MUST` binding of the five
+  non-negotiables, the local-decision labelling of the five measured absences, citation
+  resolvability, and an ASD-STE100 25-word sentence bound. Negative-control runner =
+  `.scratch/nc_m2u74.py` (9/9 fire, mutates the doc in place and restores under `try/finally`);
+  scratch-local, so re-run it rather than trusting the recorded result.
+- **Imperative prose states an obligation to a human and none to a checker.** S11 shipped written
+  entirely in imperatives — the register's preferred form — and carried no `MUST` while a
+  non-negotiable bound it. A reading pass cannot see this; P03 can. Where a section is normatively
+  load-bearing, definite modality has to be literal.
+- **A needle list is scoped to the surface it was written for.** `PROHIBITED_PARAPHRASES` belongs to
+  `calibration_qc`'s claim surface. Ranged over `capture_protocol.md` it fires on
+  *"This clinical-validity gap stays open"* — `_fold` flattens `-`, so the concession of a gap reads
+  as the overreach the needle exists to catch. Scope the scan; never reword a DONE unit's shipped
+  document to satisfy a rule it was not written to.
+- **NIST traceability = an unbroken chain to a STATED reference with documented uncertainty at every
+  link — TN 2156 §5.3.3 allows SI or another specified reference.** Requiring the SI metre is this
+  project's choice, not NIST's rule, and §5.2.4 says a certificate number alone does not prove
+  traceability. Two further over-attributions corrected at the same time: Anipose's synchronization
+  routes are in its FAQ rather than the paper, and BioCV publishes zone statistics rather than a
+  spatial error map.
+- **Verification is 16/20 rows.** L1's absence is `confirmed`; L2-L5 (reprojection threshold,
+  board-to-volume ratio, Japanese retention period, published millisecond sync figures) are
+  unverified. They fail conservatively — each is already labelled a local decision, so a standard
+  that does exist means the document understates its authority. Re-run as a MILESTONE-REVIEW `audit`
+  row. Report at `.scratch/agents/res-m2u74-2.md`.
+
 ## Media fixtures (PyAV)
 
 Every audio-bearing fixture in `tests/` is muxed by PyAV; three ordering rules decide whether the file a test writes is the file it meant.
