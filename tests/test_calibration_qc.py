@@ -817,3 +817,39 @@ def test_same_pid_debris_that_is_a_regular_file_is_swept(
     for suffix in ("staging", "retiring"):
         assert not out.with_name(f"{out.name}.{suffix}.{os.getpid()}").exists()
     calibration_qc.validate_generation(out, qualification_dir=published["qualification"])
+
+
+@pytest.mark.parametrize(
+    ("upstream", "victim"), [("registry", "assets.csv"), ("sessions", "stray.txt")]
+)
+def test_an_upstream_refusal_reaches_the_operator_as_an_error_line(
+    published: dict[str, pathlib.Path],
+    capsys: pytest.CaptureFixture[str],
+    upstream: str,
+    victim: str,
+) -> None:
+    """`run` validates the whole chain, so its refusals must not arrive as a traceback."""
+    _run(published)
+    target = published[upstream] / victim
+    previous = target.read_text(encoding="utf-8") if target.exists() else ""
+    target.write_text(previous + "tamper\n", encoding="utf-8")
+
+    code = calibration_qc.main(
+        [
+            "--qualification",
+            str(published["qualification"]),
+            "--evidence",
+            str(published["evidence"]),
+            "--probes",
+            str(published["probes"]),
+            "--out",
+            str(published["out"]),
+            "--sessions",
+            str(published["sessions"]),
+            "--inventory",
+            str(published["registry"]),
+        ]
+    )
+
+    assert code == 2
+    assert capsys.readouterr().err.startswith("Error: ")

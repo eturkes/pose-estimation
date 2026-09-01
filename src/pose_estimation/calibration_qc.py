@@ -42,7 +42,7 @@ import stat
 import sys
 from typing import Any
 
-from . import inventory, qualify
+from . import inventory, qualify, sessions
 
 # v1 is the first publication of the ruling.  A published set is
 # self-describing only if this moves with the schema: validate_generation
@@ -961,7 +961,15 @@ def main(argv: list[str] | None = None) -> int:
             sessions_dir=arguments.sessions,
             inventory_dir=arguments.inventory,
         )
-    except (CalibrationQcError, qualify.QualifyError) as error:
+    # The upstream chain is validated inside `run`, so its refusals reach the
+    # operator through this command and must arrive as a message and exit 2
+    # rather than as a traceback.
+    except (
+        CalibrationQcError,
+        qualify.QualifyError,
+        sessions.SessionsError,
+        inventory.InventoryError,
+    ) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 2
     print(render_summary(census))
