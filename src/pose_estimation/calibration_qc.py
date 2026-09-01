@@ -5,9 +5,13 @@ and the ``measure`` sidecar, and it inherits their publication contract whole:
 whole-tree swap, per-file digests, a self-describing marker, and a
 ``validate_generation`` every consumer calls before reading a row.
 
-This tool computes no statistic.  Extrinsic recovery from subject keypoints was
-measured unachievable on this corpus, and the measurement lives in two committed
-probes; the ruling those probes support is what this tool publishes.  Evidence
+This tool computes no statistic.  Extrinsic recovery from RTMW-L keypoints was
+measured unachievable on this corpus at 1080p under per-model intrinsic priors,
+and the measurement lives in two committed probes; the ruling those probes
+support is what this tool publishes.  Those three qualifiers travel with every
+statement of the negative, here included: a lower-bias keypoint source, a
+detector trained for multi-view consistency and any prospectively calibrated
+capture all stay outside the measured bound.  Evidence
 therefore arrives as captured probe stdout, is validated, and is republished as
 rows -- a tool that recomputed a probe number would own that number's
 correctness, and the probes already own it.
@@ -654,7 +658,9 @@ def _build(
 
 
 def _remove(path: pathlib.Path) -> None:
-    if path.is_symlink():
+    # `rmtree(ignore_errors=True)` swallows NotADirectoryError and leaves a
+    # regular file in place, which then blocks the staging mkdir and the swap.
+    if path.is_symlink() or path.is_file():
         path.unlink(missing_ok=True)
     else:
         shutil.rmtree(path, ignore_errors=True)
@@ -745,6 +751,14 @@ def run(
         (probes_dir, "probe directory"),
     ):
         _assert_disjoint(out, other, label)
+    # A same-pid retirement is not always debris.  Pids are reused, so this can
+    # be the sole complete generation a kill left between the two renames --
+    # the exact state the sweep below is ordered to protect.  Restore it before
+    # ownership is judged, so the tree that survived the crash is the tree this
+    # run replaces rather than the tree this run deletes.
+    retiring = out.with_name(f"{out.name}.retiring.{os.getpid()}")
+    if retiring.is_dir() and not out.exists():
+        retiring.rename(out)
     _assert_owned(out)
 
     digests = probe_digests(probes_dir)
@@ -769,7 +783,6 @@ def run(
     _assert_cells_carry_no_identifier(evidence, EVIDENCE_QC_FILENAME)
 
     staging = out.with_name(f"{out.name}.staging.{os.getpid()}")
-    retiring = out.with_name(f"{out.name}.retiring.{os.getpid()}")
     _remove(staging)
     _remove(retiring)
     try:

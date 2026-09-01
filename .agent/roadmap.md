@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are now PLANNED into 7 units** — M2.7.1-M2.7.4 and M2.8.1-M2.8.3, all OPEN, none BLOCKED, lowest OPEN unit = M2.7.1. M2.7 publishes the negative through a new `calibration/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are now PLANNED into 7 units** — M2.7.1-M2.7.4 and M2.8.1-M2.8.3, all OPEN, none BLOCKED, lowest OPEN unit = M2.7.1. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Goal:** turn 382 uncontrolled clips into an addressable, measured corpus; establish by evidence whether 3D reconstruction is recoverable from it; then execute that ruling under a claim boundary the data can carry.
 
@@ -41,7 +41,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.5 | Cross-view alignment | One float `offset_s` per camera against the event reference, no rate term (M2.3 R5); per-recording-event `sync_qc` evidence. |
 | M2.6 | Calibration recovery | **Planned result unreachable — F0 closed negative.** Extrinsics by BA over time-synchronized 2D keypoints was the route (scene-feature SfM already eliminated by measurement); the corpus carries 15-20 px systematic cross-view keypoint bias, which no estimator and no keypoint subset repairs. Shipped instead: the measurement closing it, `scripts/probe_calibration_bias.py`. **Ruled: publish the negative through F1a**, executed in M2.7. |
 | M2.6b | Bias-modeling repair | **User-funded, closed negative at its gate (G0).** The one repair route A14 left open — a joint bias-and-pose parameterization under an identifiability constraint. Its premise is a bias with fewer degrees of freedom than the data, which needs the bias to be shared across events. Measured absent at every grouping. Shipped: `scripts/probe_bias_transfer.py`. |
-| M2.7.1 | `calibration/` publisher (F1a) | Corpus-level negative ruling published beside `qualification/`, never patching it. One corpus row + evidence pointers to the two committed probes. |
+| M2.7.1 | `calibration_qc/` publisher (F1a) | Corpus-level negative ruling published beside `qualification/`, never patching it. One corpus row + evidence pointers to the two committed probes. |
 | M2.7.2 | De-identified regression fixtures | Idempotently generated fixtures for one valid generation plus the contract/integrity failure matrix; a privacy scan proves no corpus identifier reaches them. |
 | M2.7.3 | Claim-bounded negative report | Human-facing report stating exactly what the two probes decide, with a claim matrix mapping every conclusion to evidence and to permitted/prohibited wording. |
 | M2.7.4 | Prospective capture specification | The future calibrated acquisition that can reopen 3D. Specified, never run. |
@@ -513,7 +513,7 @@ cameras** (80 two-camera + 41 three-camera) — the ceiling. 115 `sync_status = 
 `unmeasurable` does not disqualify on its own.
 
 **The user ruled: fund the repair route.** That became M2.6b, which closed it negative at its own
-gate. **Ruled since, on that result:** publish the negative through **F1a** — a new `calibration/`
+gate. **Ruled since, on that result:** publish the negative through **F1a** — a new `calibration_qc/`
 publisher carrying the verdict as a corpus-level ruling, with `events_qc.geom_qualified` staying
 `UNMEASURED`. See A16 for why F1a rather than F1b/F1c.
 

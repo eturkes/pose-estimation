@@ -15,6 +15,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -772,3 +773,47 @@ def test_the_generated_tree_is_ignored_by_git() -> None:
         "calibration_qc",
         "calibration_qc.staging.1/",
     }
+
+
+# --- crash states the pid suffix cannot separate ---------------------------------------------------
+
+
+def test_a_reused_pid_restores_the_only_complete_generation(
+    published: dict[str, pathlib.Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A kill between the two renames leaves the whole set under a dead pid.
+
+    Pids are reused, so the next run can own that suffix.  Removing it before
+    the replacement exists would destroy the sole complete generation -- the
+    state the post-swap sweep is explicitly ordered to protect.
+    """
+    _run(published)
+    out = published["out"]
+    retiring = out.with_name(f"{out.name}.retiring.{os.getpid()}")
+    out.rename(retiring)
+
+    def fail_build(*args: Any, **kwargs: Any) -> None:
+        raise OSError("injected pre-promotion failure")
+
+    monkeypatch.setattr(calibration_qc, "_build", fail_build)
+    with pytest.raises(OSError, match="injected pre-promotion failure"):
+        _run(published)
+
+    assert not retiring.exists()
+    calibration_qc.validate_generation(out, qualification_dir=published["qualification"])
+
+
+def test_same_pid_debris_that_is_a_regular_file_is_swept(
+    published: dict[str, pathlib.Path],
+) -> None:
+    """A regular file at either sibling path blocks the mkdir and then the swap."""
+    _run(published)
+    out = published["out"]
+    for suffix in ("staging", "retiring"):
+        out.with_name(f"{out.name}.{suffix}.{os.getpid()}").write_text("debris", encoding="utf-8")
+
+    _run(published)
+
+    for suffix in ("staging", "retiring"):
+        assert not out.with_name(f"{out.name}.{suffix}.{os.getpid()}").exists()
+    calibration_qc.validate_generation(out, qualification_dir=published["qualification"])
