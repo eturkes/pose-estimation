@@ -80,13 +80,82 @@ unpatchable, `sync_offset` is never written, and no per-event geometry verdict i
 
 | id | tier | spine result | sizing |
 | -- | ---- | ------------ | ------ |
-| M2.7.1 | kernel | `calibration/` publisher: contract + validator, canonical tree, integrity + consumer boundary, ownership + atomic publication. Accepts one corpus row and the probe-evidence rows; rejects every event/asset/capture/subject key. | 2-3 windows |
+| M2.7.1 | kernel | `calibration_qc/` publisher: contract + validator, canonical tree, integrity + consumer boundary, ownership + atomic publication. Accepts one corpus row and the probe-evidence rows; rejects every event/asset/capture/subject key. | 2-3 windows; **window 1 spent, contract frozen** |
 | M2.7.2 | data | De-identified regression fixtures: one valid generation + the smallest contract/integrity failure matrix, each negative failing for its named predicate. Privacy scan proves no corpus filename, path, subject token or row-level statistic. | 1 window |
 | M2.7.3 | docs | Claim-bounded negative report. Claim matrix maps every conclusion to evidence and to permitted/prohibited wording. Excludes clinical validity, absolute metric accuracy, marker equivalence, other-detector impossibility, and prospective-capture impossibility. | 1 window |
 | M2.7.4 | docs | Prospective capture specification, 20 normative sections. Five non-negotiables: intrinsic/extrinsic calibration, synchronization residuals, orientation/drift control, traceable metric scale, identifiable-video governance. Specified, never run. | 1-2 windows |
 
 **Order.** M2.7.1 gates M2.7.2 and M2.7.3 (the report releases only against a validated generation).
 M2.7.4 is independent of all three and parallelizable from the start.
+
+#### M2.7.1 — OPEN, window 1 of 2-3: contract frozen, implementation next
+
+Contract at `.agent/archive/contract-m2u71.md` — §1 scope, §2 six ruled design decisions, §3
+MAIN-re-derived evidence, §4 measured carrier constraints, §5 published shape, §6 the C01-C15 claim
+predicates, §7 four invariant surfaces, §8 gate identity, §9 an eight-class probe seed. No code
+shipped this window; the unit stays OPEN.
+
+**The plan's tree name was refused on a collision it never priced, and the user confirmed the
+replacement.** Tree = **`calibration_qc/`**, module `src/pose_estimation/calibration_qc.py`, CLI
+`pose-estimation-calibration-qc`, marker `calibration_qc.json`, gitignore two-pattern
+`calibration_qc` + `calibration_qc.*/`. `calibration/` was taken four times already —
+`calibration.py` (`CameraCalibration`), `calibration_cli.py`, `pose-estimation-calibrate`,
+`docs/technical/calibration.md` — and `.gitignore:89` `calibration/` already swallows a repo-root
+tree of that name under a comment reading "identifying lab/rig geometry", so the planned tree would
+have been ignored for a stated reason that is false about it. **The generated tree stays
+gitignored** like all four siblings: the negative reaches humans through M2.7.3's report and the two
+committed probes, and M2.7.2's fixtures are its regression oracle.
+
+**Evidence re-derived rather than carried forward.** `probe_bias_transfer.py --cache
+.scratch/calib-obs-wide` rc=0 reproduces the entire M2.6b record: 178 pairs / 103 events, signed r
++0.0108 (n=4341, 787 above 0.5), within-event +0.8138 (129/178), residual median 17.038 px,
+magnitude +0.1499 pooled / +0.1462 within subject / −0.0324 null, every synthetic arm at its
+recorded value. Shared-arm floor **+0.1799**, non-shared band −0.011…+0.030, corpus −0.030…+0.031.
+One new schema fact: `shared_fraction` is nullable — `SYNTH noise sigma=8.0px` emits `null`.
+
+**Carrier constraints measured from the published v4 tree, not trusted from the plan.**
+`events_qc.geom_qualified` blank 193/193, `events_qc.qualified` blank 193/193, `events_qc.reason`
+`geom_unmeasured` 193/193 (173 alone + 20 with `sync_unqualified`), `assets_qc.scale_ref_class`
+blank 379/379, `assets_qc.qc_flags` `scale_unmeasured` 379/379. All five match the plan.
+
+**One latent inconsistency found by that measurement, ruled and deferred.** `qualification.json`
+publishes `measured_axes = [detect, orientation, rigidity, sync, timebase]` and `unmeasured_axes =
+[scale]`; **`geom` is in neither**, because `qualify.py:1480` builds the list as
+`sorted(set(SIDECAR_AXES) - measured_axes)` and `geom` is not a sidecar axis — while every one of
+the 193 event rows reports `geom_unmeasured` and `docs/technical/qualification.md:108` tells a
+consumer to read those two lists first. Ruled: **reconciliation is a documentation pointer, never an
+artifact patch** (D03). The census gap itself is a `qualify` defect → polish pri 3.
+
+**Upstream binding is evidenced, not conventional.** F1a binds `qualification/` alone, which covers
+inventory and sessions transitively: `scripts/probe_calibration_observability.py:156-210` validates
+all three generations, reads `assets_qc.csv` and `cameras_qc.csv`, and stores all three in the cache
+fingerprint payload at `:255`. So `qualification/` is a real upstream of the evidence.
+
+**Evidence enters as input, never as computation.** F1a owns no estimator: it ingests captured probe
+stdout (line-delimited JSON, one file per cited probe) plus the SHA-256 of the probe script that
+produced it, validates, and publishes. Both probes already emit exactly that shape.
+
+**Wave 1, two read-only teammates, no worktrees.** `scout-m2u71` complete, 8/8 sections
+(`.scratch/agents/scout-m2u71.md`) — probe claim surfaces, the cache-provenance guards, and the
+**C01-C15 claim matrix** that becomes §6. `map-m2u71` stopped at 10 of 12 sections
+(`.scratch/agents/map-m2u71.md`); **S07 test obligations and S12 the anchored normative checklist
+are unfilled**, and S12 is §6's other half. Next window re-dispatches `map-m2u71-2` on the same
+report for S07 + S12 alone, then MAIN implements.
+
+**Three register findings, all outside this contract, all appended to `.agent/polish.md` unruled.**
+The `.claude/settings.json` `Read()` deny list omits the whole `qualification/` tree (pri 1 — `Read`
+and `Bash` bypass `.gitignore`, and those rows carry `capture_id` pseudonyms and event ids); four
+documentation indexes that claim to be exhaustive omit the shipped `qualify` publisher, the gate
+conventions one meaning an operator runs the ordinary gate while the qualifier's campaigns never run
+(pri 2); the axis-census gap above (pri 3).
+
+**Sizing datum.** MAIN's window was 82% before one line of the publisher existed, because the three
+attached state files alone cost ~100K. On a unit whose value is a contract rather than a census,
+**MAIN must read teammate reports by targeted extraction and never whole** — the two decisive
+harvests here were a `rg` over the claim matrix and a `rg` over the registration table, at a few
+hundred tokens against the several thousand a full read costs.
+
+`main=` 82% 197K/240K at reserve close. `mate=` 54% 128K/240K (`scout-m2u71`).
 
 ### M2.8 — 2D cohort aggregate delivery — PLANNED, 3 units
 
