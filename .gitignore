@@ -85,6 +85,15 @@ sessions.*/
 qualification
 qualification.*/
 
+# Calibration ruling set. Redaction-safe by contract — no event, asset, capture
+# or subject key is spellable in its schema — but generated, so it is ignored
+# like every sibling publisher's tree rather than committed. Committing it would
+# make "regenerates byte-identical to the committed copy" a gate, which is the
+# regeneration fixpoint trap. Two-pattern shape for the staging/retiring
+# siblings; the module and its doc keep their own names and stay tracked.
+calibration_qc
+calibration_qc.*/
+
 # Camera calibration (patient-adjacent: identifying lab/rig geometry — never commit)
 calibration/
 calibration.json

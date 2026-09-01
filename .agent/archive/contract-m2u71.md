@@ -172,4 +172,48 @@ F1a's own.
 
 ## §10 Amendments
 
-*(none yet)*
+**A01 — §5's column list, ruled.** `corpus_qc.csv` = 10 columns, the ruling itself:
+`ruling_grain, recovery_status, reason, transfer_status, keypoint_source, image_height_px,
+intrinsics_basis, unrun_arm, unrun_arm_status, cited_probes`. `evidence_qc.csv` = 9 columns in
+**long form**, one row per (probe, arm, statistic): `probe, probe_sha256, arm, statistic, n,
+median, min, max, above_0p5`. Long form rather than §5's "one row per arm with flattened statistic
+dicts": the arms do not share a statistic set, so a wide table spends most cells on emptiness and
+needs a schema change whenever a probe gains a statistic. Nullable fields stay empty cells —
+`median_abs_px` carries no `above_0p5`, and `qualify`'s populated-only alphabet convention covers it.
+
+**A02 — the corpus row is a module constant, not a probe derivation.** `scout-m2u71` E08 concluded
+that no corpus-row schema satisfies "every field has a probe-output key", and proposed dropping the
+scope columns or changing the acceptance rule. **Neither is needed: no such rule exists in this
+contract.** §1 forbids F1a computing a statistic; D06 fixes how *evidence* enters. The corpus row is
+the **ruling** — a MAIN decision the probes support — so it is a module constant and no CLI or call
+argument can spell a different verdict. Consequences: the ruling is deterministic; D04
+unrepresentability is provable over the schema; and C13's unrun arm ships as `unrun_arm` +
+`unrun_arm_status`, whose alphabet admits `unrun` alone, so `failed`/`refused`/`impossible` are
+unspellable rather than merely unwritten. E08's ruling that C13 cannot enter a CSV is **overturned**.
+
+**A03 — `calibration_bias` is cited and digested, never ingested.** `probe_bias_transfer.py` emits
+one uniform record per arm (a `label` plus four statistic dicts), which is the shape D06 presumes.
+`probe_calibration_bias.py` emits **four differently-shaped record families** — `{cache, frames,
+events, arm, …}` control rows, `_structure_summary` label rows, `{name: {...}}` BA blocks, and
+subset folds — and flattening them needs a per-family adapter, i.e. F1a taking a position on what
+each family means. That position is estimator knowledge §1 forbids. So the script is cited in
+`cited_probes`, digested into `generation.probes`, and validated for presence; its numbers reach
+humans through M2.7.3's report. `INGESTED_PROBES = ("bias_transfer",)`.
+
+**A04 — evidence binds to the script version through a recorded digest.** Each capture is a pair:
+`<probe>.jsonl` (stdout) and `<probe>.sha256` (the digest the capture was taken under, in
+`sha256sum` format). F1a digests the live script under `--probes` and refuses on mismatch. Without
+the recorded half an edited probe would keep certifying a capture it can no longer produce.
+`validate_generation(..., probes_dir=...)` re-runs the same comparison, so a probe edited after
+publication makes the set stale.
+
+**A05 — the claim boundary is enforced at publication, not only in review.** `CLAIMS` (the C01-C15
+required statements) are published in the marker, so a consumer reads the bound from the artifact.
+`PROHIBITED_PARAPHRASES` stays module-side and never published — a set carrying that list would
+contain the text the scan exists to keep out of it. `_assert_claim_conformance` runs over the
+**staged bytes before the swap**: every required claim must be present, every prohibited paraphrase
+absent, case-folded with `_` folded to space so a snake_case cell cannot smuggle an overreach.
+
+**A06 — `--probes` is a required argument.** Script *names* are module constants; the directory is
+an argument, so a run cannot silently digest a script outside the tree the operator named. Same
+idiom as `qualify`'s required `--corpus`.
