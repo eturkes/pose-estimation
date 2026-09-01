@@ -93,10 +93,19 @@ M2.7.4 is independent of all three and parallelizable from the start.
 **Window 3 dispatched the adversarial wave and closed four defects.** Four teammates in one block:
 `rev-m2u71` (N01-N80 conformance), `rev2-m2u71` (both campaigns), `rev3-m2u71` (claim soundness,
 C01-C15 + D01-D06 + A01-A06), `doc-m2u71` (six documentation surfaces). **`rev3-m2u71` closed
-27/27 — 16 pass, 11 fail — and `doc-m2u71` drafted 6/6.** `rev-m2u71` (30/80) and `rev2-m2u71`
-(36/81) were still filling at MAIN's reserve; **their worktrees and `wt/` branches are retained**,
-and window 4 revives both by `SendMessage` rather than funding successors. Full state, tips, the
-eight unadjudicated rulings and the close-order recipe → `.scratch/agents/main-checkpoint-m2u71-w3.md`.
+27/27 — 16 pass, 11 fail — `rev-m2u71` closed 80/80 — 50 pass, 30 fail, 31 reds — and `doc-m2u71`
+drafted 6/6.** Only `rev2-m2u71` was still filling at MAIN's reserve (36/81, tip `9e39cf7`); **every
+worktree and `wt/` branch is retained**, and window 4 revives `rev2-m2u71` by `SendMessage` rather
+than funding a successor. Full state, tips, the ruling set and the close-order recipe →
+`.scratch/agents/main-checkpoint-m2u71-w3.md`.
+
+**`rev-m2u71`'s 30 fails need triage, not acceptance.** It scored strictly against `05208f6` rather
+than the `e494659` target my standing ruling moved it to, so three classes separate. **Already
+fixed**: N10, N14. **Open scope rather than defect**: N57-N65, the campaign, documentation and config
+carriers — both campaigns are committed seeds `rev2-m2u71` owns, and the six drafts await MAIN's
+application. **Live**: N17 symlinked input overlap; N28-N32; N38-N40 and N44-N52 non-closed headers,
+cardinality, arms and row keys; N50/N53 evidence validation ordered after ownership; N71. Those plus
+`rev3-m2u71`'s eight are window 4's ruling set.
 
 **Four defects fixed with committed acceptance checks; suite 76 → 80 cases.** (1) **N10, severe** —
 `run()` opened by removing the same-pid `retiring` sibling, and pids are reused, so it could delete
