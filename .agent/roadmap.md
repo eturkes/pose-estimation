@@ -81,12 +81,85 @@ unpatchable, `sync_offset` is never written, and no per-event geometry verdict i
 | id | tier | spine result | sizing |
 | -- | ---- | ------------ | ------ |
 | M2.7.1 | kernel | `calibration_qc/` publisher: contract + validator, canonical tree, integrity + consumer boundary, ownership + atomic publication. Accepts one corpus row and the probe-evidence rows; rejects every event/asset/capture/subject key. | **DONE**; 3 windows estimated, **4 spent** — contract + publisher (1-2), adversarial wave (3), rulings + campaigns + docs (4) |
-| M2.7.2 | data | De-identified regression fixtures: one valid generation + the smallest contract/integrity failure matrix, each negative failing for its named predicate. Privacy scan proves no corpus filename, path, subject token or row-level statistic. | 1 window |
+| M2.7.2 | data | De-identified regression fixtures: one valid generation + the smallest contract/integrity failure matrix, each negative failing for its named predicate. Privacy scan proves no corpus filename, path, subject token or row-level statistic. | **1 spent, contract + validator + seed shipped; 1 more for fixture production** |
 | M2.7.3 | docs | Claim-bounded negative report. Claim matrix maps every conclusion to evidence and to permitted/prohibited wording. Excludes clinical validity, absolute metric accuracy, marker equivalence, other-detector impossibility, and prospective-capture impossibility. | 1 window |
 | M2.7.4 | docs | Prospective capture specification, 20 normative sections. Five non-negotiables: intrinsic/extrinsic calibration, synchronization residuals, orientation/drift control, traceable metric scale, identifiable-video governance. Specified, never run. | 1-2 windows |
 
 **Order.** M2.7.1 gates M2.7.2 and M2.7.3 (the report releases only against a validated generation).
 M2.7.4 is independent of all three and parallelizable from the start.
+
+#### M2.7.2 — OPEN, window 1 spent on the contract, the validator and the seed
+
+**The unit's own contract is frozen at `.agent/archive/contract-m2u72.md`** — 7 design decisions,
+12 predicates P01-P12, a 30-row probe-corpus seed. Tier `data`, so assurance = one structural
+validator + a live spot-check at close, defects fix forward.
+
+**What M2.7.2 buys that M2.7.1's 104-case suite cannot, and this is the whole justification.**
+Those cases build their inputs in Python under `tmp_path` and destroy them at teardown, and every
+one asserts a *property* — row count, header order, idempotence, refusal class. **Nothing in the
+tree pins the publisher's published BYTES.** A change to `_cell()`'s number formatting, to
+`_canonical`'s sort key or to `inventory.render_json`'s separators passes all 104 and silently moves
+every published byte. The committed generation catches it as a diff. Two further gains: refusal
+identity becomes data rather than code (M2.7.3 cites the matrix instead of restating it, and a
+renamed reason code fails by name), and the privacy predicate finally covers what this repo
+*commits* — `_assert_cells_carry_no_identifier` guards run-time output only.
+
+**Shipped this window.** `.agent/archive/contract-m2u72.md`;
+`scripts/check_calibration_qc_fixtures.py` (MAIN-authored validator, 12 predicates, single
+implementation behind both the CLI and the suite); the deliverable-first seed
+`tests/fixtures/calibration_qc_set/{manifest.json,README.md}` whose `matrix` names all 30 reason
+codes at `unknown`. **Graded both ways at seed**: absent tree → rc=1, seed present → **2/12 green,
+rc=1**. Static gate `ruff check` / `ruff format --check` / `ty check` all **rc=0**; collection
+**1438, unmoved** from the `02c4239` baseline.
+
+**Deliberately NOT shipped: `tests/test_calibration_qc_fixtures.py` (P10).** A suite case asserting
+`rc == 0` would be red until the fixtures land, and the alternative — a skip guard — breaks the
+zero-skip invariant C8.08 reconciles. **P10 stays FAIL by design; that is what a deliverable-first
+seed looks like.** The test lands in the same commit as the fixtures.
+
+**The 30 reason codes are the failure matrix's row set**, derived from `src/` rather than
+transcribed, and re-derived by P06 at check time so a new reason fails the matrix instead of being
+omitted. MAIN's expected split, to be corrected by measurement: 18 run-path, 9 validate-path,
+4 candidate `not_file_only` (`claim_missing`, `claim_prohibited`, `corpus_cardinality` each need a
+monkeypatched module constant, since A02/A05 put the ruling and the claim set beyond any argument;
+`tree_unreadable` needs a permission state git does not carry).
+
+**One blocker found in MAIN's own contract before dispatch, and it would have eaten a whole
+deliverable silently.** D07 first placed the fixtures at `tests/fixtures/calibration_qc/`.
+Measured with `git check-ignore -v`: that path is ignored by `.gitignore:94`, and the corrected
+root's inner `inputs/qualification/` is ignored by `.gitignore:85`. **Four `.gitignore` rows are
+slash-free component names — `inventory:60`, `sessions:78`, `qualification:85`,
+`calibration_qc:94` — so they match at ANY depth**, and `git add` reports success while committing
+nothing. Layout amended: root `tests/fixtures/calibration_qc_set/`, upstream tree `inputs/upstream/`,
+golden `expected/published/`. All eight paths verified NOT ignored.
+
+**A second trap, one level down from an M2.7.1 ruling.** The first privacy scan failed on the
+fixture's own `README.md`, because the README quoted the path text the scan forbids. Same shape as
+A05's ruling that `PROHIBITED_PARAPHRASES` stays module-side and unpublished — **a document inside
+the scanned set carries every string it quotes.** Ruled the same way: the needles live in the
+checker, the README describes the rule without spelling them, and the scan stays total over every
+committed byte rather than buying its own exemption.
+
+**Next window's whole job.** Wave = one `prod-m2u72` teammate behind the committed validator:
+write `scripts/make_calibration_qc_fixtures.py` (idempotent, default destination pinned), generate
+`inputs/` + `expected/published/` + one `negatives/<reason>/` overlay per file-only reason, fill
+`manifest.json`, and drive `python scripts/check_calibration_qc_fixtures.py` to rc=0. MAIN then
+adds `tests/test_calibration_qc_fixtures.py`, spot-checks the golden and one overlay per path, runs
+the decisive suite detached, and commits. **The minimum valid input set is the load-bearing
+unknown** — `tests/test_calibration_qc.py:90-109` builds it by running `qualify.run()` over
+synthetic media, but `run()` takes `sessions_dir`/`inventory_dir` as optional, so the fixture
+likely needs the published qualification tree alone. `map-m2u72` was stopped at 1/6 sections with
+S1 (the constructor graph and that minimum set) partly filled →
+`.scratch/agents/map-m2u72.md`; it is browse context, not evidence.
+
+`main=` **77% 185K/240K** — the window bought a frozen contract, a 12-predicate validator and a
+graded seed, and no fixture bytes. `mate=` 32% 77K/240K (`map-m2u72`, stopped).
+
+**Sizing datum.** Entry cost alone was **53% 127K/240K** before the first tool call: `.agent/`
+attached state is now large enough that a WORK-UNIT window starts past half its budget. That is the
+one-window aim's real constraint on this milestone, not the unit's line count. **M2.7.1's closed
+detail belongs in `.agent/archive/` at the next MILESTONE-REVIEW**, and until it moves, size every
+remaining M2 unit against ~110K of usable window rather than 240K.
 
 #### M2.7.1 — DONE in window 4: both campaigns re-derived, 45 review rows ruled, docs registered
 

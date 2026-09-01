@@ -257,6 +257,30 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 - **Copy a reviewer's red suite into the primary tree and rerun it; the pass/fail split is the adjudication ledger.** M2.7.1 window 4 scored `rev-m2u71` + `rev3-m2u71` at **41 failed / 4 passed** before fixes and **7 failed / 38 passed** after, where the 7 are exactly the rows ruled rejected. The rerun is what caught the half-fixes: window 3 recorded C01/C11 as closed after correcting the module docstring, and the red stayed red because the roadmap headline still carried the unscoped claim. Reds scoring against an older branch point separate into fixed / open-scope / live only under execution — a report's own tally cannot make that split.
 - **A reviewer's DONE marker is not the end of its yield.** M2.2's two reviewers sent nine more accepted defects after both phase-2 markers, four of them in the minutes before the close commit. While a reviewer has context left, keep it pointed at the surfaces MAIN just changed and take findings by message; ask for the report file last, since writing it costs the context that finds the next defect.
 
+## Committed fixtures — the gitignore trap that eats a whole deliverable
+
+- **Four `.gitignore` rows are slash-free component names and therefore match at ANY depth**:
+  `inventory:60`, `sessions:78`, `qualification:85`, `calibration_qc:94`. A committed test fixture
+  placed under one of those names — `tests/fixtures/calibration_qc/`, or an inner
+  `inputs/qualification/` — is silently uncommittable, and `git add` reports success while
+  committing nothing. **Verify every intended fixture path with `git check-ignore -v` BEFORE
+  building the tree**, root and inner directories alike; the failure is invisible at every later
+  step. Marker FILES are safe by construction: `qualification.json` is not a component named
+  `qualification`, and the `*.*/` siblings carry a trailing slash so they match directories alone.
+  M2.7.2 layout that clears all four: root `tests/fixtures/calibration_qc_set/`, upstream tree
+  `inputs/upstream/`, golden `expected/published/`.
+- **A scan's own documentation must not spell the needles it forbids.** M2.7.2's privacy scan failed
+  on the fixture README, which quoted the forbidden path text as documentation. Same shape as
+  M2.7.1 A05's ruling that `PROHIBITED_PARAPHRASES` stays module-side and never publishes — **a
+  document inside the scanned set carries every string it quotes.** Ruled identically both times:
+  keep the needle list in the checker, describe the rule without spelling it, and the scan stays
+  total over every byte instead of buying itself an exemption. An exclusion list is the wrong fix —
+  it opens a hole exactly where data could hide.
+- **A deliverable-first seed leaves its suite wiring FAIL on purpose.** M2.7.2's P10 (the checker is
+  called from `tests/`) is red at seed, because a case asserting `rc == 0` would be red until the
+  fixtures land and a skip guard breaks the zero-skip invariant C8.08 reconciles. The test lands in
+  the same commit as the artifact it grades. Seeding a passing stub instead would encode the defect.
+
 ## Media fixtures (PyAV)
 
 Every audio-bearing fixture in `tests/` is muxed by PyAV; three ordering rules decide whether the file a test writes is the file it meant.
