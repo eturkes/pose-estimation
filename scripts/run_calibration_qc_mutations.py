@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import hashlib
+import os
 import pathlib
 import subprocess
 import sys
@@ -55,48 +56,382 @@ class Mutant:
 # unencoded predicate or a ruled equivalent; both are reported, never silently
 # dropped.
 MUTANTS: tuple[Mutant, ...] = (
-    Mutant("M01", "ownership accepts a marker from another GENERATOR_VERSION"),
-    Mutant("M02", "ownership accepts a non-empty root carrying no marker"),
-    Mutant("M03", "marker probe uses stat instead of lstat, so a symlink licenses deletion"),
-    Mutant("M04", "marker probe drops the S_ISREG check"),
-    Mutant("M05", "duplicate-key rejection hook removed from the marker parse"),
-    Mutant("M06", "_is_own_generation stops checking the generation key set"),
-    Mutant("M07", "staging promoted before the live tree is moved to retiring"),
-    Mutant("M08", "_sweep_orphans becomes a no-op"),
-    Mutant("M09", "failed promotion no longer restores the retiring tree"),
-    Mutant("M10", "sibling pid suffix dropped, so two runs share one staging name"),
-    Mutant("M11", "retiring tree removed before the swap rather than after"),
-    Mutant("M12", "_is_within compares raw prefixes without the separator guard"),
-    Mutant("M13", "disjointness check skips the evidence directory"),
-    Mutant("M14", "disjointness check skips the probe directory"),
-    Mutant("M15", "output path no longer resolved before the disjointness checks"),
-    Mutant("M16", "_assert_schema_is_redaction_safe becomes a no-op"),
-    Mutant("M17", "FORBIDDEN_KEY_TOKENS loses the event token"),
-    Mutant("M18", "IDENTIFIER_SHAPES loses the capture-id shape"),
-    Mutant("M19", "_assert_cells_carry_no_identifier becomes a no-op"),
-    Mutant("M20", "D04 schema check runs after the staging tree is written"),
-    Mutant("M21", "corpus row cardinality relaxed from exactly one to at least one"),
-    Mutant("M22", "empty evidence table accepted"),
-    Mutant("M23", "header equality relaxed to set membership, so column order floats"),
-    Mutant("M24", "cell alphabets use search instead of fullmatch"),
-    Mutant("M25", "_token_alphabet drops its anchors"),
-    Mutant("M26", "empty-cell allowance widened from shared_fraction to every column"),
-    Mutant("M27", "INTEGER_CELL uses the non-ASCII digit class"),
-    Mutant("M28", "_read_capture truncation guard dropped, so a cut record is skipped"),
-    Mutant("M29", "_read_capture summary guard keys on a trailing brace again"),
-    Mutant("M30", "probe digest mismatch downgraded from refusal to acceptance"),
-    Mutant("M31", "_assert_cited_arms stops checking REQUIRED_ARM_PREFIXES"),
-    Mutant("M32", "REQUIRED_ARMS loses the permutation null"),
-    Mutant("M33", "a record missing a STATISTIC_KEYS entry publishes a short row"),
-    Mutant("M34", "a missing probe script no longer refuses"),
-    Mutant("M35", "_canonical stops sorting, so row order follows input order"),
-    Mutant("M36", "marker included in its own tree_digest"),
-    Mutant("M37", "census_digest stops excluding its own key"),
-    Mutant("M38", "_assert_claim_conformance becomes a no-op"),
-    Mutant("M39", "claim scan drops the case fold"),
-    Mutant("M40", "claim scan drops the underscore-to-space fold"),
-    Mutant("M41", "qualify.validate_generation call removed from run()"),
-    Mutant("M42", "PROHIBITED_PARAPHRASES published into the marker"),
+    Mutant(
+        "M01",
+        "ownership accepts a marker from another GENERATOR_VERSION",
+        (
+            Patch(
+                '    if not isinstance(generation, dict) or generation.get("generator_version") != GENERATOR_VERSION:\n        return False',
+                "    if not isinstance(generation, dict):\n        return False",
+            ),
+        ),
+    ),
+    Mutant(
+        "M02",
+        "ownership accepts a non-empty root carrying no marker",
+        (
+            Patch(
+                "    if not any(out_dir.iterdir()):\n        return",
+                "    if any(out_dir.iterdir()):\n        return",
+            ),
+        ),
+    ),
+    Mutant(
+        "M03",
+        "marker probe uses stat instead of lstat, so a symlink licenses deletion",
+        (Patch("path.lstat().st_mode", "path.stat().st_mode"),),
+    ),
+    Mutant(
+        "M04",
+        "marker probe drops the S_ISREG check",
+        (
+            Patch(
+                "    if not stat.S_ISREG(path.lstat().st_mode):",
+                "    if False:",
+            ),
+        ),
+    ),
+    Mutant(
+        "M05",
+        "duplicate-key rejection hook removed from the marker parse",
+        (
+            Patch(
+                '        path.read_text(encoding="utf-8"), object_pairs_hook=qualify._reject_duplicate_keys',
+                '        path.read_text(encoding="utf-8")',
+            ),
+        ),
+    ),
+    Mutant(
+        "M06",
+        "_is_own_generation stops checking the generation key set",
+        (Patch("    return set(generation) == set(GENERATION_KEYS)", "    return True"),),
+    ),
+    Mutant(
+        "M07",
+        "staging promoted before the live tree is moved to retiring",
+        (
+            Patch(
+                "        if out.exists():\n            out.rename(retiring)",
+                "        if out.exists():\n            staging.rename(out)",
+            ),
+            Patch(
+                "        try:\n            staging.rename(out)\n        except OSError:",
+                "        try:\n            out.rename(retiring)\n        except OSError:",
+            ),
+        ),
+    ),
+    Mutant(
+        "M08",
+        "_sweep_orphans becomes a no-op",
+        (
+            Patch(
+                '    for sibling in out.parent.glob(f"{out.name}.*"):',
+                "    for sibling in ():",
+            ),
+        ),
+    ),
+    Mutant(
+        "M09",
+        "failed promotion no longer restores the retiring tree",
+        (Patch("            if retiring.exists() and not out.exists():", "            if False:"),),
+    ),
+    Mutant(
+        "M10",
+        "sibling pid suffix dropped, so two runs share one staging name",
+        (
+            Patch(
+                '    staging = out.with_name(f"{out.name}.staging.{os.getpid()}")',
+                '    staging = out.with_name(f"{out.name}.staging")',
+            ),
+            Patch(
+                '    retiring = out.with_name(f"{out.name}.retiring.{os.getpid()}")',
+                '    retiring = out.with_name(f"{out.name}.retiring")',
+            ),
+        ),
+    ),
+    Mutant(
+        "M11",
+        "retiring tree removed before the swap rather than after",
+        (
+            Patch(
+                "        if out.exists():\n            out.rename(retiring)",
+                "        if out.exists():\n            out.rename(retiring)\n            _remove(retiring)",
+            ),
+            Patch(
+                "        _sweep_orphans(out)\n        _remove(retiring)",
+                "        _sweep_orphans(out)",
+            ),
+        ),
+    ),
+    Mutant(
+        "M12",
+        "_is_within compares raw prefixes without the separator guard",
+        (
+            Patch(
+                "    return child == parent or child.startswith(parent + os.sep)",
+                "    return child == parent or child.startswith(parent)",
+            ),
+        ),
+    ),
+    Mutant(
+        "M13",
+        "disjointness check skips the evidence directory",
+        (Patch('        (evidence_path, "evidence directory"),\n', ""),),
+    ),
+    Mutant(
+        "M14",
+        "disjointness check skips the probe directory",
+        (Patch('        (probes_dir, "probe directory"),\n', ""),),
+    ),
+    Mutant(
+        "M15",
+        "output path no longer resolved before the disjointness checks",
+        (
+            Patch(
+                "    out = pathlib.Path(os.path.realpath(out_dir))",
+                "    out = pathlib.Path(out_dir)",
+            ),
+        ),
+    ),
+    Mutant(
+        "M16",
+        "_assert_schema_is_redaction_safe becomes a no-op",
+        (
+            Patch(
+                "def _assert_schema_is_redaction_safe() -> None:\n    for table, columns in (",
+                "def _assert_schema_is_redaction_safe() -> None:\n    return\n    for table, columns in (",
+            ),
+        ),
+    ),
+    Mutant(
+        "M17",
+        "FORBIDDEN_KEY_TOKENS loses the event token",
+        (Patch('        "event",\n        "family",', '        "family",'),),
+    ),
+    Mutant(
+        "M18",
+        "IDENTIFIER_SHAPES loses the capture-id shape",
+        (Patch('    re.compile(r"\\bs[0-9]{2}-[a-z]+-[lr]\\b"),\n', ""),),
+    ),
+    Mutant(
+        "M19",
+        "_assert_cells_carry_no_identifier becomes a no-op",
+        (
+            Patch(
+                "def _assert_cells_carry_no_identifier(rows: list[dict[str, str]], filename: str) -> None:\n    for row in rows:",
+                "def _assert_cells_carry_no_identifier(rows: list[dict[str, str]], filename: str) -> None:\n    return\n    for row in rows:",
+            ),
+        ),
+    ),
+    Mutant(
+        "M20",
+        "D04 schema check runs after the staging tree is written",
+        (
+            Patch(
+                "\n_assert_schema_is_redaction_safe()\n\n\ndef _assert_cells_carry_no_identifier",
+                "\n\n\ndef _assert_cells_carry_no_identifier",
+            ),
+            Patch(
+                "            probes=digests,\n        )\n        if out.exists():",
+                "            probes=digests,\n        )\n        _assert_schema_is_redaction_safe()\n        if out.exists():",
+            ),
+        ),
+    ),
+    Mutant(
+        "M21",
+        "corpus row cardinality relaxed from exactly one to at least one",
+        (
+            Patch(
+                "    corpus_rows = [dict(RULING)]", "    corpus_rows = [dict(RULING), dict(RULING)]"
+            ),
+        ),
+    ),
+    Mutant(
+        "M22",
+        "empty evidence table accepted",
+        (
+            Patch("    if not records:", "    if False:"),
+            Patch(
+                'def _assert_cited_arms(arms: frozenset[str]) -> None:\n    """Refuse a capture that has lost an arm the ruling quotes by value."""\n    missing = sorted(REQUIRED_ARMS - arms)',
+                'def _assert_cited_arms(arms: frozenset[str]) -> None:\n    """Refuse a capture that has lost an arm the ruling quotes by value."""\n    if not arms:\n        return\n    missing = sorted(REQUIRED_ARMS - arms)',
+            ),
+        ),
+    ),
+    Mutant(
+        "M23",
+        "header equality relaxed to set membership, so column order floats",
+        (
+            Patch(
+                '            inventory.render_csv(columns, rows_by_table[name]), encoding="utf-8", newline=""',
+                '            inventory.render_csv(tuple(sorted(columns)), rows_by_table[name]), encoding="utf-8", newline=""',
+            ),
+        ),
+    ),
+    Mutant(
+        "M24",
+        "cell alphabets use search instead of fullmatch",
+        (
+            Patch(
+                "            if cell and not pattern.fullmatch(cell):",
+                "            if cell and not pattern.search(cell):",
+            ),
+        ),
+    ),
+    Mutant(
+        "M25",
+        "_token_alphabet drops its anchors",
+        (
+            Patch(
+                '    return re.compile("|".join(re.escape(token) for token in sorted(tokens)))',
+                '    return re.compile(".*(?:" + "|".join(re.escape(token) for token in sorted(tokens)) + ").*")',
+            ),
+        ),
+    ),
+    Mutant(
+        "M26",
+        "empty-cell allowance widened from shared_fraction to every column",
+        (
+            Patch(
+                "                    **{field: _cell(block.get(field)) for field in STATISTIC_FIELDS},",
+                '                    **dict.fromkeys(STATISTIC_FIELDS, ""),',
+            ),
+        ),
+    ),
+    Mutant(
+        "M27",
+        "INTEGER_CELL uses the non-ASCII digit class",
+        (Patch('INTEGER_CELL = re.compile(r"[0-9]+")', 'INTEGER_CELL = re.compile(r"\\d+")'),),
+    ),
+    Mutant(
+        "M28",
+        "_read_capture truncation guard dropped, so a cut record is skipped",
+        (
+            Patch(
+                '            if line.startswith("{") and line.strip() != "{":',
+                "            if False:",
+            ),
+        ),
+    ),
+    Mutant(
+        "M29",
+        "_read_capture summary guard keys on a trailing brace again",
+        (
+            Patch(
+                "        try:\n            record = json.loads(line, object_pairs_hook=qualify._reject_duplicate_keys)",
+                '        if not line.rstrip().endswith("}"):\n            continue\n        try:\n            record = json.loads(line, object_pairs_hook=qualify._reject_duplicate_keys)',
+            ),
+        ),
+    ),
+    Mutant(
+        "M30",
+        "probe digest mismatch downgraded from refusal to acceptance",
+        (Patch("        if recorded != digests[probe]:", "        if False:"),),
+    ),
+    Mutant(
+        "M31",
+        "_assert_cited_arms stops checking REQUIRED_ARM_PREFIXES",
+        (Patch("    for prefix in REQUIRED_ARM_PREFIXES:", "    for prefix in ():"),),
+    ),
+    Mutant(
+        "M32",
+        "REQUIRED_ARMS loses the permutation null",
+        (Patch('        "REAL same view pair, keypoints permuted (null)",\n', ""),),
+    ),
+    Mutant(
+        "M33",
+        "a record missing a STATISTIC_KEYS entry publishes a short row",
+        (
+            Patch(
+                "            if not isinstance(block, dict):",
+                "            if not isinstance(block, dict):\n                continue\n            if False:",
+            ),
+        ),
+    ),
+    Mutant(
+        "M34",
+        "a missing probe script no longer refuses",
+        (
+            Patch(
+                '        except OSError as error:\n            raise CalibrationQcError(\n                f"The cited probe {probe} is missing from the probe directory.",\n                reason="probe_missing",\n            ) from error',
+                '        except OSError:\n            digests[probe] = ""',
+            ),
+        ),
+    ),
+    Mutant(
+        "M35",
+        "_canonical stops sorting, so row order follows input order",
+        (
+            Patch(
+                "    return sorted(rows, key=lambda row: tuple(row[name] for name in key))",
+                "    return rows",
+            ),
+        ),
+    ),
+    Mutant(
+        "M36",
+        "marker included in its own tree_digest",
+        (Patch("        if entry.name != CALIBRATION_QC_FILENAME:", "        if True:"),),
+    ),
+    Mutant(
+        "M37",
+        "census_digest stops excluding its own key",
+        (
+            Patch(
+                '            key: value for key, value in body["generation"].items() if key != "census"',
+                '            key: value for key, value in body["generation"].items() if True',
+            ),
+        ),
+    ),
+    Mutant(
+        "M38",
+        "_assert_claim_conformance becomes a no-op",
+        (
+            Patch(
+                "def _assert_claim_conformance(staging: pathlib.Path) -> None:\n",
+                "def _assert_claim_conformance(staging: pathlib.Path) -> None:\n    return\n",
+            ),
+        ),
+    ),
+    Mutant(
+        "M39",
+        "claim scan drops the case fold",
+        (
+            Patch(
+                '    folded = published.casefold().replace("_", " ")',
+                '    folded = published.replace("_", " ")',
+            ),
+        ),
+    ),
+    Mutant(
+        "M40",
+        "claim scan drops the underscore-to-space fold",
+        (
+            Patch(
+                '    folded = published.casefold().replace("_", " ")',
+                "    folded = published.casefold()",
+            ),
+        ),
+    ),
+    Mutant(
+        "M41",
+        "qualify.validate_generation call removed from run()",
+        (
+            Patch(
+                "    qualification_census = qualify.validate_generation(\n        qualification_path, sessions_dir=sessions_dir, inventory_dir=inventory_dir\n    )",
+                "    qualification_census = {}",
+            ),
+        ),
+    ),
+    Mutant(
+        "M42",
+        "PROHIBITED_PARAPHRASES published into the marker",
+        (
+            Patch(
+                "    _assert_claim_conformance(staging)",
+                '    _assert_claim_conformance(staging)\n    census["prohibited_paraphrases"] = list(PROHIBITED_PARAPHRASES)\n    census["generation"]["census"] = census_digest(census)\n    (staging / CALIBRATION_QC_FILENAME).write_text(\n        inventory.render_json(census), encoding="utf-8", newline=""\n    )',
+            ),
+        ),
+    ),
 )
 
 
@@ -130,8 +465,14 @@ def validate_catalogue(mutants: tuple[Mutant, ...]) -> list[str]:
     return problems
 
 
-def _oracle() -> int:
-    return subprocess.run(TEST_COMMAND, cwd=ROOT, check=False).returncode
+def _oracle(*, show_path: bool = False) -> int:
+    env = os.environ.copy()
+    env.pop("LD_LIBRARY_PATH", None)
+    env["PYTHONPATH"] = str(ROOT / "src")
+    if show_path:
+        env["CQC_ORACLE_SHOW_PATH"] = "1"
+        env["PYTEST_ADDOPTS"] = "--capture=tee-sys"
+    return subprocess.run(TEST_COMMAND, cwd=ROOT, env=env, check=False).returncode
 
 
 def _score(mutant: Mutant, originals: dict[str, str]) -> str:
@@ -147,15 +488,17 @@ def _score(mutant: Mutant, originals: dict[str, str]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--only", default=None, help="Run one mutant id.")
+    parser.add_argument("--only", default=None, help="Run comma-separated mutant ids.")
     args = parser.parse_args(argv)
 
     mutants = MUTANTS
     if args.only:
-        mutants = tuple(mutant for mutant in MUTANTS if mutant.id == args.only)
-        if not mutants:
-            print(f"unrecognized mutant id: {args.only}")
+        requested = {value.strip() for value in args.only.split(",") if value.strip()}
+        known = {mutant.id for mutant in MUTANTS}
+        if unknown := requested - known:
+            print("unrecognized mutant id: " + ",".join(sorted(unknown)))
             return 2
+        mutants = tuple(mutant for mutant in MUTANTS if mutant.id in requested)
 
     problems = validate_catalogue(mutants)
     if problems:
@@ -167,7 +510,7 @@ def main(argv: list[str] | None = None) -> int:
     originals = {path: (ROOT / path).read_text() for path in paths}
     before = {path: _digest(ROOT / path) for path in paths}
 
-    if _oracle():
+    if _oracle(show_path=True):
         print("baseline is red; fix it before scoring mutants")
         return 1
 

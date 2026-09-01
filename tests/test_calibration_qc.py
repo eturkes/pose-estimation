@@ -18,6 +18,7 @@ import json
 import os
 import pathlib
 import re
+import runpy
 import subprocess
 import sys
 from typing import Any
@@ -693,6 +694,15 @@ def test_the_ruling_never_fills_a_qualification_sentinel(
     assert events
     assert all(row["geom_qualified"] == "" for row in events)
     assert all("geom_unmeasured" in row["reason"] for row in events)
+
+
+def test_committed_determinism_evidence_matches_its_exact_source_tripwire() -> None:
+    root = pathlib.Path(__file__).resolve().parents[1]
+    result = json.loads(
+        (root / "tests/calibration_qc_determinism_results.json").read_text(encoding="utf-8")
+    )
+    checker = runpy.run_path(str(root / "scripts/check_calibration_qc_determinism.py"))
+    assert result["source_digests"] == checker["source_digests"]()
 
 
 # --- CLI --------------------------------------------------------------------------------------------

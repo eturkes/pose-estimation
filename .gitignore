@@ -94,6 +94,11 @@ qualification.*/
 calibration_qc
 calibration_qc.*/
 
+# Determinism-campaign scratch tree (check_calibration_qc_determinism.py). Kept
+# after a run so a FAIL can be inspected; rebuilt from scratch on the next run.
+# Slash-free so it also matches the copy a teammate worktree builds.
+.cqc-determinism/
+
 # Camera calibration (patient-adjacent: identifying lab/rig geometry — never commit)
 calibration/
 calibration.json
