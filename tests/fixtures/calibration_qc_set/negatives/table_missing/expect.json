@@ -1,0 +1,7 @@
+{
+  "deletes_published": [
+    "corpus_qc.csv"
+  ],
+  "path": "validate",
+  "reason": "table_missing"
+}

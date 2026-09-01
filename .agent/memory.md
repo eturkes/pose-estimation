@@ -280,6 +280,25 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
   called from `tests/`) is red at seed, because a case asserting `rc == 0` would be red until the
   fixtures land and a skip guard breaks the zero-skip invariant C8.08 reconciles. The test lands in
   the same commit as the artifact it grades. Seeding a passing stub instead would encode the defect.
+- **A validator graded only against an absent artifact is graded on its error paths.** M2.7.2's
+  checker called `shutil.copytree(inputs, dest)` onto a live `TemporaryDirectory` — missing
+  `dirs_exist_ok=True` — and its three replay predicates were already FAIL for missing fixtures, so
+  the `FileExistsError` stayed invisible until a teammate's first live replay. **Grade a new
+  validator against a hand-made minimal POSITIVE before funding production behind it**; an
+  all-`unknown` seed proves only that the failure path prints.
+- **The `calibration_qc` fixture set re-derives in seconds and is that publisher's byte oracle.**
+  `python scripts/make_calibration_qc_fixtures.py --force` then
+  `python scripts/check_calibration_qc_fixtures.py` = 12/12 in 1.9 s, both under the standard
+  `env -u LD_LIBRARY_PATH PYTHONPATH="$PWD/src" uv run --no-sync` prefix. `inputs/upstream/` is one
+  `qualify.run()` generation over `_canonical(90, "above")` — subject 90 keeps the capture inside the
+  scan's synthetic namespace, and `calibration_qc.run` validates that tree standalone, so no
+  registry, session tree or media is committed. Refusal matrix = **26 file-only reasons** (17 run,
+  9 validate) + **4 state-only**: `claim_missing`, `corpus_cardinality`, `tree_unreadable`, and
+  `output_overlap` (overlap needs a symlink the fixture set forbids). `claim_prohibited` IS
+  file-only, reached through an arm label carrying a prohibited paraphrase.
+- **A generator whose `--force` deletes its destination needs the publishers' ownership rule.**
+  `make_calibration_qc_fixtures.py` refuses any non-empty destination whose `manifest.json` does not
+  name it, and still accepts an empty directory, which is how the idempotence predicate drives it.
 
 ## Media fixtures (PyAV)
 

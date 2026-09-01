@@ -1,0 +1,91 @@
+{
+  "assets": {
+    "codec": {
+      "mpeg4": 1
+    },
+    "decode_status": {
+      "ok": 1
+    },
+    "device_config": {},
+    "frame_count_mismatch": 1,
+    "pts_dt_median_s": {
+      "max": 0.033333333,
+      "median": 0.033333333,
+      "min": 0.033333333,
+      "n": 1.0,
+      "p95": 0.033333333
+    },
+    "pts_reordered": 0,
+    "rows": 1
+  },
+  "cameras": {
+    "is_reference": {
+      "": 1
+    },
+    "offset_s": null,
+    "offset_status": {
+      "unmeasured": 1
+    },
+    "rows": 1
+  },
+  "events": {
+    "closure_residual_s": null,
+    "n_cameras": {
+      "1": 1
+    },
+    "rows": 1,
+    "sync_qualified": {
+      "": 1
+    },
+    "sync_status": {
+      "": 1
+    }
+  },
+  "generation": {
+    "assets_qc.csv": "a43314a7c596a2e8ebe04bd1f5aaa643550a128882da0d84eb06cfd0f2834398",
+    "cameras_qc.csv": "a9cd13ccf5f32e92a7c7bb664da0742e0f41cd3cfd669cf0443b2c29b1cc7773",
+    "census": "7d12948cf57fa74115584fe0edacc0d4e715f3c9ddb7fa3b78c61f1a7462d90e",
+    "events_qc.csv": "889a4032362af1dd8b114e9086bdcb7eaa1dafddcc04ca2d3cb5ad691f1de98b",
+    "generator_version": "v4",
+    "inventory": {
+      "assets.csv": "f0b03322c3ee15a0dd99d0fad4fd2958c9d3c12ce38c9e29b226a909cb3353f5",
+      "captures.csv": "2cc0c9e29413bb21e8dacd3a81b51767baa991ffa54fecea6d17a87c763e4f6f",
+      "census.json": "039e493d3ba6e00acfcb9d9f57f8533e1792395980fca7404f9fcd787ddf1bda"
+    },
+    "pairs_qc.csv": "f907b93c32524c3c3ae1f8fc3dc81bb6f81778a89522942dfee40f1937acbec5",
+    "sessions": {
+      "events.csv": "eb7b78dc443e55298d923c32917a33632aa8845b0e264fdaeed67371ecb4d278",
+      "generator_version": "v1",
+      "inventory": {
+        "assets.csv": "f0b03322c3ee15a0dd99d0fad4fd2958c9d3c12ce38c9e29b226a909cb3353f5",
+        "captures.csv": "2cc0c9e29413bb21e8dacd3a81b51767baa991ffa54fecea6d17a87c763e4f6f",
+        "census.json": "039e493d3ba6e00acfcb9d9f57f8533e1792395980fca7404f9fcd787ddf1bda"
+      },
+      "placements.csv": "79f552b1eeedff744614c7770b4ba94ac9884dad7a63d0eb39c107028145590e",
+      "tree": "62b3242914c3ad805545ba19d84b08bfcbeb43891c32ee5cee9849d125b046ff"
+    },
+    "tree": "16c6d60b28aedf2e76e3a781aac84bd14de30b9f97d5b88cd3c1659936d0de7b"
+  },
+  "measured_axes": [
+    "orientation",
+    "timebase"
+  ],
+  "pairs": {
+    "rows": 0,
+    "status": {},
+    "sync_strata": {}
+  },
+  "qc_flags": {
+    "detect_unmeasured": 1,
+    "frame_count_mismatch": 1,
+    "orientation_absent": 1,
+    "rigidity_unmeasured": 1,
+    "scale_unmeasured": 1
+  },
+  "unmeasured_axes": [
+    "detect",
+    "rigidity",
+    "scale",
+    "sync"
+  ]
+}

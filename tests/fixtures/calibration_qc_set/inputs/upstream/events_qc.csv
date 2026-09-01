@@ -1,0 +1,2 @@
+event_id,capture_id,n_cameras,views,graph_connected,sync_status,closure_residual_s,offset_span_s,sync_qualified,geom_qualified,qualified,reason
+s90-cap-l_run-01,s90-cap-l,1,above,,,,,,,,sync_unmeasured|geom_unmeasured

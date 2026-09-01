@@ -1,0 +1,84 @@
+{
+  "claims": [
+    "Extrinsic recovery from RTMW-L keypoints on this corpus at 1080p under per-model intrinsic priors is measured unachievable.",
+    "Within-event cross-view RTMW-L correspondence carries a measured 15-20 px systematic component at 1080p.",
+    "The shipped estimator is exact on exact synthetic correspondence, and independent bundle adjustment worsens corpus closure.",
+    "No disjointly selected RTMW-L subset beats all 65 keypoints on the measured corpus folds.",
+    "Signed bias transfer is absent at the tested view-pair, device-model, task and subject groupings over the full eligible population.",
+    "The same keypoints share difficulty across events while the signed offset direction is redrawn every event, so that magnitude is not a correctable coordinate offset.",
+    "Held-out reprojection on the solve's own keypoint family is self-consistency.",
+    "This evidence is internal geometric and QC evidence only.",
+    "Every pixel and degree statistic here stays separate from absolute metric accuracy.",
+    "No marker-based comparison was run.",
+    "A lower-bias keypoint source and a detector trained for multi-view consistency stay outside the measured bound.",
+    "Prospective calibrated capture stays outside the measured bound and is the route that can reopen 3D.",
+    "The per-event double-centered bias-and-pose synthetic-control arm is unrun.",
+    "One corpus-level ruling holds while every per-event geometry cell stays unmeasured.",
+    "Each synthetic arm is instrument calibration whose meaning arises only in contrast with the corpus row."
+  ],
+  "corpus": {
+    "rows": 1,
+    "ruling": {
+      "cited_probes": "bias_transfer|calibration_bias",
+      "image_height_px": "1080",
+      "intrinsics_basis": "per_model_prior",
+      "keypoint_source": "rtmw_l",
+      "reason": "cross_view_keypoint_bias",
+      "recovery_status": "unachievable",
+      "ruling_grain": "corpus",
+      "transfer_status": "absent",
+      "unrun_arm": "per_event_double_centered_bias_and_pose",
+      "unrun_arm_status": "unrun"
+    }
+  },
+  "evidence": {
+    "arms": 8,
+    "probes": [
+      "bias_transfer"
+    ],
+    "rows": 32,
+    "statistics": [
+      "between_event_r",
+      "between_event_r_abs",
+      "median_abs_px",
+      "within_event_r"
+    ]
+  },
+  "generation": {
+    "census": "4974280c056270c838828f877df42218908a67277b8bad075cfe45212bc09c69",
+    "corpus_qc.csv": "749f6122ab0321cbbfd5501555a6fa214fe5138d5aa7795ff302f642c6d77cc5",
+    "evidence_qc.csv": "6656c52defc4f7ac1d89efd559b21f080608e1f932073bc1d28d13d431d480ac",
+    "generator_version": "v1",
+    "probes": {
+      "bias_transfer": "09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7",
+      "calibration_bias": "a5a05abcc236cea0d2d34391014fce1cda299f8411aa33cad499aefe0e6b27c4"
+    },
+    "qualification": {
+      "assets_qc.csv": "f54c2557f9ddfaf1079cf6c5bbd76cb0c714457160ad3767ca6ed94ecf2a8af0",
+      "cameras_qc.csv": "c71483d69d4230ffd352246fed454288d9b0a0dd4cff7032ea5c802bb6074217",
+      "census": "603008f4e2d5b9e13a64f393285ea6024d97810c2e20a802948b46886baa60c3",
+      "events_qc.csv": "82ce45a918e1d7aa51546bcabb76f7d32b41c7bfe3d92e7c61fa9543bb0a58e2",
+      "generator_version": "v4",
+      "inventory": {
+        "assets.csv": "d4c9c7ce6036204b4dc9955f81131580835ea2ecf5eff17521dec374d5bf4150",
+        "captures.csv": "d27ca914b727f78a00af5d671c915728828f86813035ff453be3867efe429df5",
+        "census.json": "31c004e07fa3b2b564b85539d789f62df504bc7a2e0abf2b016374238a94b3d7"
+      },
+      "pairs_qc.csv": "f907b93c32524c3c3ae1f8fc3dc81bb6f81778a89522942dfee40f1937acbec5",
+      "sessions": {
+        "events.csv": "e62407bd9989d799183e0dfce83d071697b4a2086a8e8075d8e4dcd3a2d6ab4e",
+        "generator_version": "v1",
+        "inventory": {
+          "assets.csv": "d4c9c7ce6036204b4dc9955f81131580835ea2ecf5eff17521dec374d5bf4150",
+          "captures.csv": "d27ca914b727f78a00af5d671c915728828f86813035ff453be3867efe429df5",
+          "census.json": "31c004e07fa3b2b564b85539d789f62df504bc7a2e0abf2b016374238a94b3d7"
+        },
+        "placements.csv": "4b4cf97f756e29c2215034f30dbb5367de819be37c3aa3123cf8db8d8869da52",
+        "tree": "5d0db0d5a11bdc8fa1588717678102afa7dd01c46471ad0b56c9fdd4735ec0a7"
+      },
+      "tree": "a09e524666f186383207b31691176726b00b8321001847931186252c9a3b0104"
+    },
+    "tree": "1e161c9e3f06e62cae32232e9777abec0ca2ce93a97a396c411eb8aab32e0f8b"
+  },
+  "schema_version": "v1"
+}

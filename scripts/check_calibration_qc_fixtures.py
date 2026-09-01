@@ -81,8 +81,11 @@ def _load_json(path: pathlib.Path) -> Any:
 
 
 def _materialise(dest: pathlib.Path, overlay: pathlib.Path | None, deletes: list[str]) -> None:
-    """Copy `inputs/` into *dest*, then apply one negative's overlay and deletions."""
-    shutil.copytree(FIXTURES / INPUTS, dest)
+    """Copy `inputs/` into *dest*, then apply one negative's overlay and deletions.
+
+    ``dirs_exist_ok`` because every caller passes a live ``TemporaryDirectory``.
+    """
+    shutil.copytree(FIXTURES / INPUTS, dest, dirs_exist_ok=True)
     for rel in deletes:
         target = dest / rel
         if target.is_dir() and not target.is_symlink():

@@ -1,0 +1,1 @@
+capture_id,asset_a,asset_b,view_a,view_b,offset_s,peak_rms,peak_ratio,status_audio,offset_visual_s,status_visual,status,drift_ppm,drift_se,overlap_s,dur_a,dur_b,stratum_a,stratum_b,same_device_config,same_audio_rate

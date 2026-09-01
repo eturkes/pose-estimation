@@ -1,0 +1,33 @@
+probe,probe_sha256,arm,statistic,n,median,min,max,above_0p5
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair,between_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair,between_event_r_abs,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair,median_abs_px,9,2.3456,1.2345,3.4567,
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair,within_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair + same model pair,between_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair + same model pair,between_event_r_abs,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair + same model pair,median_abs_px,9,2.3456,1.2345,3.4567,
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair + same model pair,within_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair + same subject,between_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair + same subject,between_event_r_abs,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair + same subject,median_abs_px,9,2.3456,1.2345,3.4567,
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair + same subject,within_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair + same task,between_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair + same task,between_event_r_abs,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair + same task,median_abs_px,9,2.3456,1.2345,3.4567,
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,REAL same view pair + same task,within_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,"REAL same view pair, keypoints permuted (null)",between_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,"REAL same view pair, keypoints permuted (null)",between_event_r_abs,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,"REAL same view pair, keypoints permuted (null)",median_abs_px,9,2.3456,1.2345,3.4567,
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,"REAL same view pair, keypoints permuted (null)",within_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,SYNTH noise sigma=4.0px,between_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,SYNTH noise sigma=4.0px,between_event_r_abs,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,SYNTH noise sigma=4.0px,median_abs_px,9,2.3456,1.2345,3.4567,
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,SYNTH noise sigma=4.0px,within_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,SYNTH per-event bias 4.0px,between_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,SYNTH per-event bias 4.0px,between_event_r_abs,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,SYNTH per-event bias 4.0px,median_abs_px,9,2.3456,1.2345,3.4567,
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,SYNTH per-event bias 4.0px,within_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,SYNTH shared image bias 4.0px,between_event_r,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,SYNTH shared image bias 4.0px,between_event_r_abs,12,0.1234,-0.5678,0.8765,3
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,SYNTH shared image bias 4.0px,median_abs_px,9,2.3456,1.2345,3.4567,
+bias_transfer,09571270c60d9ab860cc64ef079b3a7301cdf0c880e7de5dded047c039bc0af7,SYNTH shared image bias 4.0px,within_event_r,12,0.1234,-0.5678,0.8765,3

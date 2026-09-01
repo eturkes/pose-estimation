@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7.1 DONE; M2.7.2-M2.7.4 and M2.8.1-M2.8.3 OPEN, none BLOCKED, lowest OPEN unit = M2.7.2. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7.1 and M2.7.2 DONE; M2.7.3, M2.7.4 and M2.8.1-M2.8.3 OPEN, none BLOCKED, lowest OPEN unit = M2.7.3. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Goal:** turn 382 uncontrolled clips into an addressable, measured corpus; establish by evidence whether 3D reconstruction is recoverable from it; then execute that ruling under a claim boundary the data can carry.
 
@@ -49,9 +49,9 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.8.2 | Full corpus 2D run | ~6.5 h resumable run over 379 assets; per-asset clinical features plus a manifest giving every asset an explicit disposition. |
 | M2.8.3 | Cohort aggregate publisher + bilingual descriptor | 12 `(task, side)` cohort rows, no subject rows; append-ready `columns.yaml` fragment with full `ja`/`en` labels. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2-M2.7.4 and M2.8.1-M2.8.3 OPEN**: the 3D spine is gone, the negative is published, and the 2D line delivers cohort aggregates.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3, M2.7.4 and M2.8.1-M2.8.3 OPEN**: the 3D spine is gone, the negative is published, and the 2D line delivers cohort aggregates.
 
-### M2.7 — publish the closed-negative 3D ruling — IN-PROGRESS, 4 units, M2.7.1 DONE
+### M2.7 — publish the closed-negative 3D ruling — IN-PROGRESS, 4 units, M2.7.1-M2.7.2 DONE
 
 **F1a ships as the FIFTH copy of the publisher idiom, and the extraction is deliberately declined.**
 `src/pose_estimation/publication.py` (polish, pri 3/M) anticipated exactly this trigger, and M2.7 is
@@ -81,14 +81,30 @@ unpatchable, `sync_offset` is never written, and no per-event geometry verdict i
 | id | tier | spine result | sizing |
 | -- | ---- | ------------ | ------ |
 | M2.7.1 | kernel | `calibration_qc/` publisher: contract + validator, canonical tree, integrity + consumer boundary, ownership + atomic publication. Accepts one corpus row and the probe-evidence rows; rejects every event/asset/capture/subject key. | **DONE**; 3 windows estimated, **4 spent** — contract + publisher (1-2), adversarial wave (3), rulings + campaigns + docs (4) |
-| M2.7.2 | data | De-identified regression fixtures: one valid generation + the smallest contract/integrity failure matrix, each negative failing for its named predicate. Privacy scan proves no corpus filename, path, subject token or row-level statistic. | **1 spent, contract + validator + seed shipped; 1 more for fixture production** |
+| M2.7.2 | data | De-identified regression fixtures: one valid generation + the smallest contract/integrity failure matrix, each negative failing for its named predicate. Privacy scan proves no corpus filename, path, subject token or row-level statistic. | **DONE**; 2 spent — contract + validator + graded seed (1), generator + 63-entry tree + 26 negatives + suite wiring (2) |
 | M2.7.3 | docs | Claim-bounded negative report. Claim matrix maps every conclusion to evidence and to permitted/prohibited wording. Excludes clinical validity, absolute metric accuracy, marker equivalence, other-detector impossibility, and prospective-capture impossibility. | 1 window |
 | M2.7.4 | docs | Prospective capture specification, 20 normative sections. Five non-negotiables: intrinsic/extrinsic calibration, synchronization residuals, orientation/drift control, traceable metric scale, identifiable-video governance. Specified, never run. | 1-2 windows |
 
 **Order.** M2.7.1 gates M2.7.2 and M2.7.3 (the report releases only against a validated generation).
 M2.7.4 is independent of all three and parallelizable from the start.
 
-#### M2.7.2 — OPEN, window 1 spent on the contract, the validator and the seed
+**M2.7.4's research is already banked** — `.scratch/agents/res-m2u74.md`, 8/8 questions, 62 KB, one
+speculative teammate funded beside M2.7.2's production wave at 40/40 WebSearch calls. It carries a
+candidate 20-section spine with owner + record + threshold + failure action per section, and priced
+recommendations: measured ChArUco with >=20 intrinsic poses per camera and a 27-placement extrinsic
+lattice; global-shutter wired trigger with an encoded-optical-clock fallback gated at
+`p95 <= 0.10T / max <= 0.25T / drift <= 0.05T`; a traceable carrier plus sealed held-out check
+targets, since Pätzold's 4.01-vs-4.57 px reversal is the controlling example against self-consistency;
+8 cameras at 120 fps with readout <= 2 ms (8.33 mm sample spacing and 1 mm motion blur at 1 m/s); and
+Japanese governance dated — the 2023-03-27 human-subject guideline is operative on 2026-09-01 with the
+2026-08-27 amendment effective 2026-12-01, face blur is not anonymization, raw video defaults to
+controlled pseudonymized personal data. **Five measured absences** bound it: no markerless-specific
+reporting checklist, no universal clinical reprojection threshold, no board-to-volume ratio, no
+generic Japanese video-retention period, and no published millisecond sync figure for
+OpenCap/Pose2Sim/Anipose — M2.7.4 must label those as local decisions, never as standards. The report
+is teammate research, so it is attention-directing until MAIN validates a citation it acts on.
+
+#### M2.7.2 — DONE. The committed byte oracle and the 30-row refusal matrix ship
 
 **The unit's own contract is frozen at `.agent/archive/contract-m2u72.md`** — 7 design decisions,
 12 predicates P01-P12, a 30-row probe-corpus seed. Tier `data`, so assurance = one structural
@@ -112,10 +128,15 @@ codes at `unknown`. **Graded both ways at seed**: absent tree → rc=1, seed pre
 rc=1**. Static gate `ruff check` / `ruff format --check` / `ty check` all **rc=0**; collection
 **1438, unmoved** from the `02c4239` baseline.
 
-**Deliberately NOT shipped: `tests/test_calibration_qc_fixtures.py` (P10).** A suite case asserting
-`rc == 0` would be red until the fixtures land, and the alternative — a skip guard — breaks the
-zero-skip invariant C8.08 reconciles. **P10 stays FAIL by design; that is what a deliverable-first
-seed looks like.** The test lands in the same commit as the fixtures.
+**Shipped in window 2.** `scripts/make_calibration_qc_fixtures.py` (teammate-produced behind the
+validator, MAIN-hardened), the 63-entry fixture tree, and MAIN's `tests/test_calibration_qc_fixtures.py`
+— one parametrized case per predicate, `runpy`-loading the checker so the suite and the CLI share one
+implementation. **Validator 12/12 green in the primary tree in 1.9 s**, so the case costs the C8.08
+nested run nothing against its 900 s timeout. Regenerating in place left every committed fixture byte
+unmoved (`git status` clean over `tests/fixtures/`), which is P01 measured a second way.
+**Gate at close**: `ruff check`, `ruff format --check`, `ty check` all rc=0; decisive suite
+**1450 passed / 0 skipped / rc=0** in 1037.28 s — 1438 + the 12 predicate cases, so collection moved
+by exactly the new file.
 
 **The 30 reason codes are the failure matrix's row set**, derived from `src/` rather than
 transcribed, and re-derived by P06 at check time so a new reason fails the matrix instead of being
@@ -124,36 +145,34 @@ omitted. MAIN's expected split, to be corrected by measurement: 18 run-path, 9 v
 monkeypatched module constant, since A02/A05 put the ruling and the claim set beyond any argument;
 `tree_unreadable` needs a permission state git does not carry).
 
-**One blocker found in MAIN's own contract before dispatch, and it would have eaten a whole
-deliverable silently.** D07 first placed the fixtures at `tests/fixtures/calibration_qc/`.
-Measured with `git check-ignore -v`: that path is ignored by `.gitignore:94`, and the corrected
-root's inner `inputs/qualification/` is ignored by `.gitignore:85`. **Four `.gitignore` rows are
-slash-free component names — `inventory:60`, `sessions:78`, `qualification:85`,
-`calibration_qc:94` — so they match at ANY depth**, and `git add` reports success while committing
-nothing. Layout amended: root `tests/fixtures/calibration_qc_set/`, upstream tree `inputs/upstream/`,
-golden `expected/published/`. All eight paths verified NOT ignored.
+**The 26 / 4 split is measured, and it corrects the contract's §7 guess in two places.** File-only =
+17 run-path + 9 validate-path negatives; `not_file_only` = `claim_missing`, `corpus_cardinality`,
+`tree_unreadable` (as predicted) and **`output_overlap`** (A06's open question — overlap needs an
+output path resolving inside an input tree, which only a symlink expresses and P11 forbids).
+**`claim_prohibited` turned out file-only**, reachable through an arm label carrying a prohibited
+paraphrase, so a fixture reaches the claim gate that A02/A05 put beyond every CLI argument.
+`generation_foreign` is validate-path alone. The four declarations each carry the state they need,
+and P06 re-derives the 30 reasons from `src/` at check time, so a renamed or added reason fails the
+matrix by name.
 
-**A second trap, one level down from an M2.7.1 ruling.** The first privacy scan failed on the
-fixture's own `README.md`, because the README quoted the path text the scan forbids. Same shape as
-A05's ruling that `PROHIBITED_PARAPHRASES` stays module-side and unpublished — **a document inside
-the scanned set carries every string it quotes.** Ruled the same way: the needles live in the
-checker, the README describes the rule without spelling them, and the scan stays total over every
-committed byte rather than buying its own exemption.
+**MAIN's frozen validator carried a defect the seed grading could not see, and the teammate found it
+on first live replay.** `_materialise` called `shutil.copytree(inputs, dest)` where every caller
+passes a live `TemporaryDirectory`, so P02/P04/P05 raised `FileExistsError` before the publisher ever
+ran. At seed those three predicates were already FAIL for missing fixtures, which is exactly what hid
+it: **a validator graded only against an empty tree is graded against its own error paths, not its
+success path.** Fixed in the primary tree with `dirs_exist_ok=True`; the teammate worked around it at
+runtime and never edited the frozen file, which is why the fix landed as MAIN's ruling.
 
-**Next window's whole job.** Wave = one `prod-m2u72` teammate behind the committed validator:
-write `scripts/make_calibration_qc_fixtures.py` (idempotent, default destination pinned), generate
-`inputs/` + `expected/published/` + one `negatives/<reason>/` overlay per file-only reason, fill
-`manifest.json`, and drive `python scripts/check_calibration_qc_fixtures.py` to rc=0. MAIN then
-adds `tests/test_calibration_qc_fixtures.py`, spot-checks the golden and one overlay per path, runs
-the decisive suite detached, and commits. **The minimum valid input set is the load-bearing
-unknown** — `tests/test_calibration_qc.py:90-109` builds it by running `qualify.run()` over
-synthetic media, but `run()` takes `sessions_dir`/`inventory_dir` as optional, so the fixture
-likely needs the published qualification tree alone. `map-m2u72` was stopped at 1/6 sections with
-S1 (the constructor graph and that minimum set) partly filled →
-`.scratch/agents/map-m2u72.md`; it is browse context, not evidence.
+**MAIN hardened the generator's destructive path before crediting it.** `--force` deletes its
+destination recursively, and the shipped guard refused only the repo root and the filesystem anchor.
+It now refuses any non-empty destination whose `manifest.json` does not name this generator — the
+same ownership rule the four publishers apply before replacing a generation. Negative control: a
+foreign directory is refused rc=1 with its contents intact; `--out <empty tmpdir> --force` still
+works, which is how P01 drives it.
 
-`main=` **77% 185K/240K** — the window bought a frozen contract, a 12-predicate validator and a
-graded seed, and no fixture bytes. `mate=` 32% 77K/240K (`map-m2u72`, stopped).
+`main=` **77% 185K/240K** (window 1: frozen contract, 12-predicate validator, graded seed, no fixture
+bytes) → **~85% 203K/240K** (window 2: dispatch, harvest, validator fix, generator hardening, suite
+wiring, gate). `mate=` 32% 77K/240K (`map-m2u72`, stopped) → **53% 127K/240K** (`prod-m2u72`).
 
 **Sizing datum.** Entry cost alone was **53% 127K/240K** before the first tool call: `.agent/`
 attached state is now large enough that a WORK-UNIT window starts past half its budget. That is the

@@ -1,0 +1,91 @@
+{
+  "assets": {
+    "codec": {
+      "mpeg4": 1
+    },
+    "decode_status": {
+      "ok": 1
+    },
+    "device_config": {},
+    "frame_count_mismatch": 1,
+    "pts_dt_median_s": {
+      "max": 0.033333333,
+      "median": 0.033333333,
+      "min": 0.033333333,
+      "n": 1.0,
+      "p95": 0.033333333
+    },
+    "pts_reordered": 0,
+    "rows": 1
+  },
+  "cameras": {
+    "is_reference": {
+      "": 1
+    },
+    "offset_s": null,
+    "offset_status": {
+      "unmeasured": 1
+    },
+    "rows": 1
+  },
+  "events": {
+    "closure_residual_s": null,
+    "n_cameras": {
+      "1": 1
+    },
+    "rows": 1,
+    "sync_qualified": {
+      "": 1
+    },
+    "sync_status": {
+      "": 1
+    }
+  },
+  "generation": {
+    "assets_qc.csv": "f54c2557f9ddfaf1079cf6c5bbd76cb0c714457160ad3767ca6ed94ecf2a8af0",
+    "cameras_qc.csv": "c71483d69d4230ffd352246fed454288d9b0a0dd4cff7032ea5c802bb6074217",
+    "census": "603008f4e2d5b9e13a64f393285ea6024d97810c2e20a802948b46886baa60c3",
+    "events_qc.csv": "82ce45a918e1d7aa51546bcabb76f7d32b41c7bfe3d92e7c61fa9543bb0a58e2",
+    "generator_version": "v4",
+    "inventory": {
+      "assets.csv": "d4c9c7ce6036204b4dc9955f81131580835ea2ecf5eff17521dec374d5bf4150",
+      "captures.csv": "d27ca914b727f78a00af5d671c915728828f86813035ff453be3867efe429df5",
+      "census.json": "31c004e07fa3b2b564b85539d789f62df504bc7a2e0abf2b016374238a94b3d7"
+    },
+    "pairs_qc.csv": "f907b93c32524c3c3ae1f8fc3dc81bb6f81778a89522942dfee40f1937acbec5",
+    "sessions": {
+      "events.csv": "e62407bd9989d799183e0dfce83d071697b4a2086a8e8075d8e4dcd3a2d6ab4e",
+      "generator_version": "v1",
+      "inventory": {
+        "assets.csv": "d4c9c7ce6036204b4dc9955f81131580835ea2ecf5eff17521dec374d5bf4150",
+        "captures.csv": "d27ca914b727f78a00af5d671c915728828f86813035ff453be3867efe429df5",
+        "census.json": "31c004e07fa3b2b564b85539d789f62df504bc7a2e0abf2b016374238a94b3d7"
+      },
+      "placements.csv": "4b4cf97f756e29c2215034f30dbb5367de819be37c3aa3123cf8db8d8869da52",
+      "tree": "5d0db0d5a11bdc8fa1588717678102afa7dd01c46471ad0b56c9fdd4735ec0a7"
+    },
+    "tree": "a09e524666f186383207b31691176726b00b8321001847931186252c9a3b0104"
+  },
+  "measured_axes": [
+    "orientation",
+    "timebase"
+  ],
+  "pairs": {
+    "rows": 0,
+    "status": {},
+    "sync_strata": {}
+  },
+  "qc_flags": {
+    "detect_unmeasured": 1,
+    "frame_count_mismatch": 1,
+    "orientation_absent": 1,
+    "rigidity_unmeasured": 1,
+    "scale_unmeasured": 1
+  },
+  "unmeasured_axes": [
+    "detect",
+    "rigidity",
+    "scale",
+    "sync"
+  ]
+}

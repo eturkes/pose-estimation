@@ -1,0 +1,7 @@
+{
+  "deletes_published": [
+    "calibration_qc.json"
+  ],
+  "path": "validate",
+  "reason": "marker_unreadable"
+}

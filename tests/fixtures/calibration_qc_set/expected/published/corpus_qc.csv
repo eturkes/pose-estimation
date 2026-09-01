@@ -1,0 +1,2 @@
+ruling_grain,recovery_status,reason,transfer_status,keypoint_source,image_height_px,intrinsics_basis,unrun_arm,unrun_arm_status,cited_probes
+corpus,unachievable,cross_view_keypoint_bias,absent,rtmw_l,1080,per_model_prior,per_event_double_centered_bias_and_pose,unrun,bias_transfer|calibration_bias
