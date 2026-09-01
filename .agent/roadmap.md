@@ -376,7 +376,7 @@ rebuild — keep new JA text inside existing coverage and state the risk in the 
 
 | id | tier | spine result | sizing |
 | -- | ---- | ------------ | ------ |
-| M2.8.1 | kernel | Corpus-run preconditions + instrumented pilot. Close B1/B1b/B2/B2b/B3 (§2 above); stratified pilot spanning both codecs, all four device configs and all four rotations. | 1-2 est; **1 spent, IN PROGRESS** |
+| M2.8.1 | kernel | Corpus-run preconditions + instrumented pilot. Close B1/B1b/B2/B2b/B3 (§2 above); stratified pilot spanning both codecs, all four device configs and all four rotations. | 1-2 est; **2 spent, IN PROGRESS — pilot alone open** |
 | M2.8.2 | data | Full corpus 2D run, ~6.5 h, resumable. Per-asset clinical features plus a run manifest giving every one of the 379 assets an explicit disposition, so no asset is silently absent from a denominator. | 1-2 windows |
 | M2.8.3 | kernel | Cohort aggregate publisher + append-ready bilingual descriptor. 12 `(task, side)` rows, `n_subjects`/`n_events`, per-feature distribution statistics. | 2 windows |
 
@@ -453,7 +453,7 @@ all MAIN scripts, and the PTS question had already cost `map-m2` most of a windo
 it in two reads. **On a planning window, delegate the reading and the external research; keep every
 script-derivable census in MAIN's hands.**
 
-#### M2.8.1 — OPEN, window 1 of 1-2. Implementation lands; suite, goldens and pilot remain
+#### M2.8.1 — OPEN, 2 windows spent. Implementation, goldens and suite green; pilot remains
 
 **Contract frozen at `.agent/archive/contract-m2u81.md`** — 7 design decisions D01-D07, 18 predicates
 P01-P18, a 10-case negative-control seed. Tier `kernel`. Range `3842bcb`..`f43e720`.
@@ -483,29 +483,50 @@ records nothing. `no_windows_emitted` is recorded after the window loop, so the 
 window-level rule while the disposition stays total. `GROUP_QC_REASONS` freezes six and
 `group_qc_row` refuses an unlisted reason.
 
-**Evidence so far.** Static gate `ruff check` / `ruff format --check` / `ty check` all rc=0. Both
-artifacts ship with the 5-column header, 0 rows on well-formed goldens. Drop paths positive-controlled:
-3-row input → one `too_few_frames` `n_frames=3`; 20-row input → one `shorter_than_window`
-`n_frames=20`. **The decisive suite has NOT been run against these bytes** — that is the next
-window's first action, and the R goldens are unregenerated.
+**Window 2 shipped the golden wiring and the diff-blind suite. Only the pilot is open.**
+Amendments A07-A10. Goldens: `2d_drop` joins `_2D_DATASETS` with groups `((0,91),(1,3),(2,20))`, so
+the disposition artifact has one populated golden (2 rows, 2 reason codes) beside four header-only
+ones; existing goldens **byte-identical**, `git status` over `tests/goldens/` reporting additions
+only, which is P16 measured. `tests/test_r_clinical_goldens.py` gains a `group_qc` kind at width 5,
+exempts it from the 3D identity tags (A08) and from the row floor, and carries
+`test_group_qc_goldens_pin_real_drops`, which checks D05 on committed bytes: 3 groups = 1 windowed +
+2 dropped, disjoint.
 
-**Open, in dispatch order for the next window.**
-1. **Decisive suite** against `f43e720`, primary tree, 0 skips. Never beside a decode sweep.
-2. **Golden wiring**: `_expected_outputs` in `scripts/regenerate_r_clinical_goldens.py` is the
-   whitelist, and an artifact absent from it never reaches the golden directory. Add the four
-   `_group_qc.csv` files, extend the parametrize list at `tests/test_r_clinical_goldens.py:31` and
-   `_BASE_WIDTHS` at `:39` with a `group_qc` kind. Existing goldens must stay byte-identical (P16).
-3. **Harvest `test-m2u81`** — phase-1 table, then batch-rule and dispatch phase 2.
-4. **Stratified pilot** (P17/P18) — committed script, redaction-safe aggregates, both codecs × four
-   device configs × four rotations, reporting per-asset CFR fallback rate + the P13 partition result.
+**The suite found two real defects and three of its own, and the split is the whole value of the
+diff-blind track.** `test-m2u81-2` delivered 16 encoded rows + 2 `no-case-by-ruling` (P17/P18, the
+pilot, credited by MAIN's rerun); merged into the primary tree it read **18 passed / 5 failed**.
+Accepted (A10): `write_source_diagnostics` never created its destination's parent, so a missing
+directory raised **over the exception unwinding through the `finally` arm** A04 put it in; and P11's
+stdout rate summary did not exist, only the CSV. Both are unreachable from the session path, which
+creates its output directory and reads the CSV — a contract-driven suite is what reaches them.
+Ruled test defects (A09): the contract froze the reason CODES and never the header, so the suite
+encoded `reason` against a shipped `drop_reason` + `qc_status` and three predicates failed on a
+correct artifact. Header frozen in A09; suite corrected; **23 passed / rc=0**. Two determinism
+tripwires also fired as window-1 debt — `sessions.py` and `video_io.py` moved under
+`check_calibration_qc_determinism.py` and `check_qualify_determinism.py` — regenerated green at
+**40 sweeps / 0 failures / 19 tamper classes** and **21 sweeps / 18 tampers / 39 PASS / 0 FAIL**.
 
-**Sizing datum, and it is the sixth consecutive window with this shape.** Every decisive number this
-window came from MAIN running a script directly: the drop-site census, the `tree_digest` proof, the
-six-destination guard matrix, the two drop-path positive controls. The one teammate was funded on the
-diff-blind track, which is the only one MAIN structurally cannot do itself. **Entry cost fell to 43%
-103K/240K** from M2.7.2's recorded 53% once M2.7.1's detail moved to `.agent/archive/` — archiving
-closed-unit detail is worth ~10K of window per session, so it pays at every milestone close.
-`main=` 82% 197K/240K. `mate=` 38% 91K/240K (`test-m2u81`, unflushed at close).
+**Gate at window 2 close.** `ruff check`, `ruff format --check`, `ty check` all rc=0. Decisive suite
+**1517 passed / 0 skipped / rc=0** in 899.35 s, primary tree — 1472 + the 23 predicate cases + the
+22 golden cases the fifth dataset and the `group_qc` kind add, so collection moved by exactly the new
+cases.
+
+**Open, and it is the whole of window 3.** **Stratified pilot** (P17/P18) — committed script,
+redaction-safe aggregates, both codecs × four device configs × four rotation values, reporting
+per-asset CFR fallback rate + the P13 partition result on real assets. Nothing else is outstanding;
+the implementation, the goldens and the suite are green in the primary tree.
+
+**Sizing datum, and it inverts the six-window run.** The one teammate returned the window's two real
+defects, on a unit where MAIN had already implemented and self-reviewed. **The `test` role is the
+one delegation this project has funded that MAIN structurally cannot replace**, and its value is
+concentrated exactly where MAIN's authorship blinds it — an unfrozen header and an error path no
+caller reaches. Keeping the successor diff-blind at `3842bcb` rather than rebasing it onto the
+implementation is what preserved that. Second datum: **golden wiring is not the cheap half.** Wiring
+one artifact into a golden generator moved four expectation sets in three other test files
+(`_EXPECTED_GOLDENS`, the rescan list, the two determinism evidence files) — a new published artifact
+costs every place that enumerates the artifact set, and none of them is found by reading the
+producer. `main=` 91% 217K/240K, over reserve. `mate=` 82% 196K/240K (`test-m2u81-2`, stopped at
+harvest with all 18 rows filled; worktree and `wt/test-m2u81` removed).
 
 **Out of scope, explicitly.** Editing `../rehab`. Integration is that repo's work under its own
 `CLAUDE.md` and roadmap. M2.8 ends at a published artifact plus its schema descriptor.

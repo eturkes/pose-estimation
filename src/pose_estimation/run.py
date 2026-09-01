@@ -614,7 +614,8 @@ def write_source_diagnostics(path, *, video, clock, fps_nominal, latencies):
 
     Written from the ``finally`` arm, so an interrupted run still reports what
     it decoded — the counts describe the frames processed, never the frames
-    the asset holds.
+    the asset holds. That arm is also why the parent is created here: a missing
+    destination directory would raise over whatever exception is unwinding.
     """
     row = {
         "video": video,
@@ -627,10 +628,16 @@ def write_source_diagnostics(path, *, video, clock, fps_nominal, latencies):
         "latency_ms_mean": f"{float(np.mean(latencies)):.3f}" if latencies else "",
         "latency_ms_p95": f"{float(np.percentile(latencies, 95)):.3f}" if latencies else "",
     }
+    pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as handle:  # noqa: PTH123
         writer = csv.DictWriter(handle, fieldnames=SOURCE_DIAGNOSTIC_FIELDS)
         writer.writeheader()
         writer.writerow(row)
+    print(
+        f"  CFR fallback rate: {row['cfr_fallback_rate']} "
+        f"(index {clock.index_fallback}, forced {clock.monotonic_forced} "
+        f"of {clock.n_timestamps} timestamps)"
+    )
     print(f"  Wrote diagnostics: {path}")
 
 

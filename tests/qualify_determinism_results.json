@@ -30,10 +30,10 @@
     "src/pose_estimation/measure/statuses.py": "821b0f65cd6eb7ac14d97545811b0129e3d0ea25ca0831780759e6302439efc9",
     "src/pose_estimation/measure/sync.py": "93aa286be1fdab1eebcb385c344ecd062c52290c73a442795b8b70af26f9a15c",
     "src/pose_estimation/measure/visual_offset.py": "80d03893e407187216875af174496af912f2edcd4ceec1bf2618da73cc3a7ff6",
-    "src/pose_estimation/multicam.py": "44ce953c623a8fdcecfe6d11048dc4110b92975b13cb38357649953b8421147d",
+    "src/pose_estimation/multicam.py": "4274a69c254bdcd9a6110ce2492725cd7edc15f8048de653cfb73444281d5e5d",
     "src/pose_estimation/qualify.py": "d81f15acacb91bd678e801dcd809d47782cd624e3c5acec65d7d7e36d1140938",
-    "src/pose_estimation/sessions.py": "f5c573a6c23c265ffa407ae77063ca86a95c8981a42783d0225e3c97b8479c9d",
-    "src/pose_estimation/video_io.py": "fa3572b4bf6e7ba5412771f9aecf2c2629ee56da835169eb9be705ff7fa9c28d",
+    "src/pose_estimation/sessions.py": "58900278d24de8ca3367f292ebcaed05f634f905ffb148b14cdde2b61d5e2a53",
+    "src/pose_estimation/video_io.py": "d8a76b4005983655d110582c0f2ac1e00470d5e913f9f064e1c5937bc50b3692",
     "tests/test_measure.py": "9e7a077dc191664af8cd2ea40c78258194da1afb6dd2bfee1dc9cb11233c17a4",
     "tests/test_qualify.py": "fe8b29845cd1e8685f87d1487d10441d9c0447028163a7c0d2be5756c63f936b",
     "tests/test_sessions.py": "570ed80320204100c7ed4e790fd9a126048945815dee47185546f00850c1f021"

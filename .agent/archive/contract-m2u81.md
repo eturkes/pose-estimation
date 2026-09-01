@@ -207,6 +207,46 @@ encodes the shipped semantics rather than re-deriving them.
   the branch is an `elif` chain classified by which arm produced the returned value, which is what
   makes the three sum to the call count.
 
+**A07 — P16's golden wiring needs a dataset that actually drops, so a fifth one exists.**
+Wiring the disposition artifact into the four existing golden datasets produces four header-only
+goldens: correct bytes, but they pin no reason code, no row order and not D05's partition, and the
+golden suite's own non-empty row floor cannot hold over them. That is the vacuous-predicate shape
+M2.7.3's P07 and the zero-row CSV both recorded. `2d_drop` therefore joins `_2D_DATASETS` with
+groups `((0, 91), (1, 3), (2, 20))` — one healthy group plus one per short-input drop reason —
+truncating the healthy trajectory rather than rescaling it, so the drop reason is the only thing
+separating the groups. Its golden carries 2 rows over 2 distinct reason codes, and 3 groups split
+1 windowed / 2 dropped, which is D05 measured on committed bytes. The four header-only goldens stay:
+they pin the artifact a clean run must still write, which is P14. Existing goldens are unmoved —
+`git status` over `tests/goldens/` reports additions only, which is P16 measured.
+
+**A08 — the group-disposition artifact carries one schema in both modes and takes no 3D tags.**
+`world3d_clinical_3d_group_qc.csv` publishes the same five columns as its 2D siblings, without the
+nine identity tag columns the other 3D artifacts carry last. Kept deliberately: D04's whole reason
+for a separate file is that one artifact explains dropped groups in either mode, and forking its
+schema by mode would rebuild the per-mode split D04 refused. The tags are reachable if a later unit
+needs provenance on it; uniformity is what a single reader validates against today.
+
+**A09 — the group-disposition header is frozen at five columns, which D06 never did.**
+D06 and A03 froze the reason CODES and left the column names unstated, so the diff-blind suite
+encoded `(video, person_idx, n_frames, reason)` against a shipped
+`(video, person_idx, n_frames, drop_reason, qc_status)` and three predicates read as failures on a
+correct artifact. The shipped spelling is authoritative and is what A07's committed goldens carry:
+`drop_reason` because `qc_reason` already names the per-metric window verdict and one file must not
+carry two columns a reader can confuse, and `qc_status` because the window-qc artifact publishes a
+verdict column and a disposition row is a verdict. **A predicate quantifying over a table's cells
+needs the header frozen beside the value set** — freezing the codes alone left three of five reds
+adjudicating a name nobody had chosen.
+
+**A10 — two real defects, both found by the diff-blind suite and both in the `finally` arm's blast
+radius.** (1) `write_source_diagnostics` did not create its destination's parent, so a missing
+directory raised `FileNotFoundError` **over whatever exception was unwinding** — A04 puts that write
+in `finally` precisely so an interrupted run still reports, and an unwritable destination turned
+that into traceback destruction. Fixed by `mkdir(parents=True, exist_ok=True)` at the write site.
+(2) P11 requires the fallback rate to reach the diagnostics CSV **and a stdout summary**; only the
+CSV was written, and `Wrote diagnostics:` carried no rate. Fixed by printing rate, both fallback
+counts and the timestamp total. Neither is reachable from the session path, which creates its output
+directory and reads the CSV — which is exactly why only a contract-driven suite found them.
+
 **A05 — P07 is satisfied at the reporting site, not only at the writing site.**
 `process_session` printed `Wrote CSV:` and `Wrote diagnostics:` unconditionally. A source that never
 opens returns before either file exists, so the fix reports both from the filesystem

@@ -27,7 +27,20 @@ _CLINICAL_R = _PROJECT_ROOT / "analysis" / "clinical_features.R"
 _DEFAULT_OUTPUT_DIR = _PROJECT_ROOT / "tests" / "goldens" / "r_clinical"
 _FPS = 30.0
 _N_FRAMES = 91
-_DATASET_STEMS = ("2d_idx", "2d_cumsum", "2d_csv4dp", "world3d")
+
+# A group-disposition golden built only from well-formed input is header-only, so it
+# pins no reason code, no row order and not the D05 partition. `2d_drop` carries one
+# healthy group plus one group per short-input drop reason, which is what makes the
+# artifact's own goldens non-vacuous.
+_HEALTHY_GROUPS = ((0, _N_FRAMES),)
+_MIXED_GROUPS = ((0, _N_FRAMES), (1, 3), (2, 20))
+_2D_DATASETS = {
+    "2d_idx": ("idx", _HEALTHY_GROUPS),
+    "2d_cumsum": ("cumsum", _HEALTHY_GROUPS),
+    "2d_csv4dp": ("csv4dp", _HEALTHY_GROUPS),
+    "2d_drop": ("idx", _MIXED_GROUPS),
+}
+_DATASET_STEMS = (*_2D_DATASETS, "world3d")
 
 _BODY_BASE = {
     "nose": (0.500, 0.125, -0.020),
@@ -165,38 +178,45 @@ def _format_timestamp(value: float, mode: str) -> str:
     return format(value, ".17g")
 
 
-def _write_2d_input(path: pathlib.Path, mode: str) -> None:
+def _write_2d_input(
+    path: pathlib.Path,
+    mode: str,
+    groups: Sequence[tuple[int, int]] = _HEALTHY_GROUPS,
+) -> None:
     header = make_csv_header(TRACKING_BODY)
     timestamps = _timestamps(mode)
     with path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=header)
         writer.writeheader()
-        for frame, timestamp in enumerate(timestamps):
-            u = frame / (_N_FRAMES - 1)
-            row = dict.fromkeys(header, "")
-            row.update(
-                video="clinical_golden_2d.avi",
-                frame_idx=str(frame),
-                timestamp_sec=_format_timestamp(timestamp, mode),
-                person_idx="0",
-            )
-            for name in BODY_KEYPOINT_NAMES:
-                x, y, z = _body_point_2d(name, u)
-                prefix = f"body_{name}"
-                row[f"{prefix}_x"] = f"{x:.9f}"
-                row[f"{prefix}_y"] = f"{y:.9f}"
-                row[f"{prefix}_z"] = f"{z:.9f}"
-                row[f"{prefix}_vis"] = "0.97"
-            for side in ("left", "right"):
-                wrist = _wrist_2d(side, u)
-                for index in range(HAND_KEYPOINT_COUNT):
-                    dx, dy, dz = _hand_offset(side, index, u, 1.0)
-                    prefix = f"{side}_hand_{index}"
-                    row[f"{prefix}_x"] = f"{wrist[0] + dx:.9f}"
-                    row[f"{prefix}_y"] = f"{wrist[1] + dy:.9f}"
-                    row[f"{prefix}_z"] = f"{wrist[2] + dz:.9f}"
-                    row[f"{prefix}_conf"] = "0.96"
-            writer.writerow(row)
+        for person_idx, n_frames in groups:
+            for frame, timestamp in enumerate(timestamps[:n_frames]):
+                # Short groups truncate the healthy trajectory rather than rescaling it,
+                # so the drop reason is the only thing separating them from group 0.
+                u = frame / (_N_FRAMES - 1)
+                row = dict.fromkeys(header, "")
+                row.update(
+                    video="clinical_golden_2d.avi",
+                    frame_idx=str(frame),
+                    timestamp_sec=_format_timestamp(timestamp, mode),
+                    person_idx=str(person_idx),
+                )
+                for name in BODY_KEYPOINT_NAMES:
+                    x, y, z = _body_point_2d(name, u)
+                    prefix = f"body_{name}"
+                    row[f"{prefix}_x"] = f"{x:.9f}"
+                    row[f"{prefix}_y"] = f"{y:.9f}"
+                    row[f"{prefix}_z"] = f"{z:.9f}"
+                    row[f"{prefix}_vis"] = "0.97"
+                for side in ("left", "right"):
+                    wrist = _wrist_2d(side, u)
+                    for index in range(HAND_KEYPOINT_COUNT):
+                        dx, dy, dz = _hand_offset(side, index, u, 1.0)
+                        prefix = f"{side}_hand_{index}"
+                        row[f"{prefix}_x"] = f"{wrist[0] + dx:.9f}"
+                        row[f"{prefix}_y"] = f"{wrist[1] + dy:.9f}"
+                        row[f"{prefix}_z"] = f"{wrist[2] + dz:.9f}"
+                        row[f"{prefix}_conf"] = "0.96"
+                writer.writerow(row)
 
 
 def _wrist_3d(side: str, u: float) -> tuple[float, float, float]:
@@ -316,8 +336,13 @@ def _expected_outputs(stem: str) -> tuple[str, ...]:
             "world3d_clinical_3d.csv",
             "world3d_clinical_3d_windows.csv",
             "world3d_clinical_3d_window_qc.csv",
+            "world3d_clinical_3d_group_qc.csv",
         )
-    return f"{stem}_clinical.csv", f"{stem}_clinical_windows.csv"
+    return (
+        f"{stem}_clinical.csv",
+        f"{stem}_clinical_windows.csv",
+        f"{stem}_clinical_group_qc.csv",
+    )
 
 
 def regenerate(output_dir: pathlib.Path) -> list[pathlib.Path]:
@@ -331,7 +356,8 @@ def regenerate(output_dir: pathlib.Path) -> list[pathlib.Path]:
             if stem == "world3d":
                 _write_world3d_input(input_path)
             else:
-                _write_2d_input(input_path, stem.removeprefix("2d_"))
+                mode, groups = _2D_DATASETS[stem]
+                _write_2d_input(input_path, mode, groups)
             _run_clinical(input_path)
             for filename in _expected_outputs(stem):
                 source = staging / filename

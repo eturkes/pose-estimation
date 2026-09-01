@@ -16,19 +16,34 @@ _CLINICAL_R = _PROJECT_ROOT / "analysis" / "clinical_features.R"
 _GENERATOR_PATH = _PROJECT_ROOT / "scripts" / "regenerate_r_clinical_goldens.py"
 _GOLDEN_DIR = pathlib.Path(__file__).resolve().parent / "goldens" / "r_clinical"
 _DATASETS = {
-    "2d_idx": (("2d_idx_clinical.csv", "frame"), ("2d_idx_clinical_windows.csv", "window")),
+    "2d_idx": (
+        ("2d_idx_clinical.csv", "frame"),
+        ("2d_idx_clinical_windows.csv", "window"),
+        ("2d_idx_clinical_group_qc.csv", "group_qc"),
+    ),
     "2d_cumsum": (
         ("2d_cumsum_clinical.csv", "frame"),
         ("2d_cumsum_clinical_windows.csv", "window"),
+        ("2d_cumsum_clinical_group_qc.csv", "group_qc"),
     ),
     "2d_csv4dp": (
         ("2d_csv4dp_clinical.csv", "frame"),
         ("2d_csv4dp_clinical_windows.csv", "window"),
+        ("2d_csv4dp_clinical_group_qc.csv", "group_qc"),
+    ),
+    # `2d_drop` is the only dataset whose input carries droppable groups, so it is the
+    # only one whose disposition golden pins a reason code, a row order and the
+    # partition. The other four pin the header-only artifact a clean run must still write.
+    "2d_drop": (
+        ("2d_drop_clinical.csv", "frame"),
+        ("2d_drop_clinical_windows.csv", "window"),
+        ("2d_drop_clinical_group_qc.csv", "group_qc"),
     ),
     "world3d": (
         ("world3d_clinical_3d.csv", "frame"),
         ("world3d_clinical_3d_windows.csv", "window"),
         ("world3d_clinical_3d_window_qc.csv", "window_qc"),
+        ("world3d_clinical_3d_group_qc.csv", "group_qc"),
     ),
 }
 _OUTPUT_CASES = tuple(
@@ -36,7 +51,8 @@ _OUTPUT_CASES = tuple(
     for dataset, entries in _DATASETS.items()
     for filename, kind in entries
 )
-_BASE_WIDTHS = {"frame": 54, "window": 46, "window_qc": 24}
+_BASE_WIDTHS = {"frame": 54, "window": 46, "window_qc": 24, "group_qc": 5}
+_GROUP_QC_FIELDS = ("video", "person_idx", "n_frames", "drop_reason", "qc_status")
 _TAG_COLUMNS = (
     "artifact_kind",
     "source_sha256",
@@ -61,6 +77,7 @@ _METADATA_COLUMNS = {
     "required_keypoints",
     "qc_status",
     "qc_reason",
+    "drop_reason",
     *_TAG_COLUMNS,
 }
 _REQUIRED_WINDOW_METRICS = {
@@ -197,16 +214,40 @@ def test_clinical_golden_schema_exact(dataset, filename, kind, regenerated_outpu
     actual_fields, actual_rows = _read_csv(regenerated_outputs / filename)
     assert actual_fields == expected_fields
     assert len(actual_rows) == len(expected_rows)
-    # 3D outputs carry the artifact identity tags last; 2D outputs carry none
-    # of them, which is what keeps metric-3D rows out of the 2D globs.
-    is_3d = dataset == "world3d"
-    if is_3d:
+    # 3D outputs carry the artifact identity tags last; 2D outputs carry none of them,
+    # which is what keeps metric-3D rows out of the 2D globs. The group-disposition
+    # artifact is the exception in both modes: one schema, so one reader validates
+    # either, so it never takes the tags.
+    tagged = dataset == "world3d" and kind != "group_qc"
+    if tagged:
         assert tuple(actual_fields[-len(_TAG_COLUMNS) :]) == _TAG_COLUMNS
     else:
         assert not set(actual_fields) & set(_TAG_COLUMNS)
     base_width = _BASE_WIDTHS[kind]
-    assert len(actual_fields) == base_width + (len(_TAG_COLUMNS) if is_3d else 0)
+    assert len(actual_fields) == base_width + (len(_TAG_COLUMNS) if tagged else 0)
     assert set(actual_fields) - _METADATA_COLUMNS
     if kind == "window":
         assert set(actual_fields) >= _REQUIRED_WINDOW_METRICS
-    assert expected_rows
+    # A well-formed input drops nothing, so four of the five disposition goldens are
+    # header-only by contract; test_group_qc_goldens_pin_real_drops carries the floor.
+    if kind != "group_qc":
+        assert expected_rows
+
+
+def test_group_qc_goldens_pin_real_drops():
+    """Committed disposition bytes carry reason codes and satisfy the D05 partition."""
+    fields, dropped_rows = _read_csv(_GOLDEN_DIR / "2d_drop_clinical_group_qc.csv")
+    assert fields == list(_GROUP_QC_FIELDS)
+    assert {row["drop_reason"] for row in dropped_rows} == {
+        "too_few_frames",
+        "shorter_than_window",
+    }
+    assert all(row["qc_status"] == "dropped" for row in dropped_rows)
+    _, frame_rows = _read_csv(_GOLDEN_DIR / "2d_drop_clinical.csv")
+    _, window_rows = _read_csv(_GOLDEN_DIR / "2d_drop_clinical_windows.csv")
+    keys = {(row["video"], row["person_idx"]) for row in frame_rows}
+    windowed = {(row["video"], row["person_idx"]) for row in window_rows}
+    dropped = {(row["video"], row["person_idx"]) for row in dropped_rows}
+    assert len(keys) == 3
+    assert windowed | dropped == keys
+    assert not windowed & dropped

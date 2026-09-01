@@ -1140,13 +1140,15 @@ class TestWorld3DClinical:
             )
             assert result.returncode == 0, f"R script failed:\n{result.stderr}"
 
-        # 12 frames is too short for a 1 s window, and the windows artifact is
-        # still published so a reader can tell a real zero-window result from a
-        # run that never happened.
+        # 12 frames is too short for a 1 s window. The windows artifact is still
+        # published so a reader can tell a real zero-window result from a run that
+        # never happened, and the group-disposition artifact names which group went
+        # missing and why.
         produced = sorted(p.name for p in tmp_path.glob("*.csv"))
         assert produced == [
             "world3d.csv",
             "world3d_clinical_3d.csv",
+            "world3d_clinical_3d_group_qc.csv",
             "world3d_clinical_3d_window_qc.csv",
             "world3d_clinical_3d_windows.csv",
             "world3d_movement_phases_3d.csv",

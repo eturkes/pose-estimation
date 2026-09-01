@@ -81,13 +81,20 @@ _FS_METRICS = tuple(
 _EXPECTED_GOLDENS = {
     "2d_idx_clinical.csv",
     "2d_idx_clinical_windows.csv",
+    "2d_idx_clinical_group_qc.csv",
     "2d_cumsum_clinical.csv",
     "2d_cumsum_clinical_windows.csv",
+    "2d_cumsum_clinical_group_qc.csv",
     "2d_csv4dp_clinical.csv",
     "2d_csv4dp_clinical_windows.csv",
+    "2d_csv4dp_clinical_group_qc.csv",
+    "2d_drop_clinical.csv",
+    "2d_drop_clinical_windows.csv",
+    "2d_drop_clinical_group_qc.csv",
     "world3d_clinical_3d.csv",
     "world3d_clinical_3d_windows.csv",
     "world3d_clinical_3d_window_qc.csv",
+    "world3d_clinical_3d_group_qc.csv",
 }
 
 pytestmark = pytest.mark.skipif(not _r_available(), reason="R or required packages unavailable")
