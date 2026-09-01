@@ -22,6 +22,8 @@
       "Read(measurements/*.csv)",
       "Read(sessions/)",
       "Read(sessions.*/)",
+      "Read(qualification/*.csv)",
+      "Read(qualification.*/)",
       "Read(uv.lock)",
       "Read(renv.lock)",
       "Read(LICENSE)",

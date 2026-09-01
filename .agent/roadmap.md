@@ -153,13 +153,36 @@ record was dropped instead of refused, and the truncation case in the suite had 
 line carrying a trailing brace, which is a different input. The guard now keys on the summary
 opener's real shape (a bare `{`), with two cases pinning both sides.
 
+**The publisher has now run on real inputs, and window 2's evidence was entirely synthetic.** MAIN
+captured `scripts/probe_bias_transfer.py --cache .scratch/calib-obs-wide` (51.9 s, 27 lines) into
+`.scratch/f1a-evidence/bias_transfer.jsonl` with a `sha256sum` sidecar, then published against the
+real `qualification/` tree: **84 evidence rows over 21 arms, 15 claims into the marker, one corpus
+row, 1.556 s cold and 0.664 s warm**. A second publish is **byte-identical across all three
+entries**, leaves `qualification/` **byte-unmoved**, and leaves **no staging or retiring sibling**.
+`validate_generation(..., qualification_dir=, sessions_dir=, inventory_dir=, probes_dir=)` accepts,
+returning all seven generation keys at `generator_version = v1`. The corpus row reads
+`corpus,unachievable,cross_view_keypoint_bias,absent,rtmw_l,1080,per_model_prior,per_event_double_centered_bias_and_pose,unrun,bias_transfer|calibration_bias`.
+Only `bias_transfer` needs a capture — `run()` ingests `INGESTED_PROBES` alone, so `calibration_bias`
+is digested from the script and needs no `.jsonl`. **`pose-estimation-calibration-qc` is not on the
+shared venv's path**: the environment predates the `pyproject.toml` row and every gate call uses
+`--no-sync`. That is a stale install, not a defect, but the installed command is unexercised until a
+`uv sync` runs — which mutates the shared environment and must wait for the wave to close.
+
+**The `Read()` exclusion gap S06 found is closed.** `.claude/settings.json` `permissions.deny` gains
+`Read(qualification/*.csv)` + `Read(qualification.*/)`, 29 entries to 31, verified both ways —
+`qualification/assets_qc.csv` blocked, `qualification/qualification.json` still readable, matching the
+`inventory/` precedent where the marker stays quotable. **`calibration_qc/` is ruled NOT denied**: it
+is redaction-safe by contract, three small entries, and the artifact every review reads. The deny set
+is a context-cost guard, and this tree costs nothing.
+
 **Remaining for M2.7.1 close.** (a) `scripts/check_calibration_qc_determinism.py` + its committed
-result and the `source_sha256` self-check, (b) `scripts/run_calibration_qc_mutations.py`, (c)
-`docs/technical/calibration_qc.md` + the four registration edits S06 names (`entrypoints.md`
-count/rows, `architecture.md` module map, `tests.md` inventory, `conventions.md` campaign list) + the
-`docs/technical/qualification.md` pointer D03 mandates, (d) `test-m2u71` / `rev-m2u71` / `rev2-m2u71`
-adversarial waves, which have not been dispatched. **S08 is the input for (a) and (b)** and is what
-`map-m2u71-2` was funded for.
+result and the `source_sha256` self-check, (b) `scripts/run_calibration_qc_mutations.py` + its
+focused oracle `tests/test_calibration_qc_mutants.py`, (c) `docs/technical/calibration_qc.md` + the
+four registration edits S06 names (`entrypoints.md` count/rows, `architecture.md` module map,
+`tests.md` inventory, `conventions.md` campaign list) + the `docs/technical/qualification.md` pointer
+D03 mandates, (d) the adversarial review rows. **S08 is the input for (a) and (b)** and is what
+`map-m2u71-2` was funded for. Both campaigns ship as **runnable seeds at `e494659`**, graded both
+ways: 21 sweeps + 18 tampers at `unknown` (rc=1) and 42 mutants `UNENCODED` (rc=1).
 
 **Sizing datum.** The publisher itself cost roughly half a window once S01-S06 were in hand — the
 idiom is genuinely reusable and the crash-state table transfers line for line. What the window
