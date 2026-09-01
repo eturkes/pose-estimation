@@ -18,6 +18,7 @@ Requirements:
 
 import argparse
 import collections
+import csv
 import os
 import pathlib
 import subprocess
@@ -376,6 +377,7 @@ def process_source(
     bone_smoother=None,
     screen=None,
     output_csv=None,
+    output_diag=None,
     video_name=None,
 ):
     """Process a single video/camera source.  Returns latency list (ms).
@@ -383,6 +385,12 @@ def process_source(
     When *output_csv* is a path, per-frame keypoints are mapped to the
     MediaPipe CSV schema and written to that file.  *video_name* is the
     label written into the CSV ``video`` column (defaults to filename).
+
+    When *output_diag* is a path, a one-row source summary is written there,
+    carrying the timestamp dispositions ``SourceTimestampClock`` recorded.  A
+    corpus run needs the CFR fallback rate measured per asset: the container's
+    PTS monotonicity flag counts demux order while this path reads
+    presentation order, so it bounds exposure without measuring it.
     """
     source = int(source_str) if source_str.isdigit() else source_str
     cap = open_capture(source, display=source_str)
@@ -576,8 +584,54 @@ def process_source(
         if csv_fh is not None:
             csv_fh.close()
             print(f"  Wrote CSV: {output_csv}")
+        if output_diag is not None:
+            write_source_diagnostics(
+                output_diag,
+                video=csv_video_name,
+                clock=source_clock,
+                fps_nominal=fps_video,
+                latencies=latencies,
+            )
 
     return latencies
+
+
+SOURCE_DIAGNOSTIC_FIELDS: tuple[str, ...] = (
+    "video",
+    "n_frames_decoded",
+    "pts_accepted",
+    "index_fallback",
+    "monotonic_forced",
+    "cfr_fallback_rate",
+    "fps_nominal",
+    "latency_ms_mean",
+    "latency_ms_p95",
+)
+
+
+def write_source_diagnostics(path, *, video, clock, fps_nominal, latencies):
+    """Write the one-row per-source diagnostics summary.
+
+    Written from the ``finally`` arm, so an interrupted run still reports what
+    it decoded — the counts describe the frames processed, never the frames
+    the asset holds.
+    """
+    row = {
+        "video": video,
+        "n_frames_decoded": clock.n_timestamps,
+        "pts_accepted": clock.pts_accepted,
+        "index_fallback": clock.index_fallback,
+        "monotonic_forced": clock.monotonic_forced,
+        "cfr_fallback_rate": f"{clock.cfr_fallback_rate:.6f}",
+        "fps_nominal": f"{fps_nominal:.6f}",
+        "latency_ms_mean": f"{float(np.mean(latencies)):.3f}" if latencies else "",
+        "latency_ms_p95": f"{float(np.percentile(latencies, 95)):.3f}" if latencies else "",
+    }
+    with open(path, "w", newline="", encoding="utf-8") as handle:  # noqa: PTH123
+        writer = csv.DictWriter(handle, fieldnames=SOURCE_DIAGNOSTIC_FIELDS)
+        writer.writeheader()
+        writer.writerow(row)
+    print(f"  Wrote diagnostics: {path}")
 
 
 def print_latency_summary(latencies):
@@ -656,6 +710,7 @@ def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoo
             bone_smoother=bone_smoother,
             screen=screen,
             output_csv=str(output_csv),
+            output_diag=str(output_diag),
             video_name=video_name,
         )
         print_latency_summary(latencies)
@@ -665,6 +720,7 @@ def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoo
         process_session(
             s,
             camera_processor=_camera_processor,
+            output_dir=args.output_dir,
         )
 
 

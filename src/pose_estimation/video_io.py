@@ -45,6 +45,27 @@ class SourceTimestampClock:
         self._monotonic = monotonic if monotonic is not None else time.monotonic
         self._live_origin = None
         self._last = None
+        # Disposition counts, classified by which branch produced the returned
+        # value, so the three always sum to the call count.  A corpus run needs
+        # the CFR fallback RATE measured rather than bounded: the container's
+        # own PTS monotonicity flag counts demux order, while this path reads
+        # presentation order, so only the clock can report what it substituted.
+        self.pts_accepted = 0
+        self.index_fallback = 0
+        self.monotonic_forced = 0
+
+    @property
+    def n_timestamps(self):
+        """Total ``timestamp`` calls — the denominator of every rate below."""
+        return self.pts_accepted + self.index_fallback + self.monotonic_forced
+
+    @property
+    def cfr_fallback_rate(self):
+        """Fraction of frames whose timestamp the source did not supply."""
+        total = self.n_timestamps
+        if total == 0:
+            return 0.0
+        return (self.index_fallback + self.monotonic_forced) / total
 
     def timestamp(self, source_frame_idx):
         """Return seconds for a zero-based decoded-frame index."""
@@ -66,11 +87,17 @@ class SourceTimestampClock:
 
         # A repeated timestamp is unusable for temporal filtering even though
         # it is technically non-regressing, so use the CFR fallback as well.
-        if candidate is None or (self._last is not None and candidate <= self._last):
+        substituted = candidate is None or (self._last is not None and candidate <= self._last)
+        if substituted:
             candidate = fallback
 
         if self._last is not None and candidate <= self._last:
             candidate = self._last + 1.0 / self._fps
+            self.monotonic_forced += 1
+        elif substituted:
+            self.index_fallback += 1
+        else:
+            self.pts_accepted += 1
 
         self._last = candidate
         return candidate

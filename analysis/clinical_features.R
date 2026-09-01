@@ -25,6 +25,7 @@
 #   <stem>_clinical.csv          — per-frame clinical features
 #   <stem>_clinical_windows.csv  — per-window smoothness features
 #   <stem>_movement_phases.csv   — segmented movement phases
+#   <stem>_clinical[_3d]_group_qc.csv — groups the windowing declined, and why
 # 3D input additionally gets a per-metric QC companion to the window file:
 #   <stem>_clinical_3d_window_qc.csv — window metric usability evidence
 
@@ -1117,6 +1118,59 @@ window_schema <- function() {
 #' Written whenever a 3D input yields no window, so a reader can tell a
 #' genuine zero-window result from a run that never happened.  The populated
 #' path builds the same columns in the same order.
+#' Reason codes for a group the windowing declined, in evaluation order.
+#'
+#' Frozen as a constant so a consumer can enumerate the outcomes, and so a new
+#' drop site fails a check by name instead of publishing an unnamed reason.
+GROUP_QC_REASONS <- c(
+  "too_few_frames",
+  "invalid_cadence",
+  "no_finite_timestamps",
+  "shorter_than_window",
+  "no_window_starts",
+  "no_windows_emitted"
+)
+
+#' Empty group-disposition table.
+#'
+#' A companion to the window artifact rather than columns on it: it explains
+#' the groups that produced no window at all, which the window artifact cannot
+#' represent because it has no row for them.  Published in both 2D and 3D,
+#' unlike the per-metric window QC, because a missing person moves a cohort
+#' denominator in either mode.  It is a separate file, so it stays invisible to
+#' the consumers that select clinical artifacts by suffix.
+#'
+#' @return Zero-row tibble carrying the group-disposition schema.
+group_qc_schema <- function() {
+  tibble(
+    video       = character(),
+    person_idx  = integer(),
+    n_frames    = integer(),
+    drop_reason = character(),
+    qc_status   = character()
+  )
+}
+
+#' One group-disposition row.
+#'
+#' @param vid Character — video identity.
+#' @param pid Integer — person index.
+#' @param n_frames Integer — rows the group presented before the drop.
+#' @param reason Character — one of \code{GROUP_QC_REASONS}.
+#' @return One-row tibble matching \code{group_qc_schema()}.
+group_qc_row <- function(vid, pid, n_frames, reason) {
+  if (!reason %in% GROUP_QC_REASONS) {
+    stop("group_qc_row(): unknown drop reason ", reason)
+  }
+  tibble(
+    video       = as.character(vid),
+    person_idx  = as.integer(pid),
+    n_frames    = as.integer(n_frames),
+    drop_reason = reason,
+    qc_status   = "dropped"
+  )
+}
+
 window_qc_schema <- function() {
   tibble(
     video                        = character(),
@@ -1296,6 +1350,16 @@ compute_window_features <- function(df, frame_features, tracking,
   ri <- 0L
   qc_results <- vector("list", nrow(groups) * 100L)
   qi <- 0L
+  # One disposition row per group the windowing declines.  Every group reaches
+  # exactly one outcome — windows, or a reason here — because a cohort
+  # denominator built from a table that drops a person without saying so is
+  # wrong by exactly the people it lost.
+  drop_results <- vector("list", nrow(groups))
+  di <- 0L
+  record_drop <- function(vid, pid, n_frames, reason) {
+    di <<- di + 1L
+    drop_results[[di]] <<- group_qc_row(vid, pid, n_frames, reason)
+  }
 
   for (g in seq_len(nrow(groups))) {
     vid <- groups$video[g]
@@ -1307,26 +1371,42 @@ compute_window_features <- function(df, frame_features, tracking,
 
     ts <- as.numeric(sub_df$timestamp_sec)
     n  <- length(ts)
-    if (n < 4) next
+    if (n < 4) {
+      record_drop(vid, pid, n, "too_few_frames")
+      next
+    }
 
     # Cadence is a magnitude: an out-of-order clip still has a nominal rate,
     # and the kernel's grid check is what rules on ordering.  Inferring a
     # signed rate here would drop the clip before any window was keyed, hiding
     # the defect the QC pass exists to publish as invalid_timebase.
     fs <- nominal_fs(ts, magnitude = TRUE)
-    if (!is.finite(fs) || fs <= 0) next
+    if (!is.finite(fs) || fs <= 0) {
+      record_drop(vid, pid, n, "invalid_cadence")
+      next
+    }
 
     # 3D inputs may have blank timestamps on frames the reference
     # camera missed — guard the window arithmetic against NA.
     t_start <- suppressWarnings(min(ts, na.rm = TRUE))
     t_end   <- suppressWarnings(max(ts, na.rm = TRUE))
-    if (!is.finite(t_start) || !is.finite(t_end)) next
+    if (!is.finite(t_start) || !is.finite(t_end)) {
+      record_drop(vid, pid, n, "no_finite_timestamps")
+      next
+    }
 
     # 50 %-overlapping windows.
-    if (t_end - t_start < window_sec) next
+    if (t_end - t_start < window_sec) {
+      record_drop(vid, pid, n, "shorter_than_window")
+      next
+    }
     win_starts <- seq(t_start, t_end - window_sec, by = window_sec / 2)
-    if (length(win_starts) == 0) next
+    if (length(win_starts) == 0) {
+      record_drop(vid, pid, n, "no_window_starts")
+      next
+    }
 
+    ri_before <- ri
     for (ws in win_starts) {
       we <- ws + window_sec
       win_mask <- !is.na(ts) & ts >= ws & ts < we
@@ -1479,10 +1559,20 @@ compute_window_features <- function(df, frame_features, tracking,
         )
       }
     }
+
+    # Every candidate window can fail the per-window frame floor, which leaves
+    # a group that passed all five entry guards emitting nothing.  The floor
+    # itself stays a window-level rule; recording the group here is what keeps
+    # the disposition total, so a denominator never loses a person in silence.
+    if (ri == ri_before) record_drop(vid, pid, n, "no_windows_emitted")
   }
 
   windows <- if (ri == 0L) window_schema() else bind_rows(results[seq_len(ri)])
   qc <- if (qi == 0L) window_qc_schema() else bind_rows(qc_results[seq_len(qi)])
+  group_qc <- if (di == 0L) group_qc_schema() else bind_rows(drop_results[seq_len(di)])
+  if (nrow(group_qc) > 0L) {
+    group_qc <- group_qc[order(group_qc$video, group_qc$person_idx, method = "radix"), ]
+  }
 
   # Deterministic order regardless of the order the input presented its
   # people: radix sorting keeps the result independent of collation locale.
@@ -1500,7 +1590,7 @@ compute_window_features <- function(df, frame_features, tracking,
     ), ]
   }
 
-  list(windows = windows, qc = qc)
+  list(windows = windows, qc = qc, group_qc = group_qc)
 }
 
 # ------------------------------------------------------------------
@@ -1967,6 +2057,14 @@ for (f in files) {
     cat(sprintf("  The script wrote %d QC rows to %s.\n", nrow(window_qc),
                 basename(out_qc)))
   }
+
+  # Group dispositions publish in both modes, empty or not.  An always-present
+  # artifact is what lets a reader tell "no group was dropped" from "the run
+  # never reached this step"; a skip-if-empty file cannot say the first.
+  out_group_qc <- paste0(stem, "_clinical", suffix, "_group_qc.csv")
+  write_csv(window_out$group_qc, out_group_qc)
+  cat(sprintf("  The script wrote %d group dispositions to %s.\n",
+              nrow(window_out$group_qc), basename(out_group_qc)))
 
   # Movement phase segmentation.  Phase metrics still differentiate across
   # tracking holes, so the artifact says so in metric_qualification rather

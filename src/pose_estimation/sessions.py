@@ -36,14 +36,18 @@ import shutil
 import sys
 
 from . import inventory
-from .multicam import SESSION_FORMAT_VERSION, SESSION_MANIFEST_FILENAME
+from .multicam import (
+    SESSION_FORMAT_VERSION,
+    SESSION_GENERATION_FILENAME,
+    SESSION_MANIFEST_FILENAME,
+)
 from .multicam import VIDEO_EXTENSIONS as DISCOVERABLE_EXTENSIONS
 
 GENERATOR_VERSION = "v1"
 
 EVENTS_FILENAME = "events.csv"
 PLACEMENTS_FILENAME = "placements.csv"
-GENERATION_FILENAME = "generation.json"
+GENERATION_FILENAME = SESSION_GENERATION_FILENAME
 
 GENERATION_KEYS: tuple[str, ...] = (
     EVENTS_FILENAME,

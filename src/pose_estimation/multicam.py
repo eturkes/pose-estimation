@@ -43,6 +43,15 @@ from .triangulation import fuse_session_frame
 SESSION_MANIFEST_FILENAME = "session.json"
 """Conventional name for the optional per-session manifest."""
 
+SESSION_GENERATION_FILENAME = "generation.json"
+"""Marker naming a published session tree.
+
+Defined here rather than in ``sessions`` because ``sessions`` imports this
+module and the reverse would be circular, while both need one spelling: this
+module refuses to write inside a published tree, and ``sessions`` re-exports
+the name as ``GENERATION_FILENAME`` for the digest it carries.
+"""
+
 VIDEO_EXTENSIONS: tuple[str, ...] = (".mp4", ".avi", ".mov", ".mkv", ".webm")
 """Recognised video extensions for camera discovery."""
 
@@ -450,6 +459,18 @@ def _open_session_captures(session: Session) -> list[cv2.VideoCapture]:
 _DEFAULT_OUTPUT_DIR = "output"
 
 
+def _published_root(directory: pathlib.Path) -> pathlib.Path | None:
+    """Return the published-tree root at or above *directory*, else ``None``.
+
+    A published tree is one carrying the generation marker, so its bytes are
+    covered by a digest a consumer checks before reading a row.
+    """
+    for candidate in (directory, *directory.parents):
+        if (candidate / SESSION_GENERATION_FILENAME).is_file():
+            return candidate
+    return None
+
+
 def _resolve_session_output(
     session: Session, output_dir: str | pathlib.Path | None
 ) -> pathlib.Path:
@@ -457,12 +478,36 @@ def _resolve_session_output(
 
     Layout: ``<output_dir>/<session_id>/``.  When *output_dir* is
     ``None``, defaults to ``output/`` alongside the session's parent.
+
+    Refuses any destination overlapping a published session tree, in either
+    direction.  The generation marker carries a digest over every other entry
+    in that tree, so one results file written inside it makes every later
+    ``sessions.validate_generation`` call raise — the run would silently
+    destroy the input it is still reading.  The unguarded default lands at
+    ``<tree>/output/<session_id>``, which is exactly that case, so forwarding
+    ``--output-dir`` alone would leave the hazard live whenever the flag is
+    omitted.  Ad-hoc session directories carry no marker and are unaffected.
     """
     if output_dir is not None:
         base = pathlib.Path(output_dir)
     else:
         base = session.directory.parent / _DEFAULT_OUTPUT_DIR
-    return base / session.session_id
+    resolved = base / session.session_id
+
+    root = _published_root(session.directory)
+    if root is not None:
+        # resolve() on a not-yet-created path still normalises the symlinks in
+        # its existing ancestors, which is what a link-through-to-the-tree
+        # destination needs.
+        target = resolved.resolve()
+        published = root.resolve()
+        if target == published or published in target.parents or target in published.parents:
+            raise SessionError(
+                "The output directory overlaps the published session tree "
+                f"{root}. Results written there invalidate its generation. "
+                "Pass --output-dir with a path outside that tree."
+            )
+    return resolved
 
 
 def process_session(
@@ -512,8 +557,12 @@ def process_session(
             output_diag=diag_path,
             video_name=video_name,
         )
-        print(f"    Wrote CSV: {csv_path}")
-        print(f"    Wrote diagnostics: {diag_path}")
+        # Reported from the filesystem, never from the intent: a source that
+        # never opened writes neither file, and announcing one that is absent
+        # is the defect this replaced.
+        for label, produced in (("CSV", csv_path), ("diagnostics", diag_path)):
+            if produced.exists():
+                print(f"    Wrote {label}: {produced}")
 
     if session.calibration is not None:
         _fuse_and_report(session, output_dir)
