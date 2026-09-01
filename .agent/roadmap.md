@@ -8,6 +8,8 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 **Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7.1 and M2.7.2 DONE; M2.7.3, M2.7.4 and M2.8.1-M2.8.3 OPEN, none BLOCKED, lowest OPEN unit = M2.7.3. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
+**Review carry-over — M2's MILESTONE-REVIEW must not re-review M2.1-M2.7.2.** Those units closed under the earlier regime, which ran `rev`/`rev2` inside WORK-UNIT: their check sets are fully adjudicated and recorded per unit below (`rev-m2u4-3` 73 rows + `rev2-m2u4-2` 33, M2.5's 38/33/14/55, M2.7.1's 45, and the `.agent/archive/rulings-m2u*.md` tables). Those rulings bind, and only new evidence reopens one. Seed `.agent/review-m2.md` from the units reviewed under neither regime plus the two milestone-scoped lenses that no unit could run — cross-unit integration and the `audit-m2` claim replay. Units from M2.7.3 on carry no in-unit judgment review and need their full check sets.
+
 **Goal:** turn 382 uncontrolled clips into an addressable, measured corpus; establish by evidence whether 3D reconstruction is recoverable from it; then execute that ruling under a claim boundary the data can carry.
 
 **Corpus, measured.** Header-only census over all 382 files, from the committed tool (`pose-estimation-inventory`; cv2 container properties, no pixel decode; ~11 s including a SHA-256 of every file). Every number below reruns from `inventory/census.json`:
@@ -669,7 +671,7 @@ way — **on adversarial surface, never on line count**. Two new data: a frozen 
 censuses need re-deriving at implementation time rather than trusting (A02), and a diff-blind suite's
 documentation cases arrive pinned to invented phrasings, costing one adjudication round each.
 
-### M2.4 — gate green, review adjudication closing
+### M2.4 — DONE
 
 Contract at `.agent/archive/contract-m2u4.md`: **20 predicates P01-P20**, 4 invariant surfaces, gate
 identity, an 8-class probe seed, and **35 amendments A01-A35** ruling `test-m2u4`'s phase-1
@@ -741,13 +743,7 @@ header divides `n_frames` by a duration counting the terminal frame while `nomin
 `n_frames - 1` by the span that omits it — identical under constant frame rate, separating by
 `(terminal_frame_duration - mean_interval) / span` under VFR.
 
-**Next session's whole job.** Harvest the two live reviews, merge their red tests, adjudicate what
-they filed, rerun the gate, set M2.4 DONE and commit. Both worktrees carry committed work.
-
-| teammate | worktree | state at handoff | what remains |
-| -------- | -------- | ---------------- | ------------ |
-| `rev-m2u4-3` | `wt/rev-m2u4` | **40 of 73** rows adjudicated through batch 5 (`9483165`); P01-P20 + A01-A20 done, A13-A20 all pass on a 19/19 cadence lattice; gauge 78%, checkpoint directed | spawn `rev-m2u4-4` on the same worktree for A21-A35 + X01-X19; open `fail` rows are P07 + A09 (below), and P01 + P18 need rescoring because both were fixed after it scored them |
-| `rev2-m2u4-2` | `wt/rev2-m2u4` | **25 of 33** mutants scored through `5236a28`, gauge 60% | finish 8 mutants, then merge its red tests as cases beyond the frozen 82 |
+**Handoff state, superseded.** Both reviews finished at the counts recorded above (73 and 33 rows), their red tests merged and the gate rerun. `wt/rev-m2u4` and `wt/rev2-m2u4` were swept at harvest; no `wt/` branch survives.
 
 `rev2-m2u4-2`'s two accepted findings, both already carrying evidence. **M07 survived-unencoded**:
 `return(NA_real_)` -> `return(0)` in `nominal_fs`'s final guard survives every case, and it is
@@ -757,15 +753,9 @@ both published tolerance reads were replaced by the literals `1e-4` and `1e-9`, 
 values equal them; it shipped `test_threshold_oracle_uses_published_tolerances`, green on MAIN and
 red on the mutant.
 
-**The one open judgment call.** A34's generalized bound `k * TIMESTAMP_QUANTUM / S_retained` is
-stated in the contract and the roxygen, but no test derives `k` or `S_retained`, and A09 also wants
-exact one-ULP rejection control. Decide whether that case lands in M2.4 or in `.agent/polish.md`.
+**The one judgment call, ruled to `.agent/polish.md`.** A34's generalized bound `k * TIMESTAMP_QUANTUM / S_retained` is stated in the contract and the roxygen with no test deriving `k` or `S_retained`. A09's contiguous half closed in-unit on the one-ULP negative control; the multi-run bound went to the register as one row folding A34's assurance half, X01, P07 and A09's generalized half. No behavioural defect exists — X01 records the current estimator fitting the ruled bound — so no red test can be written against today's code.
 
-Merge `rev2-m2u4-2`'s red tests as cases beyond the frozen 82: the 82 bind to the phase-1 table, and
-a mutation-derived case has different provenance. Ruling A09/P07's open row is the one judgment call
-left — decide whether a `k`/`S_retained` case lands in this unit or in `.agent/polish.md`.
-
-**Wave-1 state, superseded by the table above; worktrees retained.**
+**Wave-1 state, superseded.** No `wt/` branch holds these tips — the sweep left every one but `6bbd50e` dangling. They still resolve today and `git gc` will prune them, so re-anchor a tip before dispatching from it.
 
 | teammate | branch tip | delivered | open dependency |
 | -------- | ---------- | --------- | --------------- |
