@@ -302,6 +302,33 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
   `make_calibration_qc_fixtures.py` refuses any non-empty destination whose `manifest.json` does not
   name it, and still accepts an empty directory, which is how the idempotence predicate drives it.
 
+## Claim set — one constant, two pinned prose copies
+
+- **`calibration_qc.CLAIMS` is the single source of truth for all 15 supported statements**, and two
+  documents quote it verbatim: `docs/technical/calibration_qc.md` (agent register, C01-C15 under
+  *Claim boundary*) and `docs/calibration_finding.md` (human register, the shipped report).
+  `scripts/check_claim_report.py` P01/P02 pin both. Never reword a claim in either document — the
+  publisher checks published bytes against the constant, so a reworded copy hands an editor text
+  `_assert_claim_conformance` refuses. Measured at M2.7.3 entry: the technical copy had already
+  drifted on **6 of 15** rows (C03, C05, C06, C09, C12, C15) with nothing referencing the document.
+- **The report never spells a prohibited paraphrase; it states each refused overreach by shape.**
+  Measured: **no claim contains any of the 23 `PROHIBITED_PARAPHRASES` entries under `_fold`**, so
+  quoting all 15 claims verbatim and carrying zero needles are simultaneously satisfiable. That is
+  what keeps P03 total over both documents with no excluded span — the same ruling as M2.7.2's
+  fixture README, reached by measurement instead of by analogy. `_fold` flattens `_` and `-` alike,
+  so a hyphenated respelling of the unrun arm followed by an outcome word is caught; an intervening
+  word is not, and that adjacency gap is the constant's, not the checker's.
+- **`docs/calibration_finding.md` is the sole published home of the `calibration_bias` numbers.**
+  The publisher cites and digests that probe and ingests nothing from it, so `evidence_qc.csv`
+  carries `bias_transfer` rows alone. Quote C01-C04's closure, control, bundle-adjustment and subset
+  figures from the report, never from a published cell — there is none.
+- **A green predicate whose detail line reports zero items is a failing predicate.** M2.7.3's P07
+  passed as `0 named repo paths all resolve` because the report used no backticked repo path. Every
+  set-quantified predicate needs a non-empty floor; the row-wise check over a zero-row CSV is the
+  same defect. Read a validator's detail line, never its rc alone.
+- The report re-derives nothing: `python scripts/check_claim_report.py` is 9 predicates in under a
+  second, driven identically from `tests/test_claim_report.py` through `runpy`.
+
 ## Media fixtures (PyAV)
 
 Every audio-bearing fixture in `tests/` is muxed by PyAV; three ordering rules decide whether the file a test writes is the file it meant.

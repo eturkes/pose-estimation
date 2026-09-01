@@ -250,23 +250,26 @@ generation that a killed run left between its two renames. The tool restores tha
 
 ## Claim boundary
 
-The marker publishes these supported statements:
+The marker publishes these supported statements. Each one is quoted verbatim from
+`calibration_qc.CLAIMS`, so never reword one here: the publisher checks the published bytes against
+that constant, and a reworded copy sends an editor text the tool refuses.
+`scripts/check_claim_report.py` P02 pins this list.
 
 1. **C01.** Extrinsic recovery from RTMW-L keypoints on this corpus at 1080p under per-model intrinsic priors is measured unachievable.
 2. **C02.** Within-event cross-view RTMW-L correspondence carries a measured 15-20 px systematic component at 1080p.
-3. **C03.** The shipped estimator is exact on exact synthetic correspondence. Independent bundle adjustment worsens corpus closure.
+3. **C03.** The shipped estimator is exact on exact synthetic correspondence, and independent bundle adjustment worsens corpus closure.
 4. **C04.** No disjointly selected RTMW-L subset beats all 65 keypoints on the measured corpus folds.
-5. **C05.** Signed bias transfer is absent at the tested view-pair, device-model, task, and subject groupings over the full eligible population.
-6. **C06.** The same keypoints share difficulty across events. The signed offset direction is redrawn every event. That magnitude is not a correctable coordinate offset.
+5. **C05.** Signed bias transfer is absent at the tested view-pair, device-model, task and subject groupings over the full eligible population.
+6. **C06.** The same keypoints share difficulty across events while the signed offset direction is redrawn every event, so that magnitude is not a correctable coordinate offset.
 7. **C07.** Held-out reprojection on the solve's own keypoint family is self-consistency.
 8. **C08.** This evidence is internal geometric and QC evidence only.
-9. **C09.** Every pixel and degree statistic stays separate from absolute metric accuracy.
+9. **C09.** Every pixel and degree statistic here stays separate from absolute metric accuracy.
 10. **C10.** No marker-based comparison was run.
 11. **C11.** A lower-bias keypoint source and a detector trained for multi-view consistency stay outside the measured bound.
-12. **C12.** Prospective calibrated capture stays outside the measured bound. It is the route that can reopen 3D.
+12. **C12.** Prospective calibrated capture stays outside the measured bound and is the route that can reopen 3D.
 13. **C13.** The per-event double-centered bias-and-pose synthetic-control arm is unrun.
 14. **C14.** One corpus-level ruling holds while every per-event geometry cell stays unmeasured.
-15. **C15.** Each synthetic arm is instrument calibration. Its meaning arises only in contrast with the corpus row.
+15. **C15.** Each synthetic arm is instrument calibration whose meaning arises only in contrast with the corpus row.
 
 The tool scans the staged bytes before the first rename. It refuses a set that drops a required
 claim (`claim_missing`). It also refuses a set that carries a prohibited paraphrase of one

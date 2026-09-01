@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7.1 and M2.7.2 DONE; M2.7.3, M2.7.4 and M2.8.1-M2.8.3 OPEN, none BLOCKED, lowest OPEN unit = M2.7.3. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7.1-M2.7.3 DONE; M2.7.4 and M2.8.1-M2.8.3 OPEN, none BLOCKED, lowest OPEN unit = M2.7.4. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Review carry-over — M2's MILESTONE-REVIEW must not re-review M2.1-M2.7.2.** Those units closed under the earlier regime, which ran `rev`/`rev2` inside WORK-UNIT: their check sets are fully adjudicated and recorded per unit below (`rev-m2u4-3` 73 rows + `rev2-m2u4-2` 33, M2.5's 38/33/14/55, M2.7.1's 45, and the `.agent/archive/rulings-m2u*.md` tables). Those rulings bind, and only new evidence reopens one. Seed `.agent/review-m2.md` from the units reviewed under neither regime plus the two milestone-scoped lenses that no unit could run — cross-unit integration and the `audit-m2` claim replay. Units from M2.7.3 on carry no in-unit judgment review and need their full check sets.
 
@@ -51,9 +51,9 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.8.2 | Full corpus 2D run | ~6.5 h resumable run over 379 assets; per-asset clinical features plus a manifest giving every asset an explicit disposition. |
 | M2.8.3 | Cohort aggregate publisher + bilingual descriptor | 12 `(task, side)` cohort rows, no subject rows; append-ready `columns.yaml` fragment with full `ja`/`en` labels. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3, M2.7.4 and M2.8.1-M2.8.3 OPEN**: the 3D spine is gone, the negative is published, and the 2D line delivers cohort aggregates.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3 DONE** in one — the human-facing report and the checker pinning both prose copies of the claim set. **M2.7.4 and M2.8.1-M2.8.3 OPEN**: the 3D spine is gone, the negative is published, and the 2D line delivers cohort aggregates.
 
-### M2.7 — publish the closed-negative 3D ruling — IN-PROGRESS, 4 units, M2.7.1-M2.7.2 DONE
+### M2.7 — publish the closed-negative 3D ruling — IN-PROGRESS, 4 units, M2.7.1-M2.7.3 DONE
 
 **F1a ships as the FIFTH copy of the publisher idiom, and the extraction is deliberately declined.**
 `src/pose_estimation/publication.py` (polish, pri 3/M) anticipated exactly this trigger, and M2.7 is
@@ -84,7 +84,7 @@ unpatchable, `sync_offset` is never written, and no per-event geometry verdict i
 | -- | ---- | ------------ | ------ |
 | M2.7.1 | kernel | `calibration_qc/` publisher: contract + validator, canonical tree, integrity + consumer boundary, ownership + atomic publication. Accepts one corpus row and the probe-evidence rows; rejects every event/asset/capture/subject key. | **DONE**; 3 windows estimated, **4 spent** — contract + publisher (1-2), adversarial wave (3), rulings + campaigns + docs (4) |
 | M2.7.2 | data | De-identified regression fixtures: one valid generation + the smallest contract/integrity failure matrix, each negative failing for its named predicate. Privacy scan proves no corpus filename, path, subject token or row-level statistic. | **DONE**; 2 spent — contract + validator + graded seed (1), generator + 63-entry tree + 26 negatives + suite wiring (2) |
-| M2.7.3 | docs | Claim-bounded negative report. Claim matrix maps every conclusion to evidence and to permitted/prohibited wording. Excludes clinical validity, absolute metric accuracy, marker equivalence, other-detector impossibility, and prospective-capture impossibility. | 1 window |
+| M2.7.3 | docs | Claim-bounded negative report. Claim matrix maps every conclusion to evidence and to permitted/prohibited wording. Excludes clinical validity, absolute metric accuracy, marker equivalence, other-detector impossibility, and prospective-capture impossibility. | **DONE**; 1 estimated, **1 spent** — the only M2.7 unit to close on its estimate |
 | M2.7.4 | docs | Prospective capture specification, 20 normative sections. Five non-negotiables: intrinsic/extrinsic calibration, synchronization residuals, orientation/drift control, traceable metric scale, identifiable-video governance. Specified, never run. | 1-2 windows |
 
 **Order.** M2.7.1 gates M2.7.2 and M2.7.3 (the report releases only against a validated generation).
@@ -105,6 +105,73 @@ reporting checklist, no universal clinical reprojection threshold, no board-to-v
 generic Japanese video-retention period, and no published millisecond sync figure for
 OpenCap/Pose2Sim/Anipose — M2.7.4 must label those as local decisions, never as standards. The report
 is teammate research, so it is attention-directing until MAIN validates a citation it acts on.
+
+#### M2.7.3 — DONE. `docs/calibration_finding.md` plus the checker pinning both prose claim copies
+
+**Contract frozen at `.agent/archive/contract-m2u73.md`** — 8 design decisions, 10 predicates
+P01-P10, a 7-case negative-control seed. Tier `docs`, so assurance = `doc` + consistency pass; the
+pass ships as a committed checker rather than as one session's reading.
+
+**What the report buys that `docs/technical/calibration_qc.md` cannot.** The publisher cites and
+digests `calibration_bias` and ingests nothing from it, so `evidence_qc.csv` carries `bias_transfer`
+rows alone and the claims resting on the other probe publish with no value attached. **The report is
+the sole published home of those numbers** — C01-C04's closure, synthetic-control, bundle-adjustment
+and subset figures appear there or nowhere.
+
+**The unit found a live drift on a DONE unit's shipped surface and closed it.**
+`docs/technical/calibration_qc.md` announced "The marker publishes these supported statements" over
+text that was **not** what the marker publishes, on **6 of 15** rows — C03, C05, C06, C09, C12, C15
+(three sentence splits, one added Oxford comma, one dropped `here`, one relative-clause rewrite). All
+six were semantically faithful, so no false claim shipped; but a person copying C09 out of that
+document wrote text `_assert_claim_conformance` refuses, which is exactly the failure this unit
+exists to prevent. **No test or script referenced the document**, so nothing pinned it. Both prose
+copies now quote the constant, and P01/P02 pin both, so `calibration_qc.CLAIMS` is the single source
+of truth and neither copy can drift again.
+
+**D03, the design fork, ruled on measurement rather than on taste.** A claim matrix naming
+permitted *and* prohibited wording invites the report to spell each `PROHIBITED_PARAPHRASES` entry,
+which forces the scan to exempt its own matrix — the hole M2.7.2 refused when a fixture README
+quoted the needles it forbade. Measured instead: **no claim contains any of the 23 needles under
+`_fold`**, so quoting all 15 claims verbatim and carrying **zero** needles are simultaneously
+satisfiable. The report therefore states each refused overreach **by shape** in permitted words, the
+literal needles stay in `src/`, and P03 stays total over both documents with no excluded span.
+
+**Shipped.** `docs/calibration_finding.md` (human register, 6 numbered sections, one subsection per
+claim C01-C15 carrying verbatim claim + evidence + refused overreach); `scripts/check_claim_report.py`
+(MAIN-authored, 9 predicates, importing the constants and reusing `calibration_qc._fold` so the
+report normalises exactly as published bytes do); `tests/test_claim_report.py` (9 parametrized cases,
+`runpy`-loading the checker so suite and CLI share one implementation); the 6-row repair to
+`docs/technical/calibration_qc.md` plus the standing note that its C-list is verbatim; and the
+register registration at `docs/technical/conventions.md:45`.
+
+**MAIN's own validator carried a vacuous pass, caught by reading its output rather than its rc.**
+P07 reported `pass … 0 named repo paths all resolve` — the report used no backticked repo path, so
+the predicate ranged over the empty set. Same shape as the zero-row CSV whose per-row column checks
+never run. Fixed to demand at least one backticked repo path **and** at least one Markdown link
+target, and widened to resolve link targets against the report's own directory; it now reads
+2 quoted paths + 3 link targets. **A green predicate whose detail line reports zero items is a
+failing predicate.**
+
+**All 7 contract negative controls fire, each seeded and reverted.** Reworded claim in the report →
+P01 names `C10x0`; reworded claim in the technical document → P02 names `C09x0`; `clinical validity`
+in prose → P03; a hyphenated respelling of the unrun arm followed by `ran` → P03 through `_fold`;
+dangling `scripts/` path → P07; synthetic capture id → P08. The eighth attempt did **not** fire and
+the checker was right: an intervening word (`… bias-and-pose arm ran`) defeats the needle, which is
+adjacency the constant genuinely does not forbid.
+
+**Gate at close.** `ruff check`, `ruff format --check`, `ty check` all rc=0 — `check_claim_report.py`
+needed one `ruff format` pass before the gate form went green. Decisive suite **1459 passed /
+0 skipped / rc=0** in 1281.55 s, primary tree: 1450 + the 9 predicate cases, so collection moved by
+exactly the new file. The four P10 sentence splits landed while that run was in flight, so
+`tests/test_claim_report.py` was rerun alone against the final bytes — **9 passed, rc=0** — and it is
+the only case group reading the report.
+
+**Wave.** `map-m2u73` filled S01-S04 of 10 and never flushed S05 (claim→evidence) or S08 (number
+provenance) across three polls after one flush directive, so MAIN derived both from committed state.
+**Sizing datum, and it is the fourth consecutive window with this shape:** on a unit whose evidence
+already sits in `.agent/` state and in `src/` constants, a map's bulk-reading value is near zero
+because MAIN must re-derive every number it would cite anyway. `main=` 84% 202K/240K. `mate=` 61%
+146K/240K (`map-m2u73`, stopped at harvest).
 
 #### M2.7.2 — DONE. The committed byte oracle and the 30-row refusal matrix ship
 
