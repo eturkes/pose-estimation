@@ -150,4 +150,64 @@ Each must fire and name its own predicate; the tree is restored byte-identical a
 
 ## 8. Amendments
 
-*(none at freeze)*
+**A01 — D01's containment guard is scoped to PUBLISHED trees, not to every session tree.**
+As frozen, D01 read as blanket containment against `session.directory.parent`. That refuses the
+documented default for every ad-hoc session directory, because the default *is*
+`session.directory.parent/output/<session_id>`. The invariant the guard actually protects is
+narrower and sharper: **no file is created inside a generation whose digest a consumer checks.** So
+the guard triggers only when a generation marker sits at or above the session directory. Ad-hoc
+trees keep the documented default; published trees refuse. Implemented as `_published_root`.
+
+**A02 — P04's symmetry holds, and the ancestor-base case correctly ALLOWs.**
+Passing `--output-dir <parent-of-tree>` resolves to `<parent>/<session_id>`, a **sibling** of the
+published tree rather than a parent of it, so nothing is written inside the generation and the guard
+permits it. Direction 2 (`published in target.parents`) remains implemented and reachable — it fires
+when the tree sits under a directory named for the session id. A probe asserting REFUSE on an
+ancestor base is asserting the wrong outcome.
+
+**A03 — a sixth reason code, `no_windows_emitted`, and D06 is corrected.**
+D06 put the per-window `sum(win_mask) < 4` floor out of scope as a window-level rule, which is
+right, but it leaves **P13 ill-defined**: a group that passes all five entry guards and whose every
+candidate window fails the floor emits no window row and no disposition row, so the partition is
+neither total nor disjoint. Recording that group after the window loop keeps the floor a
+window-level rule *and* the disposition total. `GROUP_QC_REASONS` is frozen at six and
+`group_qc_row` refuses an unlisted reason, which is what P15 checks against.
+
+**A04 — P11's publication surface is the per-source diagnostics CSV, defined here.**
+`SOURCE_DIAGNOSTIC_FIELDS` = `video, n_frames_decoded, pts_accepted, index_fallback,
+monotonic_forced, cfr_fallback_rate, fps_nominal, latency_ms_mean, latency_ms_p95`. One row per
+source, written from `process_source`'s `finally` arm so an interrupted run still reports what it
+decoded. The counts therefore describe **frames processed**, never frames the asset holds.
+
+**A06 — batch rulings on `test-m2u81` phase-1 rows P01-P08 (8 of 18 filled at MAIN's reserve).**
+Every ruling below is already implemented at `f43e720`; they are recorded so the phase-2 suite
+encodes the shipped semantics rather than re-deriving them.
+
+- **P02/P04 identity — reading (A).** The authoritative comparison is the canonical **final** write
+  root `<base>/<session_id>`, resolved non-strictly with existing symlink components dereferenced,
+  against the canonical published root. Reading (B), comparing the user's base `D`, is rejected: it
+  refuses a base that merely contains the tree while the actual destination is disjoint from it.
+  Equality counts as overlap, and both strict directions refuse. The teammate is right that the two
+  readings diverge — that divergence is exactly the ancestor-base case A02 rules ALLOW.
+- **P05 — no file on capture-open failure.** A source that never opens returns before the clock
+  exists, so nothing is written. A non-`None` request is not a promise of a file; it is a
+  destination for a summary of frames actually decoded. Zero decoded frames *after* a successful
+  open does write a row, with all three counters at 0.
+- **P05 schema — A04 fixes it.** Exactly one row over `SOURCE_DIAGNOSTIC_FIELDS`; the rate is a
+  formatted derived column, never a stored source of truth alongside the counts.
+- **P06 — reading (B).** `process_session` verifies existence before announcing. It does not raise
+  and does not synthesise a zero-count file: a camera that failed to open is a real outcome, and
+  inventing a diagnostics row for it would publish a frame count for a source never read.
+- **P07 — no stdout summary when `output_diag` is `None`.** Narrower than the teammate's proposed
+  ruling, and compatible with it: P07 bans a file-existence claim, and the implementation emits
+  nothing at all.
+- **P08 — counters cover live captures, and dispositions are exclusive.** An accepted live monotonic
+  value scores `pts_accepted`; the name is about the disposition, not the container field. A call
+  that falls back and then still needs forcing increments **`monotonic_forced` alone**, never both —
+  the branch is an `elif` chain classified by which arm produced the returned value, which is what
+  makes the three sum to the call count.
+
+**A05 — P07 is satisfied at the reporting site, not only at the writing site.**
+`process_session` printed `Wrote CSV:` and `Wrote diagnostics:` unconditionally. A source that never
+opens returns before either file exists, so the fix reports both from the filesystem
+(`produced.exists()`) rather than from intent.

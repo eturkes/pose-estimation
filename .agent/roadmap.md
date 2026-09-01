@@ -376,19 +376,32 @@ rebuild — keep new JA text inside existing coverage and state the risk in the 
 
 | id | tier | spine result | sizing |
 | -- | ---- | ------------ | ------ |
-| M2.8.1 | kernel | Corpus-run preconditions + instrumented pilot. Fix `--output-dir` (`run.py:663-668`); make the three silent-drop guards (`analysis/clinical_features.R:1294,1300,1305`) emit a keyed QC row; instrument the CFR fallback rate; stratified pilot spanning both codecs, all four device configs and all four rotations. | 1-2 windows |
+| M2.8.1 | kernel | Corpus-run preconditions + instrumented pilot. Close B1/B1b/B2/B2b/B3 (§2 above); stratified pilot spanning both codecs, all four device configs and all four rotations. | 1-2 est; **1 spent, IN PROGRESS** |
 | M2.8.2 | data | Full corpus 2D run, ~6.5 h, resumable. Per-asset clinical features plus a run manifest giving every one of the 379 assets an explicit disposition, so no asset is silently absent from a denominator. | 1-2 windows |
 | M2.8.3 | kernel | Cohort aggregate publisher + append-ready bilingual descriptor. 12 `(task, side)` rows, `n_subjects`/`n_events`, per-feature distribution statistics. | 2 windows |
 
 **M2.8.1 exists because M2.6 recorded why it must.** "Where a milestone's spine rests on an unmeasured
 empirical assumption, the feasibility probe is its own unit with its own budget." M2.8's spine assumes
 the 2D path runs clean over 379 real assets; **it has only ever run over 12 preliminary clips from the
-retired `videos/initial/` tree**. Two blockers are already measured rather than suspected, and both
-are silent: `--output-dir` is ignored in native rtmlib session mode, which is the entry point M2
-drives the corpus through, so a 6.5 h run lands somewhere other than where it was asked; and three
-enumerator guards drop a whole person with **zero rows and no record**, which for a cohort aggregate
-moves `n_subjects`/`n_events` with nothing saying so. Funding the run before these close is the exact
-mistake M2.6 paid three windows to learn.
+retired `videos/initial/` tree**. Funding the run before the blockers close is the exact mistake M2.6
+paid three windows to learn.
+
+**The plan's own blocker census was wrong on both counts, re-derived at implementation time.** It
+named two blockers at `run.py:663-668` and `clinical_features.R:1294,1300,1305`; there are **four**,
+and both line-number sets are stale. Third instance of the frozen-numbers trap, and the first where
+the stale text was the roadmap's own rather than a contract's. Census → `contract-m2u81.md` §2.
+
+- **B1 is not misplacement, it is self-destruction.** `_dispatch_sessions` never forwarded
+  `args.output_dir`, and `_resolve_session_output(session, None)` lands at
+  `sessions/output/<event_id>/` — **inside the published tree**. `sessions.tree_digest` walks every
+  entry but `generation.json`, so the first camera CSV moves the digest and every later
+  `validate_generation` raises. **The 6.5 h run poisons the input it is still reading.** Proven on a
+  synthetic published tree rather than read: resolved-inside `True`, digest before ≠ after.
+- **B1b**: `process_source` had **no `output_diag` parameter**, while `process_session` printed
+  `Wrote diagnostics:` for a file nothing wrote.
+- **B2**: group-level drop sites number **5**, not 3, and the cited lines are stale by 16.
+- **B2b**: QC evidence is **3D-only** at both emission and write, so the 2D path M2.8.2 runs published
+  **zero** QC rows — a dropped subject left no trace anywhere in 2D.
 
 **What the 2D path already gives, so it is priced as delivery and not development.**
 `analysis/clinical_features.R` is pinned by six committed goldens (`2d_csv4dp_*`, `2d_cumsum_*`,
@@ -439,6 +452,60 @@ census, corpus readiness, sizing archaeology, the sentinel verification and the 
 all MAIN scripts, and the PTS question had already cost `map-m2` most of a window when MAIN answered
 it in two reads. **On a planning window, delegate the reading and the external research; keep every
 script-derivable census in MAIN's hands.**
+
+#### M2.8.1 — OPEN, window 1 of 1-2. Implementation lands; suite, goldens and pilot remain
+
+**Contract frozen at `.agent/archive/contract-m2u81.md`** — 7 design decisions D01-D07, 18 predicates
+P01-P18, a 10-case negative-control seed. Tier `kernel`. Range `3842bcb`..`f43e720`.
+
+**Shipped.** `_resolve_session_output` refuses any destination overlapping a published session tree in
+either direction, and `_dispatch_sessions` forwards `args.output_dir`. `process_source` gains
+`output_diag` and writes a 9-column one-row source summary from its `finally` arm.
+`SourceTimestampClock` counts `pts_accepted`/`index_fallback`/`monotonic_forced`, classified by which
+branch produced the returned value so the three sum to the call count; `n_timestamps` and
+`cfr_fallback_rate` are derived, never stored. `clinical_features.R` publishes
+`<stem>_clinical[_3d]_group_qc.csv` in **both** modes, always, empty or not.
+
+**D01 ruled that forwarding alone is not the fix**, and this is the reusable half. The unguarded
+default lands inside the published tree, so a forward leaves the hazard live exactly when the flag is
+omitted — which is the case a batch script hits. `sessions.run` already carries the identical
+overlap rule, so the same hazard class took the same guard. **A published tree is one carrying the
+generation marker**, which is what keeps ad-hoc session directories on the documented default.
+Verified over six destinations: default / tree-itself / inside-tree / symlink-into-tree REFUSE,
+outside-tree / ad-hoc-default ALLOW. `generation.json` is now single-defined as
+`multicam.SESSION_GENERATION_FILENAME`, re-exported as `sessions.GENERATION_FILENAME` — `sessions`
+imports `multicam`, so that is the only non-circular direction holding one spelling.
+
+**A sixth reason code was forced by the partition, and it corrects D06.** D06 put the per-window
+`sum(win_mask) < 4` floor out of scope as a window-level rule. True, but it leaves P13 ill-defined:
+a group passing all five entry guards whose every candidate window fails the floor emits nothing and
+records nothing. `no_windows_emitted` is recorded after the window loop, so the floor stays a
+window-level rule while the disposition stays total. `GROUP_QC_REASONS` freezes six and
+`group_qc_row` refuses an unlisted reason.
+
+**Evidence so far.** Static gate `ruff check` / `ruff format --check` / `ty check` all rc=0. Both
+artifacts ship with the 5-column header, 0 rows on well-formed goldens. Drop paths positive-controlled:
+3-row input → one `too_few_frames` `n_frames=3`; 20-row input → one `shorter_than_window`
+`n_frames=20`. **The decisive suite has NOT been run against these bytes** — that is the next
+window's first action, and the R goldens are unregenerated.
+
+**Open, in dispatch order for the next window.**
+1. **Decisive suite** against `f43e720`, primary tree, 0 skips. Never beside a decode sweep.
+2. **Golden wiring**: `_expected_outputs` in `scripts/regenerate_r_clinical_goldens.py` is the
+   whitelist, and an artifact absent from it never reaches the golden directory. Add the four
+   `_group_qc.csv` files, extend the parametrize list at `tests/test_r_clinical_goldens.py:31` and
+   `_BASE_WIDTHS` at `:39` with a `group_qc` kind. Existing goldens must stay byte-identical (P16).
+3. **Harvest `test-m2u81`** — phase-1 table, then batch-rule and dispatch phase 2.
+4. **Stratified pilot** (P17/P18) — committed script, redaction-safe aggregates, both codecs × four
+   device configs × four rotations, reporting per-asset CFR fallback rate + the P13 partition result.
+
+**Sizing datum, and it is the sixth consecutive window with this shape.** Every decisive number this
+window came from MAIN running a script directly: the drop-site census, the `tree_digest` proof, the
+six-destination guard matrix, the two drop-path positive controls. The one teammate was funded on the
+diff-blind track, which is the only one MAIN structurally cannot do itself. **Entry cost fell to 43%
+103K/240K** from M2.7.2's recorded 53% once M2.7.1's detail moved to `.agent/archive/` — archiving
+closed-unit detail is worth ~10K of window per session, so it pays at every milestone close.
+`main=` 82% 197K/240K. `mate=` 38% 91K/240K (`test-m2u81`, unflushed at close).
 
 **Out of scope, explicitly.** Editing `../rehab`. Integration is that repo's work under its own
 `CLAUDE.md` and roadmap. M2.8 ends at a published artifact plus its schema descriptor.

@@ -235,6 +235,15 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 - **`session.json` is unpatchable after publication** — `sessions.validate_generation` hashes the
   tree, so an in-place manifest edit turns a valid generation invalid. Any later unit that wants to
   add a field republishes the tree or publishes beside it.
+- **A published tree is unpatchable by ANY writer, and the pipeline's own default was the violator.**
+  `tree_digest` covers every entry but `generation.json` — "including a file nobody explained" — so a
+  results file is as fatal as an edited manifest. `_resolve_session_output(session, None)` resolved to
+  `session.directory.parent/output/<session_id>`, i.e. `sessions/output/<event_id>/`, and
+  `_dispatch_sessions` never forwarded `--output-dir`, so a corpus run **destroyed the generation it
+  was still reading** after its first camera. Fixed by refusing any destination overlapping a
+  published tree in either direction, where published = a `generation.json` at or above the session
+  directory — the marker scoping is what keeps ad-hoc session dirs on the documented default.
+  **Forwarding a flag is not the fix when the DEFAULT is the hazard**; the guard is.
 
 ## Frozen contracts carry stale numbers
 
@@ -416,6 +425,10 @@ Every audio-bearing fixture in `tests/` is muxed by PyAV; three ordering rules d
 - Artifact-name filters in consumers are blacklists and break silently on a new suffix. `_aggregate_clinical()` (`src/pose_estimation/validation.py`) skipped `windows`/`movement_phases` by substring, so `_clinical_3d_window_qc.csv` (singular `window`) would have entered the per-frame clinical means as metrics. Now selects per-frame artifacts positively by `_clinical.csv`/`_clinical_3d.csv` suffix. Check every consumer filter when adding an artifact; `analysis/*.R` globs anchor on `_clinical_windows\.csv$` and are unaffected, and directory-mode rescan exclusion is pinned by `test_world3d_outputs_not_rescanned`.
 - **The 3D path deliberately skips `adapt_2d_confidence()`** (`analysis/clinical_features.R:1452-1466`). This looks like a missing gate and is not: `world3d.csv` confidence is a fused mean over already-accepted points, and fusion applied `min_confidence` upstream (`src/pose_estimation/triangulation.py:538,559-572`). Adding a 3D confidence predicate creates a new gate and moves every shipped 3D estimate. An M3.3 spike "repaired" this seam and was reverted.
 - `sum(win_mask) < 4` skips a window entirely (`analysis/clinical_features.R`), so no row exists for it. Any per-window artifact covers emitted windows only, and changing the skip moves the shipped window row set.
+- **`compute_window_features` dropped a whole `(video, person_idx)` group at FIVE sites, not three, and published QC for none of them in 2D.** The five: `n < 4`, non-finite/≤0 `fs`, non-finite `t_start`/`t_end`, span `< window_sec`, empty `win_starts`. Window QC was 3D-only at both emission and write, so a 2D run lost a person with zero rows and zero record — which moves a cohort `n_subjects` with nothing saying so. Now every group reaches exactly one outcome: window rows, or one row in `<stem>_clinical[_3d]_group_qc.csv`, published in **both** modes and always written, empty or not, so a reader can tell "nothing was dropped" from "the step never ran". `GROUP_QC_REASONS` freezes six codes; `group_qc_row` refuses an unlisted one.
+- **The partition needed a sixth code the drop sites do not supply.** A group passing all five entry guards whose every candidate window fails the `sum(win_mask) < 4` floor emits nothing. The floor stays a window-level rule; `no_windows_emitted` is recorded after the loop. **When an invariant reads "every input reaches exactly one outcome", enumerate the paths that produce NOTHING, not just the ones spelling `next`** — the silent case is the loop that ran and yielded no row.
+- **A window-keyed QC table cannot carry a group-level fact, and the 3D-only guard refuses it twice.** A group dropped before any window exists has no window key, and the `is_3d` guard exists because a numeric column on a 2D output enters `aggregate_per_video()` as a feature unnoticed. A separate file escapes both: consumer discovery selects positively (`_clinical.csv` / `_clinical_3d.csv` suffix; `_clinical_windows\.csv$` glob), so a new suffix is invisible to it.
+- **`_expected_outputs` in `scripts/regenerate_r_clinical_goldens.py` is the golden whitelist.** An artifact absent from it never reaches the golden directory, and the staging dir is deleted, so the omission is silent. A new artifact joins that tuple, the parametrize list in `tests/test_r_clinical_goldens.py:31` and `_BASE_WIDTHS` at `:39`, all in one commit.
 - The three-frame gap at 30 Hz now lands exactly on the provisional 0.10 s threshold, because `nominal_fs()` reads 30.0000 where the legacy estimator read 30.03 Hz and computed 0.0999 s. Split slacks are what make that comparison decidable: `qc_policy_tolerance = 1e-4` relative on gap, `qc_coverage_tolerance = 1e-9` on coverage. One shared 1e-9 slack made the verdict cycle pass/pass/fail with clip length through the residues of 3, which is why two independent M3.3 spikes disagreed on this case under the biased estimator.
 
 ## Scratch validators pending port
