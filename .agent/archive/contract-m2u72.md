@@ -148,3 +148,14 @@ Tier `data` (roadmap): one structural validator + a live spot-check at close, de
 The validator is §6's check script, MAIN-authored, committed and graded both ways at seed — an
 all-`unknown` seed exits non-zero, a filled tree exits zero. MAIN's spot-check at close reads the
 valid generation's three entries, one negative overlay per path, and the privacy scan's report.
+
+## §9 Amendments
+
+| id | ruling |
+| -- | ------ |
+| A01 | **P02 and P03 name the pre-D07 paths.** Read them as `expected/published/` and `inputs/upstream/`; D07 and §3 bind, and `scripts/check_calibration_qc_fixtures.py`'s constants are authoritative over both. |
+| A02 | **Minimum valid input set, measured.** `inputs/upstream/` = one `qualify.run()` generation over a ONE-asset synthetic corpus: `assets_qc.csv`, `cameras_qc.csv`, `events_qc.csv`, `pairs_qc.csv`, `qualification.json`, 3 828 B total. `calibration_qc.run` calls `qualify.validate_generation(path, sessions_dir=None, inventory_dir=None)`, which validates that tree standalone, so the registry, the session tree and the media stay outside the committed fixture set. |
+| A03 | **The generator imports the `tests/test_qualify` + `tests/test_sessions` builders** (`_publish`, `_write_media`, `_uniform`, `_canonical`) instead of re-implementing registry, session and media construction. Those builders carry the three PyAV ordering rules (`.agent/memory.md` → *Media fixtures*) that a second copy would have to re-learn, and `tests/test_calibration_qc.py` already consumes them. The generator adds `tests/` to `sys.path` itself, because P01 runs it as a subprocess carrying `PYTHONPATH=src` alone. |
+| A04 | **Fixture subject ordinal = 90**, so the one capture is `s90-cap-l` inside D01's declared namespace. Measured: two builds under different temporary roots produced identical media (1 907 B) and an identical 5-file qualification tree, so no absolute path, pid or timestamp reaches the upstream bytes. Build cost 0.02 s, so P01's double regeneration is free. |
+| A05 | **Every evidence statistic value is synthetic and must differ from M2.6b's published values.** The only real numbers a fixture byte may carry are P08's `PERMITTED_REAL_NUMBERS`, which the publisher requires. An arm record copied from `tests/test_calibration_qc.py` fails this rule — that suite's `_STATS`/`_PX` are the real M2.6b figures. |
+| A06 | **`output_overlap` is a `not_file_only` candidate**: overlap needs an `out` path resolving inside an input tree, and P11 forbids the symlink that expresses it. The generator measures which of the two it is and records the outcome; the same measurement rules every other reason's split, and the §7 expected split is corrected by it rather than trusted. |
