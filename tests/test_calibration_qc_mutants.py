@@ -50,6 +50,13 @@ def _run(inputs: Inputs, out: pathlib.Path) -> dict[str, object]:
     )
 
 
+def _private_evidence(inputs: Inputs, tmp_path: pathlib.Path) -> Inputs:
+    """A per-test copy of the module-scoped evidence, so a case may corrupt it."""
+    evidence = tmp_path / "evidence"
+    shutil.copytree(inputs.evidence, evidence)
+    return dataclasses.replace(inputs, evidence=evidence)
+
+
 def _tree_bytes(root: pathlib.Path) -> dict[str, bytes]:
     return {
         path.relative_to(root).as_posix(): path.read_bytes()
@@ -430,3 +437,117 @@ def test_m42_prohibited_paraphrases_never_publish(inputs: Inputs, tmp_path: path
     ).casefold()
     assert all(paraphrase not in published for paraphrase in calibration_qc.PROHIBITED_PARAPHRASES)
     calibration_qc.validate_generation(out, qualification_dir=inputs.qualification)
+
+
+def test_m43_claim_scan_folds_hyphens(tmp_path: pathlib.Path) -> None:
+    staging = _claim_staging(tmp_path, "per-event double-centered bias-and-pose failed")
+    with pytest.raises(calibration_qc.CalibrationQcError):
+        calibration_qc._assert_claim_conformance(staging)
+
+
+def test_m44_a_record_key_outside_the_closed_set_is_refused(
+    inputs: Inputs, tmp_path: pathlib.Path
+) -> None:
+    private = _private_evidence(inputs, tmp_path)
+    probe = calibration_qc.INGESTED_PROBES[0]
+    lines = [json.dumps(_record(arm, subject_id="s01")) for arm in _arms()]
+    (private.evidence / f"{probe}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(private, tmp_path / "out")
+    assert error.value.reason == "forbidden_key"
+
+
+def test_m45_a_statistic_missing_a_required_field_is_refused(
+    inputs: Inputs, tmp_path: pathlib.Path
+) -> None:
+    private = _private_evidence(inputs, tmp_path)
+    probe = calibration_qc.INGESTED_PROBES[0]
+    lines = []
+    for arm in _arms():
+        record = json.loads(json.dumps(_record(arm)))
+        del record["within_event_r"]["n"]
+        lines.append(json.dumps(record))
+    (private.evidence / f"{probe}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(private, tmp_path / "out")
+    assert error.value.reason == "evidence_schema"
+
+
+def test_m46_a_cited_arm_short_of_the_ruled_population_is_refused(
+    inputs: Inputs, tmp_path: pathlib.Path
+) -> None:
+    private = _private_evidence(inputs, tmp_path)
+    probe = calibration_qc.INGESTED_PROBES[0]
+    lines = [json.dumps(_record(arm, pairs=1, events=1)) for arm in _arms()]
+    (private.evidence / f"{probe}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(private, tmp_path / "out")
+    assert error.value.reason == "population_mismatch"
+
+
+def test_m47_a_duplicate_arm_label_is_refused(inputs: Inputs, tmp_path: pathlib.Path) -> None:
+    private = _private_evidence(inputs, tmp_path)
+    arms = _arms()
+    _write_evidence(private.evidence, inputs.probes, arms=[*arms, arms[0]])
+
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(private, tmp_path / "out")
+    assert error.value.reason == "arm_duplicate"
+
+
+def test_m48_the_corpus_table_is_held_to_exactly_one_row(tmp_path: pathlib.Path) -> None:
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        calibration_qc._build(tmp_path / "staging", [], [], upstream_qualification={}, probes={})
+    assert error.value.reason == "corpus_cardinality"
+
+
+def test_m49_a_capture_symlinked_into_the_output_is_refused(
+    inputs: Inputs, tmp_path: pathlib.Path
+) -> None:
+    private = _private_evidence(inputs, tmp_path)
+    out = tmp_path / "out"
+    _run(private, out)
+    capture = private.evidence / f"{calibration_qc.INGESTED_PROBES[0]}.jsonl"
+    target = out / "publisher-input.jsonl"
+    target.write_bytes(capture.read_bytes())
+    capture.unlink()
+    capture.symlink_to(target)
+
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(private, out)
+    assert error.value.reason == "output_overlap"
+
+
+def test_m50_an_added_arm_cannot_give_the_unrun_arm_an_outcome(
+    inputs: Inputs, tmp_path: pathlib.Path
+) -> None:
+    private = _private_evidence(inputs, tmp_path)
+    _write_evidence(
+        private.evidence,
+        inputs.probes,
+        arms=[*_arms(), "per-event double-centered bias-and-pose failed"],
+    )
+
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(private, tmp_path / "out")
+    assert error.value.reason == "claim_prohibited"
+
+
+def test_m51_evidence_is_validated_before_the_output_is_judged(
+    inputs: Inputs, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    private = _private_evidence(inputs, tmp_path)
+    probe = calibration_qc.INGESTED_PROBES[0]
+    (private.evidence / f"{probe}.sha256").write_text("f" * 64 + "\n", encoding="utf-8")
+
+    def judged(out: pathlib.Path) -> None:
+        del out
+        raise AssertionError("the output was judged before the inputs were validated")
+
+    monkeypatch.setattr(calibration_qc, "_assert_owned", judged)
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(private, tmp_path / "out")
+    assert error.value.reason == "probe_digest"

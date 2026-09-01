@@ -11,18 +11,26 @@ and the measurement lives in two committed probes; the ruling those probes
 support is what this tool publishes.  Those three qualifiers travel with every
 statement of the negative, here included: a lower-bias keypoint source, a
 detector trained for multi-view consistency and any prospectively calibrated
-capture all stay outside the measured bound.  Evidence
-therefore arrives as captured probe stdout, is validated, and is republished as
-rows -- a tool that recomputed a probe number would own that number's
-correctness, and the probes already own it.
+capture all stay outside the measured bound.  Evidence therefore arrives as
+captured probe stdout, is validated, and is republished as rows -- a tool that
+recomputed a probe number would own that number's correctness, and the probes
+already own it.
 
 The ruling itself is a module constant rather than an argument.  The tree
 publishes one ruling, so an operator cannot spell a different verdict through
-the CLI, and a different verdict is a different generator version.  What the
-arguments decide is whether the evidence backing that ruling is still on disk,
-still produced by the committed scripts, and still carrying the statistics the
-ruling cites.  Publication fails when it is not, which is the whole point: a
-ruling whose evidence has gone missing must stop being publishable.
+the CLI, and a different verdict is a different generator version.
+
+What the arguments decide is narrower than the ruling is wide, and the gap is
+worth stating.  Publication checks the ``bias_transfer`` capture -- its arms,
+its per-arm population and every statistic the rows carry -- and checks that
+both cited scripts are present and carry the bytes their recorded digests name.
+It does not check any ``calibration_bias`` output, which is cited and digested
+but never ingested, so the claims that rest on that probe publish without their
+numbers being seen here.  A digest match binds a capture to one version of a
+script; it authenticates nothing, so hand-written stdout carrying the live
+digest reads exactly like a real run.  What the check rules out is a capture
+gone missing, a capture whose probe has since been edited, and a probe schema
+that moved out from under the rows.
 
 ``qualification/`` is read-only here.  Its per-event geometry cells stay
 ``geom_unmeasured`` and its per-asset scale cells stay ``scale_unmeasured``;
@@ -144,17 +152,40 @@ STATISTIC_KEYS: tuple[str, ...] = (
     "median_abs_px",
 )
 STATISTIC_FIELDS: tuple[str, ...] = ("n", "median", "min", "max", "above_0p5")
+# `above_0p5` is absent on `median_abs_px` by design, so it stays nullable; the
+# rest are numbers the ruling cites, and a dropped one has to refuse rather than
+# publish a short row that reads as an unmeasured statistic.
+REQUIRED_STATISTIC_FIELDS: tuple[str, ...] = ("n", "median", "min", "max")
+
+# The record shape `bias_transfer` emits, closed.  Closing it is what makes the
+# redaction boundary a refusal instead of a silent discard: an identifier-
+# bearing key would otherwise be dropped on the way to a closed output schema,
+# and the operator would keep a capture nothing ever told them was unsafe.  The
+# token check `_assert_schema_is_redaction_safe` runs cannot be reused here,
+# because the probe's own `between_event_r` carries a forbidden token itself.
+RECORD_KEYS = frozenset(
+    {ARM_KEY, "pairs", "events", "realizations", "shared_fraction", *STATISTIC_KEYS}
+)
 
 # The arms the ruling quotes by value.  Losing any one of them costs the ruling
-# a load-bearing number: the corpus reading, the last live grouping variant, the
-# permutation null, and the two reference bands the corpus is placed between.
+# a load-bearing number: the four groupings the transfer claim names, and the
+# permutation null they are read against.  The two reference bands follow as
+# prefixes because their parameter sweeps are open.
 REQUIRED_ARMS = frozenset(
     {
         "REAL same view pair",
+        "REAL same view pair + same model pair",
+        "REAL same view pair + same task",
         "REAL same view pair + same subject",
         "REAL same view pair, keypoints permuted (null)",
     }
 )
+# Every required arm is measured over the whole eligible population, and the
+# transfer claim quotes that coverage.  A structurally complete capture whose
+# arms ran on one pair would otherwise certify the negative, so the ruled
+# population is pinned like the ruling is: a corpus that moves is a new
+# generator version, not a new number in this cell.
+RULED_POPULATION: dict[str, int] = {"pairs": 178, "events": 103}
 REQUIRED_ARM_PREFIXES: tuple[str, ...] = (
     "SYNTH shared image bias ",
     "SYNTH per-event bias ",
@@ -177,7 +208,7 @@ CLAIMS: tuple[str, ...] = (
     "Signed bias transfer is absent at the tested view-pair, device-model, task and subject "
     "groupings over the full eligible population.",
     "The same keypoints share difficulty across events while the signed offset direction is "
-    "redrawn every event, and a difficulty ranking cannot be subtracted from a coordinate.",
+    "redrawn every event, so that magnitude is not a correctable coordinate offset.",
     "Held-out reprojection on the solve's own keypoint family is self-consistency.",
     "This evidence is internal geometric and QC evidence only.",
     "Every pixel and degree statistic here stays separate from absolute metric accuracy.",
@@ -190,6 +221,19 @@ CLAIMS: tuple[str, ...] = (
     "One corpus-level ruling holds while every per-event geometry cell stays unmeasured.",
     "Each synthetic arm is instrument calibration whose meaning arises only in contrast with "
     "the corpus row.",
+)
+
+# An arm that never ran has no outcome, so every measured outcome spelled
+# against it is prohibited text.  Free-form arm labels are what make this
+# reachable: an added arm can spell a verdict beside a ruling cell whose
+# alphabet admits `unrun` alone.
+UNRUN_ARM_OUTCOMES: tuple[str, ...] = (
+    "failed",
+    "refused",
+    "impossible",
+    "unachievable",
+    "succeeded",
+    "ran",
 )
 
 # The overreach each claim refuses, checked as an absence over every published
@@ -213,6 +257,10 @@ PROHIBITED_PARAPHRASES: tuple[str, ...] = (
     "cannot recover known extrinsics",
     "independently failed calibration",
     "proves this corpus unrecoverable",
+    # Derived from the ruling cell rather than spelled a second time.  `_fold`
+    # flattens `_` and `-` alike, so one entry catches the published snake_case
+    # cell and a hyphenated arm label emitted by a probe.
+    *(f"{RULING['unrun_arm']} {outcome}" for outcome in UNRUN_ARM_OUTCOMES),
 )
 
 # --- alphabets -----------------------------------------------------------------------------------
@@ -432,6 +480,14 @@ def evidence_rows(probe: str, digest: str, records: list[dict[str, Any]]) -> lis
     """
     rows: list[dict[str, str]] = []
     for record in records:
+        unexpected = sorted(set(record) - RECORD_KEYS)
+        if unexpected:
+            raise CalibrationQcError(
+                f"{probe}: an arm record carries the key {unexpected[0]!r}, which this "
+                "redaction-safe set does not accept; a key it cannot publish is refused "
+                "rather than dropped.",
+                reason="forbidden_key",
+            )
         arm = record[ARM_KEY]
         if not isinstance(arm, str) or not arm:
             raise CalibrationQcError(
@@ -443,6 +499,13 @@ def evidence_rows(probe: str, digest: str, records: list[dict[str, Any]]) -> lis
                 raise CalibrationQcError(
                     f"{probe}: arm {arm!r} omits the statistic {statistic!r}; the probe's "
                     "schema moved and the ruling can no longer cite it.",
+                    reason="evidence_schema",
+                )
+            absent = [field for field in REQUIRED_STATISTIC_FIELDS if block.get(field) is None]
+            if absent:
+                raise CalibrationQcError(
+                    f"{probe}: arm {arm!r} statistic {statistic!r} omits {absent[0]!r}; the "
+                    "probe's schema moved and the ruling can no longer cite it.",
                     reason="evidence_schema",
                 )
             rows.append(
@@ -473,6 +536,34 @@ def _assert_cited_arms(arms: frozenset[str]) -> None:
                 "corpus reading has nothing to be contrasted with.",
                 reason="arm_missing",
             )
+
+
+def _assert_arm_population(probe: str, records: list[dict[str, Any]]) -> None:
+    """Refuse a duplicate arm, and a required arm short of the ruled population.
+
+    The arm set stays open -- the evidence table is a transcript of whatever the
+    probe emitted, and closing it would make every probe revision a publisher
+    change.  Two constraints hold anyway: one label is one row key, and the arms
+    the transfer claim quotes have to carry the population it quotes.
+    """
+    seen: set[str] = set()
+    for record in records:
+        arm = record[ARM_KEY]
+        if arm in seen:
+            raise CalibrationQcError(
+                f"{probe}: the arm {arm!r} appears twice, so one label would key two rows.",
+                reason="arm_duplicate",
+            )
+        seen.add(arm)
+        if arm not in REQUIRED_ARMS:
+            continue
+        for field, ruled in RULED_POPULATION.items():
+            if record.get(field) != ruled:
+                raise CalibrationQcError(
+                    f"{probe}: arm {arm!r} reports {field}={record.get(field)!r} rather than "
+                    f"the ruled {ruled}; the claim quotes the full eligible population.",
+                    reason="population_mismatch",
+                )
 
 
 # --- publication ---------------------------------------------------------------------------------
@@ -591,6 +682,16 @@ def _read_marker(out: pathlib.Path) -> dict[str, Any]:
     )
 
 
+def _fold(text: str) -> str:
+    """Case-fold, and flatten ``_`` and ``-`` to spaces.
+
+    A snake_case cell and a hyphenated arm label are the two places an overreach
+    enters the artifact reading as a token rather than as prose, so both sides
+    of the scan fold and one prohibited entry covers both spellings.
+    """
+    return text.casefold().replace("_", " ").replace("-", " ")
+
+
 def _assert_claim_conformance(staging: pathlib.Path) -> None:
     """Refuse to publish a set that overclaims, or that has dropped a claim.
 
@@ -603,9 +704,7 @@ def _assert_claim_conformance(staging: pathlib.Path) -> None:
         for path in sorted(staging.rglob("*"))
         if path.is_file() and not path.is_symlink()
     )
-    # Underscores fold to spaces: a snake_case cell is the one place an
-    # overreach can enter the artifact while reading as an identifier token.
-    folded = published.casefold().replace("_", " ")
+    folded = _fold(published)
     for claim in CLAIMS:
         if claim not in published:
             raise CalibrationQcError(
@@ -613,7 +712,7 @@ def _assert_claim_conformance(staging: pathlib.Path) -> None:
                 reason="claim_missing",
             )
     for paraphrase in PROHIBITED_PARAPHRASES:
-        if paraphrase in folded:
+        if _fold(paraphrase) in folded:
             raise CalibrationQcError(
                 f"The published set carries the prohibited claim {paraphrase!r}, which the "
                 "measurement does not support.",
@@ -629,6 +728,13 @@ def _build(
     upstream_qualification: dict[str, Any],
     probes: dict[str, str],
 ) -> None:
+    # One corpus row is the headline shape of the set, so it is checked where
+    # the bytes are written rather than only where the row is built.
+    if len(corpus_rows) != 1:
+        raise CalibrationQcError(
+            f"The corpus table would carry {len(corpus_rows)} rows; the ruling is one row.",
+            reason="corpus_cardinality",
+        )
     staging.mkdir(parents=True)
     rows_by_table = {CORPUS_QC_FILENAME: corpus_rows, EVIDENCE_QC_FILENAME: evidence}
     for name, columns in (
@@ -687,7 +793,9 @@ def _assert_disjoint(out: pathlib.Path, other: str | os.PathLike[str], label: st
     here = os.path.realpath(out)
     there = os.path.realpath(other)
     if _is_within(here, there) or _is_within(there, here):
-        raise CalibrationQcError(f"The output directory must sit outside the {label}.")
+        raise CalibrationQcError(
+            f"The output directory must sit outside the {label}.", reason="output_overlap"
+        )
 
 
 def _sweep_orphans(out: pathlib.Path) -> None:
@@ -709,12 +817,15 @@ def _assert_owned(out_dir: pathlib.Path) -> None:
     if not out_dir.exists():
         return
     if not out_dir.is_dir():
-        raise CalibrationQcError("The output path exists and is not a directory.")
+        raise CalibrationQcError(
+            "The output path exists and is not a directory.", reason="output_not_directory"
+        )
     if not any(out_dir.iterdir()):
         return
     refusal = CalibrationQcError(
         "The output directory is not empty and carries no generation marker this tool wrote. "
-        "Publishing would delete a directory this tool does not own."
+        "Publishing would delete a directory this tool does not own.",
+        reason="not_owned",
     )
     try:
         marker = _read_marker(out_dir)
@@ -751,27 +862,29 @@ def run(
         (probes_dir, "probe directory"),
     ):
         _assert_disjoint(out, other, label)
-    # A same-pid retirement is not always debris.  Pids are reused, so this can
-    # be the sole complete generation a kill left between the two renames --
-    # the exact state the sweep below is ordered to protect.  Restore it before
-    # ownership is judged, so the tree that survived the crash is the tree this
-    # run replaces rather than the tree this run deletes.
-    retiring = out.with_name(f"{out.name}.retiring.{os.getpid()}")
-    if retiring.is_dir() and not out.exists():
-        retiring.rename(out)
-    _assert_owned(out)
-
+    # Every input is validated before the output is touched at all.  A refusal
+    # that arrives after ownership has been judged has already renamed a
+    # retiring sibling and swept orphans on behalf of a run that was never
+    # going to publish.
     digests = probe_digests(probes_dir)
     evidence: list[dict[str, str]] = []
     for probe in INGESTED_PROBES:
-        records = _read_capture(evidence_path / f"{probe}.jsonl")
-        recorded = _read_recorded_digest(evidence_path / f"{probe}.sha256", probe)
+        capture = evidence_path / f"{probe}.jsonl"
+        sidecar = evidence_path / f"{probe}.sha256"
+        # The directory check above resolves the directory, not its entries: a
+        # capture that is a symlink into the output is an input the swap
+        # deletes, and its link text lives outside the tree that was compared.
+        for entry in (capture, sidecar):
+            _assert_disjoint(out, entry, f"evidence capture {entry.name}")
+        records = _read_capture(capture)
+        recorded = _read_recorded_digest(sidecar, probe)
         if recorded != digests[probe]:
             raise CalibrationQcError(
                 f"The capture for {probe} was produced by a different script than the one "
                 "committed, so the ruling it backs is not re-derivable.",
                 reason="probe_digest",
             )
+        _assert_arm_population(probe, records)
         evidence.extend(evidence_rows(probe, digests[probe], records))
     _assert_cited_arms(frozenset(row["arm"] for row in evidence))
 
@@ -781,6 +894,16 @@ def run(
     _assert_cell_alphabets(evidence, EVIDENCE_CELL_ALPHABETS, EVIDENCE_QC_FILENAME)
     _assert_cells_carry_no_identifier(corpus_rows, CORPUS_QC_FILENAME)
     _assert_cells_carry_no_identifier(evidence, EVIDENCE_QC_FILENAME)
+
+    # A same-pid retirement is not always debris.  Pids are reused, so this can
+    # be the sole complete generation a kill left between the two renames --
+    # the exact state the sweep below is ordered to protect.  Restore it before
+    # ownership is judged, so the tree that survived the crash is the tree this
+    # run replaces rather than the tree this run deletes.
+    retiring = out.with_name(f"{out.name}.retiring.{os.getpid()}")
+    if retiring.is_dir() and not out.exists():
+        retiring.rename(out)
+    _assert_owned(out)
 
     staging = out.with_name(f"{out.name}.staging.{os.getpid()}")
     _remove(staging)
@@ -855,42 +978,51 @@ def validate_generation(
     except (OSError, ValueError) as error:
         raise CalibrationQcError(
             "The published set is unusable: calibration_qc.json is missing, is not a regular "
-            "file, or is not one unambiguous JSON document."
+            "file, or is not one unambiguous JSON document.",
+            reason="marker_unreadable",
         ) from error
     if not isinstance(census, dict) or not isinstance(census.get("generation"), dict):
         raise CalibrationQcError(
-            "The published set is unusable: calibration_qc.json has no generation."
+            "The published set is unusable: calibration_qc.json has no generation.",
+            reason="marker_shape",
         )
     generation = census["generation"]
     if set(generation) != set(GENERATION_KEYS) or generation["generator_version"] != (
         GENERATOR_VERSION
     ):
         raise CalibrationQcError(
-            "The published set is unusable: calibration_qc.json is not this generator's document."
+            "The published set is unusable: calibration_qc.json is not this generator's document.",
+            reason="generation_foreign",
         )
     for name in CSV_FILENAMES:
         try:
             digest = _digest_bytes(out / name)
         except OSError as error:
             raise CalibrationQcError(
-                f"The published set is unusable: {name} is missing or cannot be read."
+                f"The published set is unusable: {name} is missing or cannot be read.",
+                reason="table_missing",
             ) from error
         if digest != generation.get(name):
             raise CalibrationQcError(
-                f"The published set is inconsistent: {name} is a different generation."
+                f"The published set is inconsistent: {name} is a different generation.",
+                reason="table_digest",
             )
     if census_digest(census) != generation.get("census"):
         raise CalibrationQcError(
-            "The published set is inconsistent: calibration_qc.json was edited after publication."
+            "The published set is inconsistent: calibration_qc.json was edited after publication.",
+            reason="census_digest",
         )
     try:
         current = tree_digest(out)
     except OSError as error:
-        raise CalibrationQcError("The published set is unusable: it cannot be walked.") from error
+        raise CalibrationQcError(
+            "The published set is unusable: it cannot be walked.", reason="tree_unreadable"
+        ) from error
     if current != generation.get("tree"):
         raise CalibrationQcError(
             "The published set is inconsistent: a file was added, removed or changed "
-            "after publication."
+            "after publication.",
+            reason="tree_digest",
         )
     if qualification_dir is not None:
         upstream = qualify.validate_generation(
@@ -900,11 +1032,13 @@ def validate_generation(
         )
         if upstream != generation.get("qualification"):
             raise CalibrationQcError(
-                "The published set is stale: the qualification tree is a different generation."
+                "The published set is stale: the qualification tree is a different generation.",
+                reason="qualification_stale",
             )
     if probes_dir is not None and probe_digests(probes_dir) != generation.get("probes"):
         raise CalibrationQcError(
-            "The published set is stale: a cited probe script has changed since publication."
+            "The published set is stale: a cited probe script has changed since publication.",
+            reason="probe_stale",
         )
     return generation
 

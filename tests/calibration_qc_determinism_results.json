@@ -1,8 +1,8 @@
 {
   "baseline_sha256": {
-    "calibration_qc.json": "a2049c6d2053c4002b76d3f785b916e7d453eea9a5ff17edc1908e7c6e7347d9",
+    "calibration_qc.json": "1f08f7cfd6cb29d46d76e7c75fb606676fcf3f546b65afa444a68cb0fa8ba031",
     "corpus_qc.csv": "749f6122ab0321cbbfd5501555a6fa214fe5138d5aa7795ff302f642c6d77cc5",
-    "evidence_qc.csv": "c97649c0dcbc176e99168fe120c28d0279f83e9328ac75a309586b6cdd69794a"
+    "evidence_qc.csv": "853078a8e2432e3b06326c4947629340e592ef2365f265fdfd4ed20378608fa8"
   },
   "schema_version": 1,
   "source_digests": {
@@ -10,7 +10,7 @@
     "scripts/probe_bias_transfer.py": "e0261a6ef40f4c673e02e519848c6dcb82a3d218daaf3cca3e643a8b406fab09",
     "scripts/probe_calibration_bias.py": "33e1a85969b7a2f962c56fa581bd333931c2fe1ae47cc6f9d06508a420c58e72",
     "src/pose_estimation/__init__.py": "de77d850cc0d7695903de638c51dda72a5e03612ebc850e80fb707bc7e6477a2",
-    "src/pose_estimation/calibration_qc.py": "bd1bad98111b1c6e2ed1d1f73740aa145a032d2f2cb8ca5529315df1430eb086",
+    "src/pose_estimation/calibration_qc.py": "2709d5d36a3fc97c16f9c4207077657f3fb79dab361357d4a13cc6329371fd04",
     "src/pose_estimation/inventory.py": "66d3ef1dbc852758e8a7a41f9a477035ed5964516312daa6127e14929d13230d",
     "src/pose_estimation/measure/__init__.py": "25dc284986f3f2ffbc6d6d166df26ef2b0558d0b154a464bf933775f2550fdec",
     "src/pose_estimation/measure/audio_offset.py": "37750a68c2d9b76428230a37fb40058327ce4bc1673321483f58555ef94f4a32",
@@ -25,7 +25,7 @@
     "src/pose_estimation/qualify.py": "d81f15acacb91bd678e801dcd809d47782cd624e3c5acec65d7d7e36d1140938",
     "src/pose_estimation/sessions.py": "f5c573a6c23c265ffa407ae77063ca86a95c8981a42783d0225e3c97b8479c9d",
     "src/pose_estimation/video_io.py": "fa3572b4bf6e7ba5412771f9aecf2c2629ee56da835169eb9be705ff7fa9c28d",
-    "tests/test_calibration_qc.py": "98a44fe73bc3a48dc7e976eee1318b50166ac7676d506ab6f54245273137035c",
+    "tests/test_calibration_qc.py": "9c107fbfe90af0ceb994f06596fe89a2134d46da3928b71ec91f94172a8bca19",
     "tests/test_measure.py": "9e7a077dc191664af8cd2ea40c78258194da1afb6dd2bfee1dc9cb11233c17a4",
     "tests/test_qualify.py": "fe8b29845cd1e8685f87d1487d10441d9c0447028163a7c0d2be5756c63f936b",
     "tests/test_sessions.py": "570ed80320204100c7ed4e790fd9a126048945815dee47185546f00850c1f021"

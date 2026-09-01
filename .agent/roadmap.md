@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are now PLANNED into 7 units** — M2.7.1-M2.7.4 and M2.8.1-M2.8.3, all OPEN, none BLOCKED, lowest OPEN unit = M2.7.1. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7.1 DONE; M2.7.2-M2.7.4 and M2.8.1-M2.8.3 OPEN, none BLOCKED, lowest OPEN unit = M2.7.2. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Goal:** turn 382 uncontrolled clips into an addressable, measured corpus; establish by evidence whether 3D reconstruction is recoverable from it; then execute that ruling under a claim boundary the data can carry.
 
@@ -39,7 +39,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.3 | Capture qualification + 3D-route ruling | Decode-sampled evidence on scale reference, background rigidity, view↔geometry stability, detectability, recoverable offset/drift, intrinsics metadata → MAIN's ruling, which shapes M2.5-M2.7. |
 | M2.4 | Timebase truth | Adopt `nominal_fs()` at the call sites; regenerate goldens; per-file cadence replaces the `1/median(diff(ts))` estimate. |
 | M2.5 | Cross-view alignment | One float `offset_s` per camera against the event reference, no rate term (M2.3 R5); per-recording-event `sync_qc` evidence. |
-| M2.6 | Calibration recovery | **Planned result unreachable — F0 closed negative.** Extrinsics by BA over time-synchronized 2D keypoints was the route (scene-feature SfM already eliminated by measurement); the corpus carries 15-20 px systematic cross-view keypoint bias, which no estimator and no keypoint subset repairs. Shipped instead: the measurement closing it, `scripts/probe_calibration_bias.py`. **Ruled: publish the negative through F1a**, executed in M2.7. |
+| M2.6 | Calibration recovery | **Planned result unreachable — F0 closed negative.** Extrinsics by BA over time-synchronized 2D keypoints was the route (scene-feature SfM already eliminated by measurement); the corpus carries 15-20 px systematic cross-view keypoint bias, which the shipped estimator and independent bundle adjustment both fail to repair, and which no disjointly selected RTMW-L subset beats all 65 keypoints on. Shipped instead: the measurement closing it, `scripts/probe_calibration_bias.py`. **Ruled: publish the negative through F1a**, executed in M2.7. |
 | M2.6b | Bias-modeling repair | **User-funded, closed negative at its gate (G0).** The one repair route A14 left open — a joint bias-and-pose parameterization under an identifiability constraint. Its premise is a bias with fewer degrees of freedom than the data, which needs the bias to be shared across events. Measured absent at every grouping. Shipped: `scripts/probe_bias_transfer.py`. |
 | M2.7.1 | `calibration_qc/` publisher (F1a) | Corpus-level negative ruling published beside `qualification/`, never patching it. One corpus row + evidence pointers to the two committed probes. |
 | M2.7.2 | De-identified regression fixtures | Idempotently generated fixtures for one valid generation plus the contract/integrity failure matrix; a privacy scan proves no corpus identifier reaches them. |
@@ -49,9 +49,9 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.8.2 | Full corpus 2D run | ~6.5 h resumable run over 379 assets; per-asset clinical features plus a manifest giving every asset an explicit disposition. |
 | M2.8.3 | Cohort aggregate publisher + bilingual descriptor | 12 `(task, side)` cohort rows, no subject rows; append-ready `columns.yaml` fragment with full `ja`/`en` labels. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1-M2.7.4 and M2.8.1-M2.8.3 OPEN**, planned this window: the 3D spine is gone, the negative gets published, and the 2D line delivers cohort aggregates.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2-M2.7.4 and M2.8.1-M2.8.3 OPEN**: the 3D spine is gone, the negative is published, and the 2D line delivers cohort aggregates.
 
-### M2.7 — publish the closed-negative 3D ruling — PLANNED, 4 units
+### M2.7 — publish the closed-negative 3D ruling — IN-PROGRESS, 4 units, M2.7.1 DONE
 
 **F1a ships as the FIFTH copy of the publisher idiom, and the extraction is deliberately declined.**
 `src/pose_estimation/publication.py` (polish, pri 3/M) anticipated exactly this trigger, and M2.7 is
@@ -80,7 +80,7 @@ unpatchable, `sync_offset` is never written, and no per-event geometry verdict i
 
 | id | tier | spine result | sizing |
 | -- | ---- | ------------ | ------ |
-| M2.7.1 | kernel | `calibration_qc/` publisher: contract + validator, canonical tree, integrity + consumer boundary, ownership + atomic publication. Accepts one corpus row and the probe-evidence rows; rejects every event/asset/capture/subject key. | 3 windows; **windows 1-2 spent: contract frozen, publisher shipped green** |
+| M2.7.1 | kernel | `calibration_qc/` publisher: contract + validator, canonical tree, integrity + consumer boundary, ownership + atomic publication. Accepts one corpus row and the probe-evidence rows; rejects every event/asset/capture/subject key. | **DONE**; 3 windows estimated, **4 spent** — contract + publisher (1-2), adversarial wave (3), rulings + campaigns + docs (4) |
 | M2.7.2 | data | De-identified regression fixtures: one valid generation + the smallest contract/integrity failure matrix, each negative failing for its named predicate. Privacy scan proves no corpus filename, path, subject token or row-level statistic. | 1 window |
 | M2.7.3 | docs | Claim-bounded negative report. Claim matrix maps every conclusion to evidence and to permitted/prohibited wording. Excludes clinical validity, absolute metric accuracy, marker equivalence, other-detector impossibility, and prospective-capture impossibility. | 1 window |
 | M2.7.4 | docs | Prospective capture specification, 20 normative sections. Five non-negotiables: intrinsic/extrinsic calibration, synchronization residuals, orientation/drift control, traceable metric scale, identifiable-video governance. Specified, never run. | 1-2 windows |
@@ -88,7 +88,64 @@ unpatchable, `sync_offset` is never written, and no per-event geometry verdict i
 **Order.** M2.7.1 gates M2.7.2 and M2.7.3 (the report releases only against a validated generation).
 M2.7.4 is independent of all three and parallelizable from the start.
 
-#### M2.7.1 — OPEN, window 3 spent: first real run, four defects fixed, campaigns still seeds
+#### M2.7.1 — DONE in window 4: both campaigns re-derived, 45 review rows ruled, docs registered
+
+**The review closes 45 rows — 38 accepted, 7 rejected with recorded rulings.** Both reviewer red
+files were copied into the primary tree and **rerun** rather than trusted from their reports, which
+was decisive: several window-3 "already fixed" rulings were only half-fixed (C01/C11 fixed the module
+docstring and left the roadmap headline). Score before fixes **41 failed / 4 passed**, after
+**7 failed / 38 passed**, and the 7 are exactly the rejected set — **N10** (restoring the sibling to
+`out` is stronger than survival at the retiring path), **N40-extra and N51** (*the arm set is open by
+design*: the evidence table transcribes what the probe emitted, and the real capture carries 21 arms
+against 5 required), **N57** (`calibration_qc/` ruled not deny-listed; the `Read(qualification/*.csv)`
+form stands), and the three encoding-only rows **N38, N64, A05**, whose substance ships under a
+different spelling. Both red files are retained at `.scratch/reds/`, byte-identical to their worktree
+tips.
+
+**The accepted rows changed `src/` in eleven places.** The docstring guarantee narrowed to the
+`bias_transfer`-only check, stating that `calibration_bias` output is never checked and that a digest
+match does not authenticate provenance (A03/A04, N71). `RECORD_KEYS` closes the accepted
+evidence-record key set, so an unknown key is **refused** (`forbidden_key`) rather than silently
+discarded (D04/N44-N49) — the existing token check could not be reused, because the probe's own
+`between_event_r` carries a forbidden token. `REQUIRED_ARMS` 3 → 5 (the four groupings plus the null)
+with `RULED_POPULATION` pinned at 178 pairs / 103 events (C05); duplicate arm labels refused (N40);
+`REQUIRED_STATISTIC_FIELDS` closed with `above_0p5` the one nullable field (N52); a corpus table that
+is not exactly one row refused before `mkdir` (N39); each capture and its `.sha256` sidecar checked
+for disjointness from `out` (N17 — the directory check resolves the directory, not its entries);
+reason codes on all 10 `validate_generation` refusals plus `_assert_owned`/`_assert_disjoint`
+(N28-N32); `_fold` folding case, `_` **and** `-` on both haystack and needle, with `UNRUN_ARM_OUTCOMES`
+deriving new `PROHIBITED_PARAPHRASES` entries (C13/A05); and `run()` reordered so every input is
+validated **before** the retiring-sibling restore and `_assert_owned` (N50/N53). Suite 865 → 1032 lines, ~26 new cases; the publisher 980 → 1114.
+
+**Both campaigns are re-derived in the primary tree, and the second re-derivation is the lesson.**
+Determinism regenerated after the `wt/rev2-m2u71` squash-merge reproduced rev2's worktree run **byte
+for byte** — all 39 verdicts and all three `baseline_sha256` digests identical, with only the two
+`source_digests` keys moving — proving path-independence and proving the window-3 fixes move no
+published byte. Mutation grew **42 → 51** for the new predicates, all killed; `validate_catalogue`
+rejects a patch matching ≠1 time and a no-op patch before scoring, and it caught M46's anchor after
+`ruff format` collapsed `RULED_POPULATION` to one line. Then the new cases failed `ruff check` (one
+SIM300) and `ruff format --check`, and formatting `calibration_qc.py` **moved source bytes** —
+invalidating every committed digest and every patch anchor — so both campaigns ran a second time.
+**Order the static stages before campaign regeneration**; `conventions.md` now states it.
+
+**Real inputs re-verified after the reformat.** 84 evidence rows over 21 arms, 15 claims, rc=0;
+republish **byte-identical** across all three entries; `qualification/` **byte-unmoved** over its 5
+files; **no staging or retiring sibling**; `validate_generation(...)` returns **7 keys at v1**. The
+real capture was read before the new guards were written and confirms each of them: exactly the 9
+expected record keys, all four grouping arms plus the null at 178 pairs / 103 events, and no null
+required statistic field across all 21 arms.
+
+**Six documentation surfaces applied from `doc-m2u71`'s drafts, corrected against shipped state.**
+New `docs/technical/calibration_qc.md` carries the refusal-reason table, the five cited arms, the
+population floor, the open-arm-set statement, `above_0p5`-only nullability, all four handled error
+classes, the claim-scan fold, the pid-reuse restore, and "does not authenticate a capture".
+`entrypoints.md` eight → ten console scripts with two sections; `architecture.md` two module-map
+rows; `tests.md` ten inventory rows (five suites, five campaign scripts); `conventions.md` a new
+`### Auxiliary campaigns` section carrying **measured** wall times, not the draft's estimates;
+`qualification.md` the pointer D03 mandates. Roadmap claims corrected in the same pass: C03/C04
+rescoped to the shipped estimator plus independent BA over disjoint RTMW-L subsets, C01/C11's M2.6
+headline rescoped to RTMW-L/1080p/per-model-prior, A03's overstatement replaced with what is and is
+not checked, R02's `~780 lines` removed, `source_sha256` → `source_digests`.
 
 **Window 3 dispatched the adversarial wave and closed four defects.** Four teammates in one block:
 `rev-m2u71` (N01-N80 conformance), `rev2-m2u71` (both campaigns), `rev3-m2u71` (claim soundness,
@@ -124,7 +181,7 @@ generation survives **at the retiring path**; restoring it to `out` is the stron
 committed case asserts that instead. **A reviewer's red test encodes one acceptable outcome, not the
 only one — adjudicate the requirement, then write the acceptance check.**
 
-**Window 2 shipped the publisher.** `src/pose_estimation/calibration_qc.py` (~780 lines),
+**Window 2 shipped the publisher.** `src/pose_estimation/calibration_qc.py`,
 `tests/test_calibration_qc.py` **74 cases, all green**, CLI `pose-estimation-calibration-qc`
 registered in `pyproject.toml`, `.gitignore` two-pattern `calibration_qc` + `calibration_qc.*/`.
 `ruff check`, `ruff format --check`, `ty check` all rc=0. Contract gained **A01-A06**
@@ -140,12 +197,16 @@ unrepresentability provable over the schema, and C13's unrun arm publishable as 
 `unrun_arm_status` whose alphabet admits `unrun` alone. E08's ruling that C13 cannot enter a CSV is
 overturned.
 
-**What the tool actually guarantees, stated as the thing a reviewer should attack.** It computes
-nothing. It refuses to publish when the evidence backing the ruling has gone missing: a cited arm
-absent (`REAL same view pair`, `+ same subject`, the permutation null), a reference band absent
-(shared-image-bias / per-event-bias / noise prefixes), a statistic key dropped from a probe record, a
-capture taken under a different script version, or a cited script missing. **A ruling whose evidence
-has gone missing stops being publishable** — that is the whole product.
+**What the tool actually guarantees, and the gap between that and the ruling's width.** It computes
+nothing. It refuses to publish when the **`bias_transfer`** evidence has gone missing or moved: a
+cited arm absent (the four groupings the transfer claim names, plus the permutation null), a
+reference band absent (shared-image-bias / per-event-bias / noise prefixes), a required arm short of
+the ruled 178-pair/103-event population, a duplicate arm label, a record key outside the closed set,
+a statistic key or required field dropped, a capture taken under a different script version, or a
+cited script missing. **What it does not check is `calibration_bias` output** — cited and digested,
+never ingested — so the claims resting on that probe publish without their numbers being seen.
+**A digest match binds a capture to one script version; it authenticates nothing**, so hand-written
+stdout carrying the live digest reads like a real run.
 
 **Shape.** Three entries. `corpus_qc.csv` = 1 row x 10 ruling columns. `evidence_qc.csv` = **long
 form**, one row per (probe, arm, statistic) x 9 columns; wide-per-arm was refused because the arms do
@@ -209,14 +270,14 @@ shared venv's path**: the environment predates the `pyproject.toml` row and ever
 is redaction-safe by contract, three small entries, and the artifact every review reads. The deny set
 is a context-cost guard, and this tree costs nothing.
 
-**Remaining for M2.7.1 close.** (a) `scripts/check_calibration_qc_determinism.py` + its committed
-result and the `source_sha256` self-check, (b) `scripts/run_calibration_qc_mutations.py` + its
-focused oracle `tests/test_calibration_qc_mutants.py`, (c) `docs/technical/calibration_qc.md` + the
-four registration edits S06 names (`entrypoints.md` count/rows, `architecture.md` module map,
-`tests.md` inventory, `conventions.md` campaign list) + the `docs/technical/qualification.md` pointer
-D03 mandates, (d) the adversarial review rows. **S08 is the input for (a) and (b)** and is what
-`map-m2u71-2` was funded for. Both campaigns ship as **runnable seeds at `e494659`**, graded both
-ways: 21 sweeps + 18 tampers at `unknown` (rc=1) and 42 mutants `UNENCODED` (rc=1).
+**Shipped surface.** `src/pose_estimation/calibration_qc.py` (1114 lines) + CLI
+`pose-estimation-calibration-qc`; `tests/test_calibration_qc.py` and its focused oracle
+`tests/test_calibration_qc_mutants.py`; `scripts/check_calibration_qc_determinism.py` with its
+committed `tests/calibration_qc_determinism_results.json` and the `source_digests` tripwire;
+`scripts/run_calibration_qc_mutations.py`; `docs/technical/calibration_qc.md` plus the four
+registration edits S06 names and the `qualification.md` pointer D03 mandates. **S08 was the input for
+both campaigns**, which shipped as runnable seeds at `e494659` graded both ways — 21 sweeps + 18
+tampers at `unknown` (rc=1) and 42 mutants `UNENCODED` (rc=1) — and closed green in window 4.
 
 **Sizing datum.** The publisher itself cost roughly half a window once S01-S06 were in hand — the
 idiom is genuinely reusable and the crash-state table transfers line for line. What the window
@@ -224,13 +285,26 @@ actually bought beyond code: the A02 ruling, which a wave-1 report had settled t
 teammate's conclusion about the contract is attention-directing, never binding — validate it against
 the frozen text before building on it.**
 
-**Gate.** `ruff check`, `ruff format --check`, `ty check` all rc=0. Decisive suite **1358 passed /
-0 skipped / rc=0** in 916.39 s at the pre-fix state — baseline 1284 plus exactly the 74 new cases,
-nothing else moved — then **1360 passed / 0 skipped / rc=0** in 1018.37 s after the
-`_read_capture` fix and its two cases. Both runs in the primary tree, alone.
+**Gate, window 4 and decisive.** `ruff check`, `ruff format --check`, `ty check` all rc=0; suite
+**1438 passed / 0 skipped / 0 failed, rc=0** in 1216.78 s, primary tree, alone. Baseline **1406** at
+`9f198f3` plus **32**: 26 authored across the two calibration-QC suites (87 → 104 and 41 → 50) and
+**6 free**, because the existing negative-control case parametrizes over `PROHIBITED_PARAPHRASES`,
+which the 6 `UNRUN_ARM_OUTCOMES` entries widen 17 → 23. Campaigns **51/51 mutants killed** in
+162.96 s and **39/39 determinism verdicts** in 20.98 s, both re-derived after the reformat. Window-3
+trend for sizing: 1358 in 916.39 s, then 1360 in 1018.37 s, then 1406 at `9f198f3`. **The suite now
+costs roughly two passes** — `test_c8_08` spawns a nested full-suite subprocess — so run it detached;
+a foreground call hits the 10-minute Bash cap.
 
-`main=` window 2 100% 240K/240K, window 3 93% 222K/240K at reserve close. `mate=` 72% 173K/240K
-(`rev3-m2u71`; `doc-m2u71` 67%, `rev-m2u71` 64%, `rev2-m2u71` 63% at close).
+`main=` window 2 100% 240K/240K, window 3 93% 222K/240K at reserve close, **window 4 59% 141K/240K**
+— the whole unit closed inside one window with reserve to spare, because no teammate was funded.
+`mate=` 72% 173K/240K (`rev3-m2u71`; `doc-m2u71` 67%, `rev-m2u71` 64%, `rev2-m2u71` 63%), unchanged:
+**window 4 ran MAIN-only**, every teammate having been stopped in window 3.
+
+**Sizing datum, and it is the one PLANNING should carry forward.** A window that only *rules and
+applies* — no dispatch, no worktree, no polling — closed 45 review rows, 11 source changes, two
+campaign re-derivations and six documentation surfaces at **59%**. The window-3 wave cost 93% to
+produce those rows. Reviewing is what needs teammates; adjudicating and applying does not, and
+splitting them across windows is what keeps both inside the one-window aim.
 
 **Sizing datum, and it is the expensive one.** All four teammates reached 44-52% context with **zero
 cells flushed and zero commits**, then filled 30-100% of their tables within one poll of a single
@@ -469,8 +543,10 @@ only after it survives.**
 
 ### M2.6 — F0 CLOSED NEGATIVE; verdict ships through F1a
 
-**Extrinsic recovery from subject keypoints is not achievable on this corpus, and the cause is
-measured rather than assumed.** Three windows against F0 ("does M2.6 exist as scoped?"). Contract at
+**Extrinsic recovery from RTMW-L keypoints on this corpus at 1080p under per-model intrinsic priors
+is measured unachievable, and the cause is measured rather than assumed.** Those three qualifiers
+travel with the negative: a lower-bias keypoint source, a detector trained for multi-view
+consistency and prospective calibrated capture all stay outside the bound. Three windows against F0 ("does M2.6 exist as scoped?"). Contract at
 `.agent/archive/contract-m2u6.md`: §1-§6 bind as the record of the route tested, amendments A01-A08
 (windows 1-2) and **A09-A13 (this window, the closure)**. F1-F3 are moot as written — they configure
 a publisher for extrinsics the corpus cannot yield. Baseline `7fcf329`.

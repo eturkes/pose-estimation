@@ -23,6 +23,8 @@
 | `metrics.py` | `MetricsCollector`, `ConstraintDiagnostics`, `SmoothingDiagnostics` — per-frame quality metrics. |
 | `benchmark.py` | Parameter sweep harness (subprocess fan-out, `--config` YAML). |
 | `sessions.py` | Materializes the registry into a tree of recording events keyed `<capture_id>_run-NN`, one directory of symbolic links per event. Owns the take-resolution policy, the placement vocabulary, and generation validation. It reads the registry alone and never walks the corpus. See `sessions.md`. |
+| `qualify.py` | Publishes capture qualification from the registry, session tree, recordings, and optional measurement sidecar. Owns its schemas and generation validation. See `qualification.md`. |
+| `calibration_qc.py` | Publishes the corpus-level calibration ruling from validated qualification and captured probe evidence. Computes no statistic. See `calibration_qc.md`. |
 | `multicam.py` | Multi-camera `Session` discovery + synchronized iteration + CLI session resolution (`resolve_cli_sessions`). `process_session` orchestrates per-camera processing via callback, then 3D-fuses CSVs when calibration present (`fuse_session_outputs`, `SessionFusion`) and writes `world3d.csv`. See `multicam.md`. |
 | `calibration.py` | Camera-calibration JSON IO + validation (cv2-free). See `calibration.md`. |
 | `charuco.py` | ChArUco board build/render, corner detection, `solve_charuco` (intrinsics + pairwise extrinsics + global RMS). See `calibration.md`. |

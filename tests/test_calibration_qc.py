@@ -12,6 +12,7 @@ scripts are on disk under the names the module spells.
 
 from __future__ import annotations
 
+import ast
 import csv
 import hashlib
 import json
@@ -21,7 +22,7 @@ import re
 import runpy
 import subprocess
 import sys
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -190,6 +191,31 @@ def test_a_nullable_statistic_field_publishes_an_empty_cell(
     assert all(row["median"] for row in px)
 
 
+def test_the_published_headers_are_the_ruled_columns_in_exact_order(
+    published: dict[str, pathlib.Path],
+) -> None:
+    """Spelled out, not derived: a reordered column tuple is a silent schema change."""
+    _run(published)
+    corpus = (published["out"] / calibration_qc.CORPUS_QC_FILENAME).read_text(encoding="utf-8")
+    evidence = (published["out"] / calibration_qc.EVIDENCE_QC_FILENAME).read_text(encoding="utf-8")
+    assert corpus.splitlines()[0] == (
+        "ruling_grain,recovery_status,reason,transfer_status,keypoint_source,image_height_px,"
+        "intrinsics_basis,unrun_arm,unrun_arm_status,cited_probes"
+    )
+    assert evidence.splitlines()[0] == "probe,probe_sha256,arm,statistic,n,median,min,max,above_0p5"
+
+
+def test_a_corpus_table_that_is_not_one_row_is_refused_at_the_build_boundary(
+    tmp_path: pathlib.Path,
+) -> None:
+    staging = tmp_path / "staging"
+    for rows in ([], [dict(calibration_qc.RULING), dict(calibration_qc.RULING)]):
+        with pytest.raises(calibration_qc.CalibrationQcError) as error:
+            calibration_qc._build(staging, rows, [], upstream_qualification={}, probes={})
+        assert error.value.reason == "corpus_cardinality"
+    assert not staging.exists()
+
+
 # --- ownership, atomicity, disjointness (probe seed classes 1-3) ------------------------------------
 
 
@@ -304,6 +330,23 @@ def test_an_output_overlapping_an_input_is_refused_in_both_directions(
         _run(published)
 
 
+def test_an_evidence_capture_symlinked_into_the_output_is_refused(
+    published: dict[str, pathlib.Path],
+) -> None:
+    """The directory check resolves the directory; a link inside it points where it likes."""
+    _run(published)
+    capture = published["evidence"] / f"{calibration_qc.INGESTED_PROBES[0]}.jsonl"
+    target = published["out"] / "publisher-input.jsonl"
+    target.write_bytes(capture.read_bytes())
+    capture.unlink()
+    capture.symlink_to(target)
+
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(published)
+    assert error.value.reason == "output_overlap"
+    assert target.is_file()
+
+
 # --- integrity (probe seed class 4) -----------------------------------------------------------------
 
 
@@ -369,6 +412,20 @@ def test_an_edited_probe_script_makes_the_published_set_stale(
     script.write_text(script.read_text(encoding="utf-8") + "# edited\n", encoding="utf-8")
     with pytest.raises(calibration_qc.CalibrationQcError):
         calibration_qc.validate_generation(published["out"], probes_dir=published["probes"])
+
+
+def test_no_refusal_reaches_a_consumer_without_a_reason_code() -> None:
+    """A consumer branches on the code; a bare message collapses every cause into one."""
+    tree = ast.parse(pathlib.Path(calibration_qc.__file__).read_text(encoding="utf-8"))
+    bare = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == calibration_qc.CalibrationQcError.__name__
+        and not any(keyword.arg == "reason" for keyword in node.keywords)
+    ]
+    assert bare == []
 
 
 # --- alphabets (probe seed class 5) -----------------------------------------------------------------
@@ -472,6 +529,23 @@ def test_no_published_byte_carries_a_corpus_identifier(
             text = path.read_text(encoding="utf-8")
             for shape in calibration_qc.IDENTIFIER_SHAPES:
                 assert not shape.search(text)
+
+
+@pytest.mark.parametrize(
+    "key", ["event_id", "asset_id", "capture_id", "subject_id", "source_path", "filename"]
+)
+def test_an_identifier_bearing_record_key_is_refused_and_not_discarded(
+    published: dict[str, pathlib.Path], key: str
+) -> None:
+    """A closed output schema drops the key silently, which tells the operator nothing."""
+    probe = calibration_qc.INGESTED_PROBES[0]
+    lines = [json.dumps(_record(label, **{key: "redacted"})) for label in _arms()]
+    (published["evidence"] / f"{probe}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(published)
+    assert error.value.reason == "forbidden_key"
+    assert not published["out"].exists()
 
 
 # --- evidence validation (probe seed class 7) --------------------------------------------------------
@@ -604,6 +678,83 @@ def test_the_cited_probe_scripts_exist_in_the_repository() -> None:
         assert (scripts / name).is_file()
 
 
+def test_every_grouping_the_transfer_claim_quotes_is_a_cited_arm() -> None:
+    """The claim names view-pair, device-model, task and subject groupings, plus the null."""
+    assert set(calibration_qc.REQUIRED_ARMS) == {
+        "REAL same view pair",
+        "REAL same view pair + same model pair",
+        "REAL same view pair + same task",
+        "REAL same view pair + same subject",
+        "REAL same view pair, keypoints permuted (null)",
+    }
+
+
+def test_a_required_arm_short_of_the_ruled_population_is_refused(
+    published: dict[str, pathlib.Path],
+) -> None:
+    """A structurally complete capture measured on one pair cannot certify the negative."""
+    probe = calibration_qc.INGESTED_PROBES[0]
+    lines = [json.dumps(_record(label, pairs=1, events=1)) for label in _arms()]
+    (published["evidence"] / f"{probe}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(published)
+    assert error.value.reason == "population_mismatch"
+
+
+def test_a_duplicate_arm_label_is_refused(published: dict[str, pathlib.Path]) -> None:
+    """One label is one row key, so a repeat would key two rows to the same arm."""
+    arms = _arms()
+    _write_evidence(published["evidence"], published["probes"], arms=[*arms, arms[0]])
+
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(published)
+    assert error.value.reason == "arm_duplicate"
+
+
+def test_a_statistic_block_missing_a_required_field_is_refused(
+    published: dict[str, pathlib.Path],
+) -> None:
+    """``above_0p5`` is nullable by design; the four numbers the ruling cites are not."""
+    probe = calibration_qc.INGESTED_PROBES[0]
+    lines = []
+    for label in _arms():
+        record = _record(label)
+        del cast(dict[str, object], record["within_event_r"])["n"]
+        lines.append(json.dumps(record))
+    (published["evidence"] / f"{probe}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(published)
+    assert error.value.reason == "evidence_schema"
+
+
+@pytest.mark.parametrize("defect", ["capture", "digest"])
+def test_an_input_refusal_lands_before_the_output_is_judged(
+    published: dict[str, pathlib.Path], monkeypatch: pytest.MonkeyPatch, defect: str
+) -> None:
+    """Judging the output renames a retiring sibling and sweeps orphans on its behalf."""
+    probe = calibration_qc.INGESTED_PROBES[0]
+    if defect == "capture":
+        capture = published["evidence"] / f"{probe}.jsonl"
+        lines = capture.read_text(encoding="utf-8").splitlines()
+        lines[0] = lines[0][:-1]
+        capture.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        expected = "evidence_malformed"
+    else:
+        (published["evidence"] / f"{probe}.sha256").write_text("f" * 64 + "\n", encoding="utf-8")
+        expected = "probe_digest"
+
+    def judged(out: pathlib.Path) -> None:
+        del out
+        raise AssertionError("the output was judged before the inputs were validated")
+
+    monkeypatch.setattr(calibration_qc, "_assert_owned", judged)
+    with pytest.raises(calibration_qc.CalibrationQcError) as error:
+        _run(published)
+    assert error.value.reason == expected
+
+
 # --- claim conformance (probe seed class 8) ----------------------------------------------------------
 
 
@@ -694,6 +845,22 @@ def test_the_ruling_never_fills_a_qualification_sentinel(
     assert events
     assert all(row["geom_qualified"] == "" for row in events)
     assert all("geom_unmeasured" in row["reason"] for row in events)
+
+
+def test_an_added_arm_cannot_assign_the_unrun_arm_a_measured_outcome(
+    published: dict[str, pathlib.Path],
+) -> None:
+    """The arm set is open, so a label is where a verdict enters as free text."""
+    for outcome in calibration_qc.UNRUN_ARM_OUTCOMES:
+        _write_evidence(
+            published["evidence"],
+            published["probes"],
+            arms=[*_arms(), f"per-event double-centered bias-and-pose {outcome}"],
+        )
+        with pytest.raises(calibration_qc.CalibrationQcError) as error:
+            _run(published)
+        assert error.value.reason == "claim_prohibited"
+        assert not published["out"].exists()
 
 
 def test_committed_determinism_evidence_matches_its_exact_source_tripwire() -> None:

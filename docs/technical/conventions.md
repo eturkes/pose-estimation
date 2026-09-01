@@ -17,7 +17,20 @@ uv run ruff check && uv run ruff format --check && uv run ty check && uv run pyt
 - Changed `analysis/*.R` must exit 0 under `Rscript` with the project renv active. After an R upgrade, update + snapshot `renv.lock` first.
 - Smoke-test each changed console entry point on a non-sensitive, non-interactive path.
 - Non-interactive shells (scripts, agents, fresh shells) export the layer's `UV_PROJECT_ENVIRONMENT` before `uv` runs — `.envrc` covers hooked interactive shells only. See `environment.md`.
-- Two committed campaign gates run outside the ordered stages: `scripts/run_inventory_mutations.py` (72 mutants over `inventory.py` + `video_io.py`; 71 killed, `M028` a ruled equivalent) and `scripts/check_inventory_determinism.py` (20 sweeps + 13 tamper classes at the consumer boundary). Rerun both before quoting a corpus-registry claim; a new registry predicate earns a mutant in the same commit.
+
+### Auxiliary campaigns
+
+These committed campaigns run outside the ordered stages. Run each applicable campaign after the
+quality gate, and never before it: a `ruff format` pass moves source bytes, which invalidates every
+committed determinism digest and every mutation patch anchor. Run every mutation campaign alone. It
+rewrites `src/` in place and restores it at the end, so a concurrent job in the same tree reads
+mutated bytes.
+
+- **Registry.** Run `uv run python scripts/run_inventory_mutations.py` and `uv run python scripts/check_inventory_determinism.py`. The mutation campaign holds 72 mutants over `inventory.py` and `video_io.py`: 71 are killed, and `M028` is a ruled equivalent. The determinism campaign runs 20 sweeps and 13 tamper classes at the consumer boundary. Rerun both before you quote a corpus-registry claim. A new registry predicate earns a mutant in the same commit.
+- **Qualification.** Run `uv run python scripts/check_qualify_determinism.py`. It passes 40 sweeps across both publication modes and 19 consumer-boundary tamper classes. It refuses to run when source bytes move; run `rm -f tests/qualify_determinism_results.json` first for an intentional regeneration.
+- **M2.5 alignment.** Run `uv run python scripts/check_m2u5_determinism.py` and `uv run python scripts/run_m2u5_mutations.py`. The first command passes D06-D09. The second command kills all 25 mutants through `tests/test_m2u5_mutants.py`.
+- **Calibration-QC determinism.** Run `uv run python scripts/check_calibration_qc_determinism.py`. It passes 21 publication sweeps and 18 consumer-boundary tamper classes in 21 seconds. It refuses to run when source bytes move; run `rm -f tests/calibration_qc_determinism_results.json` first for an intentional regeneration.
+- **Calibration-QC mutation.** Run `uv run python scripts/run_calibration_qc_mutations.py`. It kills all 51 publisher mutants through `tests/test_calibration_qc_mutants.py` in under three minutes.
 
 ## Maintenance
 

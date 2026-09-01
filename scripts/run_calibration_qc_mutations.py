@@ -397,8 +397,8 @@ MUTANTS: tuple[Mutant, ...] = (
         "claim scan drops the case fold",
         (
             Patch(
-                '    folded = published.casefold().replace("_", " ")',
-                '    folded = published.replace("_", " ")',
+                '    return text.casefold().replace("_", " ").replace("-", " ")',
+                '    return text.replace("_", " ").replace("-", " ")',
             ),
         ),
     ),
@@ -407,8 +407,8 @@ MUTANTS: tuple[Mutant, ...] = (
         "claim scan drops the underscore-to-space fold",
         (
             Patch(
-                '    folded = published.casefold().replace("_", " ")',
-                "    folded = published.casefold()",
+                '    return text.casefold().replace("_", " ").replace("-", " ")',
+                '    return text.casefold().replace("-", " ")',
             ),
         ),
     ),
@@ -429,6 +429,96 @@ MUTANTS: tuple[Mutant, ...] = (
             Patch(
                 "    _assert_claim_conformance(staging)",
                 '    _assert_claim_conformance(staging)\n    census["prohibited_paraphrases"] = list(PROHIBITED_PARAPHRASES)\n    census["generation"]["census"] = census_digest(census)\n    (staging / CALIBRATION_QC_FILENAME).write_text(\n        inventory.render_json(census), encoding="utf-8", newline=""\n    )',
+            ),
+        ),
+    ),
+    Mutant(
+        "M43",
+        "claim scan drops the hyphen-to-space fold",
+        (
+            Patch(
+                '    return text.casefold().replace("_", " ").replace("-", " ")',
+                '    return text.casefold().replace("_", " ")',
+            ),
+        ),
+    ),
+    Mutant(
+        "M44",
+        "an evidence record key outside the closed set is discarded, not refused",
+        (
+            Patch(
+                "        unexpected = sorted(set(record) - RECORD_KEYS)",
+                "        unexpected = []",
+            ),
+        ),
+    ),
+    Mutant(
+        "M45",
+        "a statistic block missing a required field publishes a short row",
+        (
+            Patch(
+                "            absent = [field for field in REQUIRED_STATISTIC_FIELDS if block.get(field) is None]",
+                "            absent = []",
+            ),
+        ),
+    ),
+    Mutant(
+        "M46",
+        "a cited arm short of the ruled population is accepted",
+        (
+            Patch(
+                "if record.get(field) != ruled:",
+                "if record.get(field) > ruled:",
+            ),
+        ),
+    ),
+    Mutant(
+        "M47",
+        "a duplicate arm label keys two rows instead of refusing",
+        (
+            Patch(
+                "        if arm in seen:",
+                "        if False:",
+            ),
+        ),
+    ),
+    Mutant(
+        "M48",
+        "the corpus table is not held to exactly one row",
+        (
+            Patch(
+                "    if len(corpus_rows) != 1:",
+                "    if False:",
+            ),
+        ),
+    ),
+    Mutant(
+        "M49",
+        "an evidence capture symlinked into the output is accepted",
+        (
+            Patch(
+                '        for entry in (capture, sidecar):\n            _assert_disjoint(out, entry, f"evidence capture {entry.name}")',
+                "        for entry in ():\n            del entry",
+            ),
+        ),
+    ),
+    Mutant(
+        "M50",
+        "the unrun arm gains no derived prohibition",
+        (
+            Patch(
+                '    "failed",\n    "refused",\n    "impossible",\n    "unachievable",\n    "succeeded",\n    "ran",\n)',
+                ")",
+            ),
+        ),
+    ),
+    Mutant(
+        "M51",
+        "the output is judged before the evidence is validated",
+        (
+            Patch(
+                "    digests = probe_digests(probes_dir)",
+                "    _assert_owned(out)\n    digests = probe_digests(probes_dir)",
             ),
         ),
     ),

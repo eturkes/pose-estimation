@@ -1,6 +1,6 @@
 # Command-line entry points
 
-Eight console scripts (see `pyproject.toml:[project.scripts]`):
+Ten console scripts (see `pyproject.toml:[project.scripts]`):
 
 | Script | Module | Purpose |
 |--------|--------|---------|
@@ -11,6 +11,8 @@ Eight console scripts (see `pyproject.toml:[project.scripts]`):
 | `pose-estimation-calibrate` | `pose_estimation.calibration_cli` | Multi-camera calibration management. |
 | `pose-estimation-inventory` | `pose_estimation.inventory` | Task-side family registry and aggregate container census. |
 | `pose-estimation-sessions` | `pose_estimation.sessions` | Recording-event tree that multi-camera discovery reads. |
+| `pose-estimation-qualify` | `pose_estimation.qualify` | Capture-qualification evidence publisher. |
+| `pose-estimation-calibration-qc` | `pose_estimation.calibration_qc` | Corpus-level calibration ruling and evidence publisher. |
 | `pose-estimation-validate` | `pose_estimation.validation` | End-to-end pipeline validation report. |
 
 ## `main.py` — MediaPipe path
@@ -145,6 +147,72 @@ Status 2 reports a usage or registry error.
 
 The output directory must not contain, equal, or sit inside `--corpus` or `--inventory`.
 The tool reads the registry alone and never walks the corpus. See `sessions.md`.
+
+## `qualify.py` — capture-qualification evidence publisher
+
+```bash
+pose-estimation-qualify \
+  --inventory inventory \
+  --sessions sessions \
+  --corpus videos/3-cam \
+  --out qualification \
+  --measurements measurements
+
+python -m pose_estimation.qualify \
+  --inventory inventory \
+  --sessions sessions \
+  --corpus videos/3-cam \
+  --out qualification
+```
+
+`--inventory`, `--sessions`, `--corpus`, and `--out` are required.
+`--measurements` is optional. Omit it to publish the expensive axes unmeasured.
+
+The tool validates each supplied generation before it reads a row.
+It publishes `assets_qc.csv`, `pairs_qc.csv`, `cameras_qc.csv`, `events_qc.csv`, and `qualification.json`.
+The output must not equal, contain, or sit inside any input.
+
+Help and successful publication exit 0.
+Argparse usage errors exit 2 before dispatch.
+A handled qualification, session, or inventory error prints one `Error:` message and exits 2.
+
+Every consumer must call `qualify.validate_generation` before reading a row.
+See [Capture qualification](qualification.md) for the schemas, measurement limits, and consumer contract.
+
+## `calibration_qc.py` — corpus-level calibration ruling
+
+```bash
+pose-estimation-calibration-qc \
+  --qualification qualification \
+  --evidence evidence \
+  --probes scripts \
+  --out calibration_qc \
+  --sessions sessions \
+  --inventory inventory
+
+python -m pose_estimation.calibration_qc \
+  --qualification qualification \
+  --evidence evidence \
+  --probes scripts \
+  --out calibration_qc
+```
+
+`--qualification`, `--evidence`, `--probes`, and `--out` are required.
+`--sessions` and `--inventory` are optional upstream freshness checks.
+Pass both when those trees remain available.
+
+The tool validates captured probe stdout and publishes one fixed corpus ruling.
+It runs no probe, computes no statistic, and never modifies `qualification/`.
+It publishes `corpus_qc.csv`, `evidence_qc.csv`, and `calibration_qc.json`.
+
+Help and successful publication exit 0.
+Argparse usage errors exit 2 before dispatch.
+A handled calibration-QC, qualification, session, or inventory error prints one `Error:` message and exits 2.
+Other exceptions propagate.
+
+Every consumer must call `calibration_qc.validate_generation` before reading a row.
+Pass `probes_dir=` to catch a cited probe script that changed after publication.
+See [Calibration ruling](calibration_qc.md) for the schemas, claim bound, and consumer contract.
 
 ## `validation.py` — end-to-end validation report
 

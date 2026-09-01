@@ -79,6 +79,11 @@ The schema is `GENERATOR_VERSION` v4.
 | `events_qc.csv` | One row for each recording event. |
 | `qualification.json` | Aggregates, and the generation marker. |
 
+**Related calibration ruling.** The separate `calibration_qc/` set publishes the corpus-level
+geometry-recovery ruling. It is not an output or an upstream of `pose-estimation-qualify`. It leaves
+every per-event geometry cell unmeasured. Read [Calibration ruling](calibration_qc.md) before you
+consume that set.
+
 `qualification.json` holds counts and distributions only. It holds no filename, no path, no
 identifier and no location. It is the only artifact you may quote outside the published set.
 
