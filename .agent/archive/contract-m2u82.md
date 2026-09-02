@@ -144,7 +144,58 @@ counters), `analysis/clinical_features.R` (group disposition), the published `se
 
 ## 8. Amendments
 
-*(none yet)*
+**A01 — D02's measured corpus cost is 7.07-7.61 h, from the post-fix pilot re-run.** Same instrument,
+same 8 events / 16 assets / 8971 reported frames, same configuration (`rtmw-l`, `hands-arms`,
+`--single-subject`, det CPU / pose NPU, `--det-frequency 7`), out tree `.scratch/pilot-m2u82/` kept
+separate from M2.8.1's `.scratch/pilot-m2u81/` so both populations stay re-readable.
+
+| | pre-fix | post-fix |
+| - | ------- | -------- |
+| per-asset ms/frame | 7.2-12.2 **and** 338.6-543.5 (bimodal, 40×) | **58.6-92.2** (unimodal, 1.57×) |
+| run wall | 2959.56 s | **729.05 s** |
+| fps incl. startup / steady | 3.031 / 3.598 | **12.305 / 13.253** |
+| corpus hours incl. startup / steady | 30.89 / 26.03 | **7.61 / 7.07** |
+
+Unchanged and therefore re-confirmed: CFR pooled fallback rate **0.000000** over 8971 decoded frames,
+group partition total at 16 input = 16 windowed + 0 dropped, guard refusals 8/8 events. **Window rows
+moved 572 → 540**, which is the expected tell rather than a regression: the pre-fix run computed part
+of its features from whole-frame pose, so the keypoints feeding window enumeration genuinely changed.
+
+**A02 — the pilot's per-frame latency log is a standing diagnostic, not just a progress trace.**
+`run.py` prints `Frame … | <dt> ms | …` at `frame_idx <= 5 or frame_idx % 50 == 0`; grouping those
+`dt` values by `(frame_idx - 1) % det_frequency` separates detector frames from pose-only frames and
+makes the tracker's cadence directly observable. That is what closed §2 with no new decode. Any
+future claim about run cost checks this split before it hypothesises a workload cause.
+
+**A03 — P02's characterization pins upstream behaviour, so it may legitimately go green on an rtmlib
+upgrade.** If a future rtmlib fixes the reorder, `tracking=True` stops freezing and P02's freeze
+assertions fail. That is the predicate working: it is a tripwire on the dependency, and its failure
+is a signal to re-rule D01, not a defect in the suite. The row is not to be weakened into a tautology.
+`test-m2u82` reached the same ruling independently and marked P02 `encoded-green`, reproducing §2's
+table exactly including the modelled ms/frame column.
+
+*Amendments A04-A06 are rulings on `test-m2u82`'s diff-blind findings, harvested at window-1 close.*
+
+**A04 — N2 is a mis-specified negative control and is REPLACED.** N2 said "force `det_frequency = 1`
+with tracking restored ⇒ P04 fires". Measured: P04 is green at `det_frequency = 1` under **every**
+induced miss, so N2 could never fire it. This is not a P04 defect — it is D01a's claim holding, and
+the seed contradicted the design decision it was written beside. **N2 becomes: restore `tracking=True`
+at `det_frequency` in {2, 5, 7, 13} ⇒ P04 fires on each.** The `det_frequency = 1` case stays in the
+suite as a *positive* control for D01a rather than as a negative control.
+
+**A05 — P07 needs a second clause, because row-set equality is not row-set identity.** As frozen, P07
+reads "exactly one row per canonical asset — 379 rows, no duplicate, no absent asset". A manifest that
+duplicates one asset and drops another has the same 379-row count **and the same row set**, so a set
+comparison passes it. P07 is amended to require, as separate conjuncts: row count 379, key set equal
+to the registry's canonical asset set, **and keys unique**. The uniqueness clause is the one that
+carries the defect; the other two cannot see it.
+
+**A06 — D06's frozen disposition vocabulary must ship as a machine-readable constant in `src/`, and
+that is a window-2 implementation obligation.** The contract froze a vocabulary that exists nowhere in
+`src/` or `scripts/`, so no gate can re-derive it and P08 is currently unsatisfiable by construction.
+Same shape as M2.8.1's `GROUP_QC_REASONS`, which is re-derived from the R source at check time rather
+than transcribed: **a frozen value set that lives only in a contract is a stale number waiting to
+happen.** The manifest writer and its validator both read the constant; neither restates it.
 
 ## 9. Verdict table
 

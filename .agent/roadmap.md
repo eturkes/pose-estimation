@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7 DONE (M2.7.1-M2.7.4); M2.8.1 DONE; M2.8.2-M2.8.3 OPEN, none BLOCKED, lowest OPEN unit = M2.8.2. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7 DONE (M2.7.1-M2.7.4); M2.8.1 DONE; **M2.8.2 OPEN with 1 window spent** (contract frozen, the tracker-freeze defect found and fixed, corpus cost re-measured at 7.07-7.61 h; the driver, the manifest and the run itself are window 2); M2.8.3 OPEN. None BLOCKED, lowest OPEN unit = M2.8.2. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Review carry-over — M2's MILESTONE-REVIEW must not re-review M2.1-M2.7.2.** Those units closed under the earlier regime, which ran `rev`/`rev2` inside WORK-UNIT: their check sets are fully adjudicated and recorded per unit below (`rev-m2u4-3` 73 rows + `rev2-m2u4-2` 33, M2.5's 38/33/14/55, M2.7.1's 45, and the `.agent/archive/rulings-m2u*.md` tables). Those rulings bind, and only new evidence reopens one. Seed `.agent/review-m2.md` from the units reviewed under neither regime plus the two milestone-scoped lenses that no unit could run — cross-unit integration and the `audit-m2` claim replay. Units from M2.7.3 on carry no in-unit judgment review and need their full check sets.
 
@@ -377,7 +377,7 @@ rebuild — keep new JA text inside existing coverage and state the risk in the 
 | id | tier | spine result | sizing |
 | -- | ---- | ------------ | ------ |
 | M2.8.1 | kernel | Corpus-run preconditions + instrumented pilot. Close B1/B1b/B2/B2b/B3 (§2 above); stratified pilot spanning both codecs, all four device configs and all four rotations. | 1-2 est; **3 spent, DONE** |
-| M2.8.2 | data | Full corpus 2D run, **26-31 h measured** (M2.8.1 pilot; the plan's 6.5 h was a micro-benchmark projection), resumable. First question = the 40× per-asset cost split, since closing it decides whether the run is 26 h or single-digit hours. Per-asset clinical features plus a run manifest giving every one of the 379 assets an explicit disposition, so no asset is silently absent from a denominator. | 1-2 windows |
+| M2.8.2 | data + kernel fix | Full corpus 2D run, resumable. **First question CLOSED in window 1: the 40× split was one tracker-freeze defect, not a cost profile** — so M2.8.1's 26-31 h measured a broken pipeline and is retired with the plan's 6.5 h. Per-asset clinical features plus a run manifest giving every one of the 379 assets an explicit disposition, so no asset is silently absent from a denominator. | 1-2 est; **1 spent, OPEN** |
 | M2.8.3 | kernel | Cohort aggregate publisher + append-ready bilingual descriptor. 12 `(task, side)` rows, `n_subjects`/`n_events`, per-feature distribution statistics. | 2 windows |
 
 **M2.8.1 exists because M2.6 recorded why it must.** "Where a milestone's spine rests on an unmeasured
@@ -452,6 +452,65 @@ census, corpus readiness, sizing archaeology, the sentinel verification and the 
 all MAIN scripts, and the PTS question had already cost `map-m2` most of a window when MAIN answered
 it in two reads. **On a planning window, delegate the reading and the external research; keep every
 script-derivable census in MAIN's hands.**
+
+#### M2.8.2 — OPEN, 1 window spent. The first question closed, and it was a defect
+
+**Contract frozen at `.agent/archive/contract-m2u82.md`** — 7 design decisions D01-D07, 14 predicates
+P01-P14, a 7-case negative-control seed. Base `65b16b7`. Tier: spine artifact `data`, **D01's fix
+`kernel`** — planning sized this unit as delivery over a working pipeline, and the pipeline was not
+working.
+
+**The 40× per-asset split is one upstream state-machine defect, not a cost profile.** Both M2.8.1
+candidates are refuted — not per-detected-box cost, not device placement.
+`rtmlib.PoseTracker.__call__` reorders the current frame's keypoints by *persistent track id*, while
+`track_by_iou` mints `track_id = next_id++` for any unmatched box above `MIN_AREA`. One missed IoU
+match therefore indexes a one-person array at `[1]`, raises `IndexError`, and hits a bare `except`
+returning **before `frame_cnt += 1` and before `bboxes_last_frame` is replaced** — both freeze for the
+rest of the source. The pre-reorder keypoints still return, so yield stayed ~0.99 and nothing looked
+broken.
+
+**The residue of the frozen counter picks the failure, and one of the two is silent corruption.**
+Residue 0 → the detector re-runs every frame (correct output, ~6× cost, the 338.6-543.5 ms band).
+Residue ≠ 0 → the detector never runs again, `track_by_iou`'s pops drain the box list, and
+`RTMPose.__call__` opens `if len(bboxes) == 0: bboxes = [[0, 0, w, h]]` — so a **top-down pose model
+estimates from the whole 1080p frame** at confident-looking scores (the 7.2-12.2 ms band). **The low
+band was never fast, it was wrong.**
+
+**Answered from evidence M2.8.1 had already committed, with no new decode.** Re-reading the pilot's
+per-frame latency logs at the detector cadence separates detector frames from pose-only frames:
+pre-fix `run-00` read det 342.1 / non-det 356.6 ms, and `run-02` read det 394.6 / non-det 20.3 —
+same binary, same config, so the split is cadence, not workload. **Datum: before funding a
+measurement, re-read the logs the last measurement already wrote.**
+
+**Shipped.** `PoseTracker(..., tracking=False)` in `run.py`, with the mechanism in a comment, and
+`scripts/probe_tracker_freeze.py` — 5 scenarios × 7 verdicts, rc=0, stub models so it needs no
+corpus, no weights and no accelerator. Every §2 number re-derives from it: healthy 140 frames /
+20 detector calls / 0 whole-frame pose / 58.0 ms; frozen-at-3 → 1 call / **135 whole-frame** /
+10.5 ms; frozen-at-7 → 134 calls / 343.0 ms; `tracking=False` → 20 / 0 / 58.0 on both stimuli. The
+fix is a **removal, not a patch**: `KeypointSmoother` already owns temporal association through
+Hungarian `gated_assignment`, so rtmlib's tracker contributed only the IoU drop of unmatched people,
+which `--single-subject` overrides by confidence argmax.
+
+**Re-measured on the real corpus, same 8 events / 16 assets / 8971 frames, same configuration.**
+
+| | pre-fix (M2.8.1) | post-fix | |
+| - | ---------------- | -------- | - |
+| per-asset ms/frame | 7.2-12.2 **and** 338.6-543.5 | **58.6-92.2** | bimodal 40× → unimodal 1.57× |
+| run wall | 2959.56 s | **729.05 s** | 4.06× |
+| corpus estimate | 26.0-30.9 h | **7.07-7.61 h** | |
+
+CFR fallback stays **0.0** over 8971 frames; the group partition stays total at 16 input = 16
+windowed + 0 dropped. Window rows moved 572 → 540, which is the expected tell that the keypoints
+themselves changed — the pre-fix features were computed partly from whole-frame pose.
+
+**M2.8.1's 26-31 h figure is retired**, alongside the plan's 6.5 h: the first measured a frozen
+tracker end-to-end, the second extrapolated per-call latency. Both were re-quoted as budgets. **The
+projection trap and the broken-instrument trap produce the same artifact — a number nobody re-derived.**
+
+**Open into window 2.** The resumable corpus-run driver, the 379-row disposition manifest and the run
+itself (P05-P14). `test-m2u82` is diff-blind at `65b16b7` in `.scratch/worktrees/test-m2u82`, 14 rows
+seeded, none flushed at window close after one flush directive — its worktree and branch are
+**retained** for the successor. `main=` 82% 197K/240K at reserve. `mate=` 32% 77K/240K.
 
 #### M2.8.1 — DONE, 3 windows spent. Blockers closed, suite green, pilot measured
 
@@ -535,6 +594,11 @@ path, media suffix) fails both tests. Subprocess output carries identifiers → 
 16 drawn from the 123-asset `pts_monotonic = 0` population that bound came from. **P13 on real
 assets**: 16 input groups = 16 windowed + 0 dropped, 0 in both, 0 in neither, 572 window rows — a
 healthy sample cannot exercise a drop path, which is why A07's `2d_drop` golden exists.
+
+**SUPERSEDED by M2.8.2 — every throughput number in the next two paragraphs measured a frozen
+tracker, and the bimodality they report is that defect rather than a cost profile. The 26.0-30.9 h
+figure is retired with the 6.5 h one it replaced. Retained because the reasoning that produced them
+is sound and the trap they name is real.**
 
 **The 6.5 h corpus-run estimate is refuted, and the estimate's provenance is why.** 6.5 h came from
 per-call micro-benchmarks (pose NPU 7.17 ms + det CPU 445 ms every 7th frame ≈ 70 ms/frame), never

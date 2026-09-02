@@ -824,6 +824,18 @@ def main(argv=None):
         det_frequency=args.det_frequency,
         backend=args.backend,
         to_openpose=False,
+        # rtmlib's IoU tracking indexes the CURRENT frame's keypoint array by a
+        # PERSISTENT track id, so one missed match raises IndexError on a path
+        # that returns before ``frame_cnt += 1`` and before ``bboxes_last_frame``
+        # is replaced -- freezing both for the rest of the source.  The residue
+        # of the frozen counter then picks the failure: ``% det_frequency == 0``
+        # re-runs the detector on every frame, anything else starves the box list
+        # and RTMPose silently falls back to the WHOLE FRAME as its crop.
+        # KeypointSmoother already owns temporal association (Hungarian
+        # ``gated_assignment``), so rtmlib's tracker is redundant as well as
+        # unsound.  ``tracking=False`` takes the stateless branch, which needs
+        # ``det_frequency != 1`` to engage.
+        tracking=False,
     )
 
     smoother = (

@@ -408,7 +408,8 @@ Every audio-bearing fixture in `tests/` is muxed by PyAV; three ordering rules d
 - **rtmlib YOLOX must not run on NPU.** In-graph NMS ⇒ dynamic `dets` shape; NPU demands static ⇒ fixed 100-row buffer whose unused rows are never written. Symptom: every frame reports exactly 100 detections, all rows sharing one score, values outside `[0,1]` (observed 1.128, 1.263). CPU on the same frames returns 1–3 detections, max 0.918. Compiles cleanly ⇒ `rtmlib_openvino.py`'s NPU→CPU fallback never fires; failure is numerical, silent, and reaches the CSV.
 - Pose models are NPU-safe: RTMW-L NPU vs CPU = 0.505 px mean / 2.265 px p95 / 5.3 px p99 keypoint deviation, score MAE 0.00056. Per-call 7.17 ms NPU vs 134.26 ms CPU (~19×). Detector 109.82 ms NPU (garbage) vs 445.21 ms CPU.
 - **Those per-call numbers do not predict run throughput — measured end-to-end they are 4-5× optimistic.** The projection they support (pose 7.17 + det 445/7 ≈ 70 ms/frame ⇒ 6.5 h for the corpus) survived planning and two unit windows unchallenged. The M2.8.1 pilot ran the shipped configuration (`rtmw-l`, `hands-arms`, `--single-subject`, det CPU / pose NPU, `--det-frequency 7`) over 8971 frames: **2959.56 s = 3.03 fps** including per-event process start, 3.60 fps from mean latency ⇒ **26.0-30.9 h** for 337 090 frames. **Never size a run from per-call latency; run a stratified pilot and multiply.**
-- **Per-asset cost is bimodal at ~40×, and the split falls INSIDE single events** (one event reads `[12.2, 425.1, 11.4]` ms/frame), so it is not a per-process placement effect: 6/16 assets at 7.2-12.2 ms/frame, 10/16 at 338.6-543.5, emitted rows / decoded frames ≈ 0.99 in both bands. Leading hypothesis = **per-detected-box cost** — pose inference and both smoothers run per tracked box while `--single-subject` selects the highest-confidence person *after* inference, so a frame holding bystanders pays for all of them. Second candidate = detector device: the synthetic probe reads GPU 9.7 ms vs CPU 213 ms median and GPU zero-fills its padded rows (unlike NPU), so `--det-device GPU` is live pending a shape+range qualification. Contention is real and does not explain 40× (headroom ~0.8 core, load 12.7 on 8 cores). Closing this decides whether the corpus run costs 26 h or single-digit hours.
+- **The ~40× per-asset bimodality is CLOSED: it was the `PoseTracker` freeze, not a cost profile.** Both M2.8.1 candidates — per-detected-box cost and detector device — are refuted; see *rtmlib `PoseTracker`* above for the mechanism and the fix. It was answered by re-reading M2.8.1's own committed per-frame latency logs at the detector cadence, which separates detector frames from pose-only frames: pre-fix `run-00` read det 342.1 / non-det 356.6 ms (frozen at residue 0), post-fix it reads det 313.4 / non-det 6.9 ms, a clean 1-in-7 cadence. **Before funding a measurement, re-read the logs the last measurement already wrote.**
+- `--det-device GPU` stays unqualified and is deferred, not adopted: the synthetic probe reads GPU 9.7 ms vs CPU 213 ms median and GPU zero-fills its padded rows (unlike NPU), but a dynamic-output model needs its per-device shape+range qualification before use, and a corpus run is the wrong place to run one.
 - MediaPipe is unaffected — SSD anchors + NMS decode in Python (`detection.py`), graphs stay static-shaped ⇒ both roles default NPU. `models.DETECTOR_MODELS` selects which compile on `--det-device`.
 - **The padding is a device property, and only NPU pads with garbage.** One synthetic probe separates the three devices with no patient data: read `yolox_m_8xb8-300e_humanart-c2c7a14a.onnx` (rtmlib cache), compile per device, infer `np.zeros((1,3,640,640))`, print `dets`/`labels` shape + range. CPU keeps the dynamic output (`(1,1,5)`); GPU and NPU both materialise a fixed 100-row buffer with `labels` all `-1`; only NPU's `dets` hold uninitialised memory (`-0.1471…1.0215` on an all-zero image, so scores clear any threshold), while GPU's read exactly `0.0000`. That makes GPU a live candidate for the detector and keeps NPU excluded. Median latency on that probe: GPU 9.7 ms, NPU 108.4 ms, CPU 213.1 ms.
 - Reproduce the real-frame findings: `.scratch/det_npu_vs_cpu.py`, `.scratch/pose_npu_vs_cpu.py`, `.scratch/device_timing.py` (scalars only, no imagery/identifiers) — these decode patient clips, so they need clearance; the synthetic probe above does not.
@@ -421,9 +422,37 @@ Every audio-bearing fixture in `tests/` is muxed by PyAV; three ordering rules d
 - **A healthy sample cannot exercise a failure path.** The pilot's 16 input groups partitioned 16 windowed / 0 dropped, so every drop reason went untested there; `2d_drop`'s golden is what pins them. Pair every real-corpus probe with a synthetic negative — the probe proves reach, the golden proves the branch.
 - **Diagnostics ship only through the session path.** `process_source` writes its source-summary CSV from `output_diag`, and the single-source and batch entry points pass none, so a run outside `process_session` produces no diagnostics at all — not an empty file, no file. Any claim of the form "every asset has a disposition" holds for the session path alone.
 
-## rtmlib `PoseTracker` — stateful, and `tracking=False` does not disable it
+## rtmlib `PoseTracker` — stateful, unsound, and DISABLED in the run path
 
-- `PoseTracker.__call__` guards its stateless branch with `not self.tracking and self.det_frequency != 1`. **`det_frequency=1` sends `tracking=False` down the IoU-tracking branch anyway**, where each frame is matched against the previous one at `tracking_thr=0.3` and unmatched boxes are dropped. `bboxes_last_frame` then holds tracker state, never the current frame's detections.
+- **`run.py` constructs it with `tracking=False` (M2.8.2 D01). Never restore `tracking=True`.** The
+  IoU branch reorders the CURRENT frame's keypoints by PERSISTENT track id —
+  `keypoints = np.array([keypoints[i] for i in self.track_ids_last_frame])` — while `track_by_iou`
+  mints `track_id = next_id++` for any unmatched box above `MIN_AREA = 1000`. One missed match
+  therefore indexes a one-person array at `[1]`, raises `IndexError`, and hits a bare `except` that
+  returns **before `frame_cnt += 1` and before `bboxes_last_frame` is replaced**. Both freeze for the
+  rest of the source, permanently, and the pre-reorder keypoints still return, so yield stays ~0.99
+  and nothing downstream looks broken.
+- **The residue of the frozen counter picks which failure you get, and one of them is silent data
+  corruption.** At `det_frequency = 7`: residue 0 → the detector re-runs on every frame (correct
+  output, ~6× cost); residue ≠ 0 → the detector never runs again, `track_by_iou`'s pops drain
+  `bboxes_last_frame` to empty, and `RTMPose.__call__` opens with
+  `if len(bboxes) == 0: bboxes = [[0, 0, w, h]]` — so a top-down pose model estimates from the
+  **whole 1080p frame** instead of a person crop, at confident-looking scores.
+- **This is what M2.8.1's 40× bimodality was**, and both of that unit's candidate causes are refuted:
+  not per-detected-box cost, not device placement. Measured bands 7.2-12.2 and 338.6-543.5 ms/frame;
+  synthetic repro over 140 frames returns frozen-at-3 → 1 detector call / 135 whole-frame pose calls
+  / 10.5 ms, frozen-at-7 → 134 detector calls / 343.0 ms, and `tracking=False` → 20 calls / 0 /
+  58.0 ms on both stimuli. `scripts/probe_tracker_freeze.py`, 7 verdicts, rc=0, no corpus needed.
+- **The fix is a removal, not a patch, because the tracker's output was already redundant.**
+  `KeypointSmoother` owns temporal association through Hungarian `gated_assignment`
+  (`src/pose_estimation/smoothing.py`); rtmlib's tracker contributed only the IoU drop of unmatched
+  people, which `--single-subject` overrides by taking the confidence argmax.
+- `det_frequency=1` still routes `tracking=False` down the IoU branch (the stateless guard is
+  `not self.tracking and self.det_frequency != 1`), but a freeze is harmless there: `frame_cnt % 1`
+  is 0 at every residue, so the detector runs every frame and the box list is never starved.
+- **Any pre-M2.8.2 output from `run.py` was produced under the freeze** and is suspect per asset, not
+  per run — including `output/rtmw-l_body_single/`. M2.3's `detect_rate` is unaffected: it drives
+  `det_model` + `pose_model` per frame and never instantiates the tracker.
 - Fatal for **sampled** frames: seconds-apart samples share no IoU, so the list empties permanently and any count taken from it reads 0. M2.3's detectability run published `detect_rate` median 0.0 over 379 assets from exactly this, while the detector saw a subject in 24/24 probe frames. One tracker instance reused across assets compounds it.
 - Sampled-frame analysis must drive `det_model` + `pose_model` per frame and take counts from the detector return. Reserve `PoseTracker` for consecutive video (`run.py:758`, rtmlib's intended mode; note its default `tracking=True` still drops a person whose frame-to-frame IoU falls under 0.3).
 - Defaults worth knowing: `det_frequency=1`, `tracking=True`, `tracking_thr=0.3`, `backend='onnxruntime'`, `device='cpu'`.
