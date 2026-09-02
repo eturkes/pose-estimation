@@ -508,9 +508,26 @@ tracker end-to-end, the second extrapolated per-call latency. Both were re-quote
 projection trap and the broken-instrument trap produce the same artifact — a number nobody re-derived.**
 
 **Open into window 2.** The resumable corpus-run driver, the 379-row disposition manifest and the run
-itself (P05-P14). `test-m2u82` is diff-blind at `65b16b7` in `.scratch/worktrees/test-m2u82`, 14 rows
-seeded, none flushed at window close after one flush directive — its worktree and branch are
-**retained** for the successor. `main=` 82% 197K/240K at reserve. `mate=` 32% 77K/240K.
+itself. **`test-m2u82`'s diff-blind suite is the window-2 dispatch input**: branch `wt/test-m2u82`
+tip `ecf32fd`, worktree `.scratch/worktrees/test-m2u82` **retained**, working tree clean, report
+copied to `.scratch/agents/test-m2u82.md`. It filled **P01-P09 of 14** and shipped
+`tests/test_corpus_run_2d.py` with 13 reds across three commits; **P10-P14 are unfilled** and the
+successor `test-m2u82-2` inherits the worktree. Three findings are already ruled into the contract as
+A04-A06.
+
+**The `test` role paid for itself again, and this time before MAIN had implemented anything.** All
+three findings are contract defects invisible from the implementation side: **N2 could never fire
+the predicate it was written for** (P04 is green at `det_frequency = 1` under every induced miss —
+D01a holding, and the seed contradicting the decision beside it); **P07's row-set wording admits the
+defect it targets** (duplicate one asset, drop another, and both the count and the row set still
+match); and **D06 froze a disposition vocabulary that no source publishes**, so P08 was unsatisfiable
+by construction. Same lesson as M2.8.1's unfrozen header, one layer earlier: **a diff-blind reader
+grades the contract, not just the code.**
+
+**Sizing datum.** MAIN spent this window on measurement and one source line; the teammate spent it on
+the contract. The window's decisive work — the freeze diagnosis — cost no decode at all, because
+M2.8.1 had already committed the logs that carried it. `main=` 88% 211K/240K at reserve. `mate=` 64%
+155K/240K (`test-m2u82`, stopped at harvest with 9/14 rows filled and its worktree retained).
 
 #### M2.8.1 — DONE, 3 windows spent. Blockers closed, suite green, pilot measured
 
