@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import importlib.util
 import json
 import os
@@ -50,7 +51,7 @@ from pose_estimation.corpus_run import (
     write_manifest,
     write_marker,
 )
-from pose_estimation.sessions import tree_digest, validate_generation
+from pose_estimation.sessions import GENERATION_FILENAME, tree_digest, validate_generation
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = "scripts/corpus_run_2d.py"
@@ -86,6 +87,17 @@ class RunError(RuntimeError):
 
 
 pilot = _load_pilot()
+
+
+def _marker_digest(sessions: Path) -> str:
+    """The third witness P11 needs.
+
+    `tree_digest` excludes the generation marker because a document cannot
+    digest itself, and `validate_generation` compares that document's fields —
+    so a rewrite preserving them moves neither witness while changing bytes
+    inside the published tree.  Hashing the marker directly closes that gap.
+    """
+    return hashlib.sha256((sessions / GENERATION_FILENAME).read_bytes()).hexdigest()
 
 
 def _canonical_asset_ids(inventory: Path) -> list[str]:
@@ -230,17 +242,19 @@ def _artifacts(rows: list[dict[str, str]], placed: dict[str, Any], out: Path) ->
             wrong_diag += 1
             continue
         try:
-            counters.append(
-                {
-                    key: int(diagnostics[0][key])
-                    for key in (
-                        "n_frames_decoded",
-                        "pts_accepted",
-                        "index_fallback",
-                        "monotonic_forced",
-                    )
-                }
-            )
+            entry: dict[str, float] = {
+                key: int(diagnostics[0][key])
+                for key in (
+                    "n_frames_decoded",
+                    "pts_accepted",
+                    "index_fallback",
+                    "monotonic_forced",
+                )
+            }
+            # P12: the shipped schema stores both quantities the contract calls
+            # derived, so the check is equality with the derivation, not absence.
+            entry["stored_rate"] = float(diagnostics[0]["cfr_fallback_rate"] or 0.0)
+            counters.append(entry)
         except (KeyError, TypeError, ValueError):
             wrong_diag += 1
     return {
@@ -251,8 +265,13 @@ def _artifacts(rows: list[dict[str, str]], placed: dict[str, Any], out: Path) ->
     }
 
 
-def _cfr(counters: list[dict[str, int]]) -> dict[str, Any]:
-    """P12: the three counters classify every call, so they sum to the decoded frames."""
+def _cfr(counters: list[dict[str, float]]) -> dict[str, Any]:
+    """P12: the three counters classify every call, so they sum to the decoded frames.
+
+    The pooled rate is frame-weighted, never the mean of the per-asset rates:
+    two assets at 1000 and 10 frames differ by 17x between the two readings, so
+    naming the weighting is what makes the published number reproducible.
+    """
     frames = sum(entry["n_frames_decoded"] for entry in counters)
     fallback = sum(entry["index_fallback"] + entry["monotonic_forced"] for entry in counters)
     unclassified = sum(
@@ -261,7 +280,21 @@ def _cfr(counters: list[dict[str, int]]) -> dict[str, Any]:
         if entry["pts_accepted"] + entry["index_fallback"] + entry["monotonic_forced"]
         != entry["n_frames_decoded"]
     )
+    mismatch = sum(
+        1
+        for entry in counters
+        if abs(
+            entry["stored_rate"]
+            - (
+                (entry["index_fallback"] + entry["monotonic_forced"]) / entry["n_frames_decoded"]
+                if entry["n_frames_decoded"]
+                else 0.0
+            )
+        )
+        > 1e-9
+    )
     return {
+        "assets_rate_mismatch": mismatch,
         "assets": len(counters),
         "frames_decoded": frames,
         "index_fallback": sum(entry["index_fallback"] for entry in counters),
@@ -328,6 +361,10 @@ def main() -> int:
     logs = args.out / "logs"
     logs.mkdir(parents=True, exist_ok=True)
     digest_before = tree_digest(args.sessions)
+    marker_before = _marker_digest(args.sessions)
+    # Before resolving any output: `_published_root` returns None for a tree
+    # with no marker, which disarms the containment guard entirely, so the
+    # marker's presence is what keeps the run off the published tree.
     validate_generation(args.sessions, inventory_dir=args.inventory)
 
     def due(event_id: str) -> bool:
@@ -360,6 +397,7 @@ def main() -> int:
 
     validate_generation(args.sessions, inventory_dir=args.inventory)
     digest_after = tree_digest(args.sessions)
+    marker_after = _marker_digest(args.sessions)
 
     rows = _manifest_rows(canonical, placed, args.out)
     try:
@@ -391,7 +429,9 @@ def main() -> int:
         "partition_disjoint": partition.n_overlap == 0 and partition.n_unaccounted == 0,
         "group_qc_header_frozen": partition.header_frozen,
         "counters_classify_every_frame": cfr["assets_unclassified"] == 0,
+        "stored_rate_equals_its_derivation": cfr["assets_rate_mismatch"] == 0,
         "generation_digest_unmoved": digest_before == digest_after,
+        "generation_marker_unmoved": marker_before == marker_after,
     }
     payload: dict[str, Any] = {
         "generator": GENERATOR,
