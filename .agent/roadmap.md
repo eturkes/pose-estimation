@@ -511,10 +511,41 @@ tripwires also fired as window-1 debt — `sessions.py` and `video_io.py` moved 
 22 golden cases the fifth dataset and the `group_qc` kind add, so collection moved by exactly the new
 cases.
 
-**Open, and it is the whole of window 3.** **Stratified pilot** (P17/P18) — committed script,
-redaction-safe aggregates, both codecs × four device configs × four rotation values, reporting
-per-asset CFR fallback rate + the P13 partition result on real assets. Nothing else is outstanding;
-the implementation, the goldens and the suite are green in the primary tree.
+**Window 3 ships the pilot (P17/P18).** `scripts/pilot_corpus_run.py` selects **events**, not assets
+— the run path is per session, so an asset cannot be sampled alone. Axis coverage first (hash-ranked
+event per uncovered value), then hash-ranked replication to `--min-assets`; a length-free rule, so
+the sample carries no duration bias. Realized selection: **8 events / 16 assets / 8971 reported
+frames**, covering codec ×2, device config ×4, rotation ×4 and `pts_monotonic` ×2 —
+`_select_events` raises rather than running an uncovered sample. The pilot also measures **P02, P03,
+P13, P14 and A09 on the real published tree**, which no suite case can reach: the unguarded default
+must refuse per event, the tree digest must be unmoved across the run, every input group must reach
+exactly one outcome, the disposition artifact must exist per landmark CSV, and its header must equal
+the five columns re-derived from the R source at check time. Redaction is an allowlist, not a
+denylist: every report string must be a published stratum label or an R reason code, and every key
+must read as a code-authored field name, so each corpus identifier shape (capture id, camera name,
+path, media suffix) fails both tests. Subprocess output carries identifiers → log files under
+`--out`, never echoed.
+
+**The 6.5 h corpus-run estimate is refuted by the first pilot asset, and the estimate's provenance is
+why.** 6.5 h came from per-call micro-benchmarks (pose NPU 7.17 ms + det CPU 445 ms every 7th frame
+≈ 70 ms/frame), never from an end-to-end run. Measured on real assets at the shipped configuration
+(`rtmw-l`, `hands-arms`, `--single-subject`, det CPU / pose NPU, `--det-frequency 7`): **mean 479 ms,
+median 372 ms, p95 1043 ms per frame → 2.1 fps**, so 337 090 frames extrapolates to **~45 h**, 7×
+the plan. Placement is confirmed from the run log rather than assumed — det `openvino/CPU`, pose
+`openvino/NPU` reshaped to `[1,3,256,192]`. A per-frame median of 372 ms refutes "the detector every
+7th frame dominates": that shape would put the median at pose-only cost. Contention is present and
+does not explain 7× (headroom ~0.8 core, load 12.7 on 8 cores). **The cost breakdown is M2.8.2's
+first question, and `--det-device GPU` is the priced candidate** (synthetic probe: GPU detector
+median 9.7 ms vs CPU 213 ms, GPU zero-fills its padded rows).
+
+**First measured asset:** 1978 frames decoded, `index_fallback` 0, `monotonic_forced` 0, **CFR
+fallback rate 0.000000** — the first real evidence against the 123/379 upper bound.
+
+**Rerun** (accel env first, so pose reaches the NPU):
+`source /var/home/eturkes/.local/app/intel-accel/env.sh` →
+`PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/pilot_corpus_run.py`; `--reuse-run`
+analyses an existing `--out` tree without decoding. Outputs are patient-adjacent →
+`.scratch/pilot-m2u81/` (gitignored); the report is redaction-safe and prints to stdout.
 
 **Sizing datum, and it inverts the six-window run.** The one teammate returned the window's two real
 defects, on a unit where MAIN had already implemented and self-reviewed. **The `test` role is the
