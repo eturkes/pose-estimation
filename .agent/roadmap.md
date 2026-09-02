@@ -564,9 +564,11 @@ the record says script-derivable empirical work stays in MAIN's hands. The windo
 concentrated in one place the contract did not name: **the pilot measured a cost the plan had only
 projected**, and it took a real run to see it. Second datum: **a projection carried forward as a
 budget is a frozen number**, the same trap as a contract's stated census — the 6.5 h figure had been
-re-quoted through planning and two unit windows without anyone re-deriving it. `main=` 96%
-231K/240K at high-water, over reserve; the window crossed auto-compaction there and closed
-post-compaction on roadmap, memory and contract edits alone. `mate=` none. **Three of three M2.8.1
+re-quoted through planning and two unit windows without anyone re-deriving it. `main=` **100%
+240K/240K** at the pre-compaction peak — the 231K/96% figure first recorded here was a mid-window
+sample labelled `high-water`, which is the named-population trap a fourth time. The window crossed
+auto-compaction at that peak, restarted at 41K, reached 76K/32% and closed post-compaction on
+roadmap, memory and contract edits alone. `mate=` none. **Three of three M2.8.1
 windows ran over the reserve**, so a `kernel` unit carrying its own empirical probe sizes at three
 windows here, not one — M2.8.2 and M2.8.3 are sized against that.
 

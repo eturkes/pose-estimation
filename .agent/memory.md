@@ -255,9 +255,16 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
   count. The recount cost one broadcast to four live teammates; waiting for review would have cost a
   wrong published artifact. Whenever one predicate changes which rows exist, grep the contract for
   every number quantifying over rows and recompute each one.
-- **Name the population beside the count, always.** This project has now hit the same trap three
-  times: two closure statistics over different event sets, two "families connected" figures, and now
-  329-vs-355. A bare count is the shape of defect that survives review.
+- **Name the population beside the count, always.** This project has now hit the same trap four
+  times: two closure statistics over different event sets, two "families connected" figures,
+  329-vs-355, and a window gauge recorded `at high-water` from a mid-window sample — 231K/96% against
+  a true pre-compaction peak of 240K/100%. A bare count is the shape of defect that survives review.
+- **A context gauge is a time series, so name which reading you mean.** `context-gauge` bare reports
+  MAIN's LAST TURN and a teammate's high-water, so a MAIN number copied from it is a sample unless
+  the whole transcript is scanned. High-water re-derives offline from
+  `~/.claude/projects/<project>/<session>.jsonl`: max over assistant turns of
+  `input + cache_creation + cache_read + output`, with an auto-compaction boundary showing as a >50K
+  single-turn drop that splits the window into two regimes — report the pre-compaction peak.
 - **A projection carried forward as a budget is a frozen number of the same class**, and it is worse
   than a stale census because nothing in the text marks it as derived. The 6.5 h corpus-run estimate
   was a per-call micro-benchmark extrapolation that reached the roadmap as a unit's sizing, was
