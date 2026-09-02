@@ -232,6 +232,54 @@ python -m pose_estimation.postprocess output/video1.csv --window 15 --polyorder 
 
 Writes `<stem>_smooth.csv` next to the input. Also exposed as the `--postprocess` flag on `main.py`. Before interpolation/filtering, current-schema coordinates are treated as missing wherever their matching `_vis` or `_conf` value is blank, nonfinite, or zero; this prevents held predictions from pulling adjacent observations. Evidence columns are copied unchanged, and legacy coordinates without a matching evidence column retain the original smoothing behavior.
 
+## `scripts/corpus_run_2d.py` — full corpus 2D run
+
+```bash
+source /var/home/eturkes/.local/app/intel-accel/env.sh
+PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/corpus_run_2d.py
+PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/corpus_run_2d.py --limit 5
+PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/corpus_run_2d.py --analyse-only
+```
+
+The script runs every published session through `pose_estimation.run` and then
+`analysis/clinical_features.R`. Source the accelerator environment first, or pose inference
+falls back to the CPU.
+
+Defaults: `--inventory inventory`, `--qualification qualification`, `--sessions sessions`,
+`--out output/corpus-2d`, `--model rtmw-l`, `--tracking hands-arms`, `--det-device CPU`,
+`--pose-device NPU`, `--det-frequency 7`, `--single-subject`, `--retry-failed`.
+`--limit N` runs the first N due events. `--analyse-only` republishes the manifest and the
+report over an existing `--out` tree and decodes nothing. `--report` moves the report alone.
+
+The run is resumable. Rerun the identical command after any interruption. Each event writes
+`event_complete.json` after its outputs are final, and that marker is the only resume key:
+a killed run leaves a partial landmark CSV that no row count can tell from a complete one.
+A re-attempt deletes the event's output tree first, so partial work is destroyed and never
+credited.
+
+The run publishes `run_manifest.csv` with the columns `asset_id`, `event_id`, `camera_name`,
+and `disposition`. The manifest carries one row for every canonical registry asset, so no
+asset can be silently absent from a downstream denominator. The `disposition` column takes
+one of six frozen codes from `pose_estimation.corpus_run.ASSET_DISPOSITIONS`:
+
+| code | meaning |
+| ---- | ------- |
+| `ok` | The asset produced a landmark CSV and one source-diagnostics row. |
+| `not_placed` | The registry names the asset, but the session tree places it nowhere. |
+| `not_run` | The pass has not reached the asset's event yet. |
+| `run_failed` | The pose pass exited non-zero for the asset's event. |
+| `clinical_failed` | The pose pass succeeded and the R feature pass exited non-zero. |
+| `no_landmarks` | The event completed and wrote no CSV for this camera. |
+
+`run_report.json` carries redaction-safe aggregates alone — ordinals, published stratum
+labels, R reason codes, and the frozen disposition codes. Subprocess output does carry
+identifiers, so it goes to `<out>/logs/<event_id>/` and is never echoed. The report's
+`verdicts` block must read all-true; the script exits 1 when any verdict is false, which
+includes an unfinished run.
+
+Outputs are patient-adjacent. Keep `--out` outside the repository or inside a path
+`.gitignore` covers.
+
 ## `scripts/benchmarks/run.py` — micro-benchmarks (separate from sweep)
 
 ```bash

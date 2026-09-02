@@ -197,9 +197,119 @@ Same shape as M2.8.1's `GROUP_QC_REASONS`, which is re-derived from the R source
 than transcribed: **a frozen value set that lives only in a contract is a stale number waiting to
 happen.** The manifest writer and its validator both read the constant; neither restates it.
 
+*Amendments A07-A12 rule `test-m2u82-2`'s 11 diff-blind findings, harvested at window-2 close. Every
+one of the 11 is a defect in this contract; none is a defect in the driver. F6 (pooled rate as an
+unweighted mean of per-asset rates) and F2/F4 below were already closed by the driver's design and
+ship encoded-green.*
+
+**A07 — P11 names two witnesses and both are blind to the one file inside the tree (F3).** `tree_digest`
+excludes `generation.json` because a document cannot digest itself, and `validate_generation` compares
+that document's *fields* — so reindenting or reordering the marker rewrites bytes inside the published
+tree while both witnesses stay green. Both exclusions are correct. **P11 gains a third witness:
+`sessions.generation_digest`, the marker's own bytes**, and the run publishes
+`generation_marker_unmoved` beside `generation_digest_unmoved`. F4 (the containment guard disarms on a
+tree carrying no marker) needs no change: the driver calls `validate_generation` before it resolves any
+output, so an unmarked tree is refused before the guard is reached.
+
+**A08 — P12's `derived, never stored` is refused; the counters are authoritative instead (F5).** The
+M2.8.1 diagnostics schema stores both quantities P12 calls derived: `cfr_fallback_rate` under its own
+name and `n_timestamps` under the alias `n_frames_decoded`, which a reader will take for a decode
+count. Dropping either is a schema change to a published artifact, and the alias is the true name of
+what is counted. **P12 is amended: the three counters are the authoritative record, and every stored
+derived value must equal its derivation** — written from the clock property of that quantity, never
+recomputed at the call site. The run publishes `stored_rate_equals_its_derivation` per `ok` asset.
+
+**A09 — P13's key clause is a shape test, so it is a denylist wearing an allowlist's name (F7, F8,
+F9).** Three separate defects in one predicate. A key matching `[a-z][a-z0-9_]*` admits every
+identifier of that shape, so N7's capture id is refused as a *value* and admitted as a *key* — one
+string, two verdicts (F7). The analog's own `_coverage` block keys by integer stratum value, which no
+such pattern can match, so P13 as frozen refuses a report shape M2.8.1 already publishes (F8). And the
+three admissible value classes cannot name the generator, its version or the four device echoes, so a
+conforming report could not say which program wrote it (F9). **P13 becomes one composite rule, both
+placements decided by membership: a value is admissible iff it is a published label — stratum label, R
+reason code, disposition code — or a code-authored constant the emitting program spells at its own
+call site; a key is admissible iff it is a frozen field name of the report schema or a published
+label.** The driver's call site already enumerates exactly this union. The analog's
+`_assert_redacted` keeps its weaker allowlisted-OR-matching guard as a runtime backstop; the suite is
+the membership oracle.
+
+**A10 — two suite defects MAIN found while driving the reds, both of the same kind: a case that grades
+a stand-in grades nothing.** P08's discovery pattern `^[A-Z][A-Z0-9_]*DISPOSITION[A-Z0-9_]*\s*=`
+cannot match `ASSET_DISPOSITIONS: tuple[str, ...] = (`, which is the shape of shipped
+`SOURCE_DIAGNOSTIC_FIELDS` — so it reported an absent constant that was present, and finding a *name*
+is a spelling test a comment passes anyway; the case now reads the published set. P07/P08's stand-in
+graded a local `_manifest_verdict` re-implementation, so a broken `validate_manifest` passed it; two
+cases now drive the shipped validator over five mutations. **Rule for this contract: a predicate over
+shipped behaviour is encoded against the shipped symbol, never against a local model of it.**
+
+**A11 — P10's scope term is ruled: every landmark CSV R processes *past its input-type gates* (F1),
+and the event is the isolation grain (F2).** R's main loop reaches the disposition write past two
+exits, and neither judges a run: `next` fires when `detect_tracking` reports hands-only, which carries
+no arm keypoints to dispose of, and `stop(` fires when a 3D input names no single capture identity,
+which the 2D corpus route cannot reach. Both are decided from `names(df)` alone, so they classify the
+input rather than report an outcome, and an input R never processed owns no disposition. An exit added
+on a *processing* outcome would be a real hole, and that is what the encoded case fails on. F2 is
+correct that `stop()` is process-scoped — at directory grain one rejected asset voids its event's
+whole clinical pass — and needs no code change: `_attempt_event` reads R's exit code and
+`asset_disposition` lands **every** asset of that event on `clinical_failed`, a published code, so the
+loss is recorded rather than silent and the next event is untouched.
+
+**A12 — judgment-bearing code moves out of the driver script into `src/`, because a gate backing a
+durable claim must exercise the shipped decision.** A07 and A11 are both predicates over a decision
+the driver script made privately, and `scripts/corpus_run_2d.py` is not importable by the suite. The
+marker witness ships as `sessions.generation_digest` beside `tree_digest`, and the D06 partition rule
+ships as `corpus_run.asset_disposition` beside the frozen vocabulary it reads, with `STAGE_RUN` /
+`STAGE_CLINICAL`. The driver keeps orchestration alone.
+
+**A13 — D02's corpus cost is 8.702 h MEASURED over the whole corpus, and the pilot projection was
+14% low.** Run wall 30 666.53 s + clinical 660.90 s over 193/193 events, 337 090 decoded frames,
+**10.99 fps including startup**. A01's post-fix pilot projected 7.07-7.61 h from 8 events / 16 assets
+/ 8971 frames; the corpus ran 10.7% slower per frame than that sample. **Stratification covers axes,
+not per-frame cost** — the pilot draw is built for codec / device / rotation coverage, and nothing in
+it constrains the cost distribution. A01's band stands as what the pilot measured; 8.702 h is what
+the corpus cost, and it is the figure any successor sizes against.
+
+Found and fixed at close: the published throughput block divided **all-corpus** decoded frames by
+**this invocation's** wall seconds, so the resumed final pass reported 13.88 fps / 6.903 h — a rate
+the pipeline never reached. The wall now sums each event's marker (`run_s` / `clinical_s`), which is
+correct across any number of passes, and `sample` reads `corpus` only when
+`events_measured == events_total`. **Datum: a per-invocation accumulator paired with a whole-corpus
+numerator becomes a false rate the moment the job is resumable.**
+
 ## 9. Verdict table
 
-*(filled at unit close)*
+Run evidence = `output/corpus-2d/run_report.json` (gitignored, patient-adjacent), republished by
+`scripts/corpus_run_2d.py --analyse-only`. Suite = `tests/test_corpus_run_2d.py`, **104 cases, 0 red**.
+
+| id | verdict | evidence |
+| -- | ------- | -------- |
+| P01 | pass | `run.py` constructs `PoseTracker(..., tracking=False)`; encoded + probe-backed. |
+| P02 | pass (encoded-green, A03) | `scripts/probe_tracker_freeze.py`, 5 scenarios × 7 verdicts, rc=0. |
+| P03 | pass | probe: 0 whole-frame pose calls on both stimuli under the shipped construction. |
+| P04 | pass | cadence swept over `det_frequency` ∈ {1,2,5,7,13}; N2 as amended by A04. |
+| P05 | pass | resume idempotence; the whole-corpus pass skipped 25 already-complete events and re-ran none. |
+| P06 | pass | marker-keyed resume; `_attempt_event` `rmtree`s before re-attempting. |
+| P07 | pass (A05) | manifest 379 rows, key set = canonical set, keys unique; `validate_manifest` driven over 5 mutations. |
+| P08 | pass | census `ok` 379, every other code 0, counts sum to 379; vocabulary read from `ASSET_DISPOSITIONS`. |
+| P09 | pass | artifacts 0 missing CSV / 0 wrong diagnostics / 0 trespass over 379 assets. |
+| P10 | pass (A11) | both pre-write R exits proved input-type gates; `asset_disposition` isolates a failed event at `clinical_failed`. |
+| P11 | pass (A07) | `generation_digest_unmoved` + `generation_marker_unmoved` + `tree_digest` unmoved end to end. |
+| P12 | pass (A08) | CFR pooled 0.0 over 337 090 frames; `stored_rate_equals_its_derivation` true per `ok` asset. |
+| P13 | pass (A09) | composite membership rule, both placements; report emits published labels + call-site constants only. |
+| P14 | pass (A13) | 8.702 h `measured`, `sample: corpus`, 193/193 events named; no projection carried as a budget. |
+
+Negative-control seed: N1, N3, N5, N6, N7 fire as written; **N2 replaced by A04**; **N4 ruled out of
+scope** at freeze. Run verdicts, all true: `manifest_total`, `every_event_complete`, `artifacts_owned`,
+`group_disposition_published`, `partition_total`, `partition_disjoint`, `group_qc_header_frozen`,
+`counters_classify_every_frame`, `stored_rate_equals_its_derivation`, `generation_digest_unmoved`,
+`generation_marker_unmoved`.
+
+**Branch tips — MILESTONE-REVIEW dispatch inputs.** `wt/test-m2u82` retained at **`c92ffcc`**
+(worktree removed): `3997a69` P01-P03, `c6937c2` P04-P06, `ecf32fd` D06 validator (window-1 harvest
+point), `fbb5c2c` P10, `78cdfc6` P11, `f0010b9` P12, `6521ee5` P13, `c92ffcc` P14. Reports at
+`.scratch/agents/test-m2u82.md` and `.scratch/agents/test-m2u82-2.md` (gitignored; the findings
+themselves are A04-A13 above). No `orc` or `diff` teammate ran: the unit's spine is a data artifact
+behind a validator, and the contract's own predicates are the differential instrument.
 
 ## 10. Sizing
 

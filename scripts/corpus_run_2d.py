@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import hashlib
 import importlib.util
 import json
 import os
@@ -44,21 +43,22 @@ from pose_estimation.corpus_run import (
     MANIFEST_FILENAME,
     MARKER_COMPLETE,
     MARKER_FAILED,
+    STAGE_CLINICAL,
+    STAGE_RUN,
     ManifestError,
+    asset_disposition,
     is_complete,
     read_marker,
     validate_manifest,
     write_manifest,
     write_marker,
 )
-from pose_estimation.sessions import GENERATION_FILENAME, tree_digest, validate_generation
+from pose_estimation.sessions import generation_digest, tree_digest, validate_generation
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = "scripts/corpus_run_2d.py"
 GENERATOR_VERSION = "v1"
 CLINICAL_R = ROOT / "analysis" / "clinical_features.R"
-STAGE_RUN = "run"
-STAGE_CLINICAL = "clinical"
 
 
 def _load_pilot() -> Any:
@@ -87,17 +87,6 @@ class RunError(RuntimeError):
 
 
 pilot = _load_pilot()
-
-
-def _marker_digest(sessions: Path) -> str:
-    """The third witness P11 needs.
-
-    `tree_digest` excludes the generation marker because a document cannot
-    digest itself, and `validate_generation` compares that document's fields —
-    so a rewrite preserving them moves neither witness while changing bytes
-    inside the published tree.  Hashing the marker directly closes that gap.
-    """
-    return hashlib.sha256((sessions / GENERATION_FILENAME).read_bytes()).hexdigest()
 
 
 def _canonical_asset_ids(inventory: Path) -> list[str]:
@@ -177,19 +166,6 @@ def _attempt_event(event_id: str, args: argparse.Namespace, logs: Path) -> dict[
     }
 
 
-def _disposition(event_out: Path, camera_name: str) -> str:
-    marker = read_marker(event_out)
-    if marker is None:
-        # An unattempted event is not a failed one: a partial pass must still
-        # publish a total manifest, and conflating the two hides real failures.
-        return "not_run"
-    if marker.get("status") != MARKER_COMPLETE:
-        return "clinical_failed" if marker.get("stage") == STAGE_CLINICAL else "run_failed"
-    if not (event_out / f"{camera_name}.csv").is_file():
-        return "no_landmarks"
-    return DISPOSITION_OK
-
-
 def _manifest_rows(canonical: list[str], placed: dict[str, Any], out: Path) -> list[dict[str, str]]:
     """Every canonical asset reaches exactly one disposition (D06)."""
     rows = []
@@ -210,10 +186,31 @@ def _manifest_rows(canonical: list[str], placed: dict[str, Any], out: Path) -> l
                 "asset_id": asset_id,
                 "event_id": asset.event_id,
                 "camera_name": asset.camera_name,
-                "disposition": _disposition(out / asset.event_id, asset.camera_name),
+                "disposition": asset_disposition(out / asset.event_id, asset.camera_name),
             }
         )
     return rows
+
+
+def _corpus_wall(event_ids: list[str], out: Path) -> dict[str, float]:
+    """The corpus wall clock, summed from the per-event markers.
+
+    Resume splits the corpus across invocations, so this process's accumulator
+    measures its own share alone — pairing it with all-corpus frames publishes a
+    throughput the pipeline never reached.  Each marker carries the event's own
+    `run_s` / `clinical_s`, so the sum is the real total however many passes it
+    took.  A marker written from the run-stage failure path carries neither, and
+    `events_measured` is what says so.
+    """
+    total = {"run_s": 0.0, "clinical_s": 0.0, "events_measured": 0.0}
+    for event_id in event_ids:
+        marker = read_marker(out / event_id) or {}
+        if "run_s" not in marker:
+            continue
+        total["run_s"] += float(marker["run_s"])
+        total["clinical_s"] += float(marker.get("clinical_s", 0.0))
+        total["events_measured"] += 1
+    return total
 
 
 def _diagnostic_rows(path: Path) -> list[dict[str, str]]:
@@ -361,7 +358,7 @@ def main() -> int:
     logs = args.out / "logs"
     logs.mkdir(parents=True, exist_ok=True)
     digest_before = tree_digest(args.sessions)
-    marker_before = _marker_digest(args.sessions)
+    marker_before = generation_digest(args.sessions)
     # Before resolving any output: `_published_root` returns None for a tree
     # with no marker, which disarms the containment guard entirely, so the
     # marker's presence is what keeps the run off the published tree.
@@ -397,7 +394,7 @@ def main() -> int:
 
     validate_generation(args.sessions, inventory_dir=args.inventory)
     digest_after = tree_digest(args.sessions)
-    marker_after = _marker_digest(args.sessions)
+    marker_after = generation_digest(args.sessions)
 
     rows = _manifest_rows(canonical, placed, args.out)
     try:
@@ -414,6 +411,7 @@ def main() -> int:
     complete = sum(1 for event_id in event_ids if is_complete(args.out / event_id))
     frames = cfr["frames_decoded"]
     corpus_frames = sum(asset.reported_frames for asset in placed_assets)
+    wall = _corpus_wall(event_ids, args.out)
 
     verdicts = {
         "manifest_total": manifest_valid,
@@ -474,14 +472,23 @@ def main() -> int:
             "drop_reasons": dict(sorted(partition.reasons.items())),
         },
         # P14: measured over this run's own decoded frames, never projected.
+        # The wall comes from the per-event markers rather than this invocation's
+        # accumulator, because a resumed run spends part of the corpus cost in an
+        # earlier process: dividing all-corpus frames by one invocation's seconds
+        # reports a throughput the pipeline never reached.
         "throughput": {
             "provenance": "measured",
-            "sample": "corpus",
-            "run_wall_s": round(run_seconds, 2),
-            "clinical_wall_s": round(clinical_seconds, 2),
+            "sample": "corpus" if wall["events_measured"] == len(event_ids) else "partial",
+            "events_measured": int(wall["events_measured"]),
+            "events_total": len(event_ids),
+            "run_wall_s": round(wall["run_s"], 2),
+            "clinical_wall_s": round(wall["clinical_s"], 2),
+            "invocation_wall_s": round(run_seconds + clinical_seconds, 2),
             "frames_decoded": frames,
-            "frames_per_s_incl_startup": round(frames / run_seconds, 3) if run_seconds else None,
-            "hours_total": round((run_seconds + clinical_seconds) / 3600, 3),
+            "frames_per_s_incl_startup": (
+                round(frames / wall["run_s"], 3) if wall["run_s"] else None
+            ),
+            "hours_total": round((wall["run_s"] + wall["clinical_s"]) / 3600, 3),
         },
         "verdicts": verdicts,
     }

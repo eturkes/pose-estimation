@@ -599,6 +599,17 @@ def _digest_bytes(path: pathlib.Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def generation_digest(out_dir: str | os.PathLike[str]) -> str:
+    """Digest the marker itself — the one file `tree_digest` excludes.
+
+    A document cannot digest itself, and `validate_generation` compares the
+    marker's *fields*, so reindenting or reordering it rewrites bytes inside the
+    published tree while both of those witnesses stay green.  A read-only claim
+    over the whole tree needs this third witness beside them.
+    """
+    return _digest_bytes(pathlib.Path(out_dir) / GENERATION_FILENAME)
+
+
 def _build(
     staging: pathlib.Path,
     events: list[Event],

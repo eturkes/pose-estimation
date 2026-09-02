@@ -43,6 +43,10 @@ MARKER_FILENAME = "event_complete.json"
 MARKER_COMPLETE = "complete"
 MARKER_FAILED = "failed"
 
+#: The pass a marker's failure came from, so one code never covers both.
+STAGE_RUN = "run"
+STAGE_CLINICAL = "clinical"
+
 
 class ManifestError(RuntimeError):
     """A corpus-run manifest violates D06's totality or its vocabulary."""
@@ -75,6 +79,27 @@ def write_marker(event_out: Path, **fields: object) -> None:
     marker_path(event_out).write_text(
         json.dumps(fields, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+
+
+def asset_disposition(event_out: Path, camera_name: str) -> str:
+    """The D06 partition rule: one published code per asset, read from the marker.
+
+    The event is the isolation grain because R is invoked once per event
+    directory and its ``stop()`` ends that process, so one rejected asset takes
+    the event's whole clinical pass with it.  Every asset of a failed event then
+    lands on a published failure code rather than on nothing, which is what
+    keeps the loss recorded instead of silent (P10).
+    """
+    marker = read_marker(event_out)
+    if marker is None:
+        # An unattempted event is not a failed one: a partial pass must still
+        # publish a total manifest, and conflating the two hides real failures.
+        return "not_run"
+    if marker.get("status") != MARKER_COMPLETE:
+        return "clinical_failed" if marker.get("stage") == STAGE_CLINICAL else "run_failed"
+    if not (event_out / f"{camera_name}.csv").is_file():
+        return "no_landmarks"
+    return DISPOSITION_OK
 
 
 def write_manifest(path: Path, rows: Iterable[Mapping[str, str]]) -> None:

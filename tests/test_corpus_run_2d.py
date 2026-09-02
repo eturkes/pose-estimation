@@ -749,6 +749,40 @@ def _r_main_loop_prefix() -> str:
     return source[start : source.index("out_group_qc <- paste0(", start)]
 
 
+def _r_input_type_variables() -> tuple[str, ...]:
+    """The variables R derives from the input's column names alone.
+
+    An input-type gate reads `names(df)` and nothing else, so it says what kind
+    of input arrived rather than how processing went.  Reading them out of R
+    keeps P10's scope term from drifting when R gains a third one.
+    """
+    return tuple(re.findall(r"^\s*(\w+) <- \w+\(names\(df\)\)", _r_source(), re.M))
+
+
+def _r_enclosing_conditions(lines: Sequence[str], index: int) -> list[str]:
+    """Each `if (` condition enclosing `lines[index]`, innermost first.
+
+    Indentation is the block structure here, and the condition ends at the line
+    closing on the opening brace — so a multi-line condition arrives whole while
+    the block's body stays out of the returned text.
+    """
+    conditions: list[str] = []
+    indent = len(lines[index]) - len(lines[index].lstrip())
+    for cursor in range(index - 1, -1, -1):
+        if not lines[cursor].strip():
+            continue
+        here = len(lines[cursor]) - len(lines[cursor].lstrip())
+        if here >= indent:
+            continue
+        indent = here
+        if "if (" in lines[cursor]:
+            end = cursor
+            while end < index and not lines[end].rstrip().endswith("{"):
+                end += 1
+            conditions.append(" ".join(line.strip() for line in lines[cursor : end + 1]))
+    return conditions
+
+
 def _write_landmarks(tree: pathlib.Path, stem: str, *, is_3d: bool = False) -> pathlib.Path:
     column = f"wrist{_r_world3d_marker()}" if is_3d else "wrist_x"
     path = tree / f"{stem}.csv"
@@ -904,49 +938,69 @@ def test_p10_an_empty_run_tree_never_reads_as_full_coverage(tmp_path: pathlib.Pa
     assert verdict.nonvacuous is False, "P10: zero inputs must never read as coverage"
 
 
-def test_p10_no_input_leaves_the_r_main_loop_before_the_disposition_write() -> None:
-    """P10's scope term decides the predicate, and the contract never defines it.
+def test_p10_every_pre_write_exit_is_an_input_type_gate() -> None:
+    """A11 rules P10's scope: every landmark CSV R processes past its input-type gates.
 
-    Read as "every CSV R was handed", P10 is false of the shipped R: the main
-    loop reaches the disposition write past a `next` and a `stop(`.  Read as
-    "every CSV that got past those gates", P10 is true but cannot see either
-    escape — and `stop()` ends the whole Rscript, so at directory grain it also
-    takes every not-yet-opened CSV with it.  MAIN rules which reading binds.
+    The main loop reaches the disposition write past two exits, and neither
+    judges a run.  `next` fires when `detect_tracking` reports hands-only, which
+    carries no arm keypoints to dispose of; `stop(` fires when a 3D input names
+    no single capture identity, and the corpus route is 2D, so that arm is
+    unreachable here.  Both are decided from `names(df)` alone, so they classify
+    the input rather than report an outcome — an input R never processed owns no
+    disposition, and that is the scope term rather than a hole in it.  An exit
+    added on a *processing* outcome would be a real hole, which is what fails.
     """
-    prefix = _r_main_loop_prefix()
-    exits = re.findall(r"^\s*(next|stop\()", prefix, re.M)
+    gates = _r_input_type_variables()
+    lines = _r_main_loop_prefix().splitlines()
+    exits = [index for index, line in enumerate(lines) if re.match(r"^\s*(next|stop\()", line)]
 
-    assert exits == [], (
-        "P10: an input that enters R's loop must reach the disposition write; "
-        f"{len(exits)} pre-write exit(s) skip it and publish no artifact at all"
+    assert len(gates) >= 2, "non-vacuity: R must derive its input type from the columns"
+    assert exits, "non-vacuity: the ruling must range over the loop's real exits"
+    for index in exits:
+        conditions = _r_enclosing_conditions(lines, index)
+        assert any(gate in condition for condition in conditions for gate in gates), (
+            f"P10: the exit at loop line {index} is governed by {conditions}, naming no "
+            f"input-type gate {gates}; an exit on a processing outcome skips the "
+            "disposition write for an input R did process"
+        )
+
+
+def test_p10_a_failed_clinical_pass_disposes_every_asset_of_its_event(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A11's second half: the event is the isolation grain, and it publishes.
+
+    R is invoked once per event directory and its `stop()` ends that process, so
+    one rejected asset takes the event's whole clinical pass with it — the
+    assets after it are never opened and R publishes nothing for them.  The
+    driver does not try to recover them; it reads the exit code and lands every
+    asset of that event on `clinical_failed`, which is a published code.  The
+    loss is therefore recorded rather than silent, and the next event is
+    untouched: that is what P10 buys at corpus grain.
+    """
+    failed, clean, unattempted = (tmp_path / name for name in ("failed", "clean", "unattempted"))
+    corpus_run_module.write_marker(
+        failed, status=corpus_run_module.MARKER_FAILED, stage=corpus_run_module.STAGE_CLINICAL
     )
+    corpus_run_module.write_marker(clean, status=corpus_run_module.MARKER_COMPLETE)
+    cameras = [f"cam-{index}" for index in range(5)]
+    for camera in cameras:
+        (clean / f"{camera}.csv").write_text("frame\n", encoding="utf-8")
 
+    voided = {camera: corpus_run_module.asset_disposition(failed, camera) for camera in cameras}
+    survivors = {camera: corpus_run_module.asset_disposition(clean, camera) for camera in cameras}
 
-def test_p10_a_rejected_input_must_not_void_the_remaining_inputs(tmp_path: pathlib.Path) -> None:
-    """Directory-grain invocation makes one rejected asset a corpus-scale silent loss.
-
-    `stop()` ends the process, not the file, so the assets after it in the same
-    directory are never opened and publish nothing.  Nothing distinguishes that
-    from an event that produced no drop.  Stand-in for the per-asset isolation
-    MAIN must supply, since no corpus driver exists to test.
-    """
-    header, codes = _r_group_qc_constants()
-    tree = tmp_path / "run"
-    stems = [f"asset-{index:04d}" for index in range(5)]
-    landmarks = [_write_landmarks(tree, stem) for stem in stems]
-    rejected = 1
-
-    for index, path in enumerate(landmarks):
-        if index == rejected:
-            break  # stop() aborts the invocation; indices 2..4 are never opened
-        _write_disposition(_disposition_path(path, is_3d=False), [])
-
-    verdict = _disposition_verdict(tree, header, codes)
-
-    assert verdict.inputs == len(stems), "non-vacuity: every asset must be an input"
-    assert verdict.missing == [], (
-        "P10: one rejected asset must cost only itself; a directory-grain R "
-        f"invocation voided {len(verdict.missing)} of {len(stems)} dispositions"
+    assert set(voided.values()) == {"clinical_failed"}, (
+        f"P10: every asset of a voided event must carry a published code, got {voided}"
+    )
+    assert set(survivors.values()) == {_DISPOSITION_OK}, (
+        "non-vacuity: a neighbouring event must be unaffected by the failure"
+    )
+    assert corpus_run_module.asset_disposition(unattempted, cameras[0]) == "not_run", (
+        "P10: an event the pass never reached is not a failed one"
+    )
+    assert {"clinical_failed", "not_run", _DISPOSITION_OK} <= _DISPOSITIONS, (
+        "P10: each outcome must be a published disposition, never an absent row"
     )
 
 
@@ -1097,31 +1151,50 @@ def test_p11_the_tree_digest_moves_for_every_write_inside_the_tree(
     assert sessions_module.tree_digest(root) != before, f"P11: {mutation} must move the digest"
 
 
-def test_p11_a_rewritten_generation_marker_leaves_both_witnesses_unmoved(
+def test_p11_the_third_witness_catches_a_rewritten_generation_marker(
     tmp_path: pathlib.Path,
 ) -> None:
-    """P11's two witnesses cannot see a write to the one file inside the tree.
+    """A07: the two witnesses P11 froze are both blind to the marker's own bytes.
 
     `tree_digest` excludes the marker by construction — a document cannot digest
-    itself — and `validate_generation` reads the marker through `json.loads`, so
-    a rewrite that preserves the fields passes.  The exclusion is right; the
-    defect is P11's, which conjoins "writes nothing inside the tree" with a
-    witness that is blind to a file inside the tree.  MAIN must supply a second
-    witness over the marker's own bytes for the run's end-to-end claim.
+    itself — and `validate_generation` reads it through `json.loads`, so a
+    rewrite preserving the fields passes.  Both exclusions are right, and the
+    defect was P11's: it conjoined "writes nothing inside the tree" with two
+    witnesses blind to a file inside the tree.  `generation_digest` is the third
+    witness, and this is the mutation only it can see.
     """
     root = tmp_path / "sessions"
     generation = _publish(root)
     marker = root / sessions_module.GENERATION_FILENAME
-    before_digest = sessions_module.tree_digest(root)
+    before_tree = sessions_module.tree_digest(root)
+    before_marker = sessions_module.generation_digest(root)
     before_bytes = marker.read_bytes()
 
     marker.write_text(json.dumps(generation, sort_keys=True, indent=4) + "\n", encoding="utf-8")
 
     assert marker.read_bytes() != before_bytes, "non-vacuity: the marker must really have changed"
-    assert sessions_module.validate_generation(root) == generation
-    assert sessions_module.tree_digest(root) != before_digest, (
-        "P11: a write inside the published tree must move the digest, and a write "
-        "to the marker moves neither witness the predicate names"
+    assert sessions_module.validate_generation(root) == generation, "witness 1 stays green"
+    assert sessions_module.tree_digest(root) == before_tree, "witness 2 stays green"
+    assert sessions_module.generation_digest(root) != before_marker, (
+        "P11: a write inside the published tree must move a witness, and the marker's "
+        "own bytes are the third one's whole subject"
+    )
+
+
+def test_p11_the_third_witness_is_stable_at_rest_and_moves_only_on_the_marker(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Non-vacuity for the third witness: it must not fire on every tree write."""
+    root = tmp_path / "sessions"
+    _publish(root)
+    at_rest = sessions_module.generation_digest(root)
+
+    assert sessions_module.generation_digest(root) == at_rest, "the marker digest is stable at rest"
+
+    (root / _SESSION_ID / "cam-b.txt").write_text("placement\n", encoding="utf-8")
+
+    assert sessions_module.generation_digest(root) == at_rest, (
+        "P11: the third witness covers the marker alone; the tree is witness 2's subject"
     )
 
 
@@ -1244,15 +1317,25 @@ def test_p12_the_written_diagnostics_row_preserves_the_counter_sum(tmp_path: pat
     )
 
 
-def test_p12_the_derived_quantities_are_never_stored() -> None:
-    """The contract says `n_timestamps` and `cfr_fallback_rate` are derived, never stored.
+#: Each stored derived field, paired with the clock property it caches.  The
+#: first is an alias: `n_frames_decoded` records `n_timestamps`, a timestamp
+#: count, and never a count of frames the asset holds.
+_STORED_DERIVATIONS = {
+    "n_frames_decoded": "n_timestamps",
+    "cfr_fallback_rate": "cfr_fallback_rate",
+}
 
-    Both are properties on the clock, which is the derived half.  The shipped
-    diagnostics schema stores both anyway: `cfr_fallback_rate` under its own
-    name, `n_timestamps` under the alias `n_frames_decoded`, whose value is
-    `clock.n_timestamps` and not a decoded-frame count.  Storing a value that
-    is a function of three stored fields is what lets a consumer read a rate
-    that disagrees with the counters beside it.
+
+def test_p12_every_stored_derived_field_equals_its_derivation(tmp_path: pathlib.Path) -> None:
+    """A08: the counters are authoritative and a stored derivation is a cache of them.
+
+    P12 as frozen read `derived, never stored`, which the shipped schema
+    contradicts by design — and dropping either field is a schema change to an
+    artifact M2.8.1 already published.  The amended predicate keeps both and
+    binds them instead: each is written from the clock property of the same
+    quantity rather than recomputed at the call site, and each round-trips equal
+    to that property.  A consumer that disbelieves a stored rate rederives it
+    from the three counters beside it, and the two agree by construction.
     """
     for name in ("n_timestamps", "cfr_fallback_rate"):
         assert isinstance(getattr(video_io.SourceTimestampClock, name), property), (
@@ -1261,6 +1344,7 @@ def test_p12_the_derived_quantities_are_never_stored() -> None:
 
     fields = run_module.SOURCE_DIAGNOSTIC_FIELDS
     assert set(_CFR_COUNTERS) <= set(fields), "non-vacuity: the three counters must be recorded"
+    assert set(_STORED_DERIVATIONS) <= set(fields), "non-vacuity: both caches must be recorded"
 
     written = re.search(
         r"def write_source_diagnostics\(.*?\n    row = \{(.*?)\n    \}",
@@ -1268,16 +1352,28 @@ def test_p12_the_derived_quantities_are_never_stored() -> None:
         re.S,
     )
     assert written is not None, "the diagnostics row must parse"
-    stored_derived = sorted(
-        field
-        for field in fields
-        if re.search(rf'"{field}":.*clock\.(n_timestamps|cfr_fallback_rate)', written.group(1))
-    )
+    expressions = dict(re.findall(r'^\s+"([a-z0-9_]+)": (.+?),?$', written.group(1), re.M))
 
-    assert stored_derived == [], (
-        f"P12: the diagnostics schema stores {stored_derived}, each a function of the "
-        "three counters the contract requires it to be derived from at read time"
+    for field, prop in _STORED_DERIVATIONS.items():
+        expression = expressions[field]
+        assert f"clock.{prop}" in expression, (
+            f"P12: {field} must be written from clock.{prop}, got {expression}"
+        )
+        recomputed = f"P12: {field} recomputes its value at the call site ({expression}); a "
+        recomputed += "second arithmetic path lets a stored rate disagree with the counters"
+        assert expression.count("clock.") == 1, recomputed
+        assert not set(expression) & set("+-*/"), recomputed
+
+    clock = _driven_clock()
+    path = tmp_path / "asset-0000_diag.csv"
+    run_module.write_source_diagnostics(
+        path, video=_VIDEO, clock=clock, fps_nominal=_NOMINAL_FPS, latencies=[10.0]
     )
+    with path.open(newline="", encoding="utf-8") as handle:
+        row = next(iter(csv.DictReader(handle)))
+
+    assert int(row["n_frames_decoded"]) == clock.n_timestamps
+    assert float(row["cfr_fallback_rate"]) == pytest.approx(clock.cfr_fallback_rate, abs=1e-6)
 
 
 def _write_cfr_diagnostics(
@@ -1491,21 +1587,26 @@ def _pilot_allowlist_extras() -> list[str]:
 
 
 def _violations(
-    payload: Any, allowed: frozenset[str], *, keys_allowlisted: bool
+    payload: Any, *, published: frozenset[str], field_names: frozenset[str] = frozenset()
 ) -> SimpleNamespace:
-    """Walk a report the way the analog does, under one of the two key rules.
+    """Walk a report under P13's composite rule (A09): membership decides both placements.
 
-    `strict` is P13 as frozen: a key must match the pattern.  `analog` is what
-    `scripts/pilot_corpus_run.py` implements: a key must be allowlisted OR match
-    the pattern.  The two disagree, and the cases below are where.
+    A value is admissible from `published` — stratum labels, R reason codes,
+    disposition codes, and the code-authored constants the emitting program
+    spells at its own call site.  A key is admissible from
+    ``field_names | published``, so a block keyed by a stratum value passes for
+    the same reason that value passes elsewhere, while an identifier of the same
+    shape does not.  No clause tests shape: a shape test is a denylist wearing
+    an allowlist's name, and P13's word is allowlist.
     """
     result = SimpleNamespace(keys=[], values=[], strings=0)
+    admissible_keys = field_names | published
 
     def walk(node: Any) -> None:
         if isinstance(node, dict):
             for key, value in node.items():
-                allowed_key = keys_allowlisted and key in allowed
-                if not allowed_key and not re.fullmatch(_KEY_PATTERN, key):
+                result.strings += 1
+                if key not in admissible_keys:
                     result.keys.append(key)
                 walk(value)
         elif isinstance(node, list):
@@ -1513,7 +1614,7 @@ def _violations(
                 walk(item)
         elif isinstance(node, str):
             result.strings += 1
-            if node not in allowed:
+            if node not in published:
                 result.values.append(node)
 
     walk(payload)
@@ -1523,112 +1624,133 @@ def _violations(
     return result
 
 
-def test_p13_the_analog_declares_the_key_pattern_the_contract_freezes() -> None:
-    assert _pilot_key_pattern() == _KEY_PATTERN, "P13: the frozen key rule is the analog's"
+def test_p13_the_analog_declares_the_shape_backstop_its_runtime_guard_applies() -> None:
+    """The pattern is the analog's runtime guard, not P13's predicate (A09).
+
+    `_assert_redacted` admits a key that is allowlisted OR matches this pattern,
+    which is strictly weaker than the composite rule the cases below grade.  The
+    constant is still pinned here, because the guard is what runs in production
+    and its second disjunct is the one that can admit an unpublished key.
+    """
+    assert _pilot_key_pattern() == _KEY_PATTERN, "P13: the analog's backstop shape is pinned"
 
 
 def test_p13_the_allowlist_refuses_every_string_it_did_not_publish() -> None:
     _, codes = _r_group_qc_constants()
-    allowed = frozenset({*codes, *_DISPOSITIONS, "hevc"})
+    published = frozenset({*codes, *_DISPOSITIONS, "hevc"})
+    fields = frozenset({"drop_reasons", "dispositions", "codec", "assets"})
     payload = {
         "drop_reasons": {codes[0]: 3},
-        "dispositions": [_DISPOSITION_OK, "decode_failed"],
+        "dispositions": [_DISPOSITION_OK, "run_failed"],
         "codec": "hevc",
         "assets": 379,
     }
 
-    verdict = _violations(payload, allowed, keys_allowlisted=False)
+    verdict = _violations(payload, published=published, field_names=fields)
 
     assert verdict.nonvacuous is True, "P13: non-vacuity — the report must emit strings"
     assert verdict.clean is True, "P13: published labels, R codes and disposition codes pass"
+    # `decode_failed` is the shape of a plausible code that nothing publishes.
+    unpublished = _violations(
+        {**payload, "codec": "decode_failed"}, published=published, field_names=fields
+    )
+    assert unpublished.values == ["decode_failed"], "an unpublished string is refused"
 
 
 def test_p13_n7_a_capture_identifier_emitted_as_a_value_is_refused() -> None:
-    allowed = frozenset({_DISPOSITION_OK})
-
-    verdict = _violations({"disposition": _IDENTIFIER}, allowed, keys_allowlisted=False)
+    verdict = _violations(
+        {"disposition": _IDENTIFIER},
+        published=frozenset({_DISPOSITION_OK}),
+        field_names=frozenset({"disposition"}),
+    )
 
     assert verdict.values == [_IDENTIFIER], "N7: an unpublished string must fail the allowlist"
 
 
-def test_p13_n7_does_not_fire_when_the_same_identifier_is_a_key() -> None:
-    """The key clause is a shape test, so it is a denylist wearing an allowlist's name.
+def test_p13_n7_fires_on_a_capture_identifier_in_either_placement() -> None:
+    """Membership decides both placements, so N7 cannot be evaded by moving the string.
 
-    A value is checked against the published set; a key is checked against a
-    pattern.  An identifier with no separator and no capital therefore passes as
-    a key while the identical string is refused as a value, and N7 — "emit a
-    capture id in the report" — fires on only one of the two placements.  The
-    fix is to check keys against a frozen field-name set, which is the only form
-    that makes P13's own word "allowlist" true of keys.
+    Under a shape-tested key rule a value is checked against the published set
+    while a key is checked against a pattern, so `subject90` — no separator, no
+    capital — passes as a key while the identical string is refused as a value,
+    and N7 fires on only one of the two placements.  The composite rule tests
+    keys against the frozen field names and the published labels, which is what
+    makes N7 placement-independent.
     """
-    allowed = frozenset({_DISPOSITION_OK})
+    published = frozenset({_DISPOSITION_OK})
+    fields = frozenset({"disposition"})
 
-    as_value = _violations({"disposition": _IDENTIFIER}, allowed, keys_allowlisted=False)
-    as_key = _violations({_IDENTIFIER: 3}, allowed, keys_allowlisted=False)
+    as_value = _violations({"disposition": _IDENTIFIER}, published=published, field_names=fields)
+    as_key = _violations({_IDENTIFIER: 3}, published=published, field_names=fields)
 
-    assert as_value.clean is False, "non-vacuity: the value placement must be refused"
-    assert as_key.clean is False, (
-        f"P13: {_IDENTIFIER!r} passes the key clause because it matches {_KEY_PATTERN!r}; "
-        "a pattern admits every identifier of that shape, which is a denylist"
+    assert as_value.values == [_IDENTIFIER], "non-vacuity: the value placement is refused"
+    assert as_key.keys == [_IDENTIFIER], (
+        f"P13: {_IDENTIFIER!r} must be refused as a key too; a rule matching "
+        f"{_KEY_PATTERN!r} admits every identifier of that shape, which is a denylist"
     )
 
 
-def test_p13_a_stratum_keyed_block_fails_the_frozen_key_clause() -> None:
-    """P13 as frozen refuses a report shape the analog publishes.
+def test_p13_a_stratum_keyed_block_passes_as_a_published_label() -> None:
+    """The shape a report publishes, admitted by the clause that carries it.
 
     `_coverage` keys its inner dictionaries by stratum *value*, and the analog
-    declares int-typed axes, so those keys are digits.  They survive only
-    because the analog's key test is a disjunction: allowlisted OR matching.
-    P13 states the second half alone, so a corpus report built the analog's way
-    violates the predicate as written.
+    declares int-typed axes, so those keys are digits.  No field-name pattern
+    can admit them and the composite key clause does not try: a stratum value is
+    a published label, the same class that admits it as a value elsewhere.
     """
     axes = _pilot_int_stratum_axes()
     assert axes, "non-vacuity: the analog must declare an int-typed stratum axis"
     coverage = {axis: {"0": {"corpus": 379, "pilot": 16}} for axis in axes}
+    fields = frozenset({"coverage", "corpus", "pilot", *axes})
 
-    strict = _violations({"coverage": coverage}, frozenset({"0"}), keys_allowlisted=False)
-    analog = _violations({"coverage": coverage}, frozenset({"0"}), keys_allowlisted=True)
+    admitted = _violations({"coverage": coverage}, published=frozenset({"0"}), field_names=fields)
+    unpublished = _violations({"coverage": coverage}, published=frozenset(), field_names=fields)
 
-    assert analog.clean is True, "the analog accepts the block it publishes"
-    assert strict.clean is True, (
-        f"P13: axes {axes} key their coverage block by an integer stratum value, "
-        f"which no key matching {_KEY_PATTERN!r} can be — the predicate needs the "
-        "allowlisted-OR-matching rule the analog implements"
+    assert admitted.clean is True, (
+        f"P13: axes {axes} key their coverage block by a stratum value, which the "
+        "published-label clause admits"
+    )
+    assert unpublished.keys == ["0"] * len(axes), (
+        "non-vacuity: the stratum key is admitted by publication, never by shape"
     )
 
 
-def test_p13_the_three_admissible_classes_cannot_name_the_report_itself() -> None:
-    """P13 enumerates three string classes, and a report needs a fourth.
+def test_p13_a_code_authored_constant_is_the_fourth_admissible_value_class() -> None:
+    """A report must be able to say which program wrote it and on which device.
 
     The analog allowlists its generator, its version and its four configuration
-    echoes at the call site.  None is a stratum label, an R reason code or a
-    disposition code, and one is a path.  A corpus report obeying P13 literally
-    could not say which program wrote it or which device ran the pose model.
+    echoes at its own call site.  None is a stratum label, an R reason code or a
+    disposition code, and one is a path — so a value clause reading only those
+    three classes would refuse the report's own provenance.  The fourth class is
+    the constants the emitting program spells, and spelling them at the call
+    site is what keeps the class enumerable instead of a shape.
     """
     extras = _pilot_allowlist_extras()
+    _, codes = _r_group_qc_constants()
 
     assert extras, "non-vacuity: the analog's call site must list entries of its own"
-    # The three classes reach the allowlist through the derived unions beside
-    # this literal — R codes, codec labels, device labels, stratum values.  What
-    # is spelled inside the literal is exactly what those unions cannot supply.
-    assert extras == [], (
-        f"P13: the analog must allowlist {len(extras)} code-authored constants "
-        f"({', '.join(extras)}), none of them a stratum label, an R reason code "
-        "or a disposition code; the predicate needs a fourth admissible class"
+    assert not set(extras) & {*codes, *_DISPOSITIONS}, (
+        f"P13: {extras} are code-authored constants, disjoint from the three published "
+        "classes, so the value clause admits four"
     )
+    published = frozenset({_DISPOSITION_OK, "corpus-run", "measured"})
+    payload = {"generator": "corpus-run", "provenance": "measured", "disposition": _DISPOSITION_OK}
+    fields = frozenset({"generator", "provenance", "disposition"})
+
+    assert _violations(payload, published=published, field_names=fields).clean is True
 
 
-def test_p13_the_key_rule_must_be_anchored_at_both_ends() -> None:
-    """`re.match` accepts a path-shaped key on its leading segment; `fullmatch` refuses it."""
+def test_p13_a_key_outside_both_admissible_sets_is_refused() -> None:
+    """A path-shaped key carries a separator, and membership never inspects one."""
     smuggled = f"{_IDENTIFIER}/cam"
 
-    assert re.match(_KEY_PATTERN, smuggled) is not None, "an unanchored test would admit it"
-    assert re.fullmatch(_KEY_PATTERN, smuggled) is None
-    assert _violations({smuggled: 1}, frozenset(), keys_allowlisted=False).clean is False
+    assert re.match(_KEY_PATTERN, smuggled) is not None, "the backstop admits it on its head"
+    assert re.fullmatch(_KEY_PATTERN, smuggled) is None, "anchoring is what refuses it there"
+    assert _violations({smuggled: 1}, published=frozenset()).keys == [smuggled]
 
 
 def test_p13_an_empty_report_satisfies_every_clause_and_must_still_fail() -> None:
-    verdict = _violations({}, frozenset(), keys_allowlisted=False)
+    verdict = _violations({}, published=frozenset())
 
     assert verdict.clean is True, "every clause is vacuous over zero strings"
     assert verdict.nonvacuous is False, "P13: an empty report must never read as redacted"
@@ -1640,16 +1762,18 @@ def test_p13_a_denylist_admits_what_the_allowlist_refuses() -> None:
     A denylist tests shape — separators, capitals, long digit runs — and every
     such rule passes a lowercase identifier that carries none of them.  The
     allowlist refuses it for the only reason that generalises: nothing published
-    it.  This is why the value clause is written as membership.
+    it.  This is why both clauses are written as membership.
     """
 
     def denied(value: str) -> bool:
         return bool(re.search(r"[/.\s]|[A-Z]|\d{4}", value))
 
-    allowed = frozenset({_DISPOSITION_OK})
+    published = frozenset({_DISPOSITION_OK})
+    fields = frozenset({"disposition"})
 
     assert denied(_IDENTIFIER) is False, "a denylist of identifier shapes lets it through"
-    assert _violations({"disposition": _IDENTIFIER}, allowed, keys_allowlisted=False).clean is False
+    verdict = _violations({"disposition": _IDENTIFIER}, published=published, field_names=fields)
+    assert verdict.clean is False
 
 
 # ── P14 the corpus-run cost record (D02) ────────────────────────────

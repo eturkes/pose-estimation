@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7 DONE (M2.7.1-M2.7.4); M2.8.1 DONE; **M2.8.2 OPEN with 1 window spent** (contract frozen, the tracker-freeze defect found and fixed, corpus cost re-measured at 7.07-7.61 h; the driver, the manifest and the run itself are window 2); M2.8.3 OPEN. None BLOCKED, lowest OPEN unit = M2.8.2. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7 DONE (M2.7.1-M2.7.4); M2.8.1 DONE; **M2.8.2 DONE across two windows** (tracker-freeze defect fixed, then the driver, the 379-row manifest and the full corpus run at 8.70 h measured); M2.8.3 OPEN. None BLOCKED, lowest OPEN unit = M2.8.3. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Review carry-over — M2's MILESTONE-REVIEW must not re-review M2.1-M2.7.2.** Those units closed under the earlier regime, which ran `rev`/`rev2` inside WORK-UNIT: their check sets are fully adjudicated and recorded per unit below (`rev-m2u4-3` 73 rows + `rev2-m2u4-2` 33, M2.5's 38/33/14/55, M2.7.1's 45, and the `.agent/archive/rulings-m2u*.md` tables). Those rulings bind, and only new evidence reopens one. Seed `.agent/review-m2.md` from the units reviewed under neither regime plus the two milestone-scoped lenses that no unit could run — cross-unit integration and the `audit-m2` claim replay. Units from M2.7.3 on carry no in-unit judgment review and need their full check sets.
 
@@ -47,11 +47,11 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.7.2 | De-identified regression fixtures | Idempotently generated fixtures for one valid generation plus the contract/integrity failure matrix; a privacy scan proves no corpus identifier reaches them. |
 | M2.7.3 | Claim-bounded negative report | Human-facing report stating exactly what the two probes decide, with a claim matrix mapping every conclusion to evidence and to permitted/prohibited wording. |
 | M2.7.4 | Prospective capture specification | The future calibrated acquisition that can reopen 3D. Specified, never run. |
-| M2.8.1 | Corpus-run preconditions + instrumented pilot | Two measured blockers fixed, CFR fallback rate instrumented, stratified pilot green — before the 6.5 h run is funded. |
-| M2.8.2 | Full corpus 2D run | ~6.5 h resumable run over 379 assets; per-asset clinical features plus a manifest giving every asset an explicit disposition. |
+| M2.8.1 | Corpus-run preconditions + instrumented pilot | Two measured blockers fixed, CFR fallback rate instrumented, stratified pilot green — before the corpus run is funded. |
+| M2.8.2 | Full corpus 2D run | Resumable run over 379 assets, 8.70 h measured (full corpus, 193 events / 379 assets / 337 090 frames); per-asset clinical features plus a manifest giving every asset an explicit disposition. |
 | M2.8.3 | Cohort aggregate publisher + bilingual descriptor | 12 `(task, side)` cohort rows, no subject rows; append-ready `columns.yaml` fragment with full `ja`/`en` labels. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3 DONE** in one — the human-facing report and the checker pinning both prose copies of the claim set. **M2.7.4 DONE** in one — the 20-section prospective capture specification and its 13-predicate checker, closing M2.7. **M2.8.1 DONE** across three windows — the four corpus-run blockers, the disposition artifact, the diff-blind suite and the stratified pilot that refuted the 6.5 h run estimate. **M2.8.2-M2.8.3 OPEN**: the 3D spine is gone, the negative is published, and the 2D line delivers cohort aggregates.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3 DONE** in one — the human-facing report and the checker pinning both prose copies of the claim set. **M2.7.4 DONE** in one — the 20-section prospective capture specification and its 13-predicate checker, closing M2.7. **M2.8.1 DONE** across three windows — the four corpus-run blockers, the disposition artifact, the diff-blind suite and the stratified pilot that refuted the 6.5 h run estimate. **M2.8.2 DONE** across two windows — the tracker-freeze fix, the resumable driver, the total disposition manifest and the whole-corpus run, 379/379 assets `ok`. **M2.8.3 OPEN**: the 3D spine is gone, the negative is published, and the 2D line delivers cohort aggregates.
 
 ### M2.7 — publish the closed-negative 3D ruling — DONE, 4 units
 
@@ -377,7 +377,7 @@ rebuild — keep new JA text inside existing coverage and state the risk in the 
 | id | tier | spine result | sizing |
 | -- | ---- | ------------ | ------ |
 | M2.8.1 | kernel | Corpus-run preconditions + instrumented pilot. Close B1/B1b/B2/B2b/B3 (§2 above); stratified pilot spanning both codecs, all four device configs and all four rotations. | 1-2 est; **3 spent, DONE** |
-| M2.8.2 | data + kernel fix | Full corpus 2D run, resumable. **First question CLOSED in window 1: the 40× split was one tracker-freeze defect, not a cost profile** — so M2.8.1's 26-31 h measured a broken pipeline and is retired with the plan's 6.5 h. Per-asset clinical features plus a run manifest giving every one of the 379 assets an explicit disposition, so no asset is silently absent from a denominator. | 1-2 est; **1 spent, OPEN** |
+| M2.8.2 | data + kernel fix | Full corpus 2D run, resumable, 8.70 h measured (full corpus, 193 events / 379 assets / 337 090 frames); the post-fix pilot projected 7.07-7.61 h, so a 16-asset stratified sample under-predicted per-frame cost by 14%. **First question CLOSED in window 1: the 40× split was one tracker-freeze defect, not a cost profile** — so M2.8.1's 26-31 h sampled a broken pipeline and is retired with the plan's 6.5 h. Per-asset clinical features plus a run manifest giving every one of the 379 assets an explicit disposition, so no asset is silently absent from a denominator. | 1-2 est; **2 spent, DONE** |
 | M2.8.3 | kernel | Cohort aggregate publisher + append-ready bilingual descriptor. 12 `(task, side)` rows, `n_subjects`/`n_events`, per-feature distribution statistics. | 2 windows |
 
 **M2.8.1 exists because M2.6 recorded why it must.** "Where a milestone's spine rests on an unmeasured
@@ -453,7 +453,7 @@ all MAIN scripts, and the PTS question had already cost `map-m2` most of a windo
 it in two reads. **On a planning window, delegate the reading and the external research; keep every
 script-derivable census in MAIN's hands.**
 
-#### M2.8.2 — OPEN, 1 window spent. The first question closed, and it was a defect
+#### M2.8.2 — DONE, 2 windows spent. The first question closed, and it was a defect
 
 **Contract frozen at `.agent/archive/contract-m2u82.md`** — 7 design decisions D01-D07, 14 predicates
 P01-P14, a 7-case negative-control seed. Base `65b16b7`. Tier: spine artifact `data`, **D01's fix
@@ -507,13 +507,40 @@ themselves changed — the pre-fix features were computed partly from whole-fram
 tracker end-to-end, the second extrapolated per-call latency. Both were re-quoted as budgets. **The
 projection trap and the broken-instrument trap produce the same artifact — a number nobody re-derived.**
 
-**Open into window 2.** The resumable corpus-run driver, the 379-row disposition manifest and the run
-itself. **`test-m2u82`'s diff-blind suite is the window-2 dispatch input**: branch `wt/test-m2u82`
-tip `ecf32fd`, worktree `.scratch/worktrees/test-m2u82` **retained**, working tree clean, report
-copied to `.scratch/agents/test-m2u82.md`. It filled **P01-P09 of 14** and shipped
-`tests/test_corpus_run_2d.py` with 13 reds across three commits; **P10-P14 are unfilled** and the
-successor `test-m2u82-2` inherits the worktree. Three findings are already ruled into the contract as
-A04-A06.
+**Window 2 shipped the unit.** `src/pose_estimation/corpus_run.py` (the frozen six-code vocabulary,
+marker helpers, `asset_disposition`, manifest writer + reader + validator), `sessions.generation_digest`,
+the resumable driver `scripts/corpus_run_2d.py`, and `tests/test_corpus_run_2d.py` at **104 cases,
+0 red**. Docs: a `scripts/corpus_run_2d.py` section in `docs/technical/entrypoints.md`.
+
+**The run, whole corpus, all 11 verdicts true, exit 0.** 193 events / 379 canonical assets /
+**337 090 decoded frames**. Manifest **379 rows, every one `ok`** — zero `not_placed`, `not_run`,
+`run_failed`, `clinical_failed`, `no_landmarks`. Artifact ownership 0 missing CSV / 0 wrong
+diagnostics / 0 trespass. **CFR pooled fallback rate 0.0** over all 337 090 frames, 0 index fallback,
+0 monotonic forced, 0 unclassified. Group partition total and disjoint at 379 input = 379 windowed +
+0 dropped, 21 483 window rows, 0 events without a disposition. Both tree witnesses and the new marker
+witness unmoved.
+
+**Cost: 8.702 h measured** (run wall 30 666.53 s + clinical 660.90 s over 193/193 events),
+**10.99 fps including startup**. The post-fix pilot projected 7.07-7.61 h from 8 events / 16 assets /
+8971 frames, so **a 16-asset stratified sample under-predicted the corpus by 14%** — stratification
+covers axes, not per-frame cost.
+
+**A published throughput block was wrong until close, and resume is why.** `run_wall_s` accumulated
+this invocation's seconds while `frames_decoded` summed every asset's, so a resumed pass divided
+all-corpus frames by part of the clock and published 13.88 fps / 6.903 h — a rate the pipeline never
+reached. The wall now sums the per-event markers, which carry each event's own `run_s` / `clinical_s`,
+so the total is correct however many passes it took; `sample` reads `corpus` only when
+`events_measured == events_total`. **Datum: any per-invocation accumulator paired with a whole-corpus
+numerator is a false rate the moment the job becomes resumable.**
+
+**`test-m2u82-2` filled P10-P14 diff-blind and every one of its 11 findings was a contract defect.**
+Branch `wt/test-m2u82` **retained** at tip `c92ffcc` (worktree removed), report at
+`.scratch/agents/test-m2u82-2.md`, 97 cases. F1/F2 P10 scope + process-scoped `stop()`, F3/F4 P11
+witnesses, F5/F6 P12 storage + weighting, F7-F9 P13 redaction, F10/F11 P14 cost record. Ruled into
+the contract as **A07-A13**; F4 and F6 ship encoded-green because the driver already conformed.
+MAIN's own two suite defects — a discovery regex that could not match the repo's annotated-constant
+idiom, and a stand-in that graded a local re-implementation instead of the shipped validator — are
+A10.
 
 **The `test` role paid for itself again, and this time before MAIN had implemented anything.** All
 three findings are contract defects invisible from the implementation side: **N2 could never fire
@@ -522,7 +549,14 @@ D01a holding, and the seed contradicting the decision beside it); **P07's row-se
 defect it targets** (duplicate one asset, drop another, and both the count and the row set still
 match); and **D06 froze a disposition vocabulary that no source publishes**, so P08 was unsatisfiable
 by construction. Same lesson as M2.8.1's unfrozen header, one layer earlier: **a diff-blind reader
-grades the contract, not just the code.**
+grades the contract, not just the code.** Window 2 repeated it at 11 findings / 11 contract defects /
+0 driver defects, so the effect is not a one-off: **budget a diff-blind grading pass per kernel unit
+and expect its findings to land in the contract.**
+
+**Gauges.** Window 1 `main=` 93% 224K/240K. Window 2 `harvest=` 52% 125K/240K, `main=` 84% 202K/240K
+at close (one compaction boundary crossed mid-window; the run itself cost ~50 poll turns over 8.7 h),
+`mate=` 89% 213K/240K (`test-m2u82-2` high-water). Contract verdict table + branch tips in
+`.agent/archive/contract-m2u82.md` §9 — MILESTONE-REVIEW's dispatch input.
 
 **Sizing datum.** MAIN spent this window on measurement and one source line; the teammate spent it on
 the contract. The window's decisive work — the freeze diagnosis — cost no decode at all, because
