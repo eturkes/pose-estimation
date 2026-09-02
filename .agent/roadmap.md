@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7 DONE (M2.7.1-M2.7.4); M2.8.1-M2.8.3 OPEN, none BLOCKED, lowest OPEN unit = M2.8.1. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7 DONE (M2.7.1-M2.7.4); M2.8.1 DONE; M2.8.2-M2.8.3 OPEN, none BLOCKED, lowest OPEN unit = M2.8.2. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Review carry-over — M2's MILESTONE-REVIEW must not re-review M2.1-M2.7.2.** Those units closed under the earlier regime, which ran `rev`/`rev2` inside WORK-UNIT: their check sets are fully adjudicated and recorded per unit below (`rev-m2u4-3` 73 rows + `rev2-m2u4-2` 33, M2.5's 38/33/14/55, M2.7.1's 45, and the `.agent/archive/rulings-m2u*.md` tables). Those rulings bind, and only new evidence reopens one. Seed `.agent/review-m2.md` from the units reviewed under neither regime plus the two milestone-scoped lenses that no unit could run — cross-unit integration and the `audit-m2` claim replay. Units from M2.7.3 on carry no in-unit judgment review and need their full check sets.
 
@@ -51,7 +51,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.8.2 | Full corpus 2D run | ~6.5 h resumable run over 379 assets; per-asset clinical features plus a manifest giving every asset an explicit disposition. |
 | M2.8.3 | Cohort aggregate publisher + bilingual descriptor | 12 `(task, side)` cohort rows, no subject rows; append-ready `columns.yaml` fragment with full `ja`/`en` labels. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3 DONE** in one — the human-facing report and the checker pinning both prose copies of the claim set. **M2.7.4 DONE** in one — the 20-section prospective capture specification and its 13-predicate checker, closing M2.7. **M2.8.1-M2.8.3 OPEN**: the 3D spine is gone, the negative is published, and the 2D line delivers cohort aggregates.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3 DONE** in one — the human-facing report and the checker pinning both prose copies of the claim set. **M2.7.4 DONE** in one — the 20-section prospective capture specification and its 13-predicate checker, closing M2.7. **M2.8.1 DONE** across three windows — the four corpus-run blockers, the disposition artifact, the diff-blind suite and the stratified pilot that refuted the 6.5 h run estimate. **M2.8.2-M2.8.3 OPEN**: the 3D spine is gone, the negative is published, and the 2D line delivers cohort aggregates.
 
 ### M2.7 — publish the closed-negative 3D ruling — DONE, 4 units
 
@@ -376,8 +376,8 @@ rebuild — keep new JA text inside existing coverage and state the risk in the 
 
 | id | tier | spine result | sizing |
 | -- | ---- | ------------ | ------ |
-| M2.8.1 | kernel | Corpus-run preconditions + instrumented pilot. Close B1/B1b/B2/B2b/B3 (§2 above); stratified pilot spanning both codecs, all four device configs and all four rotations. | 1-2 est; **2 spent, IN PROGRESS — pilot alone open** |
-| M2.8.2 | data | Full corpus 2D run, ~6.5 h, resumable. Per-asset clinical features plus a run manifest giving every one of the 379 assets an explicit disposition, so no asset is silently absent from a denominator. | 1-2 windows |
+| M2.8.1 | kernel | Corpus-run preconditions + instrumented pilot. Close B1/B1b/B2/B2b/B3 (§2 above); stratified pilot spanning both codecs, all four device configs and all four rotations. | 1-2 est; **3 spent, DONE** |
+| M2.8.2 | data | Full corpus 2D run, **26-31 h measured** (M2.8.1 pilot; the plan's 6.5 h was a micro-benchmark projection), resumable. First question = the 40× per-asset cost split, since closing it decides whether the run is 26 h or single-digit hours. Per-asset clinical features plus a run manifest giving every one of the 379 assets an explicit disposition, so no asset is silently absent from a denominator. | 1-2 windows |
 | M2.8.3 | kernel | Cohort aggregate publisher + append-ready bilingual descriptor. 12 `(task, side)` rows, `n_subjects`/`n_events`, per-feature distribution statistics. | 2 windows |
 
 **M2.8.1 exists because M2.6 recorded why it must.** "Where a milestone's spine rests on an unmeasured
@@ -453,10 +453,12 @@ all MAIN scripts, and the PTS question had already cost `map-m2` most of a windo
 it in two reads. **On a planning window, delegate the reading and the external research; keep every
 script-derivable census in MAIN's hands.**
 
-#### M2.8.1 — OPEN, 2 windows spent. Implementation, goldens and suite green; pilot remains
+#### M2.8.1 — DONE, 3 windows spent. Blockers closed, suite green, pilot measured
 
 **Contract frozen at `.agent/archive/contract-m2u81.md`** — 7 design decisions D01-D07, 18 predicates
-P01-P18, a 10-case negative-control seed. Tier `kernel`. Range `3842bcb`..`f43e720`.
+P01-P18 all `pass`, a 10-case negative-control seed, amendments A01-A11 and the §9 verdict table.
+Tier `kernel`. Six commits, `3842bcb`, `f43e720`, `ef114bf`, `300f78c`, `59424f7` and this close;
+MILESTONE-REVIEW's dispatch inputs sit in the contract file, which also names the diff-blind suite.
 
 **Shipped.** `_resolve_session_output` refuses any destination overlapping a published session tree in
 either direction, and `_dispatch_sessions` forwards `args.output_dir`. `process_source` gains
@@ -526,26 +528,51 @@ must read as a code-authored field name, so each corpus identifier shape (captur
 path, media suffix) fails both tests. Subprocess output carries identifiers → log files under
 `--out`, never echoed.
 
-**The 6.5 h corpus-run estimate is refuted by the first pilot asset, and the estimate's provenance is
-why.** 6.5 h came from per-call micro-benchmarks (pose NPU 7.17 ms + det CPU 445 ms every 7th frame
-≈ 70 ms/frame), never from an end-to-end run. Measured on real assets at the shipped configuration
-(`rtmw-l`, `hands-arms`, `--single-subject`, det CPU / pose NPU, `--det-frequency 7`): **mean 479 ms,
-median 372 ms, p95 1043 ms per frame → 2.1 fps**, so 337 090 frames extrapolates to **~45 h**, 7×
-the plan. Placement is confirmed from the run log rather than assumed — det `openvino/CPU`, pose
-`openvino/NPU` reshaped to `[1,3,256,192]`. A per-frame median of 372 ms refutes "the detector every
-7th frame dominates": that shape would put the median at pose-only cost. Contention is present and
-does not explain 7× (headroom ~0.8 core, load 12.7 on 8 cores). **The cost breakdown is M2.8.2's
-first question, and `--det-device GPU` is the priced candidate** (synthetic probe: GPU detector
-median 9.7 ms vs CPU 213 ms, GPU zero-fills its padded rows).
+**All seven pilot verdicts are true, rc=0.** `strata_covered`, `default_output_refused` (8/8 events),
+`generation_digest_unmoved`, `partition_total`, `partition_disjoint`, `group_qc_header_frozen`,
+`diagnostics_complete`. **B3 closes at zero on this sample**: `index_fallback` 0 + `monotonic_forced`
+0 over **8971 decoded frames on 16/16 assets**, pooled CFR fallback rate **0.000000**, with 4 of the
+16 drawn from the 123-asset `pts_monotonic = 0` population that bound came from. **P13 on real
+assets**: 16 input groups = 16 windowed + 0 dropped, 0 in both, 0 in neither, 572 window rows — a
+healthy sample cannot exercise a drop path, which is why A07's `2d_drop` golden exists.
 
-**First measured asset:** 1978 frames decoded, `index_fallback` 0, `monotonic_forced` 0, **CFR
-fallback rate 0.000000** — the first real evidence against the 123/379 upper bound.
+**The 6.5 h corpus-run estimate is refuted, and the estimate's provenance is why.** 6.5 h came from
+per-call micro-benchmarks (pose NPU 7.17 ms + det CPU 445 ms every 7th frame ≈ 70 ms/frame), never
+from an end-to-end run. Measured at the shipped configuration (`rtmw-l`, `hands-arms`,
+`--single-subject`, det CPU / pose NPU, `--det-frequency 7`): **2959.56 s for 8971 frames = 3.03 fps**
+including per-event process start, 3.60 fps from mean latency → **26.0-30.9 h** for 337 090 frames,
+4-5× the plan. Placement is read from the run log rather than assumed — det `openvino/CPU`, pose
+`openvino/NPU` reshaped to `[1,3,256,192]`.
 
-**Rerun** (accel env first, so pose reaches the NPU):
-`source /var/home/eturkes/.local/app/intel-accel/env.sh` →
-`PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/pilot_corpus_run.py`; `--reuse-run`
-analyses an existing `--out` tree without decoding. Outputs are patient-adjacent →
-`.scratch/pilot-m2u81/` (gitignored); the report is redaction-safe and prints to stdout.
+**Per-asset cost is bimodal, and the split falls INSIDE events, so it is not a per-process placement
+effect.** 6/16 assets run at **7.2-12.2 ms/frame**, 10/16 at **338.6-543.5 ms/frame**, and both bands
+yield the same output — emitted rows / decoded frames ≈ 0.99 throughout. One event reads
+`[12.2, 425.1, 11.4]`. A 40× spread at equal yield is M2.8.2's first question; the leading candidate
+is **per-detected-box cost**, since pose inference and both smoothers run per tracked box while
+`--single-subject` selects the highest-confidence person *after* inference. `--det-device GPU` is the
+second candidate (synthetic probe: GPU detector median 9.7 ms vs CPU 213 ms, GPU zero-fills its
+padded rows). Contention is real and does not explain 40× (headroom ~0.8 core, load 12.7 on 8 cores).
+
+**Gate at unit close.** `ruff check`, `ruff format --check` (138 files), `ty check` all rc=0; decisive
+suite **1517 passed / 0 skipped / rc=0** in 988.96 s, primary tree. Collection is unmoved from window
+2 by construction — P17/P18 are ruled no-case and the pilot ships as a script credited by MAIN's own
+rerun, so the unit adds measurement, not test cases. The gate ran after the pilot finished, never
+beside it: a decode-and-inference sweep and a 16-minute suite on the same 8 cores measure each other.
+
+**Sizing datum, window 3.** MAIN alone, no teammate — the pilot is script-derivable measurement, and
+the record says script-derivable empirical work stays in MAIN's hands. The window's value was
+concentrated in one place the contract did not name: **the pilot measured a cost the plan had only
+projected**, and it took a real run to see it. Second datum: **a projection carried forward as a
+budget is a frozen number**, the same trap as a contract's stated census — the 6.5 h figure had been
+re-quoted through planning and two unit windows without anyone re-deriving it. `main=` 96%
+231K/240K at high-water, over reserve; the window crossed auto-compaction there and closed
+post-compaction on roadmap, memory and contract edits alone. `mate=` none. **Three of three M2.8.1
+windows ran over the reserve**, so a `kernel` unit carrying its own empirical probe sizes at three
+windows here, not one — M2.8.2 and M2.8.3 are sized against that.
+
+**The pilot is a standing instrument, not a one-shot** — rerun recipe, sampling rule, redaction rule
+and the diagnostics-reach limit live in `.agent/memory.md` → *Corpus run*, so they survive this
+section's archiving. M2.8.2 reruns it to qualify `--det-device GPU` before committing to a 26 h run.
 
 **Sizing datum, and it inverts the six-window run.** The one teammate returned the window's two real
 defects, on a unit where MAIN had already implemented and self-reviewed. **The `test` role is the

@@ -131,6 +131,11 @@ Primary tree, every invocation prefixed `env -u LD_LIBRARY_PATH PYTHONPATH="$PWD
 skipped. Never run the gate beside a decode or inference sweep — `test_r_timebase_truth.py::test_c8_08`
 carries a subprocess timeout that CPU contention alone blows.
 
+**At unit close**: all four rc=0 — `ruff format --check` over 138 files, decisive suite **1517 passed
+/ 0 skipped** in 988.96 s. 1472 + 23 predicate cases + 22 golden cases = 1517, so collection moved by
+exactly the new cases and window 3 moved it by none (P17/P18 are ruled no-case; the pilot is a script
+credited by MAIN's rerun). The pilot finished before the gate started.
+
 ## 7. Negative-control seed
 
 Each must fire and name its own predicate; the tree is restored byte-identical after each.
@@ -251,3 +256,56 @@ directory and reads the CSV — which is exactly why only a contract-driven suit
 `process_session` printed `Wrote CSV:` and `Wrote diagnostics:` unconditionally. A source that never
 opens returns before either file exists, so the fix reports both from the filesystem
 (`produced.exists()`) rather than from intent.
+
+**A11 — the pilot ships, and its throughput refutes the M2.8 plan's 6.5 h estimate.**
+`scripts/pilot_corpus_run.py` selects **events**, not assets: the run path is per session, so an
+asset cannot be sampled alone. Axis coverage first (hash-ranked event per uncovered value), then
+hash-ranked replication to `--min-assets` — a length-free rule, so the sample carries no duration
+bias, and `_select_events` raises rather than running an uncovered sample. Realized: **8 events /
+16 assets / 8971 reported frames**, covering codec x2, device config x4, rotation x4 and
+`pts_monotonic` x2. `pts_monotonic` is a function of the device in this corpus (hevc/iPad Air = 0 on
+all 123), so covering the codec covers it; it is reported, never required.
+
+- **B3 closes at zero on this sample.** `index_fallback` 0 + `monotonic_forced` 0 over **8971
+  decoded frames on 16/16 assets**, pooled CFR fallback rate **0.000000**, and 4 of the 16 come from
+  the 123-asset `pts_monotonic = 0` population the upper bound was drawn from.
+- **P13 on real assets:** 16 input groups = 16 windowed + 0 dropped, 0 in both, 0 in neither, 572
+  window rows. A healthy sample cannot exercise a drop path, which is why A07's `2d_drop` golden
+  exists; the pilot measures totality and disjointness, never reason coverage.
+- **P14 + A09 on real output:** the disposition artifact exists for all 16 landmark CSVs and its
+  header equals the five columns re-derived from `analysis/clinical_features.R` at check time.
+- **P02 + P03 on the real published tree**, which no suite case reaches: the unguarded default
+  refused on **8/8** events with no camera run, `validate_generation` passed before and after, and
+  the tree digest is unmoved across a run that wrote 16 camera CSVs.
+- **Throughput: 2959.56 s of run wall clock for 8971 frames = 3.03 fps** including per-event process
+  start, 3.60 fps from mean per-frame latency, so 337 090 frames extrapolate to **26.0-30.9 h**.
+  `59424f7`'s subject says **45 h**; that was the first asset alone at 2.1 fps, written while the
+  pilot was still running, and the 16-asset figure here supersedes it — the unit's own lesson landing
+  on the unit's own commit. The plan's 6.5 h was a per-call projection (pose NPU 7.17 ms + det CPU
+  445 ms every 7th frame), never
+  an end-to-end run. Placement is read from the run log rather than assumed: det `openvino/CPU`,
+  pose `openvino/NPU` reshaped to `[1,3,256,192]`.
+- **Per-asset cost is bimodal, and the split falls INSIDE events, so it is not a per-process
+  placement effect**: 6/16 assets at **7.2-12.2 ms/frame**, 10/16 at **338.6-543.5 ms/frame**, with
+  the same row yield in both bands (emitted rows / decoded frames ~ 0.99). One event reads
+  `[12.2, 425.1, 11.4]`. A 40x spread at equal yield prices M2.8.2's first question, and the leading
+  candidate is per-detected-box cost — pose inference and both smoothers run per tracked box, while
+  `--single-subject` selects the highest-confidence person **after** inference.
+
+## 9. Verdict table
+
+| id | verdict | evidence |
+| -- | ------- | -------- |
+| P01-P04 | pass | `tests/test_corpus_run_preconditions.py` (23 cases); P02/P03 re-measured on the real published tree by the pilot — 8/8 refused, digest unmoved |
+| P05-P07 | pass | suite; A05 + A10 fixed the two error paths the diff-blind suite reached |
+| P08-P11 | pass | suite; A10 added the stdout rate summary. Pilot: counters sum to the call count on 16/16 assets |
+| P12-P13 | pass | suite (both modes) + `2d_drop` goldens (3 groups = 1 windowed + 2 dropped, disjoint) + pilot partition on real assets |
+| P14-P15 | pass | suite; pilot confirms the artifact on 16/16 real landmark CSVs, header re-derived from the R source |
+| P16 | pass | `git status` over `tests/goldens/` reported additions only |
+| P17-P18 | pass | `scripts/pilot_corpus_run.py`, committed + rerunnable; 8 events / 16 assets covering every axis value; report at `.scratch/pilot-m2u81/pilot_report.json`, all 7 verdicts true, rc=0 |
+
+**MILESTONE-REVIEW dispatch inputs.** Unit commits = `dac21d8..HEAD`, six: `3842bcb`, `f43e720`,
+`ef114bf`, `300f78c`, `59424f7` and the close commit carrying this table.
+Diff-blind suite = `tests/test_corpus_run_preconditions.py` (delivered by
+`test-m2u81-2`, worktree and `wt/test-m2u81` removed at harvest; 18 rows, 16 encoded + P17/P18 ruled
+no-case). No `orc` or `diff` teammate was funded for this unit.

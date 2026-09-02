@@ -258,6 +258,13 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 - **Name the population beside the count, always.** This project has now hit the same trap three
   times: two closure statistics over different event sets, two "families connected" figures, and now
   329-vs-355. A bare count is the shape of defect that survives review.
+- **A projection carried forward as a budget is a frozen number of the same class**, and it is worse
+  than a stale census because nothing in the text marks it as derived. The 6.5 h corpus-run estimate
+  was a per-call micro-benchmark extrapolation that reached the roadmap as a unit's sizing, was
+  re-quoted through planning and two unit windows, and measured 4-5× low the first time anything ran
+  end to end. **Record a number's provenance beside it — measured / projected / assumed — and refuse
+  to size work on a projection whose measurement is affordable.** The M2.8.1 pilot cost 49 minutes
+  and moved a 6.5 h plan to 26-31 h.
 
 ## Multi-agent traps
 
@@ -392,10 +399,20 @@ Every audio-bearing fixture in `tests/` is muxed by PyAV; three ordering rules d
 
 - Detector + pose model take separate devices (`--det-device` / `--pose-device` on `run`/`main`/`benchmark`/`validate`). No `--device` flag exists anywhere; a bare `--device` is an argparse error, not a silent default.
 - **rtmlib YOLOX must not run on NPU.** In-graph NMS ⇒ dynamic `dets` shape; NPU demands static ⇒ fixed 100-row buffer whose unused rows are never written. Symptom: every frame reports exactly 100 detections, all rows sharing one score, values outside `[0,1]` (observed 1.128, 1.263). CPU on the same frames returns 1–3 detections, max 0.918. Compiles cleanly ⇒ `rtmlib_openvino.py`'s NPU→CPU fallback never fires; failure is numerical, silent, and reaches the CSV.
-- Pose models are NPU-safe: RTMW-L NPU vs CPU = 0.505 px mean / 2.265 px p95 / 5.3 px p99 keypoint deviation, score MAE 0.00056. Per-call 7.17 ms NPU vs 134.26 ms CPU (~19×). Detector 109.82 ms NPU (garbage) vs 445.21 ms CPU. Projected 15 455-frame batch: all-CPU 51 min, det-CPU/pose-NPU 18 min.
+- Pose models are NPU-safe: RTMW-L NPU vs CPU = 0.505 px mean / 2.265 px p95 / 5.3 px p99 keypoint deviation, score MAE 0.00056. Per-call 7.17 ms NPU vs 134.26 ms CPU (~19×). Detector 109.82 ms NPU (garbage) vs 445.21 ms CPU.
+- **Those per-call numbers do not predict run throughput — measured end-to-end they are 4-5× optimistic.** The projection they support (pose 7.17 + det 445/7 ≈ 70 ms/frame ⇒ 6.5 h for the corpus) survived planning and two unit windows unchallenged. The M2.8.1 pilot ran the shipped configuration (`rtmw-l`, `hands-arms`, `--single-subject`, det CPU / pose NPU, `--det-frequency 7`) over 8971 frames: **2959.56 s = 3.03 fps** including per-event process start, 3.60 fps from mean latency ⇒ **26.0-30.9 h** for 337 090 frames. **Never size a run from per-call latency; run a stratified pilot and multiply.**
+- **Per-asset cost is bimodal at ~40×, and the split falls INSIDE single events** (one event reads `[12.2, 425.1, 11.4]` ms/frame), so it is not a per-process placement effect: 6/16 assets at 7.2-12.2 ms/frame, 10/16 at 338.6-543.5, emitted rows / decoded frames ≈ 0.99 in both bands. Leading hypothesis = **per-detected-box cost** — pose inference and both smoothers run per tracked box while `--single-subject` selects the highest-confidence person *after* inference, so a frame holding bystanders pays for all of them. Second candidate = detector device: the synthetic probe reads GPU 9.7 ms vs CPU 213 ms median and GPU zero-fills its padded rows (unlike NPU), so `--det-device GPU` is live pending a shape+range qualification. Contention is real and does not explain 40× (headroom ~0.8 core, load 12.7 on 8 cores). Closing this decides whether the corpus run costs 26 h or single-digit hours.
 - MediaPipe is unaffected — SSD anchors + NMS decode in Python (`detection.py`), graphs stay static-shaped ⇒ both roles default NPU. `models.DETECTOR_MODELS` selects which compile on `--det-device`.
 - **The padding is a device property, and only NPU pads with garbage.** One synthetic probe separates the three devices with no patient data: read `yolox_m_8xb8-300e_humanart-c2c7a14a.onnx` (rtmlib cache), compile per device, infer `np.zeros((1,3,640,640))`, print `dets`/`labels` shape + range. CPU keeps the dynamic output (`(1,1,5)`); GPU and NPU both materialise a fixed 100-row buffer with `labels` all `-1`; only NPU's `dets` hold uninitialised memory (`-0.1471…1.0215` on an all-zero image, so scores clear any threshold), while GPU's read exactly `0.0000`. That makes GPU a live candidate for the detector and keeps NPU excluded. Median latency on that probe: GPU 9.7 ms, NPU 108.4 ms, CPU 213.1 ms.
 - Reproduce the real-frame findings: `.scratch/det_npu_vs_cpu.py`, `.scratch/pose_npu_vs_cpu.py`, `.scratch/device_timing.py` (scalars only, no imagery/identifiers) — these decode patient clips, so they need clearance; the synthetic probe above does not.
+
+## Corpus run — the pilot instrument, and how far diagnostics reach
+
+- **`scripts/pilot_corpus_run.py` is the standing instrument for any claim about the real corpus.** It is the only path that measures the run against the published tree, which no test case can reach. Rerun: `source /var/home/eturkes/.local/app/intel-accel/env.sh` then `PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/pilot_corpus_run.py`; `--reuse-run` re-analyses an existing `--out` tree without decoding. Outputs are patient-adjacent ⇒ `.scratch/pilot-m2u81/` (gitignored), report at `pilot_report.json`.
+- **It samples EVENTS, not assets** — `process_session` runs every camera of a session, so an asset cannot be drawn alone. Axis coverage first (hash-ranked event per uncovered value of `codec`, `device_config`, `rotation_deg`), then hash-ranked replication to `--min-assets`; the rule is length-free, so the sample carries no duration bias. `_select_events` raises rather than running an uncovered sample. `pts_monotonic` is reported, never required — it is confounded with codec and device on this corpus (hevc/one tablet = 0 on all 123, h264/another = 1 on all 256), so demanding it as an axis over-constrains the draw.
+- **Redaction in any corpus-touching report is an allowlist, never a denylist**: every emitted string must be a published stratum label or an R reason code, every key must read as a code-authored field name (`[a-z][a-z0-9_]*`). Each identifier shape — capture id, camera name, path, media suffix — then fails both tests without being enumerated. Subprocess stdout carries identifiers (`Session 's02-…'`, camera names, paths) ⇒ redirect to log files under `--out/logs/`, never echo.
+- **A healthy sample cannot exercise a failure path.** The pilot's 16 input groups partitioned 16 windowed / 0 dropped, so every drop reason went untested there; `2d_drop`'s golden is what pins them. Pair every real-corpus probe with a synthetic negative — the probe proves reach, the golden proves the branch.
+- **Diagnostics ship only through the session path.** `process_source` writes its source-summary CSV from `output_diag`, and the single-source and batch entry points pass none, so a run outside `process_session` produces no diagnostics at all — not an empty file, no file. Any claim of the form "every asset has a disposition" holds for the session path alone.
 
 ## rtmlib `PoseTracker` — stateful, and `tracking=False` does not disable it
 
@@ -501,8 +518,11 @@ uv run --no-sync ruff check && uv run --no-sync ruff format --check \
 - **Container PTS reordering cannot reach the R layer.** `pts_monotonic = 0` on 123/379 assets, but
   `SourceClock.timestamp()` (`src/pose_estimation/video_io.py:28-77`) guarantees strictly-increasing
   timestamps — a regressing or repeated `cv2.CAP_PROP_POS_MSEC` falls back to `idx/fps`, then a second
-  guard forces `last + 1/fps`. The open predicate is the **CFR fallback RATE**, unmeasured. 123 is an
-  upper bound: qualification measured PyAV demux order, the run path reads cv2 presentation order.
+  guard forces `last + 1/fps`. 123 is an upper bound: qualification measured PyAV demux order, the run
+  path reads cv2 presentation order. **The CFR fallback rate is now measured and it is zero** —
+  `index_fallback` 0 + `monotonic_forced` 0 over 8971 decoded frames on 16/16 pilot assets, 4 of them
+  drawn from the 123-asset `pts_monotonic = 0` population. Counters ship in `SourceTimestampClock`, so
+  any future run re-measures it per source; treat a nonzero rate as a real finding, not as noise.
 - **The 2D clinical feature path already exists and is golden-pinned**, so a 2D delivery unit is
   delivery + schema work, never feature development: `analysis/clinical_features.R` with six goldens
   (`2d_csv4dp_*`, `2d_cumsum_*`, `2d_idx_*`, each plus `_windows`). M2.4's `nominal_fs()` adoption
