@@ -21,7 +21,7 @@
     "src/pose_estimation/measure/statuses.py": "821b0f65cd6eb7ac14d97545811b0129e3d0ea25ca0831780759e6302439efc9",
     "src/pose_estimation/measure/sync.py": "93aa286be1fdab1eebcb385c344ecd062c52290c73a442795b8b70af26f9a15c",
     "src/pose_estimation/measure/visual_offset.py": "80d03893e407187216875af174496af912f2edcd4ceec1bf2618da73cc3a7ff6",
-    "src/pose_estimation/multicam.py": "4274a69c254bdcd9a6110ce2492725cd7edc15f8048de653cfb73444281d5e5d",
+    "src/pose_estimation/multicam.py": "80da0e7a5d96da8252cbf9127fa715c01e1c71aededd9f9f33e13f84fcfef9df",
     "src/pose_estimation/qualify.py": "d81f15acacb91bd678e801dcd809d47782cd624e3c5acec65d7d7e36d1140938",
     "src/pose_estimation/sessions.py": "c3627cfaa2882b6476bf1cd848042e4722565f5c12fc3e18453a77858df6355a",
     "src/pose_estimation/video_io.py": "d8a76b4005983655d110582c0f2ac1e00470d5e913f9f064e1c5937bc50b3692",

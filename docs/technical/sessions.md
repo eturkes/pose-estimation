@@ -167,6 +167,6 @@ Unchanged inputs produce a byte-identical tree. The test suite proves this again
 
 ## Data boundary
 
-The tree is patient-adjacent. Link targets contain source paths. Manifests and both tables carry the registry's identifiers and digests alone, never a filename. Those identifiers are low-entropy pseudonyms that support linkage, so a subject directory named with an ordinal matches the published `subject_ordinal` by construction. `.gitignore` covers `sessions/` and `sessions.*/`, and the read-exclusion list covers both. Console output reports counts only.
+The tree is patient-adjacent. Link targets contain source paths. Manifests and both tables carry the registry's identifiers and digests alone, never a filename. Those identifiers are low-entropy pseudonyms that support linkage, so a subject directory named with an ordinal matches the published `subject_ordinal` by construction. `.gitignore` covers `sessions/` and `sessions.*/`; nothing gates a read of either, so keeping the tree out of agent context is a standing rule rather than a mechanism. Console output reports counts only.
 
 See `entrypoints.md` for exit codes, `inventory.md` for the registry schema, and `multicam.md` for the discovery contract.

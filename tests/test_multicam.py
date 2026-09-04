@@ -913,7 +913,7 @@ def test_list_sessions_probe_reports_without_decoding(tmp_path, monkeypatch, cap
     # Redacted: ordinal + shape only (sorted discovery → session_one #1, session_three #2).
     assert "session #1: 1 cameras; calibration: absent" in out
     assert "session #2: 3 cameras; calibration: present" in out
-    # The probe must not echo the deny-listed tree's real identifiers.
+    # The probe must not echo the patient-adjacent tree's real identifiers.
     assert "session_three" not in out
     assert "session_one" not in out
     assert "cam1" not in out

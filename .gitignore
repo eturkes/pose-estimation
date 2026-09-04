@@ -121,7 +121,7 @@ Thumbs.db
 # MediaPipe downloaded models
 mediapipe/
 
-# Claude Code machine-local state (the shared .claude/settings.json is committed);
+# Claude Code machine-local state (.claude/commands/ is the committed half);
 # .claude/.headroom_wrap_marker.json is ephemeral per-session (pid/port/env key).
 CLAUDE.local.md
 .claude/settings.local.json

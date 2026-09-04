@@ -218,7 +218,7 @@ def resolve_cli_sessions(
     frame decoding — no video bytes are read); prints a summary headed by
     *summary_label*.  With *redact_identifiers* (the footage-gate probe), each
     per-session line shows only an ordinal + camera count + calibration presence,
-    keeping the deny-listed tree's session ids / camera names out of context.
+    keeping the patient-adjacent tree's session ids / camera names out of context.
     """
     if session_dir and sessions_dir:
         raise SessionError("You must specify only one of --session-dir and --sessions-dir.")
@@ -244,7 +244,7 @@ def resolve_cli_sessions(
     for i, s in enumerate(sessions, 1):
         cal = "present" if s.calibration is not None else "absent"
         if redact_identifiers:
-            # --list-sessions footage gate: keep the deny-listed tree's identifiers
+            # --list-sessions footage gate: keep the patient-adjacent tree's identifiers
             # (session id, camera names) out of agent context — the gate needs only
             # the shape (camera count + calibration presence), keyed by an ordinal.
             print(f"  session #{i}: {s.n_cameras} cameras; calibration: {cal}")

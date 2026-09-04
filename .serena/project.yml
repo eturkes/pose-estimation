@@ -118,9 +118,11 @@ ls_specific_settings: {}
 #     - "**/bin/**"
 #     - "**/obj/**"
 # Note: global ignored_paths from serena_config.yml are also applied additively.
-# Committed, non-gitignored paths whose read cost exceeds their value; the gitignored
-# half of that set lives in .claude/settings.json permissions.deny (see CLAUDE.md).
-# `**/*.Rmd` is here for a second reason — cost, not value: solidlsp routes .Rmd to the
+# Narrows Serena's index alone; it never gates Read or Bash (CLAUDE.md → read cost
+# control). ignore_all_files_in_gitignore already drops every generated tree, so the
+# entries below are the committed non-source files a symbol index gains nothing from:
+# generated lockfiles, renv's bootstrap, the license text.
+# `**/*.Rmd` is here for the second reason — cost, not value: solidlsp routes .Rmd to the
 # R language server (ls_config FilenameMatcher .R/.r/.Rmd/.Rnw), which never answers
 # documentSymbol for it, so every indexing pass blocks the full 235 s LS request timeout
 # (tool_timeout 240 - 5). Read/grep .Rmd directly; Serena never resolved its symbols.
