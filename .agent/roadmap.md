@@ -512,7 +512,18 @@ lands in contract §10.
 five measurement scripts and one contract; no teammate was funded before the contract existed,
 because every question this window answered was script-derivable and the record says those stay in
 MAIN's hands. The wave is one diff-blind `test-m2u83`, dispatched at the contract commit — the one
-delegation this project has funded that MAIN structurally cannot replace. `main=` 84% 202K/240K.
+delegation this project has funded that MAIN structurally cannot replace. `main=` 88% 211K/240K.
+
+**Window 2 opens by harvesting the wave, then implements.** `test-m2u83` runs diff-blind at base
+`3497dd5` on branch `wt/test-m2u83`, worktree `.scratch/worktrees/test-m2u83`, marker
+`TEST-M2U83-DONE-1`, report **inside the worktree** at
+`.scratch/worktrees/test-m2u83/.scratch/agents/test-m2u83.md` (MAIN's own copy keeps the 18-row
+`unknown` seed forever — poll the worktree copy, and copy it back before teardown). It grades the
+contract's 18 predicates and ships `tests/test_cohort.py` red. **Expect its findings to land in
+contract §10 as amendments rather than in the code**: the same role returned 11 findings / 11
+contract defects / 0 driver defects on M2.8.2, and this contract has more unmeasured surface than
+that one did — P10's anisotropy determination is open by construction, and the intended API
+(`cohort.FEATURES`, `run`, `validate_generation`) is named in the brief but not yet frozen.
 
 #### M2.8.2 — DONE, 2 windows spent. The first question closed, and it was a defect
 
