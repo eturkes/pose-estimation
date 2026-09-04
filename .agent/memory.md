@@ -452,6 +452,37 @@ Every audio-bearing fixture in `tests/` is muxed by PyAV; three ordering rules d
 - **A healthy sample cannot exercise a failure path.** The pilot's 16 input groups partitioned 16 windowed / 0 dropped, so every drop reason went untested there; `2d_drop`'s golden is what pins them. Pair every real-corpus probe with a synthetic negative — the probe proves reach, the golden proves the branch.
 - **Diagnostics ship only through the session path.** `process_source` writes its source-summary CSV from `output_diag`, and the single-source and batch entry points pass none, so a run outside `process_session` produces no diagnostics at all — not an empty file, no file. Any claim of the form "every asset has a disposition" holds for the session path alone.
 
+## Cohort aggregation — what the 2D corpus output can and cannot carry
+
+- **`--tracking hands-arms` publishes 75 of 92 feature columns; the other 17 are NA on every row.**
+  Trunk lean (total/lateral/sagittal), trunk rotation, posture symmetry and
+  `compensatory_pattern_index` are guarded at `analysis/clinical_features.R:1000` by
+  `tracking == "body"`, which is the only mode carrying hip keypoints. Measured 0.00% finite over
+  331 152 frame and 21 483 window rows. **A run configuration is a claim about the output schema** —
+  the corpus ran 8.7 h before anyone asked which published columns it would fill. Populating them
+  needs a `--tracking body` re-run (roadmap M2.8.4); `body` = all 133 keypoints, a superset of
+  `hands-arms`, so nothing is lost by it.
+- **Cohort statistics must name their estimand: the grain is worth up to 3×.** Window-pooled against
+  subject-weighted (asset median → event median → subject median → cohort) moves the cohort median
+  by −2.8% to **+297.8%** across the 12 `(task, side)` cells. One subject supplies up to 29% of a
+  cell's window rows; windows per asset are 12 / 37 / 548 (min / median / max), so pooling reports
+  whoever performed longest. Published estimand = the typical **subject**.
+- **2D features are per-camera quantities, so view is a large published variance component.** Over
+  135 multi-view events all cameras agree on which wrist moved faster only **50.4%** of the time
+  (~55/135 expected from coin flips). But within-event across-view CV is **45-66%** of the
+  between-subject CV on every feature, so subject signal dominates and the cohort statistic is
+  sound. Cause is projection geometry — coordinates are normalized to `[0,1]` by **frame
+  dimensions** (`export.py:250`), so each camera measures in its own image plane. Consequence:
+  publish magnitude distributions plus a view-dispersion column, and **refuse directional per-limb
+  claims** (dominance/symmetry sign) at cohort grain.
+- **The `[0,1]` normalization is anisotropic at 1920×1080**, so any `*_deg` column computed in that
+  space is not a true anatomical angle. Decide this against the R source before labelling a unit
+  `deg` (contract-m2u83 P10).
+- Cells: 12 `(task, side)` over `cap coin glass key nut peg` × `l r`; 15-16 subjects each; 193
+  events; 379 assets; manifest 379/379 `ok`. `cap-l` 18 and `nut-r` 19 events exceed their subject
+  counts — view-conflict families splitting into single-camera events, which is why the estimand
+  medians over events *inside* a subject.
+
 ## rtmlib `PoseTracker` — stateful, unsound, and DISABLED in the run path
 
 - **`run.py` constructs it with `tracking=False` (M2.8.2 D01). Never restore `tracking=True`.** The

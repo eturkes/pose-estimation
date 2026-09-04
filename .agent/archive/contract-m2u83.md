@@ -1,0 +1,247 @@
+# M2.8.3 acceptance contract — cohort aggregate publisher + bilingual descriptor
+
+Base `fc8ff62`. Tier `kernel`. Frozen at dispatch; amendments append to §10 and bind from
+their ruling. Every downstream artifact decides against this file.
+
+## 1. Scope
+
+Publish `cohort/` — a redaction-safe aggregate of the M2.8.2 corpus run at `(task, side)`
+grain — plus an append-ready `columns.yaml` descriptor fragment naming every published
+feature in `../rehab`'s registry format.
+
+**In scope.** The publisher module + CLI, the published tree, the feature label table, the
+descriptor fragment, the technical document, the gate wiring.
+
+**Out of scope, explicitly.** Editing `../rehab`. Re-running the corpus (→ M2.8.4). Any
+per-subject row, patient identifier, join column or join template — cut by user ruling.
+Changing `analysis/clinical_features.R`. Adding a `columns.yaml` loader change on the
+consumer side.
+
+## 2. Inputs and trust roots
+
+| input | trust root |
+| ----- | ---------- |
+| `inventory/` | `inventory.validate_generation(dir)` before any row is read |
+| `sessions/` | `sessions.validate_generation(dir, inventory_dir=…)` |
+| `output/corpus-2d/run_manifest.csv` | `corpus_run.read_manifest` + `corpus_run.validate_manifest(rows, canonical)` |
+| `output/corpus-2d/<event>/*_clinical.csv`, `*_clinical_windows.csv` | header equality against the feature table; finite-value filter |
+
+The run tree carries no generation marker, so the manifest **is** its trust root: a row set
+that is not a total partition over the registry's canonical assets refuses the whole
+publication. An asset whose manifest disposition is not `ok` contributes nothing and is
+counted as excluded (D08), never skipped silently.
+
+## 3. Design decisions
+
+**D01 — grain `(task, side)`, 12 cells. User ruling.** No subject rows, no patient
+identifier, no join column, no join to `../rehab`. `view` is not a grain component (D03).
+
+**D02 — estimand = the typical SUBJECT, by four-stage aggregation. User ruling.**
+`asset value = median(finite rows of that asset)` → `event value = median(asset values)` →
+`subject value = median(event values)` → cohort statistics over subject values. Measured
+alternative (pooling all 21 483 window rows) moves the cohort median by −2.8% to +298%
+across the 12 cells, and one subject supplies up to 29% of a cell's rows, so the grain is
+contract-bearing and never a convenience. Every published statistic names its estimand in
+the technical document and in the descriptor fragment.
+
+**D03 — view is a published variance component, not a grain and not a selection. User
+ruling.** Views of one performance disagree substantially: over 135 multi-view events all
+cameras agree on which wrist moved faster only **50.4%** of the time, and the within-event
+across-view CV is **45-66%** of the between-subject CV (subject signal dominates, view is
+large). 2D features are measured in each camera's own image plane, so this is projection
+geometry rather than a defect. The artifact therefore publishes `view_dispersion` beside
+each statistic — the median across-view CV over that cell's multi-asset events — with
+`n_events_multiview` naming its population, and the claim boundary prohibits directional
+per-limb claims (D07/N3).
+
+**D04 — 75 features, both levels. User ruling.** 45 frame-level (posture/kinematic state)
++ 30 window-level (movement quality). The 17 trunk/posture columns are excluded because
+they are structurally absent, not because they are unwanted (D08).
+
+**D05 — statistics = the robust set, no extremes. User ruling.** `n_subjects`, `n_events`,
+`n_assets`, `n_values`, `median`, `q25`, `q75`, `mean`, `sd`, `view_dispersion`,
+`n_events_multiview`. `min`/`max` are refused: at n=15-16 per cell each extreme is one
+identifiable subject's own measurement, while quartiles are not.
+
+**D06 — the published tree is gitignored. User ruling.** `cohort` + `cohort.*/` join
+`.gitignore` beside the five existing publishers. Consequence, stated rather than
+discovered: the published bytes get **no committed byte oracle**, so every predicate below
+is a property test and the determinism sweep is what stands in for a golden.
+
+**D07 — the label table is a module constant, and the descriptor fragment is derived from
+it.** `cohort.FEATURES` carries one entry per published feature — id, level, source column,
+`ja`, `en`, `unit`, `range` — and the fragment is generated, never authored twice. Same
+ruling as `calibration_qc.CLAIMS`: a second hand-written copy drifts, and M2.7.3 measured
+that drift at 6 of 15 rows on a document nothing pinned.
+
+**D08 — every source column reaches exactly one published outcome.** `cohort.json` carries
+a `columns` census partitioning all 92 feature columns into `published` (75) and
+`excluded` with a frozen reason code — `structurally_absent` for the 17 trunk/posture
+columns, which require `tracking == "body"` (hip keypoints) and are NA on 100% of
+331 152 frame and 21 483 window rows. Same totality rule as M2.8.2's manifest: a column
+silently missing from a denominator is the defect the census exists to prevent.
+
+**D09 — publish beside, never patch.** `cohort/` is a new tree. `output/corpus-2d/`,
+`qualification/`, `sessions/` and `inventory/` are read-only to this publisher, and the
+`sessions` generation digest + marker digest are witnesses across the run (P12).
+
+**D10 — `raw` keys are namespaced `pose_<level>_<column>`.** `../rehab`'s `load_schema()`
+enforces required keys by `KeyError` alone — no unique-raw check — and duplicate raw names
+silently keep the last, so the prefix is load-bearing against the 219 existing descriptors.
+
+## 4. Published schema
+
+`cohort/` holds four files. Row order is a function of the rows at the publish site.
+
+- **`cohort_cells.csv`** — 12 rows, one per cell.
+  `task, side, n_subjects, n_events, n_assets, n_frame_rows, n_window_rows`
+- **`cohort_features.csv`** — 900 rows (12 × 75), one per `(task, side, feature)`.
+  `task, side, level, feature, n_subjects, n_events, n_assets, n_values, median, q25, q75, mean, sd, view_dispersion, n_events_multiview`
+- **`descriptors.yaml`** — 75 entries, `../rehab` `columns.yaml` shape:
+  `raw, ja, en, group: pose, role: feature, dtype: numeric, unit, range`.
+- **`cohort.json`** — redaction-safe census + provenance: population, the D08 column
+  census, the estimand statement, the input digests, and a `generation` block digesting
+  the other three files plus itself minus its own key.
+
+## 5. Predicates
+
+Each is testable, and each names the artifact it decides.
+
+- **P01 totality of cells** — exactly 12 rows, key set equals the 12 `(task, side)` pairs
+  re-derived from the registry, no duplicate key, every cell `n_subjects >= 5`.
+- **P02 totality of features** — 900 rows, key set equals the 12 cells × the 75 published
+  feature ids, no duplicate key.
+- **P03 column census is total** — `published ∪ excluded` equals the 92 feature columns
+  re-derived from the two artifact headers at check time; the two sets are disjoint; every
+  `excluded` entry carries a frozen reason code.
+- **P04 estimand is the four-stage one** — an independent re-derivation of D02 over a
+  synthetic corpus reproduces every published statistic exactly; a window-pooled
+  implementation differs on at least one cell (the seed carries a case where it does).
+- **P05 subject weighting is real** — replicating one subject's asset rows N-fold leaves
+  every published statistic unmoved; replicating a whole subject moves `n_subjects`.
+- **P06 view dispersion names its population** — `view_dispersion` is empty exactly when
+  `n_events_multiview == 0`; where non-empty it equals the median across-view CV over that
+  cell's multi-asset events; a cell whose events are all single-asset publishes empty
+  rather than 0.
+- **P07 non-vacuity** — every set-quantified predicate carries a non-empty floor:
+  `n_values > 0`, `n_subjects > 0` and `n_events > 0` on all 900 rows, and at least one
+  cell has `n_events_multiview > 0`. A green predicate whose detail line reports zero
+  items is a failing predicate.
+- **P08 finite filter** — non-finite values (`NA`, `NaN`, `Inf`) are excluded from every
+  statistic and counted out of `n_values`; a feature with no finite value anywhere
+  publishes empty statistics and is not silently dropped from the 900.
+- **P09 descriptor fragment conformance** — 75 entries; every entry carries the six keys
+  `../rehab` requires plus `unit` and `range`; every `raw` matches `pose_(frame|window)_`
+  + a published feature id; every `raw` is unique; every `ja` and `en` is non-empty and
+  `ja` contains at least one non-ASCII character; the fragment parses as YAML and its
+  entry set equals `cohort.FEATURES`.
+- **P10 unit vocabulary is derived, not asserted** — `unit` values come from a frozen
+  vocabulary keyed on the source column's measurement. 2D landmark coordinates are
+  normalized to `[0, 1]` **by frame dimensions** (`export.py:250`), so the anisotropy
+  question is decided at implementation and its answer binds the vocabulary: any `*_deg`
+  column computed from anisotropically normalized coordinates is **not** a true anatomical
+  angle and may not carry unit `deg` unqualified. The determination is recorded in §10.
+- **P11 redaction** — no published byte carries a subject ordinal, `capture_id`, event id,
+  camera name, source path, media suffix or filename. Value admissibility is membership in
+  a published label set (task token, side token, level token, feature id, reason code,
+  unit token) ∪ code-authored constants; key admissibility is membership in the frozen
+  field names. A shape test is a denylist wearing an allowlist's name (M2.8.2 A09).
+- **P12 read-only over upstream** — `sessions.tree_digest`, `sessions.generation_digest`
+  and `inventory` + `sessions` + manifest validation all hold before and after the run;
+  `output/corpus-2d/` is byte-unmoved.
+- **P13 publisher trust root** — the marker is a regular non-symlink file; the parse
+  rejects duplicate keys (`object_pairs_hook`); the census digest covers the provenance
+  block minus its own self-referential key. All three checked directly, since no digest
+  inside the set covers the marker.
+- **P14 ownership + atomic publication** — `--out` overlaps no input in either direction;
+  a non-empty destination is replaced only when its own marker names this generator at
+  this version; publication is staging-sibling + swap, and crash debris is swept only
+  after the swap lands.
+- **P15 determinism** — the tree is a function of its inputs alone: byte-identical across
+  hash seed, four locale settings, timezone, `umask`, `-O` and `--out` name. This is D06's
+  stand-in for the golden the gitignored tree cannot have.
+- **P16 idempotence** — republishing over a published tree leaves every byte unmoved.
+- **P17 consumer boundary** — `validate_generation` refuses a half-published set, an
+  edited CSV, an edited descriptor fragment and an edited census, each by exception class.
+- **P18 documentation + registration** — `docs/technical/cohort.md` states the estimand,
+  the D03 view limit, the D08 exclusion and the claim boundary; the four exhaustive
+  documentation indexes (`entrypoints.md` count, `architecture.md` module map,
+  `tests.md` inventory, `conventions.md` campaign list) each name the new publisher.
+
+## 6. Invariant surfaces
+
+1. `output/corpus-2d/` — read-only; byte-unmoved across the run.
+2. `sessions/`, `inventory/`, `qualification/` — read-only; digests unmoved.
+3. `analysis/clinical_features.R` and every golden under `tests/goldens/` — untouched.
+4. The 219 existing `../rehab` descriptors — the fragment is append-ready and collides
+   with none of them (D10).
+
+## 7. Gate identity
+
+`env -u LD_LIBRARY_PATH PYTHONPATH="$PWD/src" uv run --no-sync` prefixing each of
+`ruff check`, `ruff format --check`, `ty check`, `pytest`. Decisive run is primary-tree,
+after any decode or inference sweep has finished, never beside one. Baseline collection at
+`fc8ff62` is **1517 passed / 0 skipped**; the unit's close must move collection by exactly
+its own new cases.
+
+## 8. Measured facts this contract rests on
+
+Every number re-derives from `output/corpus-2d/` and the registry.
+
+- **Cells.** 12 `(task, side)` over `cap coin glass key nut peg` × `l r`; 15-16 subjects
+  each; 193 events; 379 assets; manifest 379/379 `ok`. `cap-l` 18 events and `nut-r` 19
+  events exceed their subject counts — view-conflict families splitting into single-camera
+  events, which is why the estimand medians over events inside a subject (D02).
+- **Rows.** 331 152 frame rows, 21 483 window rows. Windows per asset: min 12, p25 26,
+  median 37, p75 64, p95 123, max 548.
+- **Coverage.** Frame-level features 93.4-96.4% finite; window-level 74.6-100% finite
+  (`movement_efficiency` lowest at 74.6/77.1%, `sal` 87.7/89.7%).
+- **The 17 structurally-absent columns.** Frame: `trunk_lean_deg`,
+  `trunk_lean_lateral_deg`, `trunk_lean_sagittal_deg`, `trunk_rotation_deg`,
+  `posture_symmetry`. Window: `compensatory_pattern_index`, `trunk_lean_mean/sd/range`,
+  `trunk_lean_sagittal_mean/sd`, `trunk_lean_lateral_mean/sd`, `trunk_rotation_mean/sd`,
+  `posture_symmetry_mean/sd`. 0.00% finite on every row. Cause is the guard at
+  `analysis/clinical_features.R:1000` — the block runs only under `tracking == "body"`,
+  and the corpus ran `hands-arms`.
+- **Estimand sensitivity.** Window-pooled vs subject-weighted cohort median on
+  `left_wrist_velocity_mean`: `glass-r` −0.5%, `nut-r` −1.5%, `peg-r` −1.2%, `glass-l`
+  −2.8%, `peg-l` +4.1%, `coin-l` +10.1%, `coin-r` +23.3%, `key-r` +64.6%, `key-l` +72.7%,
+  `nut-l` +97.3%, `cap-l` +117.0%, `cap-r` +297.8%.
+- **View variance.** 135 multi-view events; all views agree on the faster wrist in 68
+  (50.4%) against ~55 expected from independent coin flips. Within-event across-view CV
+  against between-subject CV: `wrist_velocity_peak` 0.560/1.094 = 0.51,
+  `wrist_normalized_jerk` 0.158/0.239 = 0.66, `wrist_sal` 0.029/0.044 = 0.66,
+  `movement_efficiency` 0.454/1.002 = 0.45, `wrist_velocity_peak_symmetry_ratio`
+  0.163/0.273 = 0.59. Subject signal dominates on every feature; view is 45-66% as large.
+- **Coordinate space.** 2D landmark coordinates are normalized to `[0, 1]` by frame
+  dimensions (`src/pose_estimation/export.py:250`). Displacement, reach and aperture are
+  therefore frame-relative dimensionless quantities and velocity is per second in those
+  units; P10 governs the `*_deg` columns.
+
+## 9. Negative-control seed
+
+Each control must fire and name its own predicate; the tree is restored byte-identical.
+
+| id | seed | predicate |
+| -- | ---- | --------- |
+| N1 | Drop one `(task, side)` row from the published cells | P01 |
+| N2 | Duplicate one `(task, side, feature)` row and drop another | P02 |
+| N3 | Move one trunk column from `excluded` to `published` | P03 + P07 |
+| N4 | Recompute one cell window-pooled instead of subject-weighted | P04 |
+| N5 | Replicate one asset's rows 5× | P05 |
+| N6 | Publish `view_dispersion = 0` on a cell with `n_events_multiview = 0` | P06 |
+| N7 | Admit a non-finite value into one statistic | P08 |
+| N8 | Blank one `ja` label; collide one `raw` with an existing `../rehab` descriptor | P09 |
+| N9 | Write a subject ordinal into the census | P11 |
+| N10 | Reindent the `sessions` generation marker | P12 |
+| N11 | Replace the cohort marker with a symlink; add a duplicate key to it | P13 |
+| N12 | Point `--out` inside `output/corpus-2d/`; hand a foreign directory to `--out` | P14 |
+| N13 | Sort the descriptor entries by label instead of by id | P15 + P16 |
+
+## 10. Amendments
+
+*(appended as ruled)*
+
+## 11. Verdict table
+
+*(filled at unit close; names the `test` / `diff` branch tips — MILESTONE-REVIEW's dispatch input)*

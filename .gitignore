@@ -94,6 +94,14 @@ qualification.*/
 calibration_qc
 calibration_qc.*/
 
+# Cohort aggregate tree (M2.8.3 D06, user ruling). Redaction-safe by contract —
+# 12 (task, side) cells, no subject row, no identifier — and gitignored anyway,
+# beside the five sibling publishers. The consequence is stated in the contract:
+# the published bytes get no committed byte oracle, so P15's determinism sweep
+# stands in for the golden. Two-pattern shape for the staging/retiring siblings.
+cohort
+cohort.*/
+
 # Determinism-campaign scratch tree (check_calibration_qc_determinism.py). Kept
 # after a run so a FAIL can be inspected; rebuilt from scratch on the next run.
 # Slash-free so it also matches the copy a teammate worktree builds.

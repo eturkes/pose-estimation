@@ -51,7 +51,8 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.8.2 | Full corpus 2D run | Resumable run over 379 assets, 8.70 h measured (full corpus, 193 events / 379 assets / 337 090 frames); per-asset clinical features plus a manifest giving every asset an explicit disposition. |
 | M2.8.3 | Cohort aggregate publisher + bilingual descriptor | 12 `(task, side)` cohort rows, no subject rows; append-ready `columns.yaml` fragment with full `ja`/`en` labels. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3 DONE** in one — the human-facing report and the checker pinning both prose copies of the claim set. **M2.7.4 DONE** in one — the 20-section prospective capture specification and its 13-predicate checker, closing M2.7. **M2.8.1 DONE** across three windows — the four corpus-run blockers, the disposition artifact, the diff-blind suite and the stratified pilot that refuted the 6.5 h run estimate. **M2.8.2 DONE** across two windows — the tracker-freeze fix, the resumable driver, the total disposition manifest and the whole-corpus run, 379/379 assets `ok`. **M2.8.3 OPEN**: the 3D spine is gone, the negative is published, and the 2D line delivers cohort aggregates.
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3 DONE** in one — the human-facing report and the checker pinning both prose copies of the claim set. **M2.7.4 DONE** in one — the 20-section prospective capture specification and its 13-predicate checker, closing M2.7. **M2.8.1 DONE** across three windows — the four corpus-run blockers, the disposition artifact, the diff-blind suite and the stratified pilot that refuted the 6.5 h run estimate. **M2.8.2 DONE** across two windows — the tracker-freeze fix, the resumable driver, the total disposition manifest and the whole-corpus run, 379/379 assets `ok`. **M2.8.3 OPEN**, contract frozen, 1 of 2 windows spent — see below. **M2.8.4 OPEN**, user-ruled this
+window: the corpus re-run that populates the trunk/posture block.
 
 ### M2.7 — publish the closed-negative 3D ruling — DONE, 4 units
 
@@ -378,7 +379,8 @@ rebuild — keep new JA text inside existing coverage and state the risk in the 
 | -- | ---- | ------------ | ------ |
 | M2.8.1 | kernel | Corpus-run preconditions + instrumented pilot. Close B1/B1b/B2/B2b/B3 (§2 above); stratified pilot spanning both codecs, all four device configs and all four rotations. | 1-2 est; **3 spent, DONE** |
 | M2.8.2 | data + kernel fix | Full corpus 2D run, resumable, 8.70 h measured (full corpus, 193 events / 379 assets / 337 090 frames); the post-fix pilot projected 7.07-7.61 h, so a 16-asset stratified sample under-predicted per-frame cost by 14%. **First question CLOSED in window 1: the 40× split was one tracker-freeze defect, not a cost profile** — so M2.8.1's 26-31 h sampled a broken pipeline and is retired with the plan's 6.5 h. Per-asset clinical features plus a run manifest giving every one of the 379 assets an explicit disposition, so no asset is silently absent from a denominator. | 1-2 est; **2 spent, DONE** |
-| M2.8.3 | kernel | Cohort aggregate publisher + append-ready bilingual descriptor. 12 `(task, side)` rows, `n_subjects`/`n_events`, per-feature distribution statistics. | 2 windows |
+| M2.8.3 | kernel | Cohort aggregate publisher + append-ready bilingual descriptor. 12 `(task, side)` cells × 75 features, subject-weighted estimand, published view-dispersion column. | 2 est; **1 spent**, contract frozen |
+| M2.8.4 | data | `--tracking body` corpus re-run (~8.7 h) + cohort republish at 92 features. Populates the 17 trunk/posture columns M2.8.3 publishes as `structurally_absent`. **User-ruled into M2.8 rather than backlog** — trunk compensation is clinically central in SCI. | 1-2 windows |
 
 **M2.8.1 exists because M2.6 recorded why it must.** "Where a milestone's spine rests on an unmeasured
 empirical assumption, the feasibility probe is its own unit with its own budget." M2.8's spine assumes
@@ -452,6 +454,65 @@ census, corpus readiness, sizing archaeology, the sentinel verification and the 
 all MAIN scripts, and the PTS question had already cost `map-m2` most of a window when MAIN answered
 it in two reads. **On a planning window, delegate the reading and the external research; keep every
 script-derivable census in MAIN's hands.**
+
+#### M2.8.3 — OPEN, 1 of 2 windows spent. Contract frozen on four user rulings and three measurements
+
+**Contract at `.agent/archive/contract-m2u83.md`** — 10 design decisions D01-D10, 18 predicates
+P01-P18, a 13-case negative-control seed. Base `fc8ff62`. Tier `kernel`.
+
+**MAIN measured first and asked second, and all three measurements changed the unit's shape.** The
+window bought no implementation; its product is a contract that rests on numbers rather than on the
+plan's assumptions. Every figure re-derives from `output/corpus-2d/` plus the registry.
+
+**The trunk/posture block is 100% empty and it is not a defect.** 5 frame + 12 window columns —
+trunk lean (total/lateral/sagittal), trunk rotation, posture symmetry, compensatory pattern index —
+are NA on **all** 331 152 frame and 21 483 window rows. Cause is the guard at
+`analysis/clinical_features.R:1000`: the block runs only under `tracking == "body"`, which needs hip
+keypoints, and the corpus ran `--tracking hands-arms`. So 75 of 92 feature columns carry data.
+**Nobody had measured this** — the configuration was carried from M2.8.1's pilot through a 8.7 h
+corpus run without anyone asking which published columns it would populate. **Datum: a run
+configuration is a claim about the output schema; measure the schema the configuration yields before
+funding the run.** User ruling: ship the 75 now, and the re-run becomes **M2.8.4**.
+
+**The aggregation grain is worth up to 3× and had no ruling.** Pooling all 21 483 window rows against
+subject-weighted four-stage aggregation moves the cohort median by **−2.8% to +297.8%** across the 12
+cells (`cap-r` +297.8, `cap-l` +117.0, `nut-l` +97.3, `key-l` +72.7 … `glass-l` −2.8). One subject
+supplies up to **29%** of a cell's window rows, and windows per asset run 12 / 37 / 548
+(min / median / max). The plan named "`n_subjects`/`n_events`, per-feature distribution statistics"
+and never said over *what*. User ruling: **subject-weighted** — asset median → event median →
+subject median → cohort statistic, estimand = the typical subject.
+
+**Views of one performance disagree, and the artifact publishes that rather than hiding it.** Over
+**135 multi-view events all cameras agree on which wrist moved faster only 50.4%** of the time (68),
+against ~55 expected from independent coin flips. But the variance decomposition refuses the strong
+reading: within-event across-view CV is **45-66%** of the between-subject CV on every feature
+(`velocity_peak` 0.560/1.094, `movement_efficiency` 0.454/1.002, `normalized_jerk` 0.158/0.239,
+`sal` 0.029/0.044, `velocity_peak_symmetry_ratio` 0.163/0.273) — **subject signal dominates camera
+placement, so the cohort statistic is meaningful; view is simply a large component.** Cause is
+projection geometry, not a labelling defect: 2D features live in each camera's own image plane
+(`export.py:250`, coordinates normalized to `[0,1]` by frame dimensions). User ruling: keep 12 cells,
+publish `view_dispersion` beside each statistic with `n_events_multiview` naming its population, and
+**prohibit directional per-limb claims** in the claim boundary — magnitude distributions survive, the
+sign of a left-right difference does not.
+
+**Four further rulings.** Published tree **gitignored** beside the five sibling publishers, so the
+bytes get no committed oracle and P15's determinism sweep stands in for the golden — stated in D06
+rather than discovered later. Statistics = the **robust set with no extremes**, because at n=15-16 a
+published `min`/`max` is one identifiable subject's own measurement while quartiles are not.
+**Both levels, all 75 features.** Japanese labels **authored in full**, with the glyph delta against
+`../rehab`'s 10 subset WOFF2 faces measured and reported in the delivery note.
+
+**One determination deferred to implementation, named in P10.** Coordinates are normalized to
+`[0,1]` by frame dimensions, which is **anisotropic** at 1920×1080 — so a `*_deg` column computed in
+that space is not a true anatomical angle. P10 forbids shipping unit `deg` unqualified until the
+question is decided against the R source; the answer binds the descriptor's unit vocabulary and
+lands in contract §10.
+
+**Sizing datum, and it is the sixth consecutive window with this shape.** MAIN spent the window on
+five measurement scripts and one contract; no teammate was funded before the contract existed,
+because every question this window answered was script-derivable and the record says those stay in
+MAIN's hands. The wave is one diff-blind `test-m2u83`, dispatched at the contract commit — the one
+delegation this project has funded that MAIN structurally cannot replace. `main=` 84% 202K/240K.
 
 #### M2.8.2 — DONE, 2 windows spent. The first question closed, and it was a defect
 
