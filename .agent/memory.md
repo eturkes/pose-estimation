@@ -106,6 +106,7 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 ## Publisher trust roots — the surface no digest covers
 
 - **Every self-describing publisher has exactly one unverified file: its own marker.** `tree_digest` must exclude the marker because the marker carries that digest, so nothing inside the set covers it. Three properties therefore have to be checked directly, and `measure` had all three while `qualify` had none until M2.3 window 8 — sibling publishers drift, so check each one rather than assuming the idiom spread. (1) The marker is a regular non-symlink file (`lstat` + `S_ISREG`); a symlink puts the trust root outside the set, and where ownership gates a recursive delete it lets a foreign directory license its own deletion. (2) The parse rejects duplicate keys (`object_pairs_hook`); `json.loads` keeps the last silently, so one document carries two claims. (3) The census digest covers the provenance block minus its own self-referential key — excluding the whole block leaves the upstream claims consumers trust most as the only uncovered content in the set. The four publishers are `inventory`, `sessions`, `qualify`, `measure`; **unverified: whether `inventory` and `sessions` do (1) and (2) on their own markers.**
+- **A validation function is never a byte witness.** Semantic validators canonicalize their input, so a reindent, a key reorder or any same-semantics rewrite passes `validate_generation` unchanged — "validation holds before and after" therefore cannot support a byte-unmoved claim. Ruled twice on consecutive units (M2.8.2 `3225577`, M2.8.3 A11), so state it once here: a read-only-over-upstream claim needs a **recursive non-following pre/post snapshot** — relative path, entry kind, symlink target text, and content digest for regular files — with validity checked as a *separate* predicate. Non-following is load-bearing: `videos`, `inventory` and `renv/library` are symlinks in a teammate worktree, and following them digests the primary tree instead of the link.
 - **A keyless digest detects, it does not authenticate — never let a pass restate it as tamper-proofing.** No artifact in this project carries a signing key, so anyone who edits a claim and recomputes the digest produces a document every check accepts. What is ruled out is corruption and every edit that stops at the claim. Both `qualify.py` and `docs/technical/qualification.md` state the bound; keep it stated.
 - **Ownership includes the generator version, so a version bump orphans the previous tree.** `_is_own_generation` requires *this* generator's version, which is what keeps a foreign tool's directory from licensing its own recursive deletion — and the same rule means a bumped generator does not own its predecessor's output. `qualify.run` then refuses to replace it, so the operator must `rm -rf` the `--out` tree by hand before the first run of a new `GENERATOR_VERSION`. Not a defect: the alternative is a version-blind ownership test, which is the hole the check exists to close. Applies to `check_qualify_determinism.py` too, whose own `rm -f` barrier is separate and additional.
 - **Committed evidence binds to source digests, never to a head SHA.** A regeneration run always precedes the commit that carries its output, so a recorded `git rev-parse HEAD` names the parent state and can never be checked — regenerating to fix it just re-lags. `check_qualify_determinism.py` dropped the field; `source_sha256` over `SOURCE_FILES` is the real dependency and refuses regeneration on mismatch. **Open instances: `scripts/check_inventory_determinism.py:257` and `scripts/run_inventory_mutations.py:817`.**
@@ -250,6 +251,14 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 
 ## Frozen contracts carry stale numbers
 
+- **The line is ownership, not distaste for literals: the schema is contract-owned and therefore
+  frozen; the data is input-owned and therefore measured.** Freezing a field-name set, a JSON
+  sub-schema, a reason-code enumeration or a unit vocabulary is legitimate and often required — a
+  membership predicate that never fixes the set it quantifies over cannot fire (M2.8.3 P11 before
+  A10). Freezing a *count* of data rows, a column census or an exclusion list is the trap, because
+  the next run changes it (M2.8.3 A02: the 17 all-NA columns were a fact about one run
+  configuration). Applied together in one contract: A10 froze the field names while A02 refused to
+  freeze the 17 columns, and both are right. Ask which side of the boundary the thing lives on.
 - **A contract's stated census can be derived under a rule a later predicate replaced — re-derive
   every census at implementation time rather than trusting the frozen text.** M2.5's P19 published
   "329 offsets / 50 not" while its own P07 mandated partial publication, whose true census is
@@ -475,9 +484,32 @@ Every audio-bearing fixture in `tests/` is muxed by PyAV; three ordering rules d
   dimensions** (`export.py:250`), so each camera measures in its own image plane. Consequence:
   publish magnitude distributions plus a view-dispersion column, and **refuse directional per-limb
   claims** (dominance/symmetry sign) at cohort grain.
-- **The `[0,1]` normalization is anisotropic at 1920×1080**, so any `*_deg` column computed in that
-  space is not a true anatomical angle. Decide this against the R source before labelling a unit
-  `deg` (contract-m2u83 P10).
+- **The `[0,1]` normalization is anisotropic at 1920×1080, and it costs a measured median 9.9° on
+  every published angle.** `export.py:250` divides x by width and y by height; `z` is identically
+  **0.0** on every landmark column in a 2D run, so `angle_at_vertex` (`clinical_features.R:343`) is
+  a plain 2D image-plane angle. Measured against the true image-plane angle over 40 upright assets /
+  75 256 frames: median **9.9°**, p75 17.3°, p95 26.5°, max 32.5°. **No published column may carry
+  unit `deg`** — angle-derived columns take `deg_image_plane_uncalibrated`, and no anatomical-angle
+  claim is admissible at any grain. Ratio columns built from angles (`*_symmetry_ratio`,
+  `*_dominance_index`) partially cancel the distortion but are not clean.
+- **OpenCV silently ignores the container display matrix, and `ok` does not mean upright.** 38 of
+  the 379 corpus assets (10.0%) were pose-estimated non-upright — 28 portrait-stored decoded
+  sideways (1080×1920), 10 upside down. `CAP_PROP_ORIENTATION_META` reports the rotation correctly
+  while the decoded frame ignores it, and **the rotation cannot be enabled**: default, explicit
+  `CAP_PROP_ORIENTATION_AUTO=1` and explicit `CAP_FFMPEG` all return the unrotated frame. The fix is
+  an explicit `cv2.rotate` keyed on `CAP_PROP_ORIENTATION_META` in `video_io.py`. Registry census
+  over the 379 `ok` assets: 341 rot-0, 27 rot-90, 10 rot-180, 1 rot-270 (`assets.csv`
+  `reported_rotation_deg` — the registry knew all along). Detection finite-rate degrades
+  monotonically — median **0.990 / 0.955 / 0.903 / 0.816** — and values shift systematically:
+  `left_reach_norm`, a shoulder-normalized ratio that *should* be scale-invariant, moves
+  2.205 → 1.273 between rot-0 and rot-90 assets, because rotation swaps which axis each distance
+  spans under the anisotropic normalization. **Always check `reported_rotation_deg` before trusting
+  geometric features, and rotate at decode.**
+- **A manifest disposition of `ok` certifies that an asset decoded and produced rows — never that it
+  decoded in the orientation or the metric its column names assume.** M2.8.2's manifest exists to
+  stop an asset vanishing from a denominator and it does that well; both defects above sat under a
+  green 379/379 manifest through an 8.7 h run. Totality checks answer *which assets contributed*;
+  they are silent on *whether the contribution means what it says*.
 - Cells: 12 `(task, side)` over `cap coin glass key nut peg` × `l r`; 15-16 subjects each; 193
   events; 379 assets; manifest 379/379 `ok`. `cap-l` 18 and `nut-r` 19 events exceed their subject
   counts — view-conflict families splitting into single-camera events, which is why the estimand

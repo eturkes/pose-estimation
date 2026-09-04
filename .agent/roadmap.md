@@ -6,7 +6,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 
 ## M2 — three-camera corpus: inventory, qualification, 3D ruling
 
-**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7 DONE (M2.7.1-M2.7.4); M2.8.1 DONE; **M2.8.2 DONE across two windows** (tracker-freeze defect fixed, then the driver, the 379-row manifest and the full corpus run at 8.70 h measured); M2.8.3 OPEN. None BLOCKED, lowest OPEN unit = M2.8.3. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
+**Status: IN-PROGRESS** — M2.1-M2.5 DONE; M2.6 and M2.6b both closed negative and ruled. **M2.7 and M2.8 are PLANNED into 7 units** — M2.7 DONE (M2.7.1-M2.7.4); M2.8.1 DONE; **M2.8.2 DONE across two windows** (tracker-freeze defect fixed, then the driver, the 379-row manifest and the full corpus run at 8.70 h measured); **M2.8.3 BLOCKED on M2.8.4's corrected corpus** — 10% of assets decoded non-upright and every angle carries a median 9.9° anisotropy error, both invisible under a green 379/379 manifest. **Lowest OPEN unit = M2.8.4**, which now carries the orientation fix alongside its `--tracking body` re-run. M2.7 publishes the negative through a new `calibration_qc/` publisher (F1a); **M2.8 publishes cohort aggregates only, by user ruling** — no per-subject rows, no patient identifier, no join column, no join to `../rehab`, and it stops at this repo's boundary. The 3D line is closed; it reopens only on prospective calibrated capture. The old clearance precondition is met: full decode clearance covers the whole `videos/3-cam/` tree, for MAIN and teammates. Chat and reports carry redacted aggregates only — never imagery, filenames, or subject identifiers.
 
 **Review carry-over — M2's MILESTONE-REVIEW must not re-review M2.1-M2.7.2.** Those units closed under the earlier regime, which ran `rev`/`rev2` inside WORK-UNIT: their check sets are fully adjudicated and recorded per unit below (`rev-m2u4-3` 73 rows + `rev2-m2u4-2` 33, M2.5's 38/33/14/55, M2.7.1's 45, and the `.agent/archive/rulings-m2u*.md` tables). Those rulings bind, and only new evidence reopens one. Seed `.agent/review-m2.md` from the units reviewed under neither regime plus the two milestone-scoped lenses that no unit could run — cross-unit integration and the `audit-m2` claim replay. Units from M2.7.3 on carry no in-unit judgment review and need their full check sets.
 
@@ -51,7 +51,7 @@ Live long-horizon state only; completed trajectory belongs in git. Closed-unit d
 | M2.8.2 | Full corpus 2D run | Resumable run over 379 assets, 8.70 h measured (full corpus, 193 events / 379 assets / 337 090 frames); per-asset clinical features plus a manifest giving every asset an explicit disposition. |
 | M2.8.3 | Cohort aggregate publisher + bilingual descriptor | 12 `(task, side)` cohort rows, no subject rows; append-ready `columns.yaml` fragment with full `ja`/`en` labels. |
 
-**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3 DONE** in one — the human-facing report and the checker pinning both prose copies of the claim set. **M2.7.4 DONE** in one — the 20-section prospective capture specification and its 13-predicate checker, closing M2.7. **M2.8.1 DONE** across three windows — the four corpus-run blockers, the disposition artifact, the diff-blind suite and the stratified pilot that refuted the 6.5 h run estimate. **M2.8.2 DONE** across two windows — the tracker-freeze fix, the resumable driver, the total disposition manifest and the whole-corpus run, 379/379 assets `ok`. **M2.8.3 OPEN**, contract frozen, 1 of 2 windows spent — see below. **M2.8.4 OPEN**, user-ruled this
+**Unit status.** M2.1, M2.2 and **M2.3 DONE** — M2.3 across ten windows, closing on P29. **M2.4 DONE** and **M2.5 DONE** — see below. **M2.6 closed negative at F0 and ruled** — extrinsic recovery is measured unachievable on this corpus, and the verdict ships through F1a, see below. **M2.6b closed negative at G0** — the funded repair route is refused by measurement, see below. **M2.7.1 DONE** across four windows — the `calibration_qc/` publisher, both campaigns and its documentation ship. **M2.7.2 DONE** across two — the committed byte oracle and the refusal matrix. **M2.7.3 DONE** in one — the human-facing report and the checker pinning both prose copies of the claim set. **M2.7.4 DONE** in one — the 20-section prospective capture specification and its 13-predicate checker, closing M2.7. **M2.8.1 DONE** across three windows — the four corpus-run blockers, the disposition artifact, the diff-blind suite and the stratified pilot that refuted the 6.5 h run estimate. **M2.8.2 DONE** across two windows — the tracker-freeze fix, the resumable driver, the total disposition manifest and the whole-corpus run, 379/379 assets `ok`. **M2.8.3 BLOCKED** on M2.8.4's corrected corpus, 2 windows spent, contract + A01-A12 frozen and the red suite in flight — see below. **M2.8.4 OPEN and now the lowest OPEN unit**, user-ruled this
 window: the corpus re-run that populates the trunk/posture block.
 
 ### M2.7 — publish the closed-negative 3D ruling — DONE, 4 units
@@ -379,8 +379,8 @@ rebuild — keep new JA text inside existing coverage and state the risk in the 
 | -- | ---- | ------------ | ------ |
 | M2.8.1 | kernel | Corpus-run preconditions + instrumented pilot. Close B1/B1b/B2/B2b/B3 (§2 above); stratified pilot spanning both codecs, all four device configs and all four rotations. | 1-2 est; **3 spent, DONE** |
 | M2.8.2 | data + kernel fix | Full corpus 2D run, resumable, 8.70 h measured (full corpus, 193 events / 379 assets / 337 090 frames); the post-fix pilot projected 7.07-7.61 h, so a 16-asset stratified sample under-predicted per-frame cost by 14%. **First question CLOSED in window 1: the 40× split was one tracker-freeze defect, not a cost profile** — so M2.8.1's 26-31 h sampled a broken pipeline and is retired with the plan's 6.5 h. Per-asset clinical features plus a run manifest giving every one of the 379 assets an explicit disposition, so no asset is silently absent from a denominator. | 1-2 est; **2 spent, DONE** |
-| M2.8.3 | kernel | Cohort aggregate publisher + append-ready bilingual descriptor. 12 `(task, side)` cells × 75 features, subject-weighted estimand, published view-dispersion column. | 2 est; **1 spent**, contract frozen |
-| M2.8.4 | data | `--tracking body` corpus re-run (~8.7 h) + cohort republish at 92 features. Populates the 17 trunk/posture columns M2.8.3 publishes as `structurally_absent`. **User-ruled into M2.8 rather than backlog** — trunk compensation is clinically central in SCI. | 1-2 windows |
+| M2.8.3 | kernel | Cohort aggregate publisher + append-ready bilingual descriptor. 12 `(task, side)` cells × the measured published column set, subject-weighted estimand, published view-dispersion column. | 2 est; **2 spent, BLOCKED** on M2.8.4 — contract + 12 amendments frozen, red suite in flight, no implementation |
+| M2.8.4 | data + kernel fix | **Corrected corpus re-run (~8.7 h), now carrying two repairs.** (a) `--tracking body`, populating the 17 trunk/posture columns → 92 published features; (b) **orientation fix** — explicit `cv2.rotate` keyed on `CAP_PROP_ORIENTATION_META` in `video_io.py`, repairing the 38 non-upright assets, plus a portrait-fixture regression test. One run repairs both. **Unblocks M2.8.3.** | 1-2 windows |
 
 **M2.8.1 exists because M2.6 recorded why it must.** "Where a milestone's spine rests on an unmeasured
 empirical assumption, the feasibility probe is its own unit with its own budget." M2.8's spine assumes
@@ -455,10 +455,39 @@ all MAIN scripts, and the PTS question had already cost `map-m2` most of a windo
 it in two reads. **On a planning window, delegate the reading and the external research; keep every
 script-derivable census in MAIN's hands.**
 
-#### M2.8.3 — OPEN, 1 of 2 windows spent. Contract frozen on four user rulings and three measurements
+#### M2.8.3 — BLOCKED on M2.8.4's corrected corpus. 2 windows spent, no implementation
+
+**Precondition (A12, user ruling): M2.8.4's corrected corpus run.** Window 2 measured two corpus
+defects that make the current `output/corpus-2d/` unfit to aggregate, and the user ruled the unit
+blocks rather than shipping over them. **Evidence, both re-derivable from the registry + corpus:**
+
+- **10.0% of the corpus was pose-estimated non-upright.** 38 of 379 assets — 28 portrait-stored
+  decode sideways (1080×1920), 10 decode upside down. OpenCV ignores the container display matrix
+  and **cannot be made to honor it**: default, explicit `CAP_PROP_ORIENTATION_AUTO=1`, and explicit
+  `CAP_FFMPEG` all return the unrotated frame while `CAP_PROP_ORIENTATION_META` correctly reports
+  90. Registry census over the 379 `ok` assets: 341 rot-0, 27 rot-90, 10 rot-180, 1 rot-270.
+  Detection finite-rate degrades monotonically with rotation — median **0.990 / 0.955 / 0.903 /
+  0.816** — and feature values shift systematically (`left_reach_norm`, a shoulder-normalized ratio
+  that should be scale-invariant, moves 2.205 → 1.273 between rot-0 and rot-90 assets).
+  **The manifest cannot see this: all 379 are `ok`.**
+- **Every published angle is anisotropically distorted by a median 9.9°.** `export.py:250` divides
+  x by frame width and y by frame height; at 16:9 that is anisotropic, and `z` is identically 0.0
+  corpus-wide so `angle_at_vertex` is a plain 2D image-plane angle. Measured against the true
+  image-plane angle over 40 upright assets / 75 256 frames: median **9.9°**, p75 17.3°, p95 26.5°,
+  max 32.5°. This affects **all** assets, upright included, and is not repaired by dropping the 38.
+
+**Datum, and it generalizes past this unit: a disposition of `ok` certifies that an asset decoded
+and produced rows, never that it decoded in the orientation or the metric the features assume.**
+M2.8.2's manifest was built to stop an asset vanishing from a denominator; it does that, and it is
+silent on whether the surviving rows mean what their column names say. Both defects sat under a
+green 379/379 manifest through an 8.7 h run.
 
 **Contract at `.agent/archive/contract-m2u83.md`** — 10 design decisions D01-D10, 18 predicates
-P01-P18, a 13-case negative-control seed. Base `fc8ff62`. Tier `kernel`.
+P01-P18, a 13-case negative-control seed, **12 amendments A01-A12**. Base `fc8ff62`. Tier `kernel`.
+**§8's measured facts are provisional**: the corrected run restores the 17 trunk/posture columns,
+so the published set becomes 92 columns and 12 × 92 = 1104 feature rows. A02's measured-partition
+ruling absorbs that with no contract edit, which is why no predicate may assert 75, 900 or 17 as a
+literal.
 
 **MAIN measured first and asked second, and all three measurements changed the unit's shape.** The
 window bought no implementation; its product is a contract that rests on numbers rather than on the
@@ -504,9 +533,12 @@ published `min`/`max` is one identifiable subject's own measurement while quarti
 
 **One determination deferred to implementation, named in P10.** Coordinates are normalized to
 `[0,1]` by frame dimensions, which is **anisotropic** at 1920×1080 — so a `*_deg` column computed in
-that space is not a true anatomical angle. P10 forbids shipping unit `deg` unqualified until the
-question is decided against the R source; the answer binds the descriptor's unit vocabulary and
-lands in contract §10.
+that space is not a true anatomical angle. **DECIDED in window 2 — A09.** `z` is identically 0.0
+corpus-wide, so the angle is a plain 2D image-plane angle, and the distortion is a measured median
+**9.9°** (p95 26.5°). No published column carries unit `deg`; the 9 angle-derived columns ship
+under `deg_image_plane_uncalibrated` in a 7-token frozen vocabulary, assigned by a rule over source
+family × derivation suffix rather than a transcribed table. **User ruling: keep the 9 columns with
+the qualified token rather than dropping them.**
 
 **Sizing datum, and it is the sixth consecutive window with this shape.** MAIN spent the window on
 five measurement scripts and one contract; no teammate was funded before the contract existed,
@@ -514,16 +546,43 @@ because every question this window answered was script-derivable and the record 
 MAIN's hands. The wave is one diff-blind `test-m2u83`, dispatched at the contract commit — the one
 delegation this project has funded that MAIN structurally cannot replace. `main=` 88% 211K/240K.
 
-**Window 2 opens by harvesting the wave, then implements.** `test-m2u83` runs diff-blind at base
-`3497dd5` on branch `wt/test-m2u83`, worktree `.scratch/worktrees/test-m2u83`, marker
-`TEST-M2U83-DONE-1`, report **inside the worktree** at
+**Wave.** `test-m2u83` runs diff-blind at base `3497dd5` on branch `wt/test-m2u83`, worktree
+`.scratch/worktrees/test-m2u83`, marker `TEST-M2U83-DONE-1`, report **inside the worktree** at
 `.scratch/worktrees/test-m2u83/.scratch/agents/test-m2u83.md` (MAIN's own copy keeps the 18-row
 `unknown` seed forever — poll the worktree copy, and copy it back before teardown). It grades the
-contract's 18 predicates and ships `tests/test_cohort.py` red. **Expect its findings to land in
-contract §10 as amendments rather than in the code**: the same role returned 11 findings / 11
-contract defects / 0 driver defects on M2.8.2, and this contract has more unmeasured surface than
-that one did — P10's anisotropy determination is open by construction, and the intended API
-(`cohort.FEATURES`, `run`, `validate_generation`) is named in the brief but not yet frozen.
+contract's 18 predicates and ships `tests/test_cohort.py` red.
+
+**Window 2 — the prediction held exactly. 10 findings over 12 predicates, 10 contract defects, 0
+code defects**, against 11/11/0 for the same role on M2.8.2. The unit has consumed two windows and
+produced no implementation, and that is the correct outcome: every window bought a defect that would
+otherwise have shipped inside a published clinical artifact. Amendments A01-A12 in contract §10.
+Batch 3's four:
+
+- **A08 (F7)** — P09 asserted set equality between 6-field `FEATURES` entries and 8-field YAML rows
+  (a type error), and D10 sourced `raw` from the column while P09 sourced it from the id. Ruled by
+  **deleting the field that could diverge**: `FEATURES` carries `(level, column, …)` with no `id`,
+  so `(level, column)` is the single key shared by census, feature table and fragment. Collision
+  gets a hermetic prefix layer plus an external layer whose outcome is **published**, not skipped.
+  The 219 external descriptors re-derive exactly — 67 literal + 56 + 56 + 20 + 20 from 4 family
+  templates, zero `pose_`-prefixed, which is what makes D10's prefix load-bearing.
+- **A09 (F8)** — the deferred P10 determination, measured. See above.
+- **A10 (F9)** — P11's allowlist excluded its own numeric payload, and its "code-authored constants"
+  arm **self-authorized**: adding a leaked token to code made it admissible. Ruled field-typed, that
+  arm deleted. New conjunct from D05's own logic: a feature row with `n_subjects < 5` publishes
+  empty statistics, since a median at n=1 *is* one subject's value. **Governing rule: the schema is
+  contract-owned and therefore frozen; the data is input-owned and therefore measured** — which is
+  why freezing field names is legitimate where A02 refused to freeze the 17 columns.
+- **A11 (F10)** — P12's witnesses were semantic validators, which canonicalize JSON and so cannot
+  see a reindent. Split into P12a (recursive non-following byte/link snapshot) and P12b (validity).
+  **M2.8.2 ruled the identical defect one unit earlier at `3225577`**, so the rule is promoted to
+  memory: *a validation function is never a byte witness.*
+
+**Sizing datum, and it is the sixth consecutive window with this shape.** MAIN spent window 1 on
+five measurement scripts and one contract; no teammate was funded before the contract existed,
+because every question it answered was script-derivable and the record says those stay in MAIN's
+hands. Window 2 spent its measurement budget the same way and found the corpus defects with it.
+`main=` window 1 **100% 240K/240K** at close (the 88% previously recorded here was a mid-window
+sample, not the peak).
 
 #### M2.8.2 — DONE, 2 windows spent. The first question closed, and it was a defect
 

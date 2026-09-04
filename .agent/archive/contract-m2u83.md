@@ -186,7 +186,10 @@ its own new cases.
 
 ## 8. Measured facts this contract rests on
 
-Every number re-derives from `output/corpus-2d/` and the registry.
+Every number re-derives from `output/corpus-2d/` and the registry. **A12 makes every fact in
+this section provisional**: the corpus is being re-run with the orientation fix and
+`--tracking body`, which restores the 17 trunk/posture columns. Re-derive before citing; no
+predicate may assert 75, 900 or 17 as a literal.
 
 - **Cells.** 12 `(task, side)` over `cap coin glass key nut peg` × `l r`; 15-16 subjects
   each; 193 events; 379 assets; manifest 379/379 `ok`. `cap-l` 18 events and `nut-r` 19
@@ -341,6 +344,116 @@ re-run is already scheduled to change the column set. Ruled:
 `cohort.json` `columns.published` entries are `{level, column}`; `columns.excluded` entries
 are `{level, column, reason}`. §4 left the JSON sub-schema open; freezing it here removes the
 open question rather than leaving the suite to guess a spelling MAIN might later move.
+
+**A08 — F7 ACCEPTED. One name, one projection, one collision root.**
+Three defects in one predicate, all real.
+
+- **The second name is deleted.** `FEATURES` entries carry `(level, column, ja, en, unit,
+  range)` — **no separate `id`**. The published `feature` cell **is** `column`, and `raw` is
+  `pose_<level>_<column>`. D10 said source column, P09 said feature id; rather than pick a
+  winner, the field that could diverge is removed. `(level, column)` becomes the single key
+  shared by the A04 census, the feature table and the fragment.
+- **P09 is a bijection under a named projection, not set equality.** `FEATURES` entries carry
+  6 fields and YAML rows carry 8, so literal equality was a type error. Exactly one YAML entry
+  per `FEATURES` entry; `raw` as above; `ja`/`en`/`unit`/`range` copied; `group: pose`,
+  `role: feature`, `dtype: numeric` constant.
+- **Root shape** = `{columns: [...]}`, re-derived from `../rehab/schema/columns.yaml`, whose
+  top-level keys are `version, encoding, missing_sentinels, columns, families`.
+- **Collision gets two layers.** Hermetic, always on: every `raw` carries the
+  `pose_frame_`/`pose_window_` prefix and is unique within the fragment. External: when
+  `../rehab/schema/columns.yaml` resolves, the intersection with its raw set is empty. The
+  external set re-derives to **exactly 219** — 67 literal + 56 + 56 + 20 + 20 expanded from
+  4 family templates, all unique, **zero `pose_`-prefixed**, which is what makes D10's prefix
+  load-bearing rather than decorative. The external outcome is **published** in `cohort.json`
+  as `descriptor_collision {checked, source, n_external, n_collisions}` — never a silent skip,
+  the same demotion A07 applied to the all-900 claim.
+- **N8 restated hermetically** so it fires without the sibling repo: blank one `ja`; strip one
+  `raw`'s `pose_<level>_` prefix; duplicate one `raw`.
+
+**A09 — F8 ACCEPTED. The P10 anisotropy determination, measured rather than deferred.**
+The deferred question is now decided against the R source and the corpus.
+
+- `z` is **identically 0.0** on every landmark column corpus-wide, so `angle_at_vertex`
+  (`clinical_features.R:343`) is a plain 2D image-plane angle.
+- `export.py:250` divides x by frame width and y by frame height. At 16:9 that is
+  **anisotropic**, so a published angle is not the angle it names.
+- **Measured error vs the true image-plane angle: median 9.9°, p75 17.3°, p95 26.5°,
+  max 32.5°**, over 40 upright assets and 75 256 frames, both arms.
+
+**Ruling: no published column carries unit `deg`.** Frozen vocabulary, 7 tokens —
+`deg_image_plane_uncalibrated`, `frame_normalized`, `frame_normalized_per_s`,
+`ratio_shoulder_width`, `ratio`, `index_signed`, `dimensionless`. Assignment is a **rule over
+source family × derivation suffix**, never a transcribed 75-row table: angle-derived (the raw
+`*_deg` columns and their `*_abs_diff`) → `deg_image_plane_uncalibrated`; normalized distances
+(`reach_raw`, `grasp_aperture_*`, `*_displacement`, and their `_abs_diff`) → `frame_normalized`;
+`reach_norm` and its `_abs_diff` → `ratio_shoulder_width`; velocity means/peaks →
+`frame_normalized_per_s`; `normalized_jerk` and `sal` → `dimensionless`; `movement_efficiency`
+and every `*_symmetry_ratio` → `ratio`; every `*_dominance_index` → `index_signed`. P10 checks
+vocabulary membership, the `deg` prohibition, and the angle-column assignment. The claim
+boundary in `docs/technical/cohort.md` states the measured error and prohibits anatomical-angle
+claims. **User ruling:** the 9 angle-derived columns ship under the qualified token rather than
+being dropped.
+
+**A10 — F9 ACCEPTED. P11 becomes field-typed; the self-authorizing arm is deleted.**
+All three sub-claims hold: numeric values are neither label tokens nor constants, so the
+artifact failed its own predicate; "code-authored constants" self-authorizes, since adding a
+leaked token to code makes it admissible; and a subject ordinal is not byte-scannable because
+ordinary counts reuse digit strings.
+
+- **Numeric fields**: domain is number. The one identifier-bearing numeric channel is a
+  statistic over a population of one, and it is **structural, not lexical**. New conjunct: a
+  feature row with `n_subjects < 5` publishes **empty distribution statistics**; counts still
+  publish. This is D05's own rationale — it refused `min`/`max` at n=15-16 because an extreme
+  is one identifiable subject, so a median at n=1 is strictly worse. Census gains
+  `rows_below_subject_floor`.
+- **String fields**: each names a closed domain — `task`/`side` from the registry, `level` from
+  `{frame, window}`, `feature` from the measured published partition, reason code from a frozen
+  enumeration, `unit` from A09's vocabulary, `ja`/`en` from `FEATURES`, digests matching
+  `^[0-9a-f]{64}$`, generator/version frozen literals.
+- **Key admissibility**: the frozen field-name set is §4's schema plus the A04 and A08
+  sub-schemas; the check enumerates the artifact's actual keys and requires **set equality** —
+  the freeze P11 quantified over but never performed.
+- **Governing rule, which reconciles this with A02: the schema is contract-owned and therefore
+  frozen; the data is input-owned and therefore measured.** Freezing field names is legitimate;
+  freezing the 17 excluded columns was not.
+- The input-derived needle scan stays as a **second layer**, needles derived from validated
+  input rows. Typed allowlist primary, scan backstop, both.
+
+**A11 — F10 ACCEPTED. P12 splits; a validation function is never a byte witness.**
+Semantic validation canonicalizes its JSON, so a reindent survives it — N10 is exactly that
+seed, and §6's byte-unmoved claim exceeded P12's witness set.
+
+- **P12a unmoved**: a recursive **non-following** pre/post snapshot of every upstream entry —
+  relative path, kind, symlink target text, content digest for regular files. Snapshot equality
+  is the witness. Non-following is load-bearing: `videos`, `inventory` and `renv/library` are
+  symlinks in a teammate worktree.
+- **P12b valid**: the three validations plus both `sessions` digests hold before and after.
+- M2.8.2 ruled the identical defect one unit earlier (`3225577`: "P11's two witnesses could not
+  see the marker's own bytes → third witness"). The contract reintroduced it, so the rule is
+  promoted to memory rather than left as a per-unit finding.
+
+**A12 — the corpus is defective; M2.8.3 is BLOCKED on a corrected re-run. User ruling.**
+Two corpus-generation defects measured this window, neither visible in the manifest (379/379
+`ok`):
+
+- **Orientation.** 38 of 379 assets (10.0%) were pose-estimated in a non-upright frame: 28
+  portrait-stored assets decode sideways (1080×1920), 10 decode upside down. OpenCV ignores the
+  container display matrix and **cannot be made to honor it** — default, explicit
+  `CAP_PROP_ORIENTATION_AUTO=1`, and explicit `CAP_FFMPEG` all return the unrotated frame while
+  `CAP_PROP_ORIENTATION_META` correctly reports 90. Registry census over the 379: 341 rot-0,
+  27 rot-90, 10 rot-180, 1 rot-270. Detection finite-rate degrades monotonically — median
+  0.990 / 0.955 / 0.903 / 0.816 — and feature values shift systematically.
+- **Anisotropy.** A09's 9.9° median angle error, which affects **all** assets including upright
+  ones and is not repaired by excluding the 38.
+
+**Consequences.** M2.8.3 holds BLOCKED; its precondition is M2.8.4's corrected corpus. M2.8.4
+absorbs the decode fix (explicit `cv2.rotate` keyed on `CAP_PROP_ORIENTATION_META` in
+`video_io.py`, plus a portrait-fixture regression test) alongside the `--tracking body` re-run
+it already carried, so one 8.7 h run repairs both. Every §8 fact derived from
+`output/corpus-2d/` is **provisional** until that run lands: the 17 trunk/posture columns
+return, so the published set becomes 92 columns and 12 × 92 = 1104 feature rows. A02's
+measured-partition ruling is what lets that happen with no contract edit, and it is why no
+predicate may assert 75, 900 or 17 as a literal.
 
 ## 11. Verdict table
 
