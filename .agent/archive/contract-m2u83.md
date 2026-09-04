@@ -240,7 +240,65 @@ Each control must fire and name its own predicate; the tree is restored byte-ide
 
 ## 10. Amendments
 
-*(appended as ruled)*
+**A01 — F1 ACCEPTED. The two tables count different populations, and both are now named.**
+P01/P02 as frozen never said whether `n_subjects`/`n_events`/`n_assets` range over canonical
+registry membership, manifest-`ok` contributors, or contributors carrying a finite value. On
+this corpus all three coincide (379/379 `ok`), which is precisely how the divergence would
+have shipped unnoticed — the project's own recurring defect (M2.5's 329-vs-355, the two
+closure statistics, the two "families connected" figures).
+
+- `cohort_cells.csv` counts **canonical assets whose manifest disposition is `ok`**, and the
+  events and subjects those assets belong to. Independent of feature finiteness.
+- `cohort_features.csv` counts **finite contributors at each named stage**: `n_assets` =
+  assets contributing a finite asset value for that feature, `n_events` = events with ≥1 such
+  asset, `n_subjects` = subjects with ≥1 such event, `n_values` = finite leaf rows.
+- **New conjunct on P02**: every `cohort_features` count is ≤ its cell's corresponding
+  `cohort_cells` count. This is the mechanical form of "name the population beside the count"
+  — it makes a future divergence fail rather than publish.
+
+**A02 — F2 ACCEPTED, with a different fix; the teammate's proposal is refused for cause.**
+The finding is correct and sharp: moving a column between `published` and `excluded`
+preserves union, disjointness and every remaining reason code, so P03 as frozen cannot fire
+N3. The proposed repair — freeze the 17 `(level, column)` exclusions literally in P03 — is
+**refused**: a contract carrying a transcribed census is the trap this project has hit four
+times, and the 17 are a fact about a run configuration that M2.8.4 is scheduled to change.
+
+Ruled instead, in the project's own re-derive-never-transcribe idiom: **the partition is
+measured, not decreed.** A column belongs in `published` iff it carries ≥1 finite value over
+the run, and in `excluded` with reason `structurally_absent` iff it carries 0. P03 gains that
+conjunct in both directions. Consequences, all intended:
+
+- N3 then fires P03 directly, and its §9 wording is corrected to *"move a column with zero
+  finite values into `published`"* — under this ruling a synthetic trunk column that IS finite
+  belongs in `published`, so the teammate's synthetic counter-case is correct behaviour rather
+  than a miss.
+- M2.8.4's `--tracking body` re-run moves 17 columns into `published` with **no contract
+  edit**, because the partition follows the data.
+- Cross-check retained, since two independently-derived sets are worth more than one:
+  `cohort.FEATURES`'s source-column set must equal the measured `published` set, so a label
+  table that lags the data fails by name.
+
+**A03 — F3 ACCEPTED in full. The statistics now have exact definitions.**
+P04's "exactly" was unsatisfiable: no quantile rule, SD denominator, singleton rule or
+serialization was stated, and defensible libraries disagree. Frozen:
+
+- `median` = `statistics.median` (mean of the two central values at even n).
+- `q25`/`q75` = **linear interpolation at position `(n-1)q`** on the ascending values —
+  numpy's `linear`, R's type 7. Empty at n < 1.
+- `mean` = arithmetic mean. `sd` = **sample** standard deviation, denominator `n-1`;
+  **empty at n < 2**, never 0.
+- `view_dispersion` = per multi-asset event, `pstdev(asset values) / abs(mean(asset values))`
+  (population denominator — the views ARE the population, not a sample of one); the cell's
+  value is the median over its eligible events. An event whose mean is 0 is ineligible and is
+  excluded from `n_events_multiview`.
+- Serialization: every numeric cell goes through one `_cell()` helper at fixed decimals, the
+  idiom the four sibling publishers already share. **P04's "exactly" means byte equality of
+  the published cell**, so the rounding rule is part of the contract rather than a tolerance.
+
+**A04 — the census sub-schema is frozen as the suite chose it (P03 detail row).**
+`cohort.json` `columns.published` entries are `{level, column}`; `columns.excluded` entries
+are `{level, column, reason}`. §4 left the JSON sub-schema open; freezing it here removes the
+open question rather than leaving the suite to guess a spelling MAIN might later move.
 
 ## 11. Verdict table
 
