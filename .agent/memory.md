@@ -251,6 +251,19 @@ Context retained only when source, tests, technical docs, roadmap, and git do no
 
 ## Frozen contracts carry stale numbers
 
+- **Two amendments can each be right and jointly inconsistent — every rule over a partitioned
+  artifact must state the grain it quantifies over.** M2.8.3's A02 sent a zero-finite column to
+  `excluded` (never published) while A07 kept an all-nonfinite feature present as empty rows, so one
+  source had to be absent from the label table and present in every cell at once. Neither amendment
+  was wrong; both omitted the grain. Run-level presence decides *publication*, cell-level emptiness
+  decides *statistics*, and saying so dissolved the contradiction with no rule change (A18).
+- **A negative-control seed is itself a claim, and it needs a predicate that can actually see it.**
+  Two of M2.8.3's 13 controls fired nothing: N3 (move a column between census halves) preserved
+  union, disjointness and every reason code; N13 (sort descriptors by label) is deterministic across
+  every swept environment and stable on republication, so it violated neither the determinism nor
+  the idempotence predicate it named. **Grade the seed against the predicate text when the contract
+  is written** — an unfireable control is a silent hole exactly where the contract claims coverage,
+  and idempotence in particular can never detect a stable wrong order.
 - **The line is ownership, not distaste for literals: the schema is contract-owned and therefore
   frozen; the data is input-owned and therefore measured.** Freezing a field-name set, a JSON
   sub-schema, a reason-code enumeration or a unit vocabulary is legitimate and often required — a

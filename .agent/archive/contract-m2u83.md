@@ -455,6 +455,103 @@ return, so the published set becomes 92 columns and 12 × 92 = 1104 feature rows
 measured-partition ruling is what lets that happen with no contract edit, and it is why no
 predicate may assert 75, 900 or 17 as a literal.
 
+**A13 — F11 ACCEPTED. The marker's own schema and canonical form are frozen.**
+P13 required the census digest to cover "the provenance block minus its own self-referential key"
+while freezing neither the keys, the algorithm, nor the serialization, so two conforming
+implementations could digest different objects. Frozen, in the sibling idiom
+(`inventory.py:1028`, `sessions.py:532`, `corpus_run.py:80`):
+
+- `generation` block keys, exactly: `generator`, `generator_version`, `tree_digest`,
+  `input_digests`. `generator` = `"pose-estimation-cohort"`; `generator_version` =
+  `cohort.GENERATOR_VERSION`.
+- Canonical rendering = `json.dumps(payload, sort_keys=True, indent=2) + "\n"`, UTF-8 encoded.
+  Digest = **SHA-256** of those bytes.
+- `tree_digest` covers the other three files' bytes plus the canonical rendering of `generation`
+  with the `tree_digest` key **removed** — the self-referential key named explicitly, since
+  excluding the whole block leaves the upstream claims consumers trust most uncovered.
+
+**A14 — F12 ACCEPTED. Ownership needs a name, not just a version.**
+P14 required a marker to "name this generator at this version" while §4 defined no generator-name
+field, so a sibling publisher sharing `v1` satisfied the literal rule. Ownership is now the
+conjunction `generation.generator == "pose-estimation-cohort"` **and**
+`generation.generator_version == GENERATOR_VERSION`, checked on a parsed marker whose path is
+`lstat`-confirmed regular and non-symlink before any read. A destination failing either test is
+never replaced and never swept.
+
+**A15 — F13 ACCEPTED. N13 fired neither predicate it named.**
+Sorting descriptors by label is deterministic across every swept environment and byte-identical on
+republication, so it violates neither P15 nor P16 — the same defect shape as F2/N3, a negative
+control that cannot fire. Ruled: **canonical descriptor order is `(level, column)`**, added to P15
+as its own conjunct, and **P16 is removed from N13** — idempotence cannot detect a stable wrong
+order, and claiming it can is the guarantee-vs-claim gap the review lens exists to catch. P15's
+sweep is frozen at the sibling's four locales (`LC_ALL=C`, `C.UTF-8`, `en_US.UTF-8`, `LC_ALL` and
+`LANG` unset) plus hash seed, timezone, `umask`, `-O` and `--out` name.
+
+**A16 — F14 ACCEPTED. The refusal class is named.**
+"Each by exception class" named no class, so a suite asserting `Exception` would credit an
+unrelated `IOError` as a pass. Public `cohort.CohortError(Exception)` is added, matching
+`CalibrationQcError`, `QualifyError`, `SessionsError` and `InventoryError`. Every expected
+publisher and consumer refusal raises it; P17 asserts that class and no supertype.
+
+**A17 — F15 ACCEPTED. CLI, campaign and doc claims are frozen.**
+- CLI flags: `--inventory`, `--sessions`, `--run`, `--out`. Entry point
+  `pose-estimation-cohort = "pose_estimation.cohort:main"`, taking `entrypoints.md` from 10
+  commands to **11**.
+- Campaign artifact: `scripts/check_cohort_determinism.py`, beside its three siblings; its decisive
+  command is the gate identity in §7 and it is credited by MAIN's rerun.
+- P18's "states" gains a text oracle: the four claims are accepted phrases checked as substrings,
+  not judged — estimand, view limit, exclusion census, and the A09 claim boundary.
+- A synthetic CLI smoke test proves the registered command accepts its flags, since a registered
+  entry point that rejects every input still satisfies a name-only index check.
+
+**A18 — F16 ACCEPTED, and it resolves a contradiction A02 and A07 created together.**
+A02 sends a column with zero finite values over the run to `excluded`, so it never becomes a
+published feature; A07/P08 keeps an all-nonfinite feature present as 12 empty rows. The P08 source
+had to be simultaneously absent from `FEATURES` and present in every cell. **The two rules operate
+at different grains, and naming the grain dissolves it:**
+
+- **Run-level presence decides publication.** ≥1 finite value anywhere in the run → `published`;
+  zero → `excluded` / `structurally_absent`. This is A02, unchanged.
+- **Cell-level emptiness decides statistics.** A *published* feature with no finite value **in a
+  given cell** publishes empty statistics for that cell and stays in the product. This is P08,
+  restated at the grain it always meant.
+- The synthetic P08 fixture therefore makes a column finite in ≥1 cell and empty in another, never
+  globally empty.
+- **P02 cardinality derives from `len(FEATURES) × cells`**, never a literal. A02 permits the
+  published set to move, and it will: the corrected corpus takes it to 92 × 12 = 1104.
+
+**A19 — F17 ACCEPTED. Fixed decimals are 9, not 4.**
+A03 froze `_cell()` at "fixed decimals" without a count, and the siblings disagree —
+`calibration_qc._cell()` renders `.4f`, `qualify` renders `.9f`. Ruled **9**, from the data rather
+than from the nearer name: cohort medians run to ~0.003 for normalized displacements and ~0.04 for
+grasp apertures, so 4 decimals would publish two significant figures on a continuous measurement.
+`calibration_qc` renders QC ratios of order 1, where 4 is sufficient; this publisher does not.
+Helper keeps the name `_cell`, takes `qualify`'s precision.
+
 ## 11. Verdict table
 
-*(filled at unit close; names the `test` / `diff` branch tips — MILESTONE-REVIEW's dispatch input)*
+**Unit BLOCKED, not DONE** (A12). No implementation exists; this table records the wave's harvest so
+the resumed unit and MILESTONE-REVIEW dispatch from committed state.
+
+| role | branch tip | worktree | deliverable | outcome |
+| ---- | ---------- | -------- | ----------- | ------- |
+| `test-m2u83` | `4c5e9be` on `wt/test-m2u83` | `.scratch/worktrees/test-m2u83` | `tests/test_cohort.py`, 1471 lines, all 18 predicates pinned | **17 findings / 17 contract defects / 0 code defects** over 18 predicates. Report committed on the branch at `.scratch/agents/test-m2u83.md`; copy also at MAIN's `.scratch/agents/test-m2u83.md`. |
+
+**Wave verdict: the diff-blind role returned nothing but contract defects, because there was no code
+to defect.** 17 findings across 4 batches, each accepted, each landing as an amendment: A01-A07 on
+counts, statistics and the P07/P08 contradiction; A08-A11 on the descriptor, the unit vocabulary,
+the redaction allowlist and the byte witness; A13-A19 on the marker schema, ownership, a
+non-firing negative control, the refusal class, CLI/campaign/doc freezes, the A02-vs-A07 grain
+contradiction and the decimal count. Compare M2.8.2's same role: 11 findings / 11 contract defects /
+0 driver defects. **Two units running, 28 findings, 28 contract defects, 0 code defects — the
+contract, not the implementation, is where this project's defects live, and a diff-blind reader of
+the contract alone is what finds them.**
+
+**Outstanding before M2.8.3 resumes**, in order:
+1. M2.8.4 lands the corrected corpus (orientation fix + `--tracking body`).
+2. Re-encode the suite against the corrected corpus: A08-A19 unencoded, and every literal 75 / 900 /
+   17 replaced by a measured cardinality. The successor inherits `wt/test-m2u83`.
+3. MAIN implements `src/pose_estimation/cohort.py` + CLI + `docs/technical/cohort.md` against the
+   suite, then registers in the four exhaustive indexes (P18).
+4. Author the bilingual descriptors and measure the glyph delta against `../rehab`'s 10 subset WOFF2
+   faces.

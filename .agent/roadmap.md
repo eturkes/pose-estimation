@@ -552,11 +552,14 @@ delegation this project has funded that MAIN structurally cannot replace. `main=
 `unknown` seed forever — poll the worktree copy, and copy it back before teardown). It grades the
 contract's 18 predicates and ships `tests/test_cohort.py` red.
 
-**Window 2 — the prediction held exactly. 10 findings over 12 predicates, 10 contract defects, 0
-code defects**, against 11/11/0 for the same role on M2.8.2. The unit has consumed two windows and
-produced no implementation, and that is the correct outcome: every window bought a defect that would
-otherwise have shipped inside a published clinical artifact. Amendments A01-A12 in contract §10.
-Batch 3's four:
+**Window 2 — the prediction held exactly. The wave closed at 17 findings over 18 predicates, 17
+contract defects, 0 code defects**, against 11/11/0 for the same role on M2.8.2. Across two units
+that is **28 findings, 28 contract defects, 0 code defects**: the contract, not the implementation,
+is where this project's defects live, and a diff-blind reader of the contract alone is what finds
+them. The unit consumed two windows and produced no implementation, which is the correct outcome —
+every window bought a defect that would otherwise have shipped inside a published clinical artifact.
+Amendments A01-A19 in contract §10; the verdict table in §11 carries the branch tip and the ordered
+outstanding work. Batch 3's four:
 
 - **A08 (F7)** — P09 asserted set equality between 6-field `FEATURES` entries and 8-field YAML rows
   (a type error), and D10 sourced `raw` from the column while P09 sourced it from the id. Ruled by
@@ -576,6 +579,21 @@ Batch 3's four:
   see a reindent. Split into P12a (recursive non-following byte/link snapshot) and P12b (validity).
   **M2.8.2 ruled the identical defect one unit earlier at `3225577`**, so the rule is promoted to
   memory: *a validation function is never a byte witness.*
+
+Batch 4 closed the suite at all 18 predicates (A13-A19). Two are worth carrying:
+
+- **A18 (F16)** — A02 and A07, both correct alone, contradicted each other: A02 sends a zero-finite
+  column to `excluded` so it is never published, while A07/P08 keeps an all-nonfinite feature
+  present as 12 empty rows, so the P08 source had to be absent from `FEATURES` and present in every
+  cell at once. **The rules operate at different grains, and naming the grain dissolves it** —
+  run-level presence decides *publication*, cell-level emptiness decides *statistics*. **Datum: two
+  amendments can each be right and jointly inconsistent; every rule over a partitioned artifact
+  states the grain it quantifies over.**
+- **A15 (F13)** — N13 (sort descriptors by label) fired neither P15 nor P16: label order is
+  deterministic across every swept environment and stable on republication. **Second non-firing
+  negative control this unit** after N3/F2. Canonical order `(level, column)` added to P15; P16
+  removed from N13, because idempotence cannot detect a stable wrong order. **Datum: a
+  negative-control seed is itself a claim, and it needs a predicate that can actually see it.**
 
 **Sizing datum, and it is the sixth consecutive window with this shape.** MAIN spent window 1 on
 five measurement scripts and one contract; no teammate was funded before the contract existed,
