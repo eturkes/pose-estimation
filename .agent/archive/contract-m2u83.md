@@ -295,6 +295,48 @@ serialization was stated, and defensible libraries disagree. Frozen:
   idiom the four sibling publishers already share. **P04's "exactly" means byte equality of
   the published cell**, so the rounding rule is part of the contract rather than a tolerance.
 
+**A05 — F4 ACCEPTED. P05's invariance was stated over the wrong column set, and the repair
+strengthens it.** "Replicating one subject's asset rows N-fold leaves every published
+statistic unmoved" is false for `n_values`, `n_frame_rows` and `n_window_rows`, which are
+counts of leaf rows and scale with N by definition. Split into two predicates, and the split
+is worth more than the original:
+
+- **P05a, row replication.** Duplicating an asset's rows N-fold leaves every **distribution**
+  statistic (`median`, `q25`, `q75`, `mean`, `sd`, `view_dispersion`) unmoved, and **must**
+  move `n_values` and the cell row counts. Requiring the counts to move is the stronger
+  claim: it proves they are real counts rather than something re-derived from the medians.
+- **P05b, subject cloning.** Cloning a whole subject moves `n_subjects`, `n_events`,
+  `n_assets` and `n_values`, and **may move every distribution statistic** — adding a
+  duplicate subject value shifts a median over subjects. Invariance is asserted only at P05a.
+
+**A06 — F5 ACCEPTED as the residue A03 did not reach.** A03 froze the CV formula, the
+population denominator and the zero-mean exclusion; it left **eligibility** unstated, and
+under A01 that is not a free choice. Ruled: an event is eligible for a feature's
+`view_dispersion` iff it carries **≥2 assets with a finite value for that feature** — not ≥2
+assets. `n_events_multiview` counts exactly the eligible events, so it is per feature row and
+not a per-cell constant, and a zero-mean event is excluded from both the statistic and the
+count. `view_dispersion` is empty iff `n_events_multiview == 0`, which is P06 unchanged.
+
+**A07 — F6 ACCEPTED. P07 and P08 contradicted each other outright, and the measurement says
+which one gives way.** P07 demanded `n_values > 0` on all 900 rows; P08 mandated that a
+feature with no finite value publishes empty statistics and stays in the 900. Both cannot
+hold. Measured on this corpus: **0 of 900 rows have zero finite values, and 0 of 900 lack an
+eligible multiview event** — so P07's universal claim is true today and P08's empty path is
+unreachable here. That is the "agrees today, diverges silently later" shape, and M2.8.4's
+re-run is already scheduled to change the column set. Ruled:
+
+- **P07 becomes artifact-level anti-vacuity**, which is what it was always for: at least one
+  row with `n_values > 0`, at least one row with `n_events_multiview > 0`, a non-empty
+  published feature set, and a non-empty cell set. A green predicate whose detail line reports
+  zero items still fails.
+- **The all-900 property becomes a published census, not a predicate.** `cohort.json` carries
+  `rows_zero_values` and `rows_without_multiview`, both **0** on this corpus. A future run
+  that empties a row then shows it in the artifact instead of failing a universal that was
+  only ever a fact about one corpus.
+- **P08 keeps its rule unchanged** and is exercised **synthetically**, since the real corpus
+  cannot reach it. The suite's instinct to scope P07 positive and P08 adversarial into
+  separate generations is confirmed and is now the contract's requirement.
+
 **A04 — the census sub-schema is frozen as the suite chose it (P03 detail row).**
 `cohort.json` `columns.published` entries are `{level, column}`; `columns.excluded` entries
 are `{level, column, reason}`. §4 left the JSON sub-schema open; freezing it here removes the
