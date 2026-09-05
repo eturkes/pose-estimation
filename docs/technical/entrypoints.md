@@ -246,10 +246,15 @@ The script runs every published session through `pose_estimation.run` and then
 falls back to the CPU.
 
 Defaults: `--inventory inventory`, `--qualification qualification`, `--sessions sessions`,
-`--out output/corpus-2d`, `--model rtmw-l`, `--tracking hands-arms`, `--det-device CPU`,
+`--out output/corpus-2d`, `--model rtmw-l`, `--tracking body`, `--det-device CPU`,
 `--pose-device NPU`, `--det-frequency 7`, `--single-subject`, `--retry-failed`.
-`--limit N` runs the first N due events. `--analyse-only` republishes the manifest and the
+`--limit N` runs the first N **due** events, so a rerun with `--limit` processes the next
+events rather than the same ones. `--analyse-only` republishes the manifest and the
 report over an existing `--out` tree and decodes nothing. `--report` moves the report alone.
+
+The defaults reproduce the shipped corpus: `--tracking body` populates the trunk and posture
+columns, and coordinates are normalized by one `max(frame_width, frame_height)` scalar. The
+report publishes that identity as `configuration.coord_normalization`.
 
 The run is resumable. Rerun the identical command after any interruption. Each event writes
 `event_complete.json` after its outputs are final, and that marker is the only resume key:

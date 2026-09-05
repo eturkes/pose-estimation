@@ -369,7 +369,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--report", type=Path, default=None, help="Report path (default: <out>).")
     parser.add_argument("--limit", type=int, default=0, help="Run the first N due events only.")
     parser.add_argument("--model", default="rtmw-l")
-    parser.add_argument("--tracking", default="hands-arms")
+    # Default = the shipped corpus's own configuration, so a bare rerun reproduces it.
+    parser.add_argument("--tracking", default="body")
     parser.add_argument("--det-device", default="CPU")
     parser.add_argument("--pose-device", default="NPU")
     parser.add_argument("--det-frequency", type=int, default=7)

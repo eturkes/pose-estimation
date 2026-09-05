@@ -23,6 +23,12 @@ recovered pixels, so the rounding cancels and only float arithmetic remains.
 Asset ids are never published.  The sample is pinned by a digest over the sorted
 ids instead, which proves the membership was fixed before the numbers were seen
 without putting capture identifiers into a committed artifact.
+
+The pre-fix tree was deleted once the corrected re-run validated (D06), so this
+script no longer has an input on disk and ``tests/isotropy_angle_fidelity_results
+.json`` is the durable artifact (A13).  ``--tree`` therefore refuses any tree whose
+report declares the isotropic token: the corrected corpus took the pre-fix tree's
+path, and reading it here would compare isotropic bytes against themselves.
 """
 
 from __future__ import annotations
@@ -35,6 +41,8 @@ import pathlib
 import sys
 
 import numpy as np
+
+from pose_estimation import export
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ASSETS_CSV = ROOT / "inventory" / "assets.csv"
@@ -80,6 +88,21 @@ def sample_digest(sample: list[dict[str, str]]) -> str:
     """Pin the sample without publishing its members."""
     joined = "\n".join(sorted(row["asset_id"] for row in sample))
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+def _require_prefix_tree(tree: pathlib.Path) -> None:
+    """Refuse a tree that already carries the fix, which would compare it to itself."""
+    report = tree / "run_report.json"
+    if not report.is_file():
+        raise SystemExit(f"the tree has no run report: {report}")
+    declared = json.loads(report.read_text(encoding="utf-8"))["configuration"].get(
+        "coord_normalization"
+    )
+    if declared == export.COORD_NORMALIZATION:
+        raise SystemExit(
+            f"{tree} is already isotropic ({declared}); this measurement needs the pre-fix tree, "
+            f"which D06 deleted -- read {EVIDENCE.relative_to(ROOT)} instead"
+        )
 
 
 def _placements(tree: pathlib.Path) -> dict[str, tuple[str, str]]:
@@ -157,6 +180,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=pathlib.Path, default=EVIDENCE)
     args = parser.parse_args(argv)
 
+    _require_prefix_tree(args.tree)
     sample = frozen_sample(_canonical_assets())
     digest = sample_digest(sample)
     placements = _placements(args.tree)

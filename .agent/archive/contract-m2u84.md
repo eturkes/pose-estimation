@@ -532,7 +532,9 @@ independent sample's echo of the 9.9 deg corpus median in §3, and it is the rea
 
 Gate at the implementation commit: `ruff check` rc=0, `ruff format --check` rc=0, `ty check` "All
 checks passed!", `pytest -q` **1642 passed, 0 failed, 0 skipped** in the primary tree (1009 s), run
-after the pilot's decode sweep had exited.
+after the pilot's decode sweep had exited. Rerun at the close commit, after the `--tracking body`
+default flip and the P16 pre-fix-tree guard: all four green, **1642 passed, 0 failed, 0 skipped**
+(1088 s) — the node-id set is unmoved, so P15 stands without re-derivation.
 
 | id | verdict | evidence |
 | -- | ------- | -------- |
@@ -547,8 +549,8 @@ after the pilot's decode sweep had exited.
 | P09 | pass | `test_p09_body_matched_hand_and_hand_only_paths_are_isotropic` — RED at 3d323c7 |
 | P10 | pass | `test_p10_all_source_enumerated_2d_goldens_are_byte_identical` — 12 goldens via `_DATASETS` (A04) |
 | P11 | pass | A03 census on one real `--tracking body` event: 17 present, **14 finite-capable**, 3 sagittal NA |
-| P12 | **open** | verdict keys confirmed set-equal to `corpus_run_2d.py:418-432` on the pilot report (10/11 true; `every_event_complete` false at 3/193, correct for a partial run). Closes on the full re-run |
-| P13 | **open** | fresh `--out` chosen disjoint from `output/corpus-2d/`; both-direction resolved non-containment and the zero-marker precondition are recorded at launch |
+| P12 | pass | full re-run report: manifest 379 rows, ids **set-equal to the 379 registry-derived canonical ids** and unique, census keys + dispositions inside the frozen six and summing to 379, **11 verdict keys set-equal to the `verdicts = {…}` literal parsed out of `corpus_run_2d.py` by AST at check time, every one true**; 193/193 events complete, 0 attempts failed, `throughput.sample = corpus` |
+| P13 | pass | `output/corpus-2d` and `output/corpus-2d-v2` resolve to distinct paths, non-containment holds **both directions**, new root held 0 `event_complete.json` at launch and 193 at close, old root still 193 |
 | P14 | pass | both campaigns regenerated: qualify **40 sweeps / 19 tamper classes**, calibration **21 sweeps / 18 tampers**, 0 failures, every control still rejecting |
 | P15 | pass | node-id set difference vs 3d323c7: 1621 → 1642. 1 removed (`test_fuse_session_outputs_reconstructs_skeleton`, replaced by its parametrised pair), 22 added, every one traceable to a ruled predicate. Baseline listing digest `8fd08fa4247d03d2` |
 | P16 | pass | `scripts/check_isotropy_angle_fidelity.py` rc=0 — isotropic p95 max **3.695e-13 deg** (bound 1e-6), anisotropic pooled median **8.3567 deg** (floor 5.0), sample digest `a27e4f32abdc4ac3`; evidence `tests/isotropy_angle_fidelity_results.json` |
@@ -556,3 +558,28 @@ after the pilot's decode sweep had exited.
 
 P12 and P13 are the only rows the corpus re-run owns; every other predicate closed before it was
 funded, which is what A03 and A12 were rewritten to achieve.
+
+### The corrected corpus run
+
+`--tracking body --out output/corpus-2d-v2`, detached, NPU: **193/193 events, 379/379 assets `ok`,
+0 failures, 337 090 frames, 12.251 fps incl. startup, 7.828 h** (27 515 s decode + 666 s clinical,
+28 181 s wall). Report `configuration` publishes `tracking = body`,
+`coord_normalization = image-isotropic-maxdim`, `pose_device = NPU`, `generator_version = v2`.
+Prior run: 8.70 h at 10.99 fps under the gate prefix's silent CPU fallback.
+
+Two `data`-tier live spot-checks on the shipped bytes, each with its positive control:
+
+- **A03's census reproduces corpus-wide.** 12 random events × 3 cameras, 17 200 frame rows and
+  1 115 window rows, columns taken from the R source rather than from a keyword net
+  (`clinical_features.R:1033-1043` + `WINDOW_BODY_METRICS` at `:1081-1086`): **17 present, 0 missing
+  from any header, 14 finite-capable, 3 structurally NA, and the NA set is exactly the sagittal
+  set.** A keyword net misses `compensatory_pattern_index` and undercounts the window grain 11/12 —
+  the column list has to come from the emitter.
+- **The isotropic bound holds on the shipped corpus and fires on the pre-fix one.** No in-frame
+  landmark may exceed `x = w/max(w,h)` or `y = h/max(w,h)`; per-axis normalisation puts both bounds
+  at 1.0. Over 30 landscape + 28 portrait assets, filtered to `vis > 0.8`: pre-fix breach rate
+  **29.82 % portrait / 39.83 % landscape**, corrected **0.0305 % / 0.0639 %**, the residual being
+  genuinely off-frame joints that `--tracking body` adds and that still carry high confidence.
+  Cross-tree min/max comparison is *not* a valid instrument here — the pre-fix tree is `hands-arms`
+  (54 landmark columns) against the corrected tree's `body` (75), so the landmark sets differ and
+  the ranges are not comparable; the bound test is per-tree and needs no correspondence.
