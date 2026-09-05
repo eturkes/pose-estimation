@@ -304,8 +304,8 @@ scope** at freeze. Run verdicts, all true: `manifest_total`, `every_event_comple
 `counters_classify_every_frame`, `stored_rate_equals_its_derivation`, `generation_digest_unmoved`,
 `generation_marker_unmoved`.
 
-**Branch tips — MILESTONE-REVIEW dispatch inputs.** `wt/test-m2u82` retained at **`c92ffcc`**
-(worktree removed): `3997a69` P01-P03, `c6937c2` P04-P06, `ecf32fd` D06 validator (window-1 harvest
+**Branch tips — MILESTONE-REVIEW dispatch inputs.** Tip **`c92ffcc`** retained as tag
+`archive/m2u82-test` (worktree removed): `3997a69` P01-P03, `c6937c2` P04-P06, `ecf32fd` D06 validator (window-1 harvest
 point), `fbb5c2c` P10, `78cdfc6` P11, `f0010b9` P12, `6521ee5` P13, `c92ffcc` P14. Reports at
 `.scratch/agents/test-m2u82.md` and `.scratch/agents/test-m2u82-2.md` (gitignored; the findings
 themselves are A04-A13 above). No `orc` or `diff` teammate ran: the unit's spine is a data artifact

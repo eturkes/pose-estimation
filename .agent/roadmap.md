@@ -315,11 +315,12 @@ works, which is how P01 drives it.
 bytes) → **~85% 203K/240K** (window 2: dispatch, harvest, validator fix, generator hardening, suite
 wiring, gate). `mate=` 32% 77K/240K (`map-m2u72`, stopped) → **53% 127K/240K** (`prod-m2u72`).
 
-**Sizing datum.** Entry cost alone was **53% 127K/240K** before the first tool call: `.agent/`
-attached state is now large enough that a WORK-UNIT window starts past half its budget. That is the
-one-window aim's real constraint on this milestone, not the unit's line count. **M2.7.1's closed
-detail belongs in `.agent/archive/` at the next MILESTONE-REVIEW**, and until it moves, size every
-remaining M2 unit against ~110K of usable window rather than 240K.
+**Sizing datum.** Entry cost alone was **127K** before the first tool call — 53% of the 240K window
+in force then, and the attached set still measures 287 KB (`roadmap.md` + `memory.md` +
+`polish.md`), so the cost stands. Against the 1M window it leaves **~820K usable** per WORK-UNIT
+session rather than ~110K, so the one-window aim binds on the unit's own work now instead of on
+entry cost. **M2.7.1's closed detail still belongs in `.agent/archive/` at the next
+MILESTONE-REVIEW.**
 
 #### M2.7.1 — DONE. The `calibration_qc/` publisher (F1a) ships
 
@@ -683,7 +684,7 @@ so the total is correct however many passes it took; `sample` reads `corpus` onl
 numerator is a false rate the moment the job becomes resumable.**
 
 **`test-m2u82-2` filled P10-P14 diff-blind and every one of its 11 findings was a contract defect.**
-Branch `wt/test-m2u82` **retained** at tip `c92ffcc` (worktree removed), report at
+Tip `c92ffcc` **retained** as tag `archive/m2u82-test` (worktree removed), report at
 `.scratch/agents/test-m2u82-2.md`, 97 cases. F1/F2 P10 scope + process-scoped `stop()`, F3/F4 P11
 witnesses, F5/F6 P12 storage + weighting, F7-F9 P13 redaction, F10/F11 P14 cost record. Ruled into
 the contract as **A07-A13**; F4 and F6 ship encoded-green because the driver already conformed.
@@ -1332,7 +1333,7 @@ recorded, arriving here through a different door.
 
 ### M2.3 — closed, and what it leaves standing
 
-Contract frozen at `.agent/archive/contract-m2u3.md` — **39 predicates P01-P39**, 4 invariant surfaces, gate identity, an 8-class probe-corpus seed. Rulings R1-R10 are all ruled and **all closed**. **All 39 predicates are green**, P29 closing last in window 10. Per-window trajectory for windows 5-10 → `.agent/archive/m2u3-windows.md`; verdict tables → `.agent/archive/rulings-m2u3.md`. Retained worktrees: `wt/spike-m2u3-audio`, kept because its `_family_coverage` is the P38 oracle until R6's connectivity reconciliation polish row closes. Reports for every stopped teammate are preserved under `.scratch/agents/`.
+Contract frozen at `.agent/archive/contract-m2u3.md` — **39 predicates P01-P39**, 4 invariant surfaces, gate identity, an 8-class probe-corpus seed. Rulings R1-R10 are all ruled and **all closed**. **All 39 predicates are green**, P29 closing last in window 10. Per-window trajectory for windows 5-10 → `.agent/archive/m2u3-windows.md`; verdict tables → `.agent/archive/rulings-m2u3.md`. Retained tip: `archive/m2u3-spike-audio` (`049684a`), kept because its `_family_coverage` is the P38 oracle until R6's connectivity reconciliation polish row closes. Reports for every stopped teammate are preserved under `.scratch/agents/`.
 
 **Sizing, recorded for PLANNING.** Ten windows against a one-window plan, on a user ruling that the unit run whole rather than be re-split. Window 1 alone (`main=` 87%) bought tooling, the metadata axis, two offset spikes, the cross-modality cross-check and the contract, and shipped one commit. **Size a `kernel` unit by its adversarial surface, not its line count**: 39 predicates over six evidence axes, four needing their own measurement pipeline, is a milestone's worth of contract wearing a unit's label. The suspension of the one-window aim was granted to this unit alone and does not carry forward.
 
