@@ -53,12 +53,22 @@ from pose_estimation.corpus_run import (
     write_manifest,
     write_marker,
 )
+from pose_estimation.export import COORD_NORMALIZATION
 from pose_estimation.sessions import generation_digest, tree_digest, validate_generation
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = "scripts/corpus_run_2d.py"
-GENERATOR_VERSION = "v1"
+# v2: the report gained `coord_normalization`, because export.py's normalisation
+# moved and a 2D landmark CSV carries no identity tag able to say which one made it.
+GENERATOR_VERSION = "v2"
 CLINICAL_R = ROOT / "analysis" / "clinical_features.R"
+# Named because the redaction allowlist has to hold every label the report can
+# emit: `partial` is unreachable on a full corpus run and so shipped un-allowed,
+# which aborted every partial and resumed run before it could write its report.
+THROUGHPUT_PROVENANCE = "measured"
+THROUGHPUT_FULL = "corpus"
+THROUGHPUT_PARTIAL = "partial"
+THROUGHPUT_LABELS = frozenset({THROUGHPUT_PROVENANCE, THROUGHPUT_FULL, THROUGHPUT_PARTIAL})
 
 
 def _load_pilot() -> Any:
@@ -87,6 +97,37 @@ class RunError(RuntimeError):
 
 
 pilot = _load_pilot()
+
+
+def redaction_allowlist(args: Any, placed_assets: Any, codes: Any) -> frozenset[str]:
+    """Every string this report may publish.
+
+    Module level rather than inline in ``main`` so the set is reachable without a
+    corpus run: the one label it ever missed (`partial`) is emitted only by a
+    partial run, so no full-corpus invocation could expose the gap.
+    """
+    labels = pilot._values(placed_assets, "rotation_deg") | pilot._values(
+        placed_assets, "pts_monotonic"
+    )
+    return frozenset(
+        {
+            GENERATOR,
+            GENERATOR_VERSION,
+            args.model,
+            args.tracking,
+            args.det_device,
+            args.pose_device,
+            MARKER_COMPLETE,
+            MARKER_FAILED,
+            COORD_NORMALIZATION,
+        }
+        | THROUGHPUT_LABELS
+        | set(ASSET_DISPOSITIONS)
+        | set(codes)
+        | {asset.codec for asset in placed_assets}
+        | {asset.device_config for asset in placed_assets}
+        | {str(value) for value in labels}
+    )
 
 
 def _canonical_asset_ids(inventory: Path) -> list[str]:
@@ -441,6 +482,10 @@ def main() -> int:
             "pose_device": args.pose_device,
             "det_frequency": args.det_frequency,
             "single_subject": args.single_subject,
+            # 2D landmark CSVs carry no identity tags, so two generations under
+            # different normalisations are shaped identically and mean
+            # different things.  The report is where they separate.
+            "coord_normalization": COORD_NORMALIZATION,
         },
         "population": {
             "events": len(event_ids),
@@ -477,8 +522,10 @@ def main() -> int:
         # earlier process: dividing all-corpus frames by one invocation's seconds
         # reports a throughput the pipeline never reached.
         "throughput": {
-            "provenance": "measured",
-            "sample": "corpus" if wall["events_measured"] == len(event_ids) else "partial",
+            "provenance": THROUGHPUT_PROVENANCE,
+            "sample": THROUGHPUT_FULL
+            if wall["events_measured"] == len(event_ids)
+            else THROUGHPUT_PARTIAL,
             "events_measured": int(wall["events_measured"]),
             "events_total": len(event_ids),
             "run_wall_s": round(wall["run_s"], 2),
@@ -492,31 +539,7 @@ def main() -> int:
         },
         "verdicts": verdicts,
     }
-    labels = pilot._values(placed_assets, "rotation_deg") | pilot._values(
-        placed_assets, "pts_monotonic"
-    )
-    pilot._assert_redacted(
-        payload,
-        frozenset(
-            {
-                GENERATOR,
-                GENERATOR_VERSION,
-                args.model,
-                args.tracking,
-                args.det_device,
-                args.pose_device,
-                MARKER_COMPLETE,
-                MARKER_FAILED,
-                "measured",
-                "corpus",
-            }
-            | set(ASSET_DISPOSITIONS)
-            | set(codes)
-            | {asset.codec for asset in placed_assets}
-            | {asset.device_config for asset in placed_assets}
-            | {str(value) for value in labels}
-        ),
-    )
+    pilot._assert_redacted(payload, redaction_allowlist(args, placed_assets, codes))
 
     report = args.report or args.out / "run_report.json"
     report.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")

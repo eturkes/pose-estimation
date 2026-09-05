@@ -409,24 +409,31 @@ def _coverage(population: list[Asset], selected: list[Asset]) -> dict[str, Any]:
     return coverage
 
 
-def _assert_redacted(payload: Any, allowed: frozenset[str]) -> None:
+def _assert_redacted(payload: Any, allowed: frozenset[str], path: str = "$") -> None:
     """Refuse any report string this file did not author or publish as a label.
 
     Keys are code-authored field names, so they must read as one; values must
     come from the published stratum labels or the R reason codes.  Every corpus
     identifier shape — capture id, camera name, path, media suffix — carries a
     separator or a capital and so fails both tests.
+
+    Failures name the JSON *location*, never the offending string: the guard
+    exists because that string may be a subject token, so quoting it in an error
+    would be the leak it prevents.  The location alone is what a caller needs,
+    and a guard that cannot say where it tripped costs a whole run to diagnose.
     """
     if isinstance(payload, dict):
         for key, value in payload.items():
             if key not in allowed and not FIELD_NAME.fullmatch(key):
-                raise PilotError("the report carries a key outside the redaction allowlist")
-            _assert_redacted(value, allowed)
+                raise PilotError(
+                    f"the report carries a key outside the redaction allowlist at {path}"
+                )
+            _assert_redacted(value, allowed, f"{path}.{key}")
     elif isinstance(payload, list):
-        for item in payload:
-            _assert_redacted(item, allowed)
+        for index, item in enumerate(payload):
+            _assert_redacted(item, allowed, f"{path}[{index}]")
     elif isinstance(payload, str) and payload not in allowed:
-        raise PilotError("the report carries a value outside the redaction allowlist")
+        raise PilotError(f"the report carries a value outside the redaction allowlist at {path}")
 
 
 def _parse_args() -> argparse.Namespace:

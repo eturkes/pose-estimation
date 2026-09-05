@@ -1,0 +1,90 @@
+{
+  "anisotropic_pooled_median_deg": 8.356657234828184,
+  "bounds": {
+    "anisotropic_median_min_deg": 5.0,
+    "isotropic_p95_max_deg": 1e-06
+  },
+  "isotropic_p95_max_deg": 3.694822225952521e-13,
+  "per_asset": [
+    {
+      "anisotropic_median_deg": 19.217153886952335,
+      "anisotropic_p95_deg": 26.467956374557396,
+      "aspect_is_portrait": false,
+      "isotropic_median_deg": 1.4210854715202004e-14,
+      "isotropic_p95_deg": 5.684341886080802e-14,
+      "observations": 1848,
+      "ordinal": 1
+    },
+    {
+      "anisotropic_median_deg": 5.512240515673881,
+      "anisotropic_p95_deg": 26.535715737876608,
+      "aspect_is_portrait": false,
+      "isotropic_median_deg": 8.526512829121202e-14,
+      "isotropic_p95_deg": 3.694822225952521e-13,
+      "observations": 2584,
+      "ordinal": 2
+    },
+    {
+      "anisotropic_median_deg": 6.7047119693482955,
+      "anisotropic_p95_deg": 21.774820604864246,
+      "aspect_is_portrait": false,
+      "isotropic_median_deg": 1.4210854715202004e-14,
+      "isotropic_p95_deg": 6.394884621840902e-14,
+      "observations": 352,
+      "ordinal": 3
+    },
+    {
+      "anisotropic_median_deg": 11.040088766585946,
+      "anisotropic_p95_deg": 21.922795276750797,
+      "aspect_is_portrait": false,
+      "isotropic_median_deg": 0.0,
+      "isotropic_p95_deg": 5.684341886080802e-14,
+      "observations": 1954,
+      "ordinal": 4
+    },
+    {
+      "anisotropic_median_deg": 5.610224123177343,
+      "anisotropic_p95_deg": 24.352954372367012,
+      "aspect_is_portrait": true,
+      "isotropic_median_deg": 2.1316282072803006e-14,
+      "isotropic_p95_deg": 8.526512829121202e-14,
+      "observations": 11102,
+      "ordinal": 5
+    },
+    {
+      "anisotropic_median_deg": 7.087306296880342,
+      "anisotropic_p95_deg": 18.937910259314968,
+      "aspect_is_portrait": true,
+      "isotropic_median_deg": 1.4210854715202004e-14,
+      "isotropic_p95_deg": 1.9788615190918726e-13,
+      "observations": 1244,
+      "ordinal": 6
+    },
+    {
+      "anisotropic_median_deg": 10.687186183641188,
+      "anisotropic_p95_deg": 26.45406940619463,
+      "aspect_is_portrait": true,
+      "isotropic_median_deg": 2.4868995751603507e-14,
+      "isotropic_p95_deg": 1.7053025658242404e-13,
+      "observations": 588,
+      "ordinal": 7
+    },
+    {
+      "anisotropic_median_deg": 9.626008172776025,
+      "anisotropic_p95_deg": 23.615910815585103,
+      "aspect_is_portrait": true,
+      "isotropic_median_deg": 1.4210854715202004e-14,
+      "isotropic_p95_deg": 1.7053025658242404e-13,
+      "observations": 1692,
+      "ordinal": 8
+    }
+  ],
+  "predicate": "P16",
+  "sample_digest_sha256": "a27e4f32abdc4ac35d4727737c9e21b8ee2359349c8a69c8aaf7e941b8e5ebcf",
+  "sample_size": 8,
+  "verdicts": {
+    "anisotropic_distorts_angles": true,
+    "isotropic_preserves_angles": true,
+    "sample_spans_both_aspects": true
+  }
+}

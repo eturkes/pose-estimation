@@ -168,10 +168,10 @@ Every predicate is decided by a committed test or a committed script MAIN reruns
   undeclared coupling.
 - **P11 tracking mode.** A real event run under `--tracking body` yields `body_*` columns,
   `detect_tracking` reads `body`, and every trunk/posture column in the committed **`finite-capable`
-  census** is finite on at least one window row. The literal 17 is void and the census is measured
-  before the long run is funded (A03); the sagittal columns are structurally NA from a single 2D view
-  and belong to the `structurally-NA` partition. Non-vacuous: a run that emits the finite-capable
-  columns all-NA fails.
+  census** — the **14** columns measured in A03, 4 frame and 10 window — is finite at its own artifact
+  grain. The literal 17 is void; all 17 must still be *present*, and the 3 sagittal cells must remain
+  NA, which is what keeps the partition honest in both directions. Non-vacuous: a run that emits the
+  finite-capable columns all-NA fails.
 - **P12 re-run totality.** Manifest total over the canonical asset ids **derived from the validated
   registry at check time**, six frozen dispositions, key-set equality and key uniqueness, and the 11
   driver verdicts — set-equal to the keys `scripts/corpus_run_2d.py:418-432` owns, each true (A08).
@@ -308,6 +308,20 @@ precondition of funding the long run rather than an outcome of it — run one re
 commit that partition, and restate P11 over the `finite-capable` set alone with the structurally-NA
 set named and justified. MAIN verified the sagittal case only; the rest of the 17 stay unaudited, so
 the census is a measurement, not a subtraction of 2 from 17.
+
+**A03 census, MEASURED** on one real event under `--tracking body` (3 cameras, 6 459 frame rows,
+494 window rows), which is what A03 made a precondition of funding the run. It **confirms** the
+derived expectation rather than discovering a different one:
+
+| grain | columns | finite-capable | structurally-NA |
+| ----- | ------- | -------------- | --------------- |
+| frame | 5 | 4 | `trunk_lean_sagittal_deg` |
+| window | 12 | 10 | `trunk_lean_sagittal_mean`, `trunk_lean_sagittal_sd` |
+| **total** | **17** | **14** | **3** |
+
+All 17 columns are **present** in the artifacts, so `--tracking body` does deliver the unit's
+deliverable; 14 carry finite values and the 3 sagittal cells are NA by construction. P11 is
+restated over the 14.
 
 **A04 — P10's golden census is factually wrong: twelve 2D goldens, not six.**
 Reported by `test-m2u84` as HIGH; **verified independently by MAIN** at
@@ -449,6 +463,96 @@ already pinned exactly and deterministically by P02, which compares the same geo
 aspects. A population median over real assets would restate that property with sampling noise added
 and proof subtracted.
 
+**A13 — A12's "ids committed to this contract" breaches the redaction rule; the sample is pinned by
+digest instead.** Found while implementing A12. Canonical asset ids are capture identifiers, which
+published artifacts must not carry, so writing the eight members into this file would trade one
+defect for another.
+
+Ruling: pre-registration is achieved **without publishing membership**. The selection rule is a pure
+function of the validated registry — first `PER_ASPECT` landscape and portrait assets by sorted
+`asset_id` among `disposition == canonical` — so the sample is reproducible by anyone with the
+registry, and `scripts/check_isotropy_angle_fidelity.py` publishes `sha256` over the sorted ids.
+Moving the sample after seeing a result moves the digest, which is the property A12 actually wanted.
+Per-asset rows in the evidence file are keyed by ordinal, never by id or placement.
+
+Second ruling — **the evidence file is the durable artifact, not the script.** The script reads the
+PRE-FIX tree, which D06 deletes once the re-run validates, so it is replayable only while that tree
+exists. `tests/isotropy_angle_fidelity_results.json` is committed and P16 is credited from it; the
+script must **not** join the standing gate, where it would fail the moment D06 is executed.
+
+**A14 — the delivered P05 case contradicted the delivered P01 case; P01 was right.**
+Found when the suite ran against the implementation. `test_p05_...` asserted the exported pair
+`(0.5, 0.5)` for a keypoint at pixel `(32, 24)` in a 64x48 frame. Under D03 both axes divide by
+`max(64, 48) = 64`, so the correct pair is `(0.5, 0.375)`; `(0.5, 0.5)` is reachable only by per-axis
+division, which P01's own case refuses. The two cases could not both pass.
+
+Ruling: the suite is corrected, not the contract — P01 states D03 and D03 is the unit's decision. The
+case keeps its discriminating power, since the capture's properties (640x480) would yield
+`(0.05, 0.0375)`; it stays RED at 3d323c7 for both conjuncts. Recorded because a diff-blind suite is
+trusted for its independence, and independence is exactly what lets two of its cases disagree —
+grading each predicate alone never compares them.
+
+**A15 — the pilot found a latent code defect that no full-corpus run can expose.**
+`corpus_run_2d.py` emitted `throughput.sample = "partial"` whenever fewer events were measured than
+the corpus holds, but the redaction allowlist carried only `"corpus"`. `_assert_redacted` therefore
+aborted the run **before the report was written**, so every partial and every resumed invocation
+lost its report while every full-corpus invocation passed. Pre-existing, unrelated to the
+normalisation change, and invisible to the existing suite.
+
+Rulings:
+1. Fixed at the source of the drift, not at the symptom: `THROUGHPUT_PROVENANCE`/`THROUGHPUT_FULL`/
+   `THROUGHPUT_PARTIAL` are named constants gathered into `THROUGHPUT_LABELS`, which both the emitter
+   and the allowlist read. A future third label cannot reach one and miss the other.
+2. The allowlist moved out of `main()` into `redaction_allowlist(args, placed_assets, codes)` so the
+   invariant is reachable without a corpus run — being unreachable is why the gap survived.
+   `tests/test_corpus_run_2d.py::test_report_allowlist_covers_every_throughput_label` ranges over
+   `THROUGHPUT_LABELS` and asserts the set is non-empty first.
+3. `pilot._assert_redacted` now names the **JSON path** of the offending string, never the string:
+   the guard exists because that string may be a subject token, so quoting it would be the leak it
+   prevents. Diagnosing this defect cost a full 17-minute event before the path was reported and
+   nothing after it.
+
+**Datum: the pilot is not a formality.** A03 and A12 were rewritten to run before the long run was
+funded; that same discipline surfaced a defect which would have destroyed the 8.7 h run's report at
+the very end, on a code path the 1 642-case suite never touched.
+
+**Result, recorded** (registry census: 379 canonical = 351 landscape + 28 portrait, 0 square):
+
+| quantity | measured | bound | verdict |
+| -------- | -------- | ----- | ------- |
+| isotropic p95 max | **3.695e-13 deg** | < 1e-6 | pass |
+| anisotropic pooled median | **8.3567 deg** | >= 5.0 | pass |
+| sample spans both aspects | 4 + 4 | 2 aspects | pass |
+
+The isotropic figure is seven orders of magnitude inside its bound — the residual is float
+arithmetic, which is what "the map is a similarity" predicts exactly. The anisotropic 8.36 deg is an
+independent sample's echo of the 9.9 deg corpus median in §3, and it is the reason the unit exists.
+
 ## 11. Verdict table
 
-*(filled at close)*
+Gate at the implementation commit: `ruff check` rc=0, `ruff format --check` rc=0, `ty check` "All
+checks passed!", `pytest -q` **1642 passed, 0 failed, 0 skipped** in the primary tree (1009 s), run
+after the pilot's decode sweep had exited.
+
+| id | verdict | evidence |
+| -- | ------- | -------- |
+| P01 | pass | `test_p01_body_coordinates_use_one_max_dimension_scalar` — RED at 3d323c7, green after |
+| P02 | pass | `test_p02_angles_and_distance_ratios_are_aspect_invariant` — RED at 3d323c7; tolerance exact per A02 |
+| P03 | pass | `test_p03_frame_corners_remain_inside_unit_range` — green both sides, the preservation side |
+| P04 | pass | `test_p04_coordinate_scale_survives_dimension_transpose` — RED at 3d323c7 |
+| P05 | pass | `test_p05_run_exports_using_decoded_frame_dimensions` — RED at 3d323c7; expectation corrected by A14 |
+| P06 | pass | `test_p06_backend_applies_declared_display_matrix[0,90,180,270]` — real `tkhd` matrices |
+| P07 | pass | `test_p07_corpus_pipeline_receives_display_oriented_frames[0,90,180,270]`, scoped per A05 |
+| P08 | pass | `test_p08_normalisation_identity_is_frozen_and_bound_to_its_behaviour`; report key confirmed on a real `run_report.json` (`configuration.coord_normalization = image-isotropic-maxdim`) |
+| P09 | pass | `test_p09_body_matched_hand_and_hand_only_paths_are_isotropic` — RED at 3d323c7 |
+| P10 | pass | `test_p10_all_source_enumerated_2d_goldens_are_byte_identical` — 12 goldens via `_DATASETS` (A04) |
+| P11 | pass | A03 census on one real `--tracking body` event: 17 present, **14 finite-capable**, 3 sagittal NA |
+| P12 | **open** | verdict keys confirmed set-equal to `corpus_run_2d.py:418-432` on the pilot report (10/11 true; `every_event_complete` false at 3/193, correct for a partial run). Closes on the full re-run |
+| P13 | **open** | fresh `--out` chosen disjoint from `output/corpus-2d/`; both-direction resolved non-containment and the zero-marker precondition are recorded at launch |
+| P14 | pass | both campaigns regenerated: qualify **40 sweeps / 19 tamper classes**, calibration **21 sweeps / 18 tampers**, 0 failures, every control still rejecting |
+| P15 | pass | node-id set difference vs 3d323c7: 1621 → 1642. 1 removed (`test_fuse_session_outputs_reconstructs_skeleton`, replaced by its parametrised pair), 22 added, every one traceable to a ruled predicate. Baseline listing digest `8fd08fa4247d03d2` |
+| P16 | pass | `scripts/check_isotropy_angle_fidelity.py` rc=0 — isotropic p95 max **3.695e-13 deg** (bound 1e-6), anisotropic pooled median **8.3567 deg** (floor 5.0), sample digest `a27e4f32abdc4ac3`; evidence `tests/isotropy_angle_fidelity_results.json` |
+| P17 | pass | `test_fuse_session_outputs_reconstructs_skeleton[resolution0,resolution1]` — landscape and portrait calibrated resolutions |
+
+P12 and P13 are the only rows the corpus re-run owns; every other predicate closed before it was
+funded, which is what A03 and A12 were rewritten to achieve.

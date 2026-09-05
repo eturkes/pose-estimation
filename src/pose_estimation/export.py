@@ -13,6 +13,13 @@ from .processing import (
     WRIST_KPS_33,
 )
 
+# Identity of the coordinate normalisation the rows below carry.  2D outputs
+# deliberately carry no artifact identity tags (docs/technical/analysis.md), so
+# a landmark CSV cannot say which normalisation produced it — the corpus run
+# report echoes this constant instead, which is what distinguishes a pre-fix
+# generation from a post-fix one.
+COORD_NORMALIZATION = "image-isotropic-maxdim"
+
 ARM_KEYPOINT_NAMES = [
     "left_shoulder",
     "right_shoulder",
@@ -137,15 +144,33 @@ def _hand_confidence_vector(confidence):
     return values
 
 
+def coord_scale(frame_h, frame_w):
+    """Return the single divisor that normalises one frame's coordinates.
+
+    Dividing x by width and y by height is not a similarity, so it distorts
+    every image-plane angle — a measured median 9.9 deg over this corpus — and
+    it distorts them by a DIFFERENT factor per display aspect, putting a
+    y-over-x ratio 3.16x apart between landscape and portrait assets.  One
+    scalar restores angles and distance ratios.
+
+    ``max`` rather than height or ``sqrt(w*h)`` for two reasons: every
+    coordinate stays inside [0, 1], so the schema's range contract is
+    unbroken; and it is invariant under a 90 degree transpose, so an asset
+    that changes orientation mid-clip keeps one coordinate scale.
+    """
+    return float(max(frame_w, frame_h))
+
+
 def _fill_hand_side(row, side, hlm, frame_h, frame_w, confidence=None):
     """Fill one hand side with normalised coordinates and confidence."""
     confidence_values = _hand_confidence_vector(confidence)
+    scale = coord_scale(frame_h, frame_w)
     for i in range(HAND_KEYPOINT_COUNT):
         point_valid = np.isfinite(hlm[i, :3]).all()
         if point_valid:
-            row[f"{side}_hand_{i}_x"] = round(hlm[i, 0] / frame_w, 6)
-            row[f"{side}_hand_{i}_y"] = round(hlm[i, 1] / frame_h, 6)
-            row[f"{side}_hand_{i}_z"] = round(hlm[i, 2] / frame_w, 6)
+            row[f"{side}_hand_{i}_x"] = round(hlm[i, 0] / scale, 6)
+            row[f"{side}_hand_{i}_y"] = round(hlm[i, 1] / scale, 6)
+            row[f"{side}_hand_{i}_z"] = round(hlm[i, 2] / scale, 6)
         else:
             row[f"{side}_hand_{i}_x"] = ""
             row[f"{side}_hand_{i}_y"] = ""
@@ -247,8 +272,10 @@ def frame_to_rows(
 ):
     """Convert one frame's landmark data into CSV rows (one per person).
 
-    Coordinates are normalised to [0, 1] by dividing by frame dimensions.
-    Missing hand data is filled with empty strings (written as blank in CSV).
+    Coordinates are normalised to [0, 1] by dividing by ``coord_scale``, one
+    scalar per frame, so image-plane angles and distance ratios survive the
+    normalisation.  Missing hand data is filled with empty strings (written as
+    blank in CSV).
 
     *tracking* determines the column layout:
     - ``"hands"``: hand columns only, no body columns.
@@ -300,10 +327,11 @@ def frame_to_rows(
                 "person_idx": person_idx,
             }
 
+            scale = coord_scale(frame_h, frame_w)
             for kp_idx, name in enumerate(kp_names):
-                row[f"{prefix}_{name}_x"] = round(lm[kp_idx, 0] / frame_w, 6)
-                row[f"{prefix}_{name}_y"] = round(lm[kp_idx, 1] / frame_h, 6)
-                row[f"{prefix}_{name}_z"] = round(lm[kp_idx, 2] / frame_w, 6)
+                row[f"{prefix}_{name}_x"] = round(lm[kp_idx, 0] / scale, 6)
+                row[f"{prefix}_{name}_y"] = round(lm[kp_idx, 1] / scale, 6)
+                row[f"{prefix}_{name}_z"] = round(lm[kp_idx, 2] / scale, 6)
                 row[f"{prefix}_{name}_vis"] = round(vis[kp_idx], 4)
 
             matched_hands = hand_map.get(person_idx, {})

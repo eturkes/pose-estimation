@@ -37,7 +37,7 @@ from .calibration import (
     load_calibration,
     load_session_calibration,
 )
-from .export import WORLD3D_FILENAME, read_csv_keypoints, write_world3d_csv
+from .export import WORLD3D_FILENAME, coord_scale, read_csv_keypoints, write_world3d_csv
 from .triangulation import fuse_session_frame
 
 SESSION_MANIFEST_FILENAME = "session.json"
@@ -641,8 +641,12 @@ def fuse_session_outputs(
                 f"Session {session.session_id!r}: the CSV keypoint set for camera "
                 f"{cam.name!r} differs from the other cameras (mixed tracking modes?)."
             )
-        # Normalised [0, 1] → pixels in the calibrated resolution.
-        scale = np.asarray(calibration["cameras"][cam.name]["resolution"], dtype=np.float64)
+        # Normalised [0, 1] → pixels in the calibrated resolution.  This must
+        # invert export.coord_scale exactly: one scalar over both axes, since a
+        # per-axis resolution vector inverts the anisotropic normalisation the
+        # export side no longer writes.
+        cam_width, cam_height = calibration["cameras"][cam.name]["resolution"]
+        scale = coord_scale(cam_height, cam_width)
         shifted: dict[int, tuple[np.ndarray, np.ndarray, float]] = {}
         for raw_idx, (kps, conf, ts) in frames.items():
             logical = raw_idx - cam.sync_offset

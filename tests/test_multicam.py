@@ -539,9 +539,16 @@ def _arm_world(frame_idx: int) -> np.ndarray:
 
 
 def _arc_calibration(
-    session_id: str, names: tuple[str, ...] = ("cam1", "cam2", "cam3")
+    session_id: str,
+    names: tuple[str, ...] = ("cam1", "cam2", "cam3"),
+    resolution: tuple[int, int] = (1920, 1080),
 ) -> SessionCalibration:
-    """Cameras in a wide-baseline arc (world frame = first camera)."""
+    """Cameras in a wide-baseline arc (world frame = first camera).
+
+    *resolution* varies independently of K: the fusion round-trip must cancel
+    whatever scale the export side applied, so a transposed resolution is what
+    separates one isotropic scalar from a per-axis divisor.
+    """
     poses = [
         ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]),
         ([0.0, -0.3, 0.0], [-1.0, 0.0, 0.0]),
@@ -551,7 +558,7 @@ def _arc_calibration(
     for name, (rvec, tvec) in zip(names, poses, strict=False):
         cameras[name] = CameraCalibration(
             name=name,
-            resolution=(1920, 1080),
+            resolution=resolution,
             K=np.array(
                 [[1000.0, 0.0, 960.0], [0.0, 1000.0, 540.0], [0.0, 0.0, 1.0]], dtype=np.float64
             ),
@@ -643,8 +650,10 @@ def test_read_csv_keypoints_round_trip(tmp_path: pathlib.Path):
     for frame_idx, expected_ts in ((4, 0.13), (5, 0.17)):
         kps, conf, ts = frames[frame_idx]
         assert ts == pytest.approx(expected_ts)
-        np.testing.assert_allclose(kps[:12, 0], lm[:, 0] / width, atol=1e-6)
-        np.testing.assert_allclose(kps[:12, 1], lm[:, 1] / height, atol=1e-6)
+        # One scalar on both axes: the export normalisation is a similarity.
+        scale = max(width, height)
+        np.testing.assert_allclose(kps[:12, 0], lm[:, 0] / scale, atol=1e-6)
+        np.testing.assert_allclose(kps[:12, 1], lm[:, 1] / scale, atol=1e-6)
         np.testing.assert_allclose(conf[:12], vis, atol=1e-4)
         # Hands were never observed: NaN coordinates, zero confidence.
         assert np.all(np.isnan(kps[12:]))
@@ -756,8 +765,11 @@ def test_write_world3d_csv_round_trip(tmp_path: pathlib.Path):
     assert (row["left_hand_0_n_views"], row["left_hand_0_cheirality_ok"]) == ("1", "0")
 
 
-def test_fuse_session_outputs_reconstructs_skeleton(tmp_path: pathlib.Path):
-    calib = _arc_calibration("s3d")
+@pytest.mark.parametrize("resolution", [(1920, 1080), (1080, 1920)])
+def test_fuse_session_outputs_reconstructs_skeleton(
+    tmp_path: pathlib.Path, resolution: tuple[int, int]
+):
+    calib = _arc_calibration("s3d", resolution=resolution)
     out_base = tmp_path / "out"
     session_out = out_base / "s3d"
     session_out.mkdir(parents=True)

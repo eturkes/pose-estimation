@@ -12,6 +12,7 @@ import json
 import math
 import pathlib
 import re
+import runpy
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from types import SimpleNamespace
@@ -1898,3 +1899,24 @@ def test_p14_a_roadmap_without_a_cost_record_never_reads_as_measured(
 
     assert rows == [], "no figure means no violation, and no record either"
     assert _unit_cost_rows(), "P14: the predicate must range over a non-empty set to mean anything"
+
+
+def test_report_allowlist_covers_every_throughput_label() -> None:
+    """M2.8.4: a label only a PARTIAL run emits must still clear the redaction guard.
+
+    `partial` shipped outside the allowlist, so every partial and resumed run
+    aborted before writing its report while every full-corpus run passed. The
+    emitter and the allowlist now read one constant, and this ranges over it so a
+    third label cannot be added to only one of them.
+    """
+    driver = runpy.run_path(
+        str(_PROJECT_ROOT / "scripts" / "corpus_run_2d.py"), run_name="_allowlist"
+    )
+    args = SimpleNamespace(model="rtmw-l", tracking="body", det_device="CPU", pose_device="NPU")
+    allowed = driver["redaction_allowlist"](args, [], [])
+    labels = driver["THROUGHPUT_LABELS"]
+
+    assert labels, "the predicate must range over a non-empty set to mean anything"
+    assert labels <= allowed
+    for label in labels:
+        driver["pilot"]._assert_redacted({"throughput": {"sample": label}}, allowed)

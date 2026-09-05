@@ -126,6 +126,11 @@ def open_capture(source, display=None):
         else:
             print(f"WARNING: OpenCV cannot open {label} (codec issue or file integrity?).")
         return None
+    # Requested rather than inherited: OpenCV changed this default across
+    # 4.10/4.11/4.12, and 38 corpus assets declare a non-zero display matrix.
+    # A default that moved between versions decides whether a tenth of the
+    # corpus reaches the pose model upright, so the decode path names it.
+    cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1)
     return cap
 
 

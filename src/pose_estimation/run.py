@@ -408,6 +408,10 @@ def process_source(
         live=isinstance(source, int),
     )
     total_frames = max(0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT)))
+    # Banner only.  Every exported row normalises against the decoded frame's
+    # own shape instead, so a backend whose header disagrees with its pixels —
+    # or an asset that changes orientation mid-clip — cannot desynchronise the
+    # coordinate scale from the image it describes.
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print(
@@ -513,8 +517,8 @@ def process_source(
                     video_name=csv_video_name,
                     frame_idx=decoded_frame_idx,
                     timestamp_sec=timestamp,
-                    frame_h=h,
-                    frame_w=w,
+                    frame_h=frame.shape[0],
+                    frame_w=frame.shape[1],
                     body_landmarks=body_lm,
                     body_visibilities=body_vis,
                     hand_landmarks=hand_lm,
