@@ -509,23 +509,39 @@ Every audio-bearing fixture in `tests/` is muxed by PyAV; three ordering rules d
   every published angle.** `export.py:250` divides x by width and y by height; `z` is identically
   **0.0** on every landmark column in a 2D run, so `angle_at_vertex` (`clinical_features.R:343`) is
   a plain 2D image-plane angle. Measured against the true image-plane angle over 40 upright assets /
-  75 256 frames: median **9.9°**, p75 17.3°, p95 26.5°, max 32.5°. **No published column may carry
-  unit `deg`** — angle-derived columns take `deg_image_plane_uncalibrated`, and no anatomical-angle
-  claim is admissible at any grain. Ratio columns built from angles (`*_symmetry_ratio`,
-  `*_dominance_index`) partially cancel the distortion but are not clean.
-- **OpenCV silently ignores the container display matrix, and `ok` does not mean upright.** 38 of
-  the 379 corpus assets (10.0%) were pose-estimated non-upright — 28 portrait-stored decoded
-  sideways (1080×1920), 10 upside down. `CAP_PROP_ORIENTATION_META` reports the rotation correctly
-  while the decoded frame ignores it, and **the rotation cannot be enabled**: default, explicit
-  `CAP_PROP_ORIENTATION_AUTO=1` and explicit `CAP_FFMPEG` all return the unrotated frame. The fix is
-  an explicit `cv2.rotate` keyed on `CAP_PROP_ORIENTATION_META` in `video_io.py`. Registry census
-  over the 379 `ok` assets: 341 rot-0, 27 rot-90, 10 rot-180, 1 rot-270 (`assets.csv`
-  `reported_rotation_deg` — the registry knew all along). Detection finite-rate degrades
-  monotonically — median **0.990 / 0.955 / 0.903 / 0.816** — and values shift systematically:
-  `left_reach_norm`, a shoulder-normalized ratio that *should* be scale-invariant, moves
-  2.205 → 1.273 between rot-0 and rot-90 assets, because rotation swaps which axis each distance
-  spans under the anisotropic normalization. **Always check `reported_rotation_deg` before trusting
-  geometric features, and rotate at decode.**
+  75 256 frames: median **9.9°**, p75 17.3°, p95 26.5°, max 32.5°. **It also varies BETWEEN assets**,
+  which is what contaminates cohort aggregation: landscape scales `(x, y)` by `(1/1920, 1/1080)` and
+  the 28 portrait assets by `(1/1080, 1/1920)`, so a y-over-x ratio (`posture_symmetry` is one)
+  differs by **(1920/1080)² = 3.16×** across the two populations and a mixed ratio like
+  `left_reach_norm` by the observed 1.73× (2.205 → 1.273). **Ruled and fixed in M2.8.4: one scalar,
+  `max(frame_w, frame_h)`** — a similarity map, so image-plane angles and distance ratios survive;
+  every coordinate stays in `[0, 1]`; and the scale is invariant under a 90° transpose, so the 7
+  mid-clip-rotation assets and the portrait/landscape split share one scale. Angle columns then
+  carry `deg_image_plane` — still not an anatomical angle and still uncorrected for lens distortion.
+- **OpenCV APPLIES the container display matrix, and every corpus asset decoded upright.** The
+  earlier record here claimed the opposite and funded a `cv2.rotate` repair that would have
+  double-rotated 38 assets; M2.8.4 refuted it three ways (contract-m2u84 §2). Pixel identity: the
+  bare `cv2.VideoCapture(path)` decode equals the `CAP_PROP_ORIENTATION_AUTO = 0` decode transformed
+  by exactly the declared rotation — rot-0 identity, rot-90 cw90, rot-180 rot180, rot-270 ccw90 —
+  with explicit `CAP_FFMPEG`, explicit `CAP_ANY` and `AUTO = 1` all matching the default. **`AUTO = 0`
+  is the only setting yielding an unrotated frame, and no code path sets it.** Reported
+  `CAP_PROP_FRAME_WIDTH/HEIGHT` equal the decoded dimensions in every class. Corroborated on the
+  shipped corpus output, where rot-180 is the discriminating class because it shares rot-0's aspect:
+  median per-asset `elbow_y − shoulder_y` reads +0.0966 / +0.0347 / +0.0378 / +0.0302 for
+  rot-0/180/90/270, positive (upright) in all four. Registry census over the 379 `ok` assets: 341
+  rot-0, 27 rot-90, 10 rot-180, 1 rot-270. **Never add a rotation on the decode path**; `open_capture`
+  sets `AUTO = 1` explicitly so the behaviour rests on an assertion rather than on a default that
+  moved across OpenCV 4.10/4.11/4.12.
+- **A defect inferred from a derived artifact needs one measurement of the mechanism before it is
+  funded.** M2.8.3 read non-upright decoding out of feature values and detection rates and never
+  compared a decode against its own container; one pixel comparison refuses it. The observations
+  were real — what they measured was the anisotropy below.
+- **Synthetic rotated fixtures are buildable in-container and pin the whole question.** PyAV cannot
+  write a display matrix and `ffmpeg` is absent, so stamp an ISO-14496-12 `tkhd` matrix into a
+  PyAV-muxed clip: the matrix sits 48 bytes into the `tkhd` box as nine big-endian int32
+  (`{a,b,u,c,d,v,x,y,w}`, 16.16 fixed except `w` at 2.30), and ffmpeg reads the angle from `a,b,c,d`
+  alone, so the translation terms do not matter. Verified to reproduce the corpus behaviour exactly
+  at 0/90/180/270.
 - **A manifest disposition of `ok` certifies that an asset decoded and produced rows — never that it
   decoded in the orientation or the metric its column names assume.** M2.8.2's manifest exists to
   stop an asset vanishing from a denominator and it does that well; both defects above sat under a

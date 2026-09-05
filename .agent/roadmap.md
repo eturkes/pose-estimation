@@ -381,7 +381,7 @@ rebuild — keep new JA text inside existing coverage and state the risk in the 
 | M2.8.1 | kernel | Corpus-run preconditions + instrumented pilot. Close B1/B1b/B2/B2b/B3 (§2 above); stratified pilot spanning both codecs, all four device configs and all four rotations. | 1-2 est; **3 spent, DONE** |
 | M2.8.2 | data + kernel fix | Full corpus 2D run, resumable, 8.70 h measured (full corpus, 193 events / 379 assets / 337 090 frames); the post-fix pilot projected 7.07-7.61 h, so a 16-asset stratified sample under-predicted per-frame cost by 14%. **First question CLOSED in window 1: the 40× split was one tracker-freeze defect, not a cost profile** — so M2.8.1's 26-31 h sampled a broken pipeline and is retired with the plan's 6.5 h. Per-asset clinical features plus a run manifest giving every one of the 379 assets an explicit disposition, so no asset is silently absent from a denominator. | 1-2 est; **2 spent, DONE** |
 | M2.8.3 | kernel | Cohort aggregate publisher + append-ready bilingual descriptor. 12 `(task, side)` cells × the measured published column set, subject-weighted estimand, published view-dispersion column. | 2 est; **2 spent, BLOCKED** on M2.8.4 — contract + 12 amendments frozen, red suite in flight, no implementation |
-| M2.8.4 | data + kernel fix | **Corrected corpus re-run (~8.7 h), now carrying two repairs.** (a) `--tracking body`, populating the 17 trunk/posture columns → 92 published features; (b) **orientation fix** — explicit `cv2.rotate` keyed on `CAP_PROP_ORIENTATION_META` in `video_io.py`, repairing the 38 non-upright assets, plus a portrait-fixture regression test. One run repairs both. **Unblocks M2.8.3.** | 1-2 windows |
+| M2.8.4 | data + kernel fix | **Corrected corpus re-run (~8.7 h), carrying two repairs.** (a) `--tracking body`, populating the 17 trunk/posture columns → 92 published features; (b) **isotropic coordinates** — one scalar `max(frame_w, frame_h)` at `export.py`'s three normalisation sites, killing the 9.9° angle distortion and the 3.16× portrait/landscape contamination. **The planned orientation fix is REFUTED and must not be built** — see below. One run carries both. **Unblocks M2.8.3.** | 1-2 windows |
 
 **M2.8.1 exists because M2.6 recorded why it must.** "Where a milestone's spine rests on an unmeasured
 empirical assumption, the feasibility probe is its own unit with its own budget." M2.8's spine assumes
@@ -462,20 +462,25 @@ script-derivable census in MAIN's hands.**
 defects that make the current `output/corpus-2d/` unfit to aggregate, and the user ruled the unit
 blocks rather than shipping over them. **Evidence, both re-derivable from the registry + corpus:**
 
-- **10.0% of the corpus was pose-estimated non-upright.** 38 of 379 assets — 28 portrait-stored
-  decode sideways (1080×1920), 10 decode upside down. OpenCV ignores the container display matrix
-  and **cannot be made to honor it**: default, explicit `CAP_PROP_ORIENTATION_AUTO=1`, and explicit
-  `CAP_FFMPEG` all return the unrotated frame while `CAP_PROP_ORIENTATION_META` correctly reports
-  90. Registry census over the 379 `ok` assets: 341 rot-0, 27 rot-90, 10 rot-180, 1 rot-270.
-  Detection finite-rate degrades monotonically with rotation — median **0.990 / 0.955 / 0.903 /
-  0.816** — and feature values shift systematically (`left_reach_norm`, a shoulder-normalized ratio
-  that should be scale-invariant, moves 2.205 → 1.273 between rot-0 and rot-90 assets).
-  **The manifest cannot see this: all 379 are `ok`.**
-- **Every published angle is anisotropically distorted by a median 9.9°.** `export.py:250` divides
-  x by frame width and y by frame height; at 16:9 that is anisotropic, and `z` is identically 0.0
-  corpus-wide so `angle_at_vertex` is a plain 2D image-plane angle. Measured against the true
-  image-plane angle over 40 upright assets / 75 256 frames: median **9.9°**, p75 17.3°, p95 26.5°,
-  max 32.5°. This affects **all** assets, upright included, and is not repaired by dropping the 38.
+- **REFUTED by M2.8.4, and the repair it funded would have corrupted 10% of the corpus.** This unit
+  recorded that OpenCV ignores the container display matrix and that 38 of 379 assets decoded
+  non-upright. Three measurements refuse it (`contract-m2u84.md` §2): the bare decode the run path
+  uses equals the `ORIENTATION_AUTO = 0` decode transformed by **exactly** the declared rotation in
+  all four classes; reported dimensions equal decoded dimensions; and on the shipped corpus output
+  rot-180 — the class sharing rot-0's aspect — has elbow below shoulder on 9/10 assets, i.e.
+  upright, as do all four classes. **The planned `cv2.rotate` would have double-rotated 38 assets.**
+  The observations quoted here were real; their cause is the anisotropy below, whose factor differs
+  between the 351 landscape and 28 portrait assets. Registry census stands: 341 rot-0, 27 rot-90,
+  10 rot-180, 1 rot-270. **Datum: a defect inferred from a derived artifact needs one measurement of
+  the mechanism before it is funded.**
+- **Every published angle is anisotropically distorted by a median 9.9°, and the factor VARIES BY
+  ASSET.** `export.py` divides x by frame width and y by frame height; at 16:9 that is anisotropic,
+  and `z` is identically 0.0 corpus-wide so `angle_at_vertex` is a plain 2D image-plane angle.
+  Measured against the true image-plane angle over 40 upright assets / 75 256 frames: median
+  **9.9°**, p75 17.3°, p95 26.5°, max 32.5°. Across assets it is worse: landscape scales `(x, y)` by
+  `(1/1920, 1/1080)` and the 28 portrait assets by `(1/1080, 1/1920)`, so a y-over-x ratio differs
+  by **3.16×** between the two populations — which is what the `left_reach_norm` 2.205 → 1.273 shift
+  above actually measured. **M2.8.4 fixes it: one scalar `max(frame_w, frame_h)`.**
 
 **Datum, and it generalizes past this unit: a disposition of `ok` certifies that an asset decoded
 and produced rows, never that it decoded in the orientation or the metric the features assume.**
