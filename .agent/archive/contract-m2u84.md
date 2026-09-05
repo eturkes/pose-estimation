@@ -133,7 +133,8 @@ Every predicate is decided by a committed test or a committed script MAIN reruns
   `x`, `y` and `z` by one and the same scalar, and that scalar equals `max(frame_w, frame_h)`.
 - **P02 aspect invariance.** One pixel-space geometry exported at 1920×1080 and at 1080×1920 yields
   identical normalised angles and identical distance ratios. This is the property the unit buys, so
-  it is stated over angles and ratios rather than over coordinates.
+  it is stated over angles and ratios rather than over coordinates. Tolerance is exact equality:
+  both aspects divide by the same `max(w, h)`, so the two branches agree bitwise (A02).
 - **P03 range.** Every exported `x`/`y` for a landmark inside the frame lies in `[0, 1]`, in both
   aspects. Non-vacuous: the case must assert it over a landmark at each frame corner.
 - **P04 orientation-invariant scale.** The scale is unchanged when `(w, h)` transposes, so a
@@ -151,12 +152,16 @@ Every predicate is decided by a committed test or a committed script MAIN reruns
   `configuration` carries its value; a report alone distinguishes a pre-fix run from a post-fix run.
 - **P09 all three sites.** Body, hand and hand-only paths use one scale helper. Encoded by driving
   each path, never by grepping for a name.
-- **P10 goldens unmoved.** The six committed 2D R goldens are byte-identical after the change. They
+- **P10 goldens unmoved.** The committed 2D R goldens — enumerated from `_DATASETS` at check time,
+  never from a frozen count (A04) — are byte-identical after the change. They
   are driven by synthetic input CSVs, so `export.py` cannot reach them; a moved golden is an
   undeclared coupling.
 - **P11 tracking mode.** A real event run under `--tracking body` yields `body_*` columns,
-  `detect_tracking` reads `body`, and the 17 trunk/posture columns are finite on at least one window
-  row. Non-vacuous: a run that emits the columns all-NA fails.
+  `detect_tracking` reads `body`, and every trunk/posture column in the committed **`finite-capable`
+  census** is finite on at least one window row. The literal 17 is void and the census is measured
+  before the long run is funded (A03); the sagittal columns are structurally NA from a single 2D view
+  and belong to the `structurally-NA` partition. Non-vacuous: a run that emits the finite-capable
+  columns all-NA fails.
 - **P12 re-run totality.** Manifest total over the 379 canonical assets, six frozen dispositions,
   key-set equality and key uniqueness, and all 11 driver verdicts true.
 - **P13 tree disjointness.** The re-run's `--out` is not the pre-fix tree and shares no
@@ -187,7 +192,7 @@ contract time — an unfireable control is a hole exactly where the contract cla
 | N7 | drop the identity from the run report | P08 |
 | N8 | hand path keeps the anisotropic scale | P09, P02 |
 | N9 | duplicate one manifest asset, drop another | P12 (uniqueness alone sees it) |
-| N10 | round coordinates to 4 dp instead of 6 | P02 fails at the stated tolerance |
+| N10 | round coordinates to 4 dp instead of 6 | nothing — symmetric mutation vs a differential predicate (A02) |
 
 **Graded at contract time.** N1-N4 and N7-N9 each contradict a stated conjunct, so each fires. N5
 and N6 are the pair the refutation exists to guard and both invert the display orientation P07
@@ -222,7 +227,84 @@ contention alone blows).
 
 ## 10. Amendments
 
-*(appended as the wave rules them)*
+**A01 — the normalisation has a second, un-predicated consumer: the 3D fusion un-normaliser.**
+`multicam.fuse_session_outputs` (`multicam.py:644`) multiplied the read-back CSV coordinates by the
+per-axis calibrated `resolution` vector. P10 correctly held the R 2D goldens decoupled, but no
+predicate covered this site, so the contract's invariant-surface list was short by one.
+
+Scope correction, not a correctness finding: export and fusion round-trip through each other, so the
+old per-axis pair `(1/w, 1/h)` → `(w, h)` recovered true pixels just as the new scalar pair does.
+The defect an unrepaired site would have caused is a BROKEN round-trip — normalised by `max(w, h)`,
+un-normalised by `(w, h)` — putting the 2D observations into a stretched pixel space that the
+calibrated intrinsics do not describe, and silently degrading every triangulation.
+
+Ruling: the un-normaliser must invert `export.coord_scale` by construction, so it now calls that
+function rather than restating the identity. `validation.py:809` reads the same CSVs but consumes
+`np.isfinite(kps)` alone (`_camera_tracking`, `validation.py:871-874`) — magnitudes never reach a
+measurement, so it needs no change.
+
+**A02 — N10 cannot fire P02, and the freeze recorded the right verdict for the wrong reason.**
+Reported by `test-m2u84` (batch 1, cce1bd5) as a P02 `fail`.
+
+§7 graded N10 non-firing on magnitude: 4 dp ≈ 1e-4 moves an angle ~0.01°, "below any tolerance P02
+would sensibly carry". That reasoning presumes P02 carries a magnitude tolerance at all. It does not
+and must not: with `scale = max(frame_w, frame_h)`, the SAME pixel geometry exported at 1920×1080
+and at 1080×1920 divides by 1920.0 in both branches, so the normalised coordinates are
+bit-identical and P02's angles and ratios agree exactly. Tolerance = 0, by construction.
+
+The real reason N10 cannot fire is structural, and it generalises: **P02 is a differential predicate
+and N10 is a symmetric mutation.** Rounding to 4 dp perturbs both branches identically, so their
+equality survives any mutation applied to both. No tolerance choice changes that — a magnitude
+argument was never the operative one.
+
+Rulings:
+1. P02 stands as written, with tolerance now stated as exact equality rather than left open.
+2. N10's `must fire` cell is wrong. P02's actual firing set is {N1, N3, N8} — each makes the divisor
+   depend on the aspect, which is the only way to separate the two branches. N10 stays in the table
+   with `must fire: nothing — symmetric mutation vs a differential predicate`, since a control that
+   cannot fire is a fact about the predicate's reach (M2.8.3 A15) and this one now records a reusable
+   rule for grading future negative controls.
+3. The suite must not carry a red case asserting N10 fires. `test-m2u84` graded P02 `fail` against
+   the contract text it was given, which was the correct call on that text; the amendment is the fix,
+   and its P02 case re-grades to `pass` under the corrected §7.
+
+**A03 — P11 is unsatisfiable as written: part of the 17-column target can never be finite from 2D.**
+Reported by `test-m2u84` as CRITICAL; **verified independently by MAIN** at
+`analysis/clinical_features.R:1038` — the 2D branch assigns
+`result[["trunk_lean_sagittal_deg"]] <- NA_real_` under the comment "Out-of-plane: unmeasurable from
+a single 2D view", and `WINDOW_BODY_METRICS` (`clinical_features.R:1081-1086`) carries
+`trunk_lean_sagittal_mean` / `_sd`, which aggregate that column and are therefore NA too.
+
+P11 demands "the 17 trunk/posture columns are finite on at least one window row". The sagittal
+columns are structurally NA in every 2D run, so no `--tracking body` re-run can satisfy it. This is
+the same defect class as M2.8.3's frozen literals: a cardinality asserted from a plan rather than
+measured.
+
+**The unit's deliverable survives** — `trunk_lean_deg`, `trunk_rotation_deg` and `posture_symmetry`
+ARE computed on the 2D branch (`clinical_features.R:1033-1043`), so `--tracking body` still populates
+the non-sagittal trunk/posture columns. Only the acceptance predicate is wrong.
+
+Ruling: P11's literal 17 is void. It is replaced by a **measured** census, and the measurement is a
+precondition of funding the long run rather than an outcome of it — run one real event under
+`--tracking body`, partition the trunk/posture columns into `finite-capable` and `structurally-NA`,
+commit that partition, and restate P11 over the `finite-capable` set alone with the structurally-NA
+set named and justified. MAIN verified the sagittal case only; the rest of the 17 stay unaudited, so
+the census is a measurement, not a subtraction of 2 from 17.
+
+**A04 — P10's golden census is factually wrong: twelve 2D goldens, not six.**
+Reported by `test-m2u84` as HIGH; **verified independently by MAIN** at
+`tests/test_r_clinical_goldens.py:18-42` — `_DATASETS` enumerates four 2D datasets (`2d_idx`,
+`2d_cumsum`, `2d_csv4dp`, `2d_drop`), each with three artifacts (`frame`, `window`, `group_qc`) =
+**12**, plus the separate `world3d` entry. Ruling: P10 reads "the committed 2D R goldens are
+byte-identical", with the count taken from `_DATASETS` at check time rather than frozen in prose. A
+frozen count is a second thing to keep in sync and buys nothing the enumeration does not.
+
+New predicate **P17** (extends I5): for one synthetic session, coordinates written by `frame_to_rows`
+and read back through the fusion un-normaliser reproduce the source pixel geometry to within 1e-6,
+at both a landscape and a portrait calibrated resolution. Acceptance check =
+`tests/test_multicam.py::test_fuse_session_outputs_reconstructs_skeleton` extended with the portrait
+resolution, plus a `command grep` proving no call site restates the divisor:
+`rg -n 'resolution\"\]' src/pose_estimation/` returns no multiplication site.
 
 ## 11. Verdict table
 
