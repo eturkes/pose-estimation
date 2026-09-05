@@ -68,9 +68,13 @@ hand-only). Two consequences, both measured:
 
 ## 4. Design decisions
 
-**D01 — no rotation is applied by this repo, and the reliance becomes an assertion.** §2 refuses the
-repair. The pipeline continues to take the backend's display-matrix handling, and P06/P07 pin it on
-synthetic fixtures so a future OpenCV change fails a test instead of silently rotating 38 assets.
+**D01 — no rotation is applied on the corpus 2D decode path, and the reliance becomes an assertion.**
+§2 refuses the repair. That path continues to take the backend's display-matrix handling, and P06/P07
+pin it on synthetic fixtures so a future OpenCV change fails a test instead of silently rotating 38
+assets. Scope is the decode path `open_capture` → `run.process_source` → detector input, **not the
+repo**: `main.py:205-206` mirrors the frame before inference under its `flip` option, and
+`measure/detect.py:198`, `measure/rigidity.py:168-172`, `measure/visual_offset.py:121-127` rotate
+deliberately on an explicit `rotation_deg`. Those are correct and out of scope (A05).
 
 **D02 — `open_capture` sets `CAP_PROP_ORIENTATION_AUTO = 1` explicitly.** Today's default already
 does this, so behaviour is unchanged; the setting is what removes the dependency on a default.
@@ -145,13 +149,19 @@ Every predicate is decided by a committed test or a committed script MAIN reruns
 - **P06 backend applies the display matrix.** On synthetic fixtures declaring 0/90/180/270, the
   default decode equals the auto-off decode transformed by exactly the declared rotation, and the
   reported dimensions equal the decoded dimensions.
-- **P07 end-to-end orientation.** A frame delivered by `open_capture` is in display orientation for
-  all four classes. Catches a repo-side rotation and a disabled `ORIENTATION_AUTO` alike — P06 pins
-  the environment, P07 pins the pipeline.
-- **P08 normalisation identity.** `export` exports the identity constant; `run_report.json`
-  `configuration` carries its value; a report alone distinguishes a pre-fix run from a post-fix run.
-- **P09 all three sites.** Body, hand and hand-only paths use one scale helper. Encoded by driving
-  each path, never by grepping for a name.
+- **P07 end-to-end orientation.** The frame `run.process_source` hands the detector is in display
+  orientation for all four classes. Catches a path-side rotation and a disabled `ORIENTATION_AUTO`
+  alike — P06 pins the environment, P07 pins the corpus decode path. Scoped to that one entry point;
+  the repo-wide form was dropped with D01's rescoping (A05).
+- **P08 normalisation identity.** Three frozen literals (A05 table in §10): the symbol
+  `pose_estimation.export.COORD_NORMALIZATION`, the report key `configuration.coord_normalization`,
+  and the token `image-isotropic-maxdim`. The same case asserts `coord_scale(h, w) == max(w, h)` on a
+  non-square pair, binding the token to behaviour so a wrong identity cannot satisfy it. A report
+  alone distinguishes a pre-fix run from a post-fix run.
+- **P09 all four sites.** Body, matched-hand, fallback-hand and hands-only paths route through one
+  helper. Witnessed by a call-path spy — `export.coord_scale` monkeypatched to a sentinel divisor,
+  every path's emitted coordinates required to reflect it (A07). Behavioural, so a duplicated formula
+  fails; never a name grep.
 - **P10 goldens unmoved.** The committed 2D R goldens — enumerated from `_DATASETS` at check time,
   never from a frozen count (A04) — are byte-identical after the change. They
   are driven by synthetic input CSVs, so `export.py` cannot reach them; a moved golden is an
@@ -162,18 +172,26 @@ Every predicate is decided by a committed test or a committed script MAIN reruns
   before the long run is funded (A03); the sagittal columns are structurally NA from a single 2D view
   and belong to the `structurally-NA` partition. Non-vacuous: a run that emits the finite-capable
   columns all-NA fails.
-- **P12 re-run totality.** Manifest total over the 379 canonical assets, six frozen dispositions,
-  key-set equality and key uniqueness, and all 11 driver verdicts true.
-- **P13 tree disjointness.** The re-run's `--out` is not the pre-fix tree and shares no
-  `event_complete.json` with it.
+- **P12 re-run totality.** Manifest total over the canonical asset ids **derived from the validated
+  registry at check time**, six frozen dispositions, key-set equality and key uniqueness, and the 11
+  driver verdicts — set-equal to the keys `scripts/corpus_run_2d.py:418-432` owns, each true (A08).
+- **P13 tree disjointness.** Both roots resolved (`Path.resolve()`), non-containment required in
+  **both** directions, and the new root holds zero `event_complete.json` markers before the first
+  attempt (A09). An operator/script obligation MAIN runs and records — no shipped symbol takes both
+  roots.
 - **P14 determinism tripwires.** `check_qualify_determinism.py` and
-  `check_calibration_qc_determinism.py` regenerate green against the new `video_io.py` digest, both
-  negative controls still firing.
+  `check_calibration_qc_determinism.py` regenerate green against the new `video_io.py` digest, each
+  campaign's **complete control-id set** derived from its checker source at check time and required
+  set-equal to the committed results, every expected rejection present, rc=0 (A10).
 - **P15 gate identity.** `ruff check`, `ruff format --check`, `ty check` all rc=0; decisive suite in
-  the primary tree, 0 skipped, collection moved by exactly the new cases.
-- **P16 the fix is demonstrated, not asserted.** On one fixed asset sample spanning both aspects,
-  the portrait-vs-landscape divergence of a scale-invariant feature falls from its pre-fix value
-  toward 1.0. A committed script, credited by MAIN's rerun.
+  the primary tree. Collection is compared as a **node-id set difference** against the digest frozen
+  at base 3d323c7, against the exact added node ids; rc=0 and 0 skipped are separate conjuncts (A11).
+- **P16 the fix is demonstrated, not asserted.** Within-asset angle fidelity against pixel-space
+  ground truth, on the 8-asset sample frozen in A12 before execution: isotropic max per-asset p95 of
+  `abs(angle_normalised - angle_pixel)` **< 1e-6 deg**, and the same script's anisotropic
+  recomputation on the same frames **>= 5 deg** median, so the case cannot pass vacuously. A
+  committed script, credited by MAIN's rerun, and runnable **before** the long run is funded. The old
+  cross-asset half is deleted as redundant with P02 (A12).
 
 ## 7. Negative-control seed
 
@@ -191,7 +209,7 @@ contract time — an unfireable control is a hole exactly where the contract cla
 | N6 | add `cv2.rotate` on the decode path | P07 |
 | N7 | drop the identity from the run report | P08 |
 | N8 | hand path keeps the anisotropic scale | P09, P02 |
-| N9 | duplicate one manifest asset, drop another | P12 (uniqueness alone sees it) |
+| N9 | duplicate one manifest asset, drop another | P12 via key-set equality AND uniqueness — the mutation moves both (A08) |
 | N10 | round coordinates to 4 dp instead of 6 | nothing — symmetric mutation vs a differential predicate (A02) |
 
 **Graded at contract time.** N1-N4 and N7-N9 each contradict a stated conjunct, so each fires. N5
@@ -299,12 +317,137 @@ Reported by `test-m2u84` as HIGH; **verified independently by MAIN** at
 byte-identical", with the count taken from `_DATASETS` at check time rather than frozen in prose. A
 frozen count is a second thing to keep in sync and buys nothing the enumeration does not.
 
-New predicate **P17** (extends I5): for one synthetic session, coordinates written by `frame_to_rows`
+A01 also adds **P17** (extends I5): for one synthetic session, coordinates written by `frame_to_rows`
 and read back through the fusion un-normaliser reproduce the source pixel geometry to within 1e-6,
 at both a landscape and a portrait calibrated resolution. Acceptance check =
 `tests/test_multicam.py::test_fuse_session_outputs_reconstructs_skeleton` extended with the portrait
 resolution, plus a `command grep` proving no call site restates the divisor:
 `rg -n 'resolution\"\]' src/pose_estimation/` returns no multiplication site.
+
+A03 addendum — the 17 also spans **two artifact grains**, which is the second half of why it is
+unsatisfiable: the frame artifact owns 5 columns (`trunk_lean_deg`, `trunk_lean_lateral_deg`,
+`trunk_lean_sagittal_deg`, `trunk_rotation_deg`, `posture_symmetry`;
+`analysis/clinical_features.R:1012,1034-1043`) and `WINDOW_BODY_METRICS` owns 12
+(`clinical_features.R:1081-1086`). 5 + 12 = 17, so **no single window row can carry all 17** even
+before the sagittal problem. Derived expectation for the measurement, to be confirmed rather than
+discovered: `structurally-NA` = 3 cells (`trunk_lean_sagittal_deg` + its `_mean`/`_sd` aggregates),
+`finite-capable` = 14. `trunk_lean_lateral_deg` is computed unconditionally at
+`clinical_features.R:1012`, ahead of the 3D/2D branch, so it is finite-capable.
+
+A04 addendum — the contract's `tests/goldens/2d_*` spelling matches **zero** tracked paths. The
+goldens live under `tests/goldens/r_clinical/` (16 files: the 12 2D artifacts plus the `world3d`
+set). P10 addresses them through `_DATASETS`, never through a path glob.
+
+**A05 — P07 has no entry-point grain, and D01's repo-wide claim is already false.**
+Reported as HIGH. Two entry points read decoded frames: `run.process_source` (`run.py:447`) and
+`main.process_video` (`main.py:196`). A case over one can stay green while the other transforms.
+
+MAIN went to check which entry points transform, and found D01 refuted on its own terms:
+`main.py:205-206` applies `cv2.flip(frame, 1)` to the frame **before inference**, under the `flip`
+option. `measure/detect.py:198`, `measure/rigidity.py:168-172` and `measure/visual_offset.py:121-127`
+all call `np.rot90` deliberately, keyed on an explicit `rotation_deg`, as part of sync/offset
+detection. So "no rotation applied by this repo" was never true; what is true is that **the corpus 2D
+decode path applies none**.
+
+Rulings:
+1. **D01 is rescoped** to the corpus 2D decode path — `open_capture` → `run.process_source` →
+   detector input. The MediaPipe display path's opt-in mirror and the `measure/` subsystem's
+   orientation handling are deliberate, out of scope, and named here so a later reader does not read
+   them as violations.
+2. P07 quantifies over `run.process_source` for all four rotation classes, at the detector-input
+   boundary. N5 and N6 fire there.
+3. The repo-wide absence claim is **dropped, not converted into a structural check**. A grep over
+   `src/` for rotation calls cannot distinguish the four legitimate sites above from an illegitimate
+   one, so it would fire on correct code — a check that cannot separate the cases it exists to
+   separate is worse than no check.
+
+**A06 — P08 freezes no identity, so a wrong identity satisfies it.**
+Reported as HIGH: neither symbol, report key, nor token is fixed, and an identity still denoting
+width/height division would pass. Ruling — all three literals are frozen, and the token is bound to
+behaviour so it cannot drift from what it names:
+
+| slot | frozen value |
+| ---- | ------------ |
+| exported symbol | `pose_estimation.export.COORD_NORMALIZATION` |
+| report key | `configuration.coord_normalization` in `run_report.json` |
+| token | `image-isotropic-maxdim` |
+
+Binding conjunct: the same case asserts `coord_scale(h, w) == max(w, h)` for a non-square pair, so
+the token cannot survive a semantic change. N7 removes the report key and fires.
+
+**A07 — P09's helper conjunct has no witness; four duplicated formulas would pass.**
+Reported as MEDIUM. Behavioural driving proves shared *values*, not a shared *helper*, so structural
+deduplication can regress silently. Ruling: witness helper identity behaviourally with a **call-path
+spy** — monkeypatch `export.coord_scale` to return a sentinel divisor, drive the body, matched-hand,
+fallback-hand and hands-only paths, and require every path's emitted coordinates to reflect the
+sentinel. A duplicated formula ignores the patch and fails. This keeps P09 behavioural, drops no
+conjunct, and needs no name grep. N8 fires on it.
+
+**A08 — P12 freezes an input-owned census and an unnamed verdict set.**
+Reported as HIGH. Rulings: (a) the canonical asset ids are derived from the validated registry at
+check time, never from the literal 379; (b) the verdict key set is frozen exactly as
+`scripts/corpus_run_2d.py:418-432` owns it — `manifest_total`, `every_event_complete`,
+`artifacts_owned`, `group_disposition_published`, `partition_total`, `partition_disjoint`,
+`group_qc_header_frozen`, `counters_classify_every_frame`, `stored_rate_equals_its_derivation`,
+`generation_digest_unmoved`, `generation_marker_unmoved` (11), and membership is checked as set
+equality so a substituted always-true key fails; (c) N9's `must fire` cell is corrected — the
+duplicate-one/drop-one mutation changes the key set as well as uniqueness, so "uniqueness alone sees
+it" is wrong; current validation happens to raise on uniqueness first, which is an ordering
+accident, not the predicate's reach.
+
+**A09 — P13's tree-disjointness relation is undefined in both directions.**
+Reported as HIGH. Every correct re-run necessarily recreates the same event-relative
+`event_complete.json` paths, so a naive path comparison rejects valid runs; and path inequality alone
+misses a symlink aliasing the old tree. Ruling: P13 takes **both roots as resolved paths**
+(`Path.resolve()`), requires non-containment **in both directions**, and requires the new root to
+hold **zero** `event_complete.json` markers before the first attempt. No shipped symbol accepts both
+roots, so this is an operator/script obligation, run and recorded by MAIN rather than encoded as a
+pytest case.
+
+**A10 — P14 names "both negative controls" without identifying any.**
+Reported as MEDIUM. The qualification evidence carries 20 tamper rows and the calibration evidence
+18; either can lose a row and stay non-empty and green. Ruling: P14 derives each campaign's
+**complete control-id set** from its checker source at check time, requires set equality against the
+committed results, requires every expected rejection, and requires rc=0 — with the recorded source
+digests including `video_io.py`, which is what makes the regeneration non-trivial this unit.
+
+**A11 — P15's collection delta has no baseline and no grain.**
+Reported as MEDIUM. One parameterised function is four collected cases, so function count and node-id
+count disagree, and the contract's recorded base predates the grading base, letting an implicit
+commit-to-commit delta absorb unrelated cases. Ruling: freeze the **collected node-id set digest at
+base 3d323c7**, freeze the exact added node ids, and compare the set difference. rc=0 and zero skips
+stay separate conjuncts of §8 rather than folding into the delta.
+
+**A12 — P16 is vacuous: "toward 1.0" admits any outcome, chosen after seeing it.**
+Reported as CRITICAL, and the most consequential row — as written the unit has no way to demonstrate
+its own fix, and the demonstration was the reason the long run is funded. Neither sample membership,
+feature, estimator, divergence formula, pre-fix reference, direction handling, nor minimum
+improvement is fixed. A single asset also cannot span both static aspects, so the sample grain was
+incoherent.
+
+Ruling: P16 is replaced by a **within-asset angle-fidelity measurement against pixel-space ground
+truth**, which is exact, needs no population statistics, and — decisively — does not depend on the
+corpus re-run, so it can be run *before* the long run is funded rather than after.
+
+Pixel-space image-plane angle is the ground truth: a similarity normalisation preserves it exactly,
+an anisotropic one does not. On a sample frozen **before execution**:
+
+| slot | frozen value |
+| ---- | ------------ |
+| sample | 8 canonical assets — the first 4 landscape and first 4 portrait by sorted canonical id in the validated registry; ids committed to this contract before the script runs |
+| observable | image-plane angle at the elbow (shoulder-elbow-wrist), both sides, every frame with all three keypoints finite |
+| reference | the same angle computed from the decoded **pixel** coordinates |
+| estimator | per-asset median and p95 of `abs(angle_normalised - angle_pixel)` in degrees |
+| acceptance | isotropic: max over the sample of the per-asset p95 **< 1e-6 deg**; anisotropic, recomputed by the same script on the same frames: median **>= 5 deg** |
+
+The anisotropic conjunct is asserted, not merely reported: without it a normalisation that happened
+to be near-isotropic would pass vacuously. Prior measurement on this corpus put the anisotropic
+median at 9.9 deg and p95 at 26.5 deg, so the 5 deg floor has ~2x headroom.
+
+The cross-asset half of the old P16 is **deleted as redundant**: the aspect-driven divergence is
+already pinned exactly and deterministically by P02, which compares the same geometry across both
+aspects. A population median over real assets would restate that property with sampling noise added
+and proof subtracted.
 
 ## 11. Verdict table
 
