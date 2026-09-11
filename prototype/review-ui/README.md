@@ -48,9 +48,11 @@ prefix is a recording event. Rows with the same number are the other views of th
 event. The controls set the video layer to show, dim or hide, switch the body,
 hands, points and labels, and move the visibility threshold. The strip below the
 transport shows the mean body visibility per frame, so a tracking dropout is
-visible for the whole clip at once. The overlay keeps the pipeline palette in both
-themes, because it draws over video and not over a page surface. The stage turns
-dark when you dim or hide the video, which keeps that palette readable.
+visible for the whole clip at once. The overlay palette does not change with the
+theme, because the overlay draws over video and not over a page surface. The stage
+turns dark when you dim or hide the video, which keeps the overlay readable. The
+dot colours show the confidence band. The pipeline colours a dot by body group, so
+those three colours belong to this UI alone.
 
 **Cohort statistics** shows one feature at a time across the 12 `(task, side)`
 cells. The bar is the interquartile range, the rule is the median and the dot is

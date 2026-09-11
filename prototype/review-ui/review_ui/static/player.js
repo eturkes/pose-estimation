@@ -11,11 +11,12 @@
 
 import { cssColour, el, json, num, panel, t, token } from "/static/app.js";
 
-/** Visibility bands on the overlay.  Fixed in both themes: the overlay is drawn
-    over video pixels rather than over a page surface, and its palette is the
-    one pose_estimation.drawing ships, so the overlay draws what the pipeline
-    draws.  The strip below the transport is a page surface and takes the themed
-    tokens instead. */
+/** Confidence bands for the overlay's landmark dots.  This palette is the UI's
+    own — pose_estimation.drawing colours a dot by body group, not by confidence,
+    so these three are a review affordance and not pipeline output.  They stay
+    fixed in both themes anyway, because they are drawn over video pixels rather
+    than over a page surface.  The strip below the transport encodes the same
+    quantity on a page surface, so it takes the themed tokens instead. */
 const OVERLAY_VIS = { high: "#5ec9a4", mid: "#f2a65a", low: "#e0705c" };
 let topology = null;
 

@@ -10,8 +10,8 @@
    colour.  Canvas and Plotly read used colours back through app.js `cssColour`.
 
    The clip stage follows the theme like every other surface.  The overlay drawn
-   over it does not — its palette is pose_estimation.drawing's, so the overlay
-   draws what the pipeline draws (player.js `OVERLAY_VIS`). */
+   over it does not: it is drawn over video pixels, so a themed palette would be
+   read against the clip rather than against the page (player.js `OVERLAY_VIS`). */
 
 @font-face {
   font-family: "Plex Sans";
