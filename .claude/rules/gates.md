@@ -69,6 +69,17 @@ uv run --no-sync ruff check && uv run --no-sync ruff format --check \
 A gate backing a durable claim must rerun from committed state, so a scratch-local validator is a temporary encoding: its regeneration path is recorded here and its port is a `.agent/deferred.md` row.
 
 - `.scratch/nc_m2u74.py` — the nine M2.7.4 negative controls over `docs/prospective_capture.md`. Each control mutates the document in place, grades `scripts/check_prospective_capture.py` in a fresh `runpy` namespace, and restores the bytes under `try/finally`; the run reports `controls_firing N of 9` and proves the file byte-identical against its pre-run digest. **9/9 fire, restored `55eb769a1768`.** Seed rules learned here: P03 needs S20's single `MUST` (S14 carries three, so lowercasing one grades nothing), and NC4's needle must come from `calibration_qc.PROHIBITED_PARAPHRASES` rather than invented prose.
+- `.scratch/theme_qa.mjs` — review-ui theme control, the paths a still capture cannot show.
+  `node .scratch/theme_qa.mjs http://127.0.0.1:<port>` against a running `python -m review_ui`;
+  resolves `chromiumfish` + `playwright-core` out of the pnpm global store exactly as `webcap` does,
+  and drives a **persistent** context, which is what makes `localStorage` outlive the reload the
+  rehydration check needs. 13 checks: auto is the default and resolves light under CDP (this build
+  reports `prefers-color-scheme` light), the cycle auto→light→dark→auto with its label and its
+  stored value per step, `data-theme` present at document *commit* after a reload, `palette()`
+  returning a used `rgb()` rather than the `light-dark()` call text, and the `:has()` stage backdrop
+  across show/dim/hide. **13/13 green; 2 of 2 seeds fire** — neutering the `.stage:has(...)`
+  background reds exactly the 2 backdrop rows, misspelling the pre-paint `review-ui-theme` key reds
+  the 3 rehydration rows and nothing else, both files restored byte-identical by digest.
 - `.scratch/steq.py` — ASD-STE100 register scan over the human-facing surface (inventory: `docs/technical/conventions.md` → *Text register*). Drops fences/tables/headings/frontmatter, joins wrapped lines into blocks so a sentence is measured whole, splits on `.!?`, flags `LONG` (> `--max`; 20 for instructions, 25 for descriptions), `FILLER`, `CONTRACTION` (also fires on possessive `'s`), `PASSIVE` (be-verb + participle heuristic). Code-file mode samples quoted `help=`/`description=`/`title=` strings only. Measured at `--max 20`: `README.md` 14 → 2, `docs/capture_protocol.md` 20 → 7; residual flags are 21-25-word descriptions, which the rule allows.
 - `.scratch/fidelity.sh <base-ref> <file>…` — pairs with it: diffs the multiset of format specifiers, `--flags`, backticked spans, file names and numbers between a base ref and the working tree. A register-only edit must show no delta; every delta needs an explanation. Caught the p-value reformat (`p<.05` → `p < 0.05`) and confirmed 14 R files invariant.
 

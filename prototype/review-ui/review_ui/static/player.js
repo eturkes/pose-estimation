@@ -9,9 +9,14 @@
    video layer hidden entirely — a rAF clock takes over, so the overlay reviews
    on its own. */
 
-import { el, json, num, panel, t, token } from "/static/app.js";
+import { cssColour, el, json, num, panel, t, token } from "/static/app.js";
 
-const VIS_COLOUR = { high: "#5ec9a4", mid: "#f2a65a", low: "#e0705c" };
+/** Visibility bands on the overlay.  Fixed in both themes: the overlay is drawn
+    over video pixels rather than over a page surface, and its palette is the
+    one pose_estimation.drawing ships, so the overlay draws what the pipeline
+    draws.  The strip below the transport is a page surface and takes the themed
+    tokens instead. */
+const OVERLAY_VIS = { high: "#5ec9a4", mid: "#f2a65a", low: "#e0705c" };
 let topology = null;
 
 const view = {
@@ -47,11 +52,11 @@ function label(clip) {
 
 /* ------------------------------------------------------------------ drawing */
 
-function colourFor(value) {
+function colourFor(value, colours) {
   if (value === null || value === undefined) return null;
-  if (value >= 0.75) return VIS_COLOUR.high;
-  if (value >= view.threshold) return VIS_COLOUR.mid;
-  return VIS_COLOUR.low;
+  if (value >= 0.75) return colours.high;
+  if (value >= view.threshold) return colours.mid;
+  return colours.low;
 }
 
 function drawSegments(ctx, points, segments, colours, scale) {
@@ -133,7 +138,7 @@ function paint() {
     if (view.showPoints) {
       body.points.forEach((point, index) => {
         if (!point) return;
-        ctx.fillStyle = colourFor(body.confidences[index]) || "#ffffff";
+        ctx.fillStyle = colourFor(body.confidences[index], OVERLAY_VIS) || "#ffffff";
         ctx.beginPath();
         ctx.arc(point[0] * scale, point[1] * scale, Math.max(width / 320, 2), 0, Math.PI * 2);
         ctx.fill();
@@ -183,14 +188,16 @@ function paintStrip() {
   ctx.clearRect(0, 0, width, height);
 
   const values = view.series.visibility;
+  const bands = { high: cssColour("--good"), mid: cssColour("--amber"), low: cssColour("--warn") };
+  const absent = cssColour("--line");
   const step = width / Math.max(values.length, 1);
   for (let i = 0; i < values.length; i += 1) {
     const value = values[i];
-    ctx.fillStyle = colourFor(value) || "#3a465a";
+    ctx.fillStyle = colourFor(value, bands) || absent;
     const barHeight = Math.max((value || 0) * height, 1);
     ctx.fillRect(i * step, height - barHeight, Math.max(step, 1), barHeight);
   }
-  ctx.strokeStyle = "#e7eaf2";
+  ctx.strokeStyle = cssColour("--text");
   ctx.lineWidth = 1;
   const x = (view.frame / Math.max(values.length - 1, 1)) * width;
   ctx.beginPath();

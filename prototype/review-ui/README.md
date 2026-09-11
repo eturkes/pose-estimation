@@ -7,6 +7,11 @@ published trees and writes nothing.
 The UI is bilingual. Japanese is the default. The button at the top right changes
 the language, and `?lang=en` sets it in a link.
 
+The UI has three themes. The default is auto, which follows the operating system.
+The button beside the language button steps through auto, light and dark. The
+browser keeps your choice. `?theme=light` or `?theme=dark` sets the theme in a
+link.
+
 ## Run
 
 ```sh
@@ -43,7 +48,9 @@ prefix is a recording event. Rows with the same number are the other views of th
 event. The controls set the video layer to show, dim or hide, switch the body,
 hands, points and labels, and move the visibility threshold. The strip below the
 transport shows the mean body visibility per frame, so a tracking dropout is
-visible for the whole clip at once.
+visible for the whole clip at once. The overlay keeps the pipeline palette in both
+themes, because it draws over video and not over a page surface. The stage turns
+dark when you dim or hide the video, which keeps that palette readable.
 
 **Cohort statistics** shows one feature at a time across the 12 `(task, side)`
 cells. The bar is the interquartile range, the rule is the median and the dot is
@@ -89,9 +96,11 @@ Rerun it after you add a Japanese string, or the new characters render as tofu.
 
 ## Proof
 
-`proof/` holds `census-ja.png`, `player-ja.png`, `cohort-ja.png`, `census-en.png`
-and `run.txt`. The transcript records the run command, the published trees, and
-one probe per endpoint the views consume. It carries no timestamp, host path or
+`proof/` holds `census-ja.png`, `player-ja.png`, `cohort-ja.png`, `census-en.png`,
+`census-ja-dark.png` and `run.txt`. Each capture pins its theme, because the
+default follows the machine that takes the capture. The four light captures are
+the baseline. The dark capture shows the theme control. The transcript records the
+run command, the published trees, and one probe per endpoint the views consume. It carries no timestamp, host path or
 process id, so a rerun over the same trees rewrites it byte for byte.
 
 The captures are byte-stable once the font cache is warm. Three reruns agreed on
@@ -104,6 +113,8 @@ capture diff before you believe it.
 - The browser must decode the clip. Chromium plays the H.264 clips. It does not
   play the HEVC clips on a build without a platform decoder. Hide the video layer
   for those; the overlay still plays on its own clock.
+- The theme needs the CSS `light-dark()` function and the `:has()` selector.
+  Chrome 123, Firefox 121 and Safari 17.5 support both.
 - The prototype carries no tests and no gate. It is a behavioural reference for
   the IMPLEMENT phase, not its code base.
 - The server trusts its caller. It binds the loopback address and serves

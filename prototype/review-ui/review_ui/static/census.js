@@ -2,12 +2,19 @@
    pipeline measured.  Everything on this page comes from a publisher summary
    that is aggregates-only by its own contract. */
 
-import { chart, el, json, num, panel, t, table, token, wrappable } from "/static/app.js";
-
-const ACCENT = "#6aa9ff";
-const AMBER = "#f2a65a";
-const GOOD = "#5ec9a4";
-const WARN = "#e0705c";
+import {
+  chart,
+  el,
+  json,
+  num,
+  palette,
+  panel,
+  t,
+  table,
+  token,
+  withAlpha,
+  wrappable,
+} from "/static/app.js";
 
 function tiles(data) {
   return el(
@@ -59,7 +66,12 @@ function shapesPanel(data) {
   }
   return panel(
     t("census.shapes"),
-    barChart([...pooled.entries()].sort((a, b) => b[1] - a[1]), ACCENT, true, 40 + 26 * pooled.size),
+    barChart(
+      [...pooled.entries()].sort((a, b) => b[1] - a[1]),
+      palette().accent,
+      true,
+      40 + 26 * pooled.size,
+    ),
     el("p", { class: "note" }, t("census.shapes.chart")),
     el("p", { class: "note" }, t("census.shapes.note")),
     el(
@@ -79,12 +91,13 @@ function rotationPanel(data) {
   const angles = [...new Set(views.flatMap((view) => Object.keys(data.rotation_by_view[view])))];
   angles.sort((a, b) => Number(a) - Number(b));
   const node = el("div", { class: "chart", style: { height: "220px" } });
+  const { accent, amber, good, warn } = palette();
   const traces = angles.map((angle, index) => ({
     type: "bar",
     name: `${angle}°`,
     x: views.map((view) => t(`view.${view}`)),
     y: views.map((view) => data.rotation_by_view[view][angle] || 0),
-    marker: { color: [ACCENT, AMBER, GOOD, WARN][index % 4] },
+    marker: { color: [accent, amber, good, warn][index % 4] },
   }));
   requestAnimationFrame(() => chart(node, traces, { barmode: "stack" }));
   return panel(t("census.rotation"), node);
@@ -101,6 +114,7 @@ function durationPanel(data) {
   const stats = data.duration_s || {};
   if (!stats.median) return null;
   const node = el("div", { class: "chart", style: { height: "150px" } });
+  const { accent } = palette();
   requestAnimationFrame(() =>
     chart(
       node,
@@ -114,9 +128,9 @@ function durationPanel(data) {
           q3: [stats.p75],
           lowerfence: [stats.min],
           upperfence: [stats.p95],
-          marker: { color: ACCENT },
-          line: { color: ACCENT },
-          fillcolor: "rgba(106,169,255,0.18)",
+          marker: { color: accent },
+          line: { color: accent },
+          fillcolor: withAlpha(accent, 0.18),
           name: "",
         },
       ],
@@ -145,7 +159,7 @@ function syncPanel(data) {
     [t("census.sync.pairs"), data.pair_status],
   ].filter(([, counts]) => counts && Object.keys(counts).length);
   const statuses = [...new Set(groups.flatMap(([, counts]) => Object.keys(counts)))];
-  const palette = [GOOD, ACCENT, AMBER, WARN, "#8f7fd1", "#c98fb0"];
+  const { series } = palette();
   const node = el("div", { class: "chart", style: { height: "200px" } });
   const traces = statuses.map((status, index) => ({
     type: "bar",
@@ -153,7 +167,7 @@ function syncPanel(data) {
     name: token(status),
     y: groups.map(([label]) => label),
     x: groups.map(([, counts]) => counts[status] || 0),
-    marker: { color: palette[index % palette.length] },
+    marker: { color: series[index % series.length] },
   }));
   requestAnimationFrame(() =>
     chart(node, traces, { barmode: "stack", margin: { l: 8, r: 16, t: 8, b: 30 } }),
@@ -286,6 +300,7 @@ function provenancePanel(data) {
 
 export async function renderCensus(root) {
   const data = await json("/api/census");
+  const { accent, amber, good } = palette();
   const missing = Object.entries(data.available)
     .filter(([, present]) => !present)
     .map(([name]) => name);
@@ -304,10 +319,10 @@ export async function renderCensus(root) {
       { class: "grid", style: { gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))" } },
       shapesPanel(data),
       rotationPanel(data),
-      countPanel(t("census.codec"), data.codec, AMBER),
-      countPanel(t("census.device"), data.device_config, GOOD, true),
-      countPanel(t("census.views"), data.view_coverage, ACCENT),
-      countPanel(t("census.cameras"), data.cameras_per_event, ACCENT),
+      countPanel(t("census.codec"), data.codec, amber),
+      countPanel(t("census.device"), data.device_config, good, true),
+      countPanel(t("census.views"), data.view_coverage, accent),
+      countPanel(t("census.cameras"), data.cameras_per_event, accent),
       durationPanel(data),
       syncPanel(data),
       flagsPanel(data),

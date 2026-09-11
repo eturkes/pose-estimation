@@ -31,7 +31,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PROOF = ROOT / "proof"
-VIEWS = (("census", "ja"), ("player", "ja"), ("cohort", "ja"), ("census", "en"))
+#: Every capture pins its theme.  The UI defaults to `auto`, so an unpinned
+#: capture would record the colour scheme of whatever machine took it; `light` is
+#: the proof baseline and the one dark row is what shows the theme control
+#: working.  A pinned theme keeps the baseline names unsuffixed.
+VIEWS = (
+    ("census", "ja", "light"),
+    ("player", "ja", "light"),
+    ("cohort", "ja", "light"),
+    ("census", "en", "light"),
+    ("census", "ja", "dark"),
+)
 CAPTURE_SIZE = {"census": (1500, 1000), "cohort": (1500, 1000), "player": (1500, 1150)}
 FULL_PAGE = {"census", "cohort"}
 
@@ -160,12 +170,13 @@ def capture(base: str, port: int) -> list[str]:
     if shutil.which("webcap") is None:
         return ["captures", "  webcap absent — no PNG written", ""]
     written = []
-    for name, lang in VIEWS:
+    for name, lang, theme in VIEWS:
         width, height = CAPTURE_SIZE[name]
-        target = PROOF / f"{name}-{lang}.png"
+        suffix = "" if theme == "light" else f"-{theme}"
+        target = PROOF / f"{name}-{lang}{suffix}.png"
         command = [
             "webcap",
-            f"{base}/?lang={lang}#{name}",
+            f"{base}/?lang={lang}&theme={theme}#{name}",
             "--png",
             str(target),
             "--width",
@@ -179,7 +190,10 @@ def capture(base: str, port: int) -> list[str]:
             command.append("--full-page")
         subprocess.run(command, check=True, capture_output=True, text=True)
         written.append(
-            (target.name, f"{width}x{height}{' full-page' if name in FULL_PAGE else ''}")
+            (
+                target.name,
+                f"{width}x{height} · {theme}{' · full-page' if name in FULL_PAGE else ''}",
+            )
         )
     return section(f"captures  (webcap, port {port})", written)
 

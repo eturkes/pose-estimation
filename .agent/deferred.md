@@ -45,3 +45,6 @@ rows before sizing any unit that touches their surfaces.
   land under the requested root; MediaPipe unchanged.
 - **`sessions.py` predicates pinned by tests alone** → a campaign mirroring
   `run_inventory_mutations.py` kills every mutant with >=1 committed test, replaying from clean.
+- **Review UI theme control proven by a scratch script alone** (`.scratch/theme_qa.mjs` → regen path
+  in `.claude/rules/gates.md`) → a committed check drives the cycle, the pre-paint rehydration and
+  the `:has()` stage backdrop, 13/13 green, failing under the two recorded seeds.

@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Pose Estimation Review</title>
     <link rel="stylesheet" href="/static/style.css" />
+    <!-- Pins the theme before the first paint, so a stored dark preference never
+         flashes light.  It is the only resolver: app.js reads the choice back off
+         `data-theme` instead of deriving it a second time.  Absent attribute =
+         auto, which style.css answers with `light-dark()` and no script at all. -->
+    <script>
+      (() => {
+        const requested = new URLSearchParams(location.search).get("theme");
+        const pinned = ["light", "dark"].includes(requested)
+          ? requested
+          : localStorage.getItem("review-ui-theme");
+        if (pinned === "light" || pinned === "dark") document.documentElement.dataset.theme = pinned;
+      })();
+    </script>
     <script src="/static/vendor/plotly-cartesian.min.js"></script>
   </head>
   <body>
@@ -22,6 +35,7 @@
         <button class="tab" data-view="player" data-i18n="nav.player"></button>
         <button class="tab" data-view="cohort" data-i18n="nav.cohort"></button>
       </nav>
+      <button class="theme" id="theme-toggle" type="button"></button>
       <button class="lang" id="lang-toggle" type="button">EN</button>
     </header>
 

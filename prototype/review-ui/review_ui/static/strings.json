@@ -11,6 +11,22 @@
     "ja": "プロトタイプ",
     "en": "Prototype"
   },
+  "theme.label": {
+    "ja": "テーマ",
+    "en": "Theme"
+  },
+  "theme.auto": {
+    "ja": "自動",
+    "en": "Auto"
+  },
+  "theme.light": {
+    "ja": "ライト",
+    "en": "Light"
+  },
+  "theme.dark": {
+    "ja": "ダーク",
+    "en": "Dark"
+  },
   "nav.census": {
     "ja": "コーパス概要",
     "en": "Corpus census"

@@ -65,8 +65,9 @@ GET /static/topology.json
   hand chains    5
 
 captures  (webcap, port 8791)
-  census-ja.png  1500x1000 full-page
-  player-ja.png  1500x1150
-  cohort-ja.png  1500x1000 full-page
-  census-en.png  1500x1000 full-page
+  census-ja.png       1500x1000 · light · full-page
+  player-ja.png       1500x1150 · light
+  cohort-ja.png       1500x1000 · light · full-page
+  census-en.png       1500x1000 · light · full-page
+  census-ja-dark.png  1500x1000 · dark · full-page
 

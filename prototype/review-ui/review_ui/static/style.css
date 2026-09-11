@@ -1,6 +1,17 @@
-/* Review UI design system.  Dark by default: every overlay palette this project
-   ships is bright-on-dark (pose_estimation.drawing), so the surface around a clip
-   matches what is drawn on it. */
+/* Review UI design system.
+
+   One token block carries both palettes through `light-dark()`, so the theme is
+   `color-scheme` and nothing else: no `data-theme` attribute means the operating
+   system decides, `light` / `dark` pins it.  That keeps the palette defined once
+   and costs no pre-paint flash, because the default state is pure CSS.
+
+   Custom properties resolve to the text they were authored with, so a
+   `getPropertyValue("--accent")` returns the `light-dark(...)` call rather than a
+   colour.  Canvas and Plotly read used colours back through app.js `cssColour`.
+
+   The clip stage follows the theme like every other surface.  The overlay drawn
+   over it does not — its palette is pose_estimation.drawing's, so the overlay
+   draws what the pipeline draws (player.js `OVERLAY_VIS`). */
 
 @font-face {
   font-family: "Plex Sans";
@@ -34,22 +45,43 @@
 }
 
 :root {
-  --bg: #0e1015;
-  --panel: #161a22;
-  --panel-2: #1b202a;
-  --line: #272e3b;
-  --line-soft: #1f2531;
-  --text: #e7eaf2;
-  --muted: #939cb1;
-  --faint: #6b7488;
-  --accent: #6aa9ff;
-  --accent-soft: #24344d;
-  --amber: #f2a65a;
-  --good: #5ec9a4;
-  --warn: #e0705c;
+  color-scheme: light dark;
+  --bg: light-dark(#f2f4f8, #0e1015);
+  --panel: light-dark(#ffffff, #161a22);
+  --panel-2: light-dark(#eaeef4, #1b202a);
+  --line: light-dark(#cfd6e2, #272e3b);
+  --line-soft: light-dark(#e3e8f0, #1f2531);
+  --line-strong: light-dark(#aeb8c8, #3a465a);
+  --text: light-dark(#16202e, #e7eaf2);
+  --muted: light-dark(#556076, #939cb1);
+  --faint: light-dark(#69748a, #6b7488);
+  --accent: light-dark(#1257c9, #6aa9ff);
+  --accent-soft: light-dark(#dbe6fb, #24344d);
+  --accent-line: light-dark(#9dbcf0, #35507a);
+  --amber: light-dark(#a35a00, #f2a65a);
+  --amber-line: light-dark(#d4ab72, #6d5327);
+  --good: light-dark(#0f6b53, #5ec9a4);
+  --good-line: light-dark(#8cc2ae, #2f5f4f);
+  --warn: light-dark(#b0392b, #e0705c);
+  --warn-line: light-dark(#dd9f95, #6b3a31);
+  /* Two further categorical hues the sync panel needs beyond the four semantic
+     tokens; chart fills only, never text. */
+  --series-5: light-dark(#6f4fc0, #8f7fd1);
+  --series-6: light-dark(#a34d7d, #c98fb0);
+  --stage: light-dark(#e8ebf1, #05070b);
+  --topbar-a: light-dark(#ffffff, #141822);
+  --topbar-b: light-dark(#f2f4f8, #10131a);
   --sans: "Plex Sans", "Plex Sans JP", "Noto Sans CJK JP", system-ui, sans-serif;
   --mono: "Plex Mono", ui-monospace, monospace;
   --radius: 10px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 * {
@@ -81,7 +113,7 @@ h3 {
   align-items: center;
   gap: 24px;
   padding: 14px 24px;
-  background: linear-gradient(180deg, #141822, #10131a);
+  background: linear-gradient(180deg, var(--topbar-a), var(--topbar-b));
   border-bottom: 1px solid var(--line);
   position: sticky;
   top: 0;
@@ -133,7 +165,8 @@ h3 {
 }
 
 .tab,
-.lang {
+.lang,
+.theme {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -145,7 +178,8 @@ h3 {
 }
 
 .tab:hover,
-.lang:hover {
+.lang:hover,
+.theme:hover {
   color: var(--text);
   background: var(--panel-2);
 }
@@ -153,10 +187,11 @@ h3 {
 .tab.active {
   color: var(--text);
   background: var(--accent-soft);
-  border-color: #35507a;
+  border-color: var(--accent-line);
 }
 
-.lang {
+.lang,
+.theme {
   border-color: var(--line);
   font-family: var(--mono);
   font-size: 11.5px;
@@ -293,17 +328,17 @@ code,
 }
 
 .chip.good {
-  border-color: #2f5f4f;
+  border-color: var(--good-line);
   color: var(--good);
 }
 
 .chip.warn {
-  border-color: #6b3a31;
+  border-color: var(--warn-line);
   color: var(--warn);
 }
 
 .chip.amber {
-  border-color: #6d5327;
+  border-color: var(--amber-line);
   color: var(--amber);
 }
 
@@ -349,12 +384,12 @@ button.ctl {
 }
 
 button.ctl:hover {
-  border-color: #3a465a;
+  border-color: var(--line-strong);
 }
 
 button.ctl.on {
   background: var(--accent-soft);
-  border-color: #35507a;
+  border-color: var(--accent-line);
   color: var(--text);
 }
 
@@ -453,7 +488,7 @@ input[type="range"] {
 
 .stage {
   position: relative;
-  background: #05070b;
+  background: var(--stage);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
@@ -463,6 +498,14 @@ input[type="range"] {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* Dimming or hiding the video turns the stage itself into the drawing surface,
+   and the overlay stays bright-on-dark in both themes — so the backdrop does
+   too, where a light one would leave the overlay unreadable. */
+.stage:has(video.dim),
+.stage:has(video.hidden) {
+  background: #05070b;
 }
 
 .stage video.dim {

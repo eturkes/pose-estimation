@@ -5,10 +5,8 @@
    dot.  Drawing a whisker here would invent a number the export refuses to
    publish, for the reason the boundary panel states. */
 
-import { chart, el, json, num, panel, t, table, wrappable } from "/static/app.js";
+import { chart, el, json, num, palette, panel, t, table, withAlpha, wrappable } from "/static/app.js";
 
-const ACCENT = "#6aa9ff";
-const AMBER = "#f2a65a";
 const CELL_ORDER = ["cap", "coin", "glass", "key", "nut", "peg"];
 
 const view = { data: null, level: "frame", feature: null, search: "" };
@@ -37,6 +35,7 @@ function featureLabel(feature, lang) {
 
 function distributionChart(rows, feature) {
   const node = el("div", { class: "chart", style: { height: "300px" } });
+  const { accent, amber, text } = palette();
   const labels = rows.map(cellLabel);
   const traces = [
     {
@@ -45,7 +44,7 @@ function distributionChart(rows, feature) {
       x: labels,
       base: rows.map((row) => row.q25),
       y: rows.map((row) => (row.q75 ?? 0) - (row.q25 ?? 0)),
-      marker: { color: "rgba(106,169,255,0.32)", line: { color: ACCENT, width: 1 } },
+      marker: { color: withAlpha(accent, 0.32), line: { color: accent, width: 1 } },
       hovertemplate: "%{x}<br>q25 %{base:.3f} · q75 %{customdata:.3f}<extra></extra>",
       customdata: rows.map((row) => row.q75),
     },
@@ -55,7 +54,7 @@ function distributionChart(rows, feature) {
       name: t("col.median"),
       x: labels,
       y: rows.map((row) => row.median),
-      marker: { color: "#e7eaf2", symbol: "line-ew-open", size: 26, line: { width: 3 } },
+      marker: { color: text, symbol: "line-ew-open", size: 26, line: { width: 3 } },
       hovertemplate: "%{x}<br>%{y:.4f}<extra></extra>",
     },
     {
@@ -64,7 +63,7 @@ function distributionChart(rows, feature) {
       name: t("col.mean"),
       x: labels,
       y: rows.map((row) => row.mean),
-      marker: { color: AMBER, size: 7 },
+      marker: { color: amber, size: 7 },
       hovertemplate: "%{x}<br>%{y:.4f}<extra></extra>",
     },
   ];
@@ -96,7 +95,7 @@ function dispersionChart(rows) {
           type: "bar",
           x: rows.map(cellLabel),
           y: rows.map((row) => row.view_dispersion),
-          marker: { color: AMBER },
+          marker: { color: palette().amber },
           hovertemplate: "%{x}<br>%{y:.3f}<extra></extra>",
         },
       ],

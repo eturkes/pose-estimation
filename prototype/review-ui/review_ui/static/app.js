@@ -1,11 +1,13 @@
-/* Shell: language, routing, shared formatting and the Plotly theme.
+/* Shell: language, theme, routing, shared formatting and the Plotly theme.
    Views live in census.js / player.js / cohort.js and each exports render(el). */
 
 import { renderCensus } from "/static/census.js";
 import { renderPlayer } from "/static/player.js";
 import { renderCohort } from "/static/cohort.js";
 
-export const state = { lang: "ja", strings: {} };
+export const state = { lang: "ja", theme: "auto", strings: {} };
+
+export const THEMES = ["auto", "light", "dark"];
 
 export function t(key) {
   const entry = state.strings[key];
@@ -87,11 +89,49 @@ export function table(headers, rows, aligns = []) {
   return el("table", {}, el("thead", {}, head), el("tbody", {}, body));
 }
 
+/* Every colour token is a `light-dark()` pair, and a custom property reads back
+   as the text it was authored with — so `getPropertyValue("--accent")` returns
+   the call, not a colour.  A hidden probe carrying the token on a real colour
+   property resolves it for the scheme in force, which is what canvas and Plotly
+   need.  Each read is one style recalculation, so the views call `palette()`
+   once per render rather than per data point. */
+const probe = el("span", { style: { display: "none" } });
+
+export function cssColour(name) {
+  if (!probe.isConnected) document.documentElement.append(probe);
+  probe.style.color = `var(${name})`;
+  return getComputedStyle(probe).color;
+}
+
+/** `rgb(r, g, b)` from `cssColour` plus an alpha, for a chart's fill under its
+    own line colour.  Keeping the hue in one token beats a second token per
+    translucent variant. */
+export function withAlpha(colour, alpha) {
+  const parts = colour.match(/[\d.]+/g) || [];
+  return `rgba(${parts.slice(0, 3).join(", ")}, ${alpha})`;
+}
+
+/** The chart palette, read from the stylesheet so the figures move with the
+    theme.  `series` extends the four semantic tokens for categorical panels. */
+export function palette() {
+  const accent = cssColour("--accent");
+  const amber = cssColour("--amber");
+  const good = cssColour("--good");
+  const warn = cssColour("--warn");
+  return {
+    accent,
+    amber,
+    good,
+    warn,
+    text: cssColour("--text"),
+    series: [good, accent, amber, warn, cssColour("--series-5"), cssColour("--series-6")],
+  };
+}
+
 /** One Plotly layout for every chart, so the figures read as one document. */
 export function chartLayout(overrides = {}) {
-  const css = getComputedStyle(document.documentElement);
-  const line = css.getPropertyValue("--line").trim();
-  const muted = css.getPropertyValue("--muted").trim();
+  const line = cssColour("--line");
+  const muted = cssColour("--muted");
   return Object.assign(
     {
       paper_bgcolor: "rgba(0,0,0,0)",
@@ -154,15 +194,27 @@ function applyStaticText() {
     node.textContent = t(node.dataset.i18n);
   }
   document.getElementById("lang-toggle").textContent = state.lang === "ja" ? "EN" : "日本語";
+  const theme = document.getElementById("theme-toggle");
+  theme.textContent = t(`theme.${state.theme}`);
+  theme.title = `${t("theme.label")} — ${t(`theme.${state.theme}`)}`;
+}
+
+/** `auto` is the absent attribute, which leaves the scheme to `light-dark()`. */
+function applyTheme() {
+  if (state.theme === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = state.theme;
 }
 
 async function boot() {
-  // `?lang=en#cohort` makes a view deep-linkable in either language, which is
-  // what a shared review link needs; the toggle then persists the choice.
+  // `?lang=en&theme=light#cohort` makes a view deep-linkable in either language
+  // and either theme, which is what a shared review link needs; a toggle then
+  // persists the choice.  index.html already resolved the theme before the first
+  // paint, so this reads the answer back rather than deriving it twice.
   const requested = new URLSearchParams(location.search).get("lang");
   state.lang = ["ja", "en"].includes(requested)
     ? requested
     : localStorage.getItem("review-ui-lang") || "ja";
+  state.theme = document.documentElement.dataset.theme || "auto";
   state.strings = await json("/static/strings.json");
   applyStaticText();
 
@@ -174,6 +226,23 @@ async function boot() {
     state.lang = state.lang === "ja" ? "en" : "ja";
     localStorage.setItem("review-ui-lang", state.lang);
     applyStaticText();
+    rendered.clear();
+    show(current, true);
+  });
+  // Plotly bakes the palette into a figure at plot time, so the current view is
+  // redrawn rather than restyled; the others redraw when they are next shown.
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    state.theme = THEMES[(THEMES.indexOf(state.theme) + 1) % THEMES.length];
+    localStorage.setItem("review-ui-theme", state.theme);
+    applyTheme();
+    applyStaticText();
+    rendered.clear();
+    show(current, true);
+  });
+  // Under `auto` the stylesheet follows the system on its own, but a baked
+  // figure and a painted canvas do not.
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    if (state.theme !== "auto") return;
     rendered.clear();
     show(current, true);
   });
