@@ -151,8 +151,27 @@ export function chartLayout(overrides = {}) {
 
 export const PLOT_CONFIG = { displayModeBar: false, responsive: true };
 
+/** Resolves once the two chart faces are usable, so Plotly measures real metrics.
+ *
+ * `newPlot` measures legend and tick text at call time and lays out from that.
+ * Loaded Plex metrics wrap the rotation legend to two rows; the narrower fallback
+ * metrics fit it on one, which moves every chart below it.  Three of four captures
+ * of one server agreed and the fourth differed on 20771 pixels, purely from which
+ * side won the race.
+ * `fonts.ready` alone is not enough — it resolves against whatever has been
+ * requested so far, so each family is asked for by name first.
+ */
+const FONTS_READY = document.fonts
+  ? Promise.all([
+      document.fonts.load("11px 'Plex Sans'"),
+      document.fonts.load("11px 'Plex Sans JP'"),
+    ])
+      .then(() => document.fonts.ready)
+      .catch(() => undefined)
+  : Promise.resolve();
+
 export function chart(node, traces, layout) {
-  Plotly.newPlot(node, traces, chartLayout(layout), PLOT_CONFIG);
+  FONTS_READY.then(() => Plotly.newPlot(node, traces, chartLayout(layout), PLOT_CONFIG));
   return node;
 }
 

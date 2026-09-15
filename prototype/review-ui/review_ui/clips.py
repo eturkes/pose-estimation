@@ -6,23 +6,17 @@ run manifest that gives every canonical asset exactly one disposition.  A clip i
 addressed by `(event_id, camera_name)`, the same key the run tree and the
 diagnostics rows use, and a request resolves only through the built index, so no
 path in a request ever reaches the filesystem.
-
-The bundled fixture registers as one more clip.  It is synthetic, so the player,
-its overlay and its proof all work on a machine holding none of the corpus.
 """
 
 from __future__ import annotations
 
 import csv
-import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from .config import FIXTURE_DIR, Paths
+from .config import Paths
 
-FIXTURE_EVENT = "fixture"
-FIXTURE_CAMERA = "demo"
 #: Landmark CSVs carry no `z` for a 2D run: it exports identically 0.0.
 BODY_SUFFIXES = ("_x", "_y", "_vis")
 HAND_SUFFIXES = ("_x", "_y", "_conf")
@@ -51,43 +45,10 @@ def _media_path(directory: Path, stem: str) -> Path | None:
     return None
 
 
-def _fixture_clip() -> dict[str, Any] | None:
-    meta_path = FIXTURE_DIR / "fixture.json"
-    if not (FIXTURE_DIR / "fixture.mp4").is_file() or not meta_path.is_file():
-        return None
-    meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    return {
-        "event_id": FIXTURE_EVENT,
-        "camera_name": FIXTURE_CAMERA,
-        "subject_ordinal": None,
-        "task": meta.get("task"),
-        "side": meta.get("side"),
-        "view": meta.get("view"),
-        "run_index": None,
-        "n_cameras": 1,
-        "view_conflict": "",
-        "width": meta.get("width"),
-        "height": meta.get("height"),
-        "fps": meta.get("fps"),
-        "frames": meta.get("frames"),
-        "duration_s": meta.get("duration_s"),
-        "rotation_deg": 0,
-        "codec": meta.get("codec"),
-        "disposition": "ok",
-        "synthetic": True,
-        "has_video": True,
-        "has_landmarks": (FIXTURE_DIR / "fixture.csv").is_file(),
-    }
-
-
 @lru_cache(maxsize=4)
 def index(paths: Paths) -> list[dict[str, Any]]:
-    """One row per placed camera artifact, newest join first, fixture included."""
+    """One row per placed camera artifact, ordered by task, side, event, camera."""
     clips: list[dict[str, Any]] = []
-    fixture = _fixture_clip()
-    if fixture is not None:
-        clips.append(fixture)
-
     events = {row["event_id"]: row for row in _rows(paths.sessions / "events.csv")}
     assets = {row["asset_id"]: row for row in _rows(paths.inventory / "assets.csv")}
     manifest = {row["asset_id"]: row for row in _rows(paths.run / "run_manifest.csv")}
@@ -119,14 +80,12 @@ def index(paths: Paths) -> list[dict[str, Any]]:
                 "rotation_deg": _number(asset.get("reported_rotation_deg"), int),
                 "codec": asset.get("reported_fourcc"),
                 "disposition": manifest.get(placement.get("asset_id", ""), {}).get("disposition"),
-                "synthetic": False,
                 "has_video": _media_path(directory, camera) is not None,
                 "has_landmarks": (paths.run / event_id / f"{camera}.csv").is_file(),
             }
         )
     clips.sort(
         key=lambda clip: (
-            not clip["synthetic"],
             str(clip["task"]),
             str(clip["side"]),
             clip["event_id"],
@@ -148,9 +107,6 @@ def _number_families(clips: list[dict[str, Any]]) -> None:
     """
     numbers: dict[str, int] = {}
     for clip in clips:
-        if clip["synthetic"]:
-            clip["family_no"] = None
-            continue
         if clip["event_id"] not in numbers:
             numbers[clip["event_id"]] = len(numbers) + 1
         clip["family_no"] = numbers[clip["event_id"]]
@@ -164,14 +120,10 @@ def find(paths: Paths, event_id: str, camera_name: str) -> dict[str, Any] | None
 
 
 def video_path(paths: Paths, clip: dict[str, Any]) -> Path | None:
-    if clip["synthetic"]:
-        return FIXTURE_DIR / "fixture.mp4"
     return _media_path(paths.sessions / clip["event_id"], clip["camera_name"])
 
 
 def landmark_path(paths: Paths, clip: dict[str, Any]) -> Path:
-    if clip["synthetic"]:
-        return FIXTURE_DIR / "fixture.csv"
     return paths.run / clip["event_id"] / f"{clip['camera_name']}.csv"
 
 

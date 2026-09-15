@@ -7,7 +7,6 @@ run command
 published trees
   calibration_qc  present
   cohort          present
-  fixture         present
   inventory       present
   qualification   present
   run             present
@@ -24,23 +23,18 @@ GET /api/census
   generator versions  6
 
 GET /api/clips
-  clips             380
-  with landmarks    380
-  with video        380
-  synthetic         1
+  clips             379
+  with landmarks    379
+  with video        379
   recording events  193
   views per event   1v x58 · 2v x84 · 3v x51
 
-GET /api/clip/fixture/demo/landmarks
-  frames             240
-  body keypoints     33
-  hand keypoints     21
-  persons max        1
-  normalising scale  640
+GET /api/clip/<event>/<camera>/landmarks
+  body keypoints  33
+  hand keypoints  21
 
-GET /api/clip/fixture/demo/video  Range: bytes=0-65535
+GET /api/clip/<event>/<camera>/video  Range: bytes=0-65535
   status          206
-  content-range   bytes 0-65535/146868
   bytes returned  65536
 
 GET /api/cohort
@@ -66,7 +60,6 @@ GET /static/topology.json
 
 captures  (webcap, port 8791)
   census-ja.png       1500x1000 · light · full-page
-  player-ja.png       1500x1150 · light
   cohort-ja.png       1500x1000 · light · full-page
   census-en.png       1500x1000 · light · full-page
   census-ja-dark.png  1500x1000 · dark · full-page

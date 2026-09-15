@@ -10,11 +10,9 @@ dependencies = [
 ]
 
 [dependency-groups]
-# Asset builders only. Both write into static/ and neither runs at serve time.
+# Asset builder only. It writes into static/ and does not run at serve time.
 dev = [
   "fonttools[woff]>=4.55,<5",
-  "av>=13,<16",
-  "numpy>=2.5.3",
 ]
 
 [tool.uv]

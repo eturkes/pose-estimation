@@ -59,7 +59,6 @@
   --accent-soft: light-dark(#dbe6fb, #24344d);
   --accent-line: light-dark(#9dbcf0, #35507a);
   --amber: light-dark(#a35a00, #f2a65a);
-  --amber-line: light-dark(#d4ab72, #6d5327);
   --good: light-dark(#0f6b53, #5ec9a4);
   --good-line: light-dark(#8cc2ae, #2f5f4f);
   --warn: light-dark(#b0392b, #e0705c);
@@ -335,11 +334,6 @@ code,
 .chip.warn {
   border-color: var(--warn-line);
   color: var(--warn);
-}
-
-.chip.amber {
-  border-color: var(--amber-line);
-  color: var(--amber);
 }
 
 .kv {

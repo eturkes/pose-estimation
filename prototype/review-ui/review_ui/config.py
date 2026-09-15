@@ -2,8 +2,8 @@
 
 Every published tree is gitignored, so a clone carries none of them.  The UI
 degrades per source rather than refusing to start: an absent tree turns its view
-into a stated gap instead of a traceback, which is what lets the bundled fixture
-demo the player on a machine with no corpus.
+into a stated gap instead of a traceback, so a clone still runs and states what it
+cannot show.
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from pathlib import Path
 PACKAGE_DIR = Path(__file__).resolve().parent
 PROTOTYPE_DIR = PACKAGE_DIR.parent
 STATIC_DIR = PACKAGE_DIR / "static"
-FIXTURE_DIR = PROTOTYPE_DIR / "fixtures"
 
 #: prototype/review-ui/review_ui/config.py -> repository root.
 DEFAULT_REPO = PROTOTYPE_DIR.parent.parent
@@ -65,5 +64,4 @@ class Paths:
             "calibration_qc": (self.calibration_qc / "calibration_qc.json").is_file(),
             "cohort": (self.cohort / "cohort.json").is_file(),
             "run": (self.run / "run_report.json").is_file(),
-            "fixture": (FIXTURE_DIR / "fixture.mp4").is_file(),
         }

@@ -54,3 +54,10 @@ rows before sizing any unit that touches their surfaces.
   line colour. Predates the theme unit. Acceptance: a differential check reports
   `body_line_palette_mismatches=0/6` + `hand_line_palette_mismatches=0/6` against the blended maps,
   or the claim is narrowed to topology and group identity with the blend stated.
+- **Chart font gate proven by capture comparison alone** (`static/app.js` `FONTS_READY` defers every
+  `Plotly.newPlot` until the Plex faces load; measured 3/4 captures agreeing before, 6/6 after) →
+  a headless check reports the census rotation legend at 2 rows with the faces loaded, and reds when
+  `newPlot` runs ahead of `document.fonts.load`.
+- **`capture_proof.py` port guard fires only against a live stranger** (`already_serving` returns rc=2;
+  measured against a stale host server on 8791 serving deleted code) → a check binds a socket on the
+  target port, asserts rc=2 and the named cause, and asserts rc=0 on a free port.

@@ -41,7 +41,7 @@ const view = {
 
 /** Positional event ordinal — see clips._number_families for why it is not an id. */
 function familyTag(clip) {
-  return clip.family_no ? `#${String(clip.family_no).padStart(3, "0")}` : "#F";
+  return `#${String(clip.family_no).padStart(3, "0")}`;
 }
 
 function label(clip) {
@@ -283,12 +283,7 @@ function clipList() {
         type: "button",
         onclick: () => selectClip(clip),
       },
-      el(
-        "span",
-        {},
-        label(clip),
-        clip.synthetic ? el("span", { class: "chip amber" }, t("player.synthetic")) : null,
-      ),
+      el("span", {}, label(clip)),
       el(
         "span",
         { class: "meta" },
@@ -505,9 +500,7 @@ function stagePane() {
 
   return panel(
     label(clip),
-    clip.synthetic
-      ? el("div", { class: "banner", id: "decode-note" }, t("player.synthetic_note"))
-      : el("div", { class: "banner info", id: "decode-note" }, t("player.codec_note")),
+    el("div", { class: "banner info", id: "decode-note" }, t("player.codec_note")),
     stage,
     transport,
     el("canvas", { class: "strip", id: "strip" }),

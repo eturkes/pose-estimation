@@ -323,14 +323,6 @@
     "ja": "このクリップに映像ファイルはありません。",
     "en": "This clip has no media file."
   },
-  "player.synthetic": {
-    "ja": "合成",
-    "en": "Synthetic"
-  },
-  "player.synthetic_note": {
-    "ja": "この合成クリップだけがリポジトリに入ります。患者の映像はコミットしません。",
-    "en": "Only this synthetic clip enters the repository. Patient video is never committed."
-  },
   "player.codec_note": {
     "ja": "ブラウザがコーデックを再生できないときは、映像レイヤーを非表示にしてください。重ね描きだけで再生できます。",
     "en": "If the browser cannot decode the codec, hide the video layer. The overlay still plays on its own."

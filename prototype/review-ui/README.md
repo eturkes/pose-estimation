@@ -65,10 +65,8 @@ boundary panel states what the numbers mean and what they do not mean.
 them. Each view degrades on its own: an absent tree becomes a stated gap and the
 rest of the UI still runs.
 
-The synthetic fixture is the only committed media. `tools/make_fixture.py` writes
-`fixtures/fixture.mp4` and `fixtures/fixture.csv`, so the player, the overlay and
-the proof all run on a machine that holds no corpus. This repository never
-receives patient video.
+This repository commits no video at all. The player therefore needs the published
+trees: a clone without them lists no clips and says so. There is no demo clip.
 
 The clip list carries no `event_id`, no filename and no subject identifier. The
 `#nnn` ordinal is positional.
@@ -85,9 +83,6 @@ env -u LD_LIBRARY_PATH PYTHONPATH="$PWD/src" uv run --no-sync \
 # IBM Plex subsets and the Plotly cartesian bundle. Needs network.
 uv run --directory prototype/review-ui python tools/build_assets.py
 
-# The synthetic clip, its landmark CSV and its metadata.
-uv run --directory prototype/review-ui python tools/make_fixture.py
-
 # proof/ — four view captures and the API transcript. Needs webcap.
 uv run --directory prototype/review-ui python tools/capture_proof.py
 ```
@@ -98,17 +93,27 @@ Rerun it after you add a Japanese string, or the new characters render as tofu.
 
 ## Proof
 
-`proof/` holds `census-ja.png`, `player-ja.png`, `cohort-ja.png`, `census-en.png`,
+`proof/` holds `census-ja.png`, `cohort-ja.png`, `census-en.png`,
 `census-ja-dark.png` and `run.txt`. Each capture pins its theme, because the
-default follows the machine that takes the capture. The four light captures are
+default follows the machine that takes the capture. The three light captures are
 the baseline. The dark capture shows the theme control. The transcript records the
 run command, the published trees, and one probe per endpoint the views consume. It carries no timestamp, host path or
 process id, so a rerun over the same trees rewrites it byte for byte.
 
-The captures are byte-stable once the font cache is warm. Three reruns agreed on
-all four. The first run after `build_assets.py` rewrote the subsets differed on
-one full-page capture. That is a layout settle, not a change in the UI. Look at a
-capture diff before you believe it.
+The player view takes no capture. Its stage plays patient video, and the clip it
+selects is a real recording, so a committed PNG of that view would carry a frame
+of one subject. The clip and landmark endpoints appear in the transcript instead,
+under a placeholder path. Those rows report the keypoint counts, which are model
+schema. They also report the response status and the byte count that the range
+request asks for. They report no frame count, no person count, no scale and no
+file size, because each of those measures the one clip that answered.
+
+The captures are stable in layout. They are not stable byte for byte. Every chart
+waits for the Plex faces before it measures its text, which pins the legend rows:
+six captures of the census view agreed exactly. A rerun can still differ by a few
+pixels, because the software rasterizer rounds some edges differently. Two full
+runs differed on 31 pixels of one capture, each pixel by one intensity level.
+Compare a capture visually. Do not compare digests.
 
 ## Limits
 

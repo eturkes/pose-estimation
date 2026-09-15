@@ -23,11 +23,11 @@ hospital SCI database.
   (`?lang=en`), themed auto|light|dark (`?theme=`, auto = `light-dark()` + the OS), three views:
   corpus census · clip player with pose overlay · cohort explorer.
   FastAPI + vanilla JS canvas + vendored Plotly/IBM Plex, own uv project, read-only over the
-  published trees, degrading per absent tree. Synthetic fixture = the only committed media; its
-  `README.md` = view guide + regeneration + limits.
+  published trees, degrading per absent tree. Commits no media at all → the player needs the
+  published trees and lists nothing without them; `README.md` = view guide + regeneration + limits.
   `uv run --directory prototype/review-ui python -m review_ui` → `http://127.0.0.1:8791/`.
-  Proof → `proof/`: 5 captures (4 light + 1 dark, each theme-pinned) + API transcript, by
-  `tools/capture_proof.py`.
+  Proof → `proof/`: 4 captures (3 light + 1 dark, each theme-pinned) + API transcript, by
+  `tools/capture_proof.py`. The player view takes no capture — its stage is patient video.
 - `cohort/` — the `../rehab` export. 12 `(task, side)` cells · 89 features · 1068 rows;
   `descriptors.yaml` = ja/en labels, units, ranges.
   `P pose-estimation-cohort --inventory inventory --sessions sessions --run output/corpus-2d --out cohort`
@@ -74,8 +74,9 @@ Queue → `.agent/deferred.md`; evidence → `.agent/archive/{polish,review-m2}.
 
 - **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`** → `build_assets.py`
   refuses with a named cause when absent; a committed check reports 0 missing code points.
-- **Overlay landmark->pixel map proven by eye alone** → headless check drives the fixture's known
-  coordinates through the canvas scale math, max deviation < 1 px, failing on a seeded off-by-one.
+- **Overlay landmark->pixel map proven by eye alone** → headless check injects fabricated landmark
+  coordinates into the served player and grades the drawn pixel positions against the canvas scale
+  math, max deviation < 1 px, failing on a seeded off-by-one. Needs no committed media.
 - **HEVC decode failure reported but never exercised** (123/379 hevc) → an hevc clip on a
   decoder-less build shows the `player.decode_failed` banner, overlay still advancing on rAF.
 
