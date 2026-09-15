@@ -323,10 +323,6 @@
     "ja": "このクリップに映像ファイルはありません。",
     "en": "This clip has no media file."
   },
-  "player.codec_note": {
-    "ja": "ブラウザがコーデックを再生できないときは、映像レイヤーを非表示にしてください。重ね描きだけで再生できます。",
-    "en": "If the browser cannot decode the codec, hide the video layer. The overlay still plays on its own."
-  },
   "player.decode_failed": {
     "ja": "ブラウザがこのコーデックを再生できません。重ね描きだけで再生します。",
     "en": "The browser cannot decode this codec. The overlay plays on its own."

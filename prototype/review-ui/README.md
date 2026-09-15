@@ -45,10 +45,13 @@ the registry reason codes and the generator versions.
 skeleton and the palette come from `pose_estimation.drawing`, so the overlay draws
 what the pipeline draws. Each list row names one camera artifact. The `#nnn`
 prefix is a recording event. Rows with the same number are the other views of that
-event. The controls set the video layer to show, dim or hide, switch the body,
-hands, points and labels, and move the visibility threshold. The strip below the
-transport shows the mean body visibility per frame, so a tracking dropout is
-visible for the whole clip at once. The overlay palette does not change with the
+event. The stage fills the space that the window leaves. It keeps the shape of
+the clip, so the whole frame stays on screen with the controls under it. The UI
+fits the stage again after a window resize. The controls set the video layer to
+show, dim or hide, switch the body, hands, points and labels, and move the
+visibility threshold. The strip below the transport shows the mean body
+visibility per frame, so a tracking dropout is visible for the whole clip at
+once. The overlay palette does not change with the
 theme, because the overlay draws over video and not over a page surface. The stage
 turns dark when you dim or hide the video, which keeps the overlay readable. The
 dot colours show the confidence band. The pipeline colours a dot by body group, so
@@ -118,8 +121,9 @@ Compare a capture visually. Do not compare digests.
 ## Limits
 
 - The browser must decode the clip. Chromium plays the H.264 clips. It does not
-  play the HEVC clips on a build without a platform decoder. Hide the video layer
-  for those; the overlay still plays on its own clock.
+  play the HEVC clips on a build without a platform decoder. The player names the
+  failure in a banner and hides the video layer. The overlay then plays on its own
+  clock.
 - The theme needs the CSS `light-dark()` function and the `:has()` selector.
   Chrome 123, Firefox 121 and Safari 17.5 support both.
 - The prototype carries no tests and no gate. It is a behavioural reference for

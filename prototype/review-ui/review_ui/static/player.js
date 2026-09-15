@@ -271,6 +271,67 @@ function pause() {
   if (view.raf) cancelAnimationFrame(view.raf);
 }
 
+/* ---------------------------------------------------------------- fitting */
+
+/** The player is the one view sized to the viewport instead of to its content:
+    the transport has to stay on screen while a clip plays.  The chrome above the
+    layout moves with the language and with the top bar's wrap, so it is measured
+    rather than assumed.  The stylesheet owns the breakpoint and reports it back
+    through `--fit-viewport`, so the stacked layout keeps its content height. */
+function fitLayout() {
+  const layout = document.querySelector(".player-layout");
+  if (!layout) return;
+  if (getComputedStyle(layout).getPropertyValue("--fit-viewport").trim() === "0") {
+    layout.style.height = "";
+  } else {
+    const main = layout.closest("main");
+    const below = main ? parseFloat(getComputedStyle(main).paddingBottom) || 0 : 0;
+    const top = layout.getBoundingClientRect().top + window.scrollY;
+    layout.style.height = `${Math.max(window.innerHeight - top - below, 360)}px`;
+  }
+  fitStage();
+  // The strip spans the panel, so its backing store moves with a width the stage
+  // can keep — a height-limited stage does not change when the window widens.
+  // The strip spans the panel, so its backing store moves with a width the stage
+  // can keep — a height-limited stage does not change when the window widens.
+  paintStrip();
+}
+
+/** The largest box of the clip's aspect ratio that fits the space left over.
+    The overlay maps landmarks onto the stage's *content* box, so the ratio is
+    fitted there and the border added back — `box-sizing` is border-box. */
+function fitStage() {
+  const stage = document.getElementById("stage");
+  if (!stage || !view.clip) return;
+  const room = stage.parentElement.getBoundingClientRect();
+  const style = getComputedStyle(stage);
+  const borderX = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+  const borderY = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+  const aspect = (view.clip.width || 16) / (view.clip.height || 9);
+  const width = Math.floor(Math.min(room.width - borderX, (room.height - borderY) * aspect));
+  if (width < 1) return;
+  const next = [`${width + borderX}px`, `${Math.floor(width / aspect) + borderY}px`];
+  // The observer below watches a box this call resizes; re-entering on an
+  // unchanged size is the loop that guard prevents.
+  if (stage.style.width === next[0] && stage.style.height === next[1]) return;
+  [stage.style.width, stage.style.height] = next;
+  paint();
+}
+
+/** Every cause of a size change that is not a window resize — a font landing and
+    retaking the top bar's height, a control row wrapping, a scrollbar — reaches
+    the stage through its own box. */
+let stageObserver = null;
+let resizeBound = false;
+
+function observeStage() {
+  const stage = document.getElementById("stage");
+  if (!stage || !window.ResizeObserver) return;
+  if (!stageObserver) stageObserver = new ResizeObserver(() => fitStage());
+  stageObserver.disconnect();
+  stageObserver.observe(stage.parentElement);
+}
+
 /* -------------------------------------------------------------------- panes */
 
 function clipList() {
@@ -350,6 +411,17 @@ function toggle(id, key, field) {
   );
 }
 
+/** One labelled clip fact on the meta line — the same pairs the key/value list
+    carried, laid out along the row so they cost one line instead of four. */
+function fact(key, value) {
+  return el(
+    "span",
+    { class: "fact" },
+    el("span", { class: "fact-k" }, key),
+    el("span", { class: "fact-v" }, value),
+  );
+}
+
 function stagePane() {
   const clip = view.clip;
   const aspect = `${clip.width || 16} / ${clip.height || 9}`;
@@ -371,16 +443,19 @@ function stagePane() {
   video.addEventListener("error", () => {
     const banner = document.getElementById("decode-note");
     if (banner) {
-      banner.className = "banner";
+      banner.hidden = false;
       banner.textContent = `${t("player.decode_failed")} — ${clip.codec || "—"}`;
     }
     video.className = "hidden";
+    fitStage();
     paint();
   });
 
+  // The ratio is the shape the box holds before the first fit; `fitStage` then
+  // sizes it in pixels, which makes the ratio inert until JS fails to run.
   const stage = el(
     "div",
-    { class: "stage", style: { aspectRatio: aspect } },
+    { class: "stage", id: "stage", style: { aspectRatio: aspect } },
     video,
     el("canvas", { class: "overlay", id: "overlay" }),
   );
@@ -428,10 +503,45 @@ function stagePane() {
         setFrame(frame);
       },
     }),
+    el("span", { class: "readout", id: "readout" }),
+  );
+
+  const thresholdValue = el("span", { class: "fact-v" }, view.threshold.toFixed(2));
+  const options = el(
+    "div",
+    { class: "player-opts" },
+    el("div", { class: "field inline" }, el("span", {}, t("player.layer")), layerButtons),
+    el(
+      "div",
+      { class: "field inline" },
+      el("span", {}, t("player.overlay")),
+      toggle("toggle-body", "player.body", "showBody"),
+      toggle("toggle-hands", "player.hands", "showHands"),
+      toggle("toggle-points", "player.points", "showPoints"),
+      toggle("toggle-labels", "player.labels", "showLabels"),
+    ),
     el(
       "label",
-      { class: "field" },
-      t("player.speed"),
+      { class: "field inline" },
+      el("span", {}, t("player.threshold")),
+      el("input", {
+        type: "range",
+        min: 0,
+        max: 1,
+        step: 0.05,
+        value: view.threshold,
+        oninput: (event) => {
+          view.threshold = Number(event.target.value);
+          thresholdValue.textContent = view.threshold.toFixed(2);
+          paint();
+        },
+      }),
+      thresholdValue,
+    ),
+    el(
+      "label",
+      { class: "field inline" },
+      el("span", {}, t("player.speed")),
       el(
         "select",
         {
@@ -446,67 +556,39 @@ function stagePane() {
         ),
       ),
     ),
-    el("span", { class: "readout", id: "readout" }),
-  );
-
-  const overlayControls = el(
-    "div",
-    { class: "controls", style: { marginTop: "10px" } },
-    el("label", { class: "field" }, t("player.layer"), layerButtons),
-    el(
-      "label",
-      { class: "field" },
-      t("player.overlay"),
-      el(
-        "div",
-        { style: { display: "flex", gap: "6px" } },
-        toggle("toggle-body", "player.body", "showBody"),
-        toggle("toggle-hands", "player.hands", "showHands"),
-        toggle("toggle-points", "player.points", "showPoints"),
-        toggle("toggle-labels", "player.labels", "showLabels"),
-      ),
-    ),
-    el(
-      "label",
-      { class: "field" },
-      `${t("player.threshold")} — ${view.threshold.toFixed(2)}`,
-      el("input", {
-        type: "range",
-        min: 0,
-        max: 1,
-        step: 0.05,
-        value: view.threshold,
-        oninput: (event) => {
-          view.threshold = Number(event.target.value);
-          event.target.previousSibling.textContent = `${t("player.threshold")} — ${view.threshold.toFixed(2)}`;
-          paint();
-        },
-      }),
-    ),
   );
 
   const facts = el(
-    "dl",
-    { class: "kv", style: { marginTop: "12px" } },
-    el("dt", {}, t("player.geometry")),
-    el("dd", {}, `${clip.width}×${clip.height} · ${(clip.fps || 0).toFixed(3)} fps`),
-    el("dt", {}, t("player.duration")),
-    el("dd", {}, `${num(clip.duration_s, 2)} s · ${num(clip.frames)} ${t("player.frame")}`),
-    el("dt", {}, t("player.rotation")),
-    el("dd", {}, `${clip.rotation_deg ?? 0}° · ${clip.codec || "—"}`),
-    el("dt", {}, t("player.disposition")),
-    el("dd", {}, token(clip.disposition || "—")),
+    "div",
+    { class: "factline" },
+    fact(t("player.geometry"), `${clip.width}×${clip.height} · ${(clip.fps || 0).toFixed(3)} fps`),
+    // `f` rather than the frame word: the clip list already counts frames that
+    // way, and it reads as one unit in both languages.
+    fact(t("player.duration"), `${num(clip.duration_s, 2)} s · ${num(clip.frames)} f`),
+    fact(t("player.rotation"), `${clip.rotation_deg ?? 0}° · ${clip.codec || "—"}`),
+    fact(t("player.disposition"), token(clip.disposition || "—")),
   );
 
-  return panel(
-    label(clip),
-    el("div", { class: "banner info", id: "decode-note" }, t("player.codec_note")),
-    stage,
-    transport,
-    el("canvas", { class: "strip", id: "strip" }),
-    el("p", { class: "note" }, t("player.strip")),
-    overlayControls,
-    facts,
+  // The banner carries the decode failure alone, so it takes no room until one
+  // happens; the clip's identity is the selected row in the list beside it.
+  return el(
+    "section",
+    { class: "panel stage-panel" },
+    el("div", { class: "banner", id: "decode-note", hidden: true }),
+    el("div", { class: "stage-wrap" }, stage),
+    el(
+      "div",
+      { class: "player-bar" },
+      transport,
+      el(
+        "div",
+        { class: "strip-row" },
+        el("span", { class: "strip-label" }, t("player.strip")),
+        el("canvas", { class: "strip", id: "strip" }),
+      ),
+      options,
+      facts,
+    ),
   );
 }
 
@@ -521,7 +603,10 @@ async function selectClip(clip) {
   );
   if (!series.frames) {
     view.series = null;
-    host.replaceChildren(panel(label(clip), el("p", { class: "empty" }, t("player.no_landmarks"))));
+    host.replaceChildren(
+      el("section", { class: "panel stage-panel" }, el("p", { class: "empty" }, t("player.no_landmarks"))),
+    );
+    applyFilters();
     return;
   }
   // One pass over the body confidences: the strip needs a per-frame mean and the
@@ -541,6 +626,8 @@ async function selectClip(clip) {
   view.series = series;
   host.replaceChildren(stagePane());
   applyFilters();
+  fitLayout();
+  observeStage();
   setFrame(0);
 }
 
@@ -550,45 +637,54 @@ export async function renderPlayer(root) {
   view.clips = data.clips;
   const distinct = (key) => [...new Set(view.clips.map((clip) => clip[key]).filter(Boolean))].sort();
 
+  const clipsPanel = panel(
+    t("player.clips"),
+    el(
+      "div",
+      { class: "controls", style: { marginBottom: "10px" } },
+      filterSelect("filter-task", "player.task", distinct("task")),
+      filterSelect("filter-side", "player.side", distinct("side")),
+      filterSelect("filter-view", "player.view", distinct("view")),
+      el(
+        "label",
+        { class: "field", style: { flex: "1 1 120px" } },
+        t("player.search"),
+        el("input", {
+          type: "search",
+          placeholder: "#042",
+          oninput: (event) => {
+            view.search = event.target.value;
+            applyFilters();
+          },
+        }),
+      ),
+    ),
+    el(
+      "label",
+      { style: { display: "flex", gap: "6px", alignItems: "center", fontSize: "12px" } },
+      el("input", { type: "checkbox", id: "filter-landmarks", checked: true, onchange: applyFilters }),
+      t("player.with_landmarks"),
+    ),
+    el("p", { class: "note" }, t("player.family_note")),
+    el("div", { id: "clip-list-host" }),
+  );
+  clipsPanel.classList.add("clips-panel");
+
   root.replaceChildren(
     el(
       "div",
       { class: "player-layout" },
-      panel(
-        t("player.clips"),
-        el(
-          "div",
-          { class: "controls", style: { marginBottom: "10px" } },
-          filterSelect("filter-task", "player.task", distinct("task")),
-          filterSelect("filter-side", "player.side", distinct("side")),
-          filterSelect("filter-view", "player.view", distinct("view")),
-          el(
-            "label",
-            { class: "field", style: { flex: "1 1 120px" } },
-            t("player.search"),
-            el("input", {
-              type: "search",
-              placeholder: "#042",
-              oninput: (event) => {
-                view.search = event.target.value;
-                applyFilters();
-              },
-            }),
-          ),
-        ),
-        el(
-          "label",
-          { style: { display: "flex", gap: "6px", alignItems: "center", fontSize: "12px" } },
-          el("input", { type: "checkbox", id: "filter-landmarks", checked: true, onchange: applyFilters }),
-          t("player.with_landmarks"),
-        ),
-        el("p", { class: "note" }, t("player.family_note")),
-        el("div", { id: "clip-list-host" }),
-      ),
+      clipsPanel,
       el("div", { id: "stage-host" }, el("p", { class: "empty" }, t("player.select"))),
     ),
   );
   applyFilters();
-  window.addEventListener("resize", () => paint(), { passive: true });
+  fitLayout();
+  // A language or theme change re-renders this view, so the listener is bound
+  // once for the session rather than once per render.
+  if (!resizeBound) {
+    window.addEventListener("resize", () => fitLayout(), { passive: true });
+    resizeBound = true;
+  }
   if (view.filtered.length) await selectClip(view.filtered[0]);
 }

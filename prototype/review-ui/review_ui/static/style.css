@@ -202,6 +202,12 @@ main {
   padding: 20px 24px 48px;
 }
 
+/* The player is sized to the viewport, so the room below it is dead space; the
+   scrolling views keep their tail padding.  player.js measures this value. */
+body:has(#view-player.active) main {
+  padding-bottom: 20px;
+}
+
 .view {
   display: none;
 }
@@ -387,12 +393,20 @@ button.ctl.on {
   color: var(--text);
 }
 
-label.field {
+.field {
   display: flex;
   flex-direction: column;
   gap: 3px;
   font-size: 11px;
   color: var(--muted);
+}
+
+/* The player bar puts its label beside its control instead of above it, which is
+   what keeps the transport on screen beneath a full-height stage. */
+.field.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
 }
 
 .controls {
@@ -436,15 +450,36 @@ input[type="range"] {
 
 /* ----------------------------------------------------------------- player */
 
+/* The player fills the viewport: the stage takes every pixel the bar and the
+   list leave, so the clip is as large as the window allows and the transport
+   never leaves the screen.  player.js reads `--fit-viewport` to learn whether
+   this stylesheet is in its stacked state, and measures the height itself —
+   the chrome above the layout moves with the language and the top bar's wrap. */
 .player-layout {
+  --fit-viewport: 1;
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
+}
+
+.clips-panel,
+#stage-host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#clip-list-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .clip-list {
-  max-height: 62vh;
+  flex: 1;
+  min-height: 80px;
   overflow: auto;
   border-top: 1px solid var(--line-soft);
 }
@@ -480,12 +515,34 @@ input[type="range"] {
   white-space: nowrap;
 }
 
+.stage-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 8px;
+  min-height: 0;
+}
+
+.stage-panel .banner {
+  margin: 0;
+}
+
+.stage-wrap {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+}
+
 .stage {
   position: relative;
   background: var(--stage);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .stage video {
@@ -518,11 +575,19 @@ input[type="range"] {
   pointer-events: none;
 }
 
+/* Four short rows rather than a stacked column of fields: the bar is the space
+   the stage does not get, so every row here is one line of clip. */
+.player-bar {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
 .transport {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 10px;
   flex-wrap: wrap;
 }
 
@@ -536,16 +601,64 @@ input[type="range"] {
   font-size: 11.5px;
   color: var(--muted);
   white-space: nowrap;
+  margin-left: auto;
+}
+
+.player-opts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.player-opts input[type="range"] {
+  width: 104px;
+}
+
+.strip-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.strip-label {
+  color: var(--faint);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 canvas.strip {
-  width: 100%;
-  height: 46px;
+  flex: 1;
+  min-width: 0;
+  height: 32px;
   display: block;
-  margin-top: 8px;
   border: 1px solid var(--line-soft);
   border-radius: 6px;
   background: var(--panel-2);
+}
+
+/* The clip facts read along one line instead of down a key/value list. */
+.factline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  font-size: 11.5px;
+}
+
+.fact {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.fact-k {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.fact-v {
+  font-family: var(--mono);
+  font-size: 11.5px;
 }
 
 .banner {
@@ -572,8 +685,17 @@ canvas.strip {
 /* ------------------------------------------------------------- responsive */
 
 @media (max-width: 1100px) {
+  /* Stacked, the two panels cannot share one screen, so the layout goes back to
+     content height and the stage takes a fixed share of the viewport. */
   .player-layout {
+    --fit-viewport: 0;
     grid-template-columns: 1fr;
+  }
+  .stage-panel {
+    height: 68dvh;
+  }
+  .clip-list {
+    max-height: 40dvh;
   }
   .topbar {
     flex-wrap: wrap;

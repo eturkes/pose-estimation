@@ -80,6 +80,22 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   across show/dim/hide. **13/13 green; 2 of 2 seeds fire** — neutering the `.stage:has(...)`
   background reds exactly the 2 backdrop rows, misspelling the pre-paint `review-ui-theme` key reds
   the 3 rehydration rows and nothing else, both files restored byte-identical by digest.
+- `.scratch/player_layout_qa.mjs` — review-ui clip player layout: the stage fits the room the UI
+  leaves and the transport stays on screen. `node .scratch/player_layout_qa.mjs http://127.0.0.1:<after>
+  [<before>]` against a running `python -m review_ui`; same chromiumfish + `playwright-core`
+  resolution as `theme_qa.mjs`, plain context. 38 checks: pane shape (no clip title, banner hidden,
+  no codec sentence, one selected row, overlay + strip backed at device resolution), the fit over
+  five viewports + the stacked breakpoint (fits its room, fills an axis, ratio error < 1 %, video
+  fills the stage, every control row on screen, page fits the viewport), a width-only resize
+  rebacking the strip, and the census + cohort panel rectangles against the before state — the
+  change touched shared CSS and those two views are the committed captures. **38/38 green; 4 of 4
+  seeds fire their own rows and nothing else.** The second URL is a `git worktree` of the previous
+  commit served with `--repo <primary>` and `UV_PROJECT_ENVIRONMENT=<primary>/prototype/review-ui/.venv
+  uv run --no-sync`, which measured controls below the stage at 322 px → 156 px. Seed rules learned
+  here: `.stage`'s own `max-width: 100%` absorbs a `width` seed, so a seed that must escape the room
+  needs `min-width`; and a `goto` differing only in its fragment is a same-document navigation, so an
+  injected style tag survives into the next seed — the script carries a per-load query parameter for
+  that. `.scratch/player_shot.mjs` takes the layout-only capture beside it (→ `data-boundary.md`).
 - `.scratch/steq.py` — ASD-STE100 register scan over the human-facing surface (inventory: `docs/technical/conventions.md` → *Text register*). Drops fences/tables/headings/frontmatter, joins wrapped lines into blocks so a sentence is measured whole, splits on `.!?`, flags `LONG` (> `--max`; 20 for instructions, 25 for descriptions), `FILLER`, `CONTRACTION` (also fires on possessive `'s`), `PASSIVE` (be-verb + participle heuristic). Code-file mode samples quoted `help=`/`description=`/`title=` strings only. Measured at `--max 20`: `README.md` 14 → 2, `docs/capture_protocol.md` 20 → 7; residual flags are 21-25-word descriptions, which the rule allows.
 - `.scratch/fidelity.sh <base-ref> <file>…` — pairs with it: diffs the multiset of format specifiers, `--flags`, backticked spans, file names and numbers between a base ref and the working tree. A register-only edit must show no delta; every delta needs an explanation. Caught the p-value reformat (`p<.05` → `p < 0.05`) and confirmed 14 R files invariant.
 

@@ -48,6 +48,10 @@ rows before sizing any unit that touches their surfaces.
 - **Review UI theme control proven by a scratch script alone** (`.scratch/theme_qa.mjs` → regen path
   in `.claude/rules/gates.md`) → a committed check drives the cycle, the pre-paint rehydration and
   the `:has()` stage backdrop, 13/13 green, failing under the two recorded seeds.
+- **Review UI player fit proven by a scratch script alone** (`.scratch/player_layout_qa.mjs` → regen
+  path in `.claude/rules/gates.md`) → a committed check reports the stage fitting its room, filling
+  an axis and holding its ratio over five viewports plus the stacked breakpoint, every control row
+  on screen, and reds under the four recorded seeds.
 - **Review UI overlay lines use raw `topology.json` colours, the pipeline renders them blended**
   (`drawing.py` `_LIMB_ALPHA = 0.6` → `_BODY_BLENDED`/`_HAND_BLENDED`; `export_topology.py` exports
   the unblended map) → the README's "the overlay draws what the pipeline draws" is unearned for
