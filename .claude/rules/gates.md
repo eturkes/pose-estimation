@@ -96,6 +96,33 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   needs `min-width`; and a `goto` differing only in its fragment is a same-document navigation, so an
   injected style tag survives into the next seed — the script carries a per-load query parameter for
   that. `.scratch/player_shot.mjs` takes the layout-only capture beside it (→ `data-boundary.md`).
+- `.scratch/default_view_qa.mjs` — review-ui landing view: the player is the first tab and the view a
+  bare URL opens. `node .scratch/default_view_qa.mjs http://127.0.0.1:<port>` against a running
+  `python -m review_ui`; same chromiumfish + `playwright-core` resolution as `theme_qa.mjs`, plain
+  context, no capture of any kind — it prints tab order, the active view, the hash and booleans, which
+  is what keeps a landing-view check inside `data-boundary.md`. 16 checks: tab order, section order
+  and the first tab's label, the bare URL settling on `#player` with its stage drawn, a `#cohort` deep
+  link, a tab click, an unknown fragment falling back to the player, and the same-document group — a
+  `location.hash` write selecting its view, the Back button, an unknown same-document hash.
+  **16/16 green; 4 of 4 seeds fire their own rows and nothing else** — `DEFAULT_VIEW` player→census
+  reds 6 landing rows, the `index.html` nav order player→census reds the 2 tab rows, deleting the
+  `hashchange` listener reds the 3 same-document rows, and moving `location.hash = name` back after
+  the render `await` reds exactly the Back row; both files restored byte-identical by sha256.
+  Rules learned here, all three measured against a tree that read green first:
+  - `show()` toggles the tab and view classes *before* it awaits the render, so a class-only wait
+    reads a half-switched page and reported the previous hash under a seed. Every wait is hash +
+    active view + drawn node, through `waitForFunction`.
+  - A `waitForSelector` a seed can never satisfy must be caught into a `fail` row, or the seed
+    reports as a crashed script rather than as a failing check.
+  - **A row timed against a warm render grades the race, not the code.** The Back row passed under
+    its own ordering seed once the cohort render went warm — the stale trailing write needs the
+    superseded render still in flight. The row holds the window open itself (`page.route` delaying
+    `/api/cohort` 1500 ms) and reads the state *after* the delay elapses, since a trailing write
+    lands after Back settles. It is also two-sample — it requires the view to have BEEN cohort —
+    because a Back row asserting only the destination passes vacuously wherever the hash never
+    moved the view at all, which is exactly the state its own precondition row reds.
+  The same-document fragment trap above applies here too and for a second reason: a fragment-only
+  `goto` is not a load, and view selection now runs through `hashchange` rather than boot alone.
 - `.scratch/steq.py` — ASD-STE100 register scan over the human-facing surface (inventory: `docs/technical/conventions.md` → *Text register*). Drops fences/tables/headings/frontmatter, joins wrapped lines into blocks so a sentence is measured whole, splits on `.!?`, flags `LONG` (> `--max`; 20 for instructions, 25 for descriptions), `FILLER`, `CONTRACTION` (also fires on possessive `'s`), `PASSIVE` (be-verb + participle heuristic). Code-file mode samples quoted `help=`/`description=`/`title=` strings only. Measured at `--max 20`: `README.md` 14 → 2, `docs/capture_protocol.md` 20 → 7; residual flags are 21-25-word descriptions, which the rule allows.
 - `.scratch/fidelity.sh <base-ref> <file>…` — pairs with it: diffs the multiset of format specifiers, `--flags`, backticked spans, file names and numbers between a base ref and the working tree. A register-only edit must show no delta; every delta needs an explanation. Caught the p-value reformat (`p<.05` → `p < 0.05`) and confirmed 14 R files invariant.
 

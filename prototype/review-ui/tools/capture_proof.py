@@ -38,7 +38,9 @@ PROOF = ROOT / "proof"
 #: the proof baseline and the one dark row is what shows the theme control
 #: working.  A pinned theme keeps the baseline names unsuffixed.
 #: The player view captures nothing: every clip it can select is a real recording,
-#: so a PNG of its stage would commit a frame of patient video.
+#: so a PNG of its stage would commit a frame of patient video.  The player is also
+#: the landing view, so the `#{name}` fragment each capture URL carries is what keeps
+#: that true — a fragment-less capture of this server photographs the stage.
 VIEWS = (
     ("census", "ja", "light"),
     ("cohort", "ja", "light"),

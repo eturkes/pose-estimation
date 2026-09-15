@@ -1,11 +1,14 @@
 # Review UI
 
-A local web UI over the 3-camera corpus. It has three views: the corpus census, a
-clip player with a pose overlay, and the cohort statistics explorer. It reads the
-published trees and writes nothing.
+A local web UI over the 3-camera corpus. It reads the published trees and writes
+nothing. It has three views: a clip player with a pose overlay, the corpus census,
+and the cohort statistics explorer. The player opens first.
 
 The UI is bilingual. Japanese is the default. The button at the top right changes
 the language, and `?lang=en` sets it in a link.
+
+Each view has its own address. `#player`, `#census` and `#cohort` open a view in a
+link. The back button steps through the views you opened.
 
 The UI has three themes. The default is auto, which follows the operating system.
 The button beside the language button steps through auto, light and dark. The
@@ -35,16 +38,6 @@ Options:
 
 ## The three views
 
-**Corpus census** shows what the recordings are. It reads `inventory/census.json`,
-`qualification/qualification.json`, `calibration_qc/calibration_qc.json`,
-`cohort/cohort.json` and `output/corpus-2d/run_report.json`. A row of tiles gives
-the headline counts, and each tile names the tree it came from. One group of
-panels covers the recordings: the capture formats, the rotation per view, the
-codecs and the devices. A second group covers the clips: the views per capture,
-the cameras per event, the clip durations and the synchronisation status. A third
-group covers the rulings: the QC flags, the 3D recovery ruling, the run verdicts,
-the registry reason codes and the generator versions.
-
 **Clip player** draws the exported landmarks on a canvas over the video. The
 skeleton and the palette come from `pose_estimation.drawing`, so the overlay draws
 what the pipeline draws. Each list row names one camera artifact. The `#nnn`
@@ -60,6 +53,16 @@ theme, because the overlay draws over video and not over a page surface. The sta
 turns dark when you dim or hide the video, which keeps the overlay readable. The
 dot colours show the confidence band. The pipeline colours a dot by body group, so
 those three colours belong to this UI alone.
+
+**Corpus census** shows what the recordings are. It reads `inventory/census.json`,
+`qualification/qualification.json`, `calibration_qc/calibration_qc.json`,
+`cohort/cohort.json` and `output/corpus-2d/run_report.json`. A row of tiles gives
+the headline counts, and each tile names the tree it came from. One group of
+panels covers the recordings: the capture formats, the rotation per view, the
+codecs and the devices. A second group covers the clips: the views per capture,
+the cameras per event, the clip durations and the synchronisation status. A third
+group covers the rulings: the QC flags, the 3D recovery ruling, the run verdicts,
+the registry reason codes and the generator versions.
 
 **Cohort statistics** shows one feature at a time across the 12 `(task, side)`
 cells. The bar is the interquartile range, the rule is the median and the dot is

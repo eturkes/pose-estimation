@@ -13,6 +13,11 @@ Patient recordings + every derivative = sensitive. Binds MAIN + every teammate.
   unpainted, and leaves page chrome — panels, control rows, labels, the fitted box. Container facts
   are the same class the committed transcript drops, so the values go and the labels stay. What
   survives is the clip list (positional ordinals, task/side/view) and the corpus counts.
+- **The player is the landing view, so the bare URL is the stage.** `http://127.0.0.1:<port>/` with
+  no fragment opens the player and autoloads a real recording. Every capture command carries its
+  view fragment — `#census`, `#cohort` — and a fragment-less `webcap`/`--png` of the server is a
+  capture of patient video. `tools/capture_proof.py` is safe by construction because each URL it
+  builds ends in `#{name}`; that fragment is load-bearing, not cosmetic.
 - **No tool gate enforces this.** `permissions.deny` is Bash-only, so nothing refuses a path-keyed read; `.gitignore` only keeps bytes uncommitted. **Never restore a `Read()` path-exclusion list** — a path-keyed `Read()` rule also gates `Bash` by static command text, so a batched command dies for naming the path it excludes, and one command whose cwd the matcher cannot resolve halts the session under `bypassPermissions`. `.agent/archive/m2u71.md` + `contract-m2u2.md` §6 still name that dead deny list; both are frozen unit records, never a live surface.
 - **Repo scope = `videos/3-cam/`.** `videos/initial/` = preliminary, retired — on disk, never reprocessed. Siblings under the same data root are out of scope: `harness/` = schematics for a capture harness never built; `database/` = the hospital's SCI clinical records, the eventual integration target (→ `.agent/spec.md` `Intent`; the roadmap Backlog that once tracked it is frozen archive).
 - `videos` is a symlink out of the repo, so git never traverses it. Path-taking tools default to the old flat root and both are non-recursive: `scripts/run_report.py --videos-dir` and `pose-estimation-run --list-sessions` each need an explicit subdirectory.

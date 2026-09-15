@@ -182,16 +182,27 @@ export async function json(path) {
 }
 
 const VIEWS = {
-  census: { render: renderCensus, node: () => document.getElementById("view-census") },
   player: { render: renderPlayer, node: () => document.getElementById("view-player") },
+  census: { render: renderCensus, node: () => document.getElementById("view-census") },
   cohort: { render: renderCohort, node: () => document.getElementById("view-cohort") },
 };
 
-let current = "census";
+/** The player is the landing view: the clips are what a reviewer comes to look
+    at, and the census and the cohort explorer answer questions raised there. */
+const DEFAULT_VIEW = "player";
+
+let current = DEFAULT_VIEW;
 const rendered = new Set();
 
 async function show(name, force = false) {
   current = name;
+  // Before the render await, not after it: a trailing write belongs to whichever
+  // render finishes last, so a switch made while a slow view was still rendering
+  // was dragged back by the older call — the back button off a first cohort visit
+  // returned to cohort.  Written synchronously, a superseded call writes nothing,
+  // and its render lands in its own hidden section.  The re-entrant `hashchange`
+  // this fires reads `current` as already `name` and stops there.
+  location.hash = name;
   for (const tab of document.querySelectorAll(".tab")) {
     tab.classList.toggle("active", tab.dataset.view === name);
   }
@@ -204,7 +215,6 @@ async function show(name, force = false) {
     node.replaceChildren(el("p", { class: "empty" }, t("common.loading")));
     await VIEWS[name].render(node);
   }
-  location.hash = name;
 }
 
 function applyStaticText() {
@@ -266,8 +276,20 @@ async function boot() {
     show(current, true);
   });
 
+  // The fragment is the view selector, and `show` writes one history entry per
+  // switch, so the fragment moves without a load in two ordinary cases: the back
+  // button, and a shared `#census` link opened in a tab that already holds the UI.
+  // Reading it at boot alone leaves the address bar and the stage disagreeing —
+  // and with the player as the landing view, that stale stage is patient video.
+  // `show` assigns the same hash back, which is a no-op and re-enters nothing.
+  addEventListener("hashchange", () => {
+    const name = location.hash.replace("#", "");
+    const target = VIEWS[name] ? name : DEFAULT_VIEW;
+    if (target !== current) show(target);
+  });
+
   const initial = location.hash.replace("#", "");
-  await show(VIEWS[initial] ? initial : "census");
+  await show(VIEWS[initial] ? initial : DEFAULT_VIEW);
 }
 
 boot();

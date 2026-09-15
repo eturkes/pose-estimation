@@ -20,8 +20,8 @@ hospital SCI database.
 `P` = the gate prefix; `P` + the mutually-exclusive accelerator recipe → `.claude/rules/gates.md`.
 
 - `prototype/review-ui/` — **the inspectable artifact.** One local web UI, bilingual ja/en
-  (`?lang=en`), themed auto|light|dark (`?theme=`, auto = `light-dark()` + the OS), three views:
-  corpus census · clip player with pose overlay · cohort explorer.
+  (`?lang=en`), themed auto|light|dark (`?theme=`, auto = `light-dark()` + the OS), three views,
+  clip player (the landing view) · corpus census · cohort explorer.
   FastAPI + vanilla JS canvas + vendored Plotly/IBM Plex, own uv project, read-only over the
   published trees, degrading per absent tree. Commits no media at all → the player needs the
   published trees and lists nothing without them; `README.md` = view guide + regeneration + limits.

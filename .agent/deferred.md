@@ -52,6 +52,12 @@ rows before sizing any unit that touches their surfaces.
   path in `.claude/rules/gates.md`) → a committed check reports the stage fitting its room, filling
   an axis and holding its ratio over five viewports plus the stacked breakpoint, every control row
   on screen, and reds under the four recorded seeds.
+- **Review UI landing view + fragment routing proven by a scratch script alone**
+  (`.scratch/default_view_qa.mjs` → regen path in `.claude/rules/gates.md`) → a committed check
+  reports the player first in the tab strip, the bare URL settling on `#player` with its stage drawn,
+  a `#cohort` deep link and an unknown fragment resolving, and the same-document group — a
+  `location.hash` write, the Back button, an unknown same-document hash — 16/16 green, failing under
+  the four recorded seeds, the Back row still firing under a 1500 ms `/api/cohort` delay.
 - **Review UI overlay lines use raw `topology.json` colours, the pipeline renders them blended**
   (`drawing.py` `_LIMB_ALPHA = 0.6` → `_BODY_BLENDED`/`_HAND_BLENDED`; `export_topology.py` exports
   the unblended map) → the README's "the overlay draws what the pipeline draws" is unearned for
