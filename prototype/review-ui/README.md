@@ -21,6 +21,10 @@ uv run --directory prototype/review-ui python -m review_ui
 Open `http://127.0.0.1:8791/`. The server prints each published tree as `ok` or
 `absent` before it starts.
 
+The server marks every response `Cache-Control: no-cache`, so a reload always
+shows the current build. A browser that cached the UI before this rule still
+holds the old files. Do one hard reload to clear them.
+
 Options:
 
 - `--port N` selects a different port.

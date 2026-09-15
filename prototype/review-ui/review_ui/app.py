@@ -81,6 +81,18 @@ def create_app(paths: Paths | None = None) -> FastAPI:
     app = FastAPI(title="pose-estimation review UI", docs_url=None, redoc_url=None)
     app.state.paths = resolved
 
+    @app.middleware("http")
+    async def revalidate(request: Request, call_next):
+        """A response with no `Cache-Control` gets a heuristic freshness lifetime
+        from `Last-Modified` — about a tenth of the file's age — so a browser
+        serves an edited module from disk for hours without asking.  `no-cache`
+        means revalidate, not no-store: the `ETag` still answers 304 and the
+        published trees are equally free to move under a running server.
+        """
+        response = await call_next(request)
+        response.headers.setdefault("cache-control", "no-cache")
+        return response
+
     def _clip(event_id: str, camera_name: str) -> dict[str, Any]:
         found = clips.find(resolved, event_id, camera_name)
         if found is None:
