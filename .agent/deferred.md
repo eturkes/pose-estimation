@@ -71,3 +71,18 @@ rows before sizing any unit that touches their surfaces.
 - **`capture_proof.py` port guard fires only against a live stranger** (`already_serving` returns rc=2;
   measured against a stale host server on 8791 serving deleted code) → a check binds a socket on the
   target port, asserts rc=2 and the named cause, and asserts rc=0 on a free port.
+- **Claim boundary guarded by 18 substrings; 7/7 semantic overreaches pass** (`check_claim_report.py:89`
+  `_p03`, needles = `calibration_qc.PROHIBITED_PARAPHRASES`; measured against the shipped `_fold`,
+  positive control `clinical validity` fires) → the guard refuses a held-out paraphrase set covering
+  all three forbidden classes, including one Japanese rendering, at 100 % recall on overreach, passes
+  the two shipped documents unchanged, and routes every uncertain sentence to review rather than
+  approving it. `gates.md` already records the tell: "NC4's needle must come from
+  `PROHIBITED_PARAPHRASES` rather than invented prose."
+- **`check_review_report.py` P04 + P06 are spelling tests** (`:53`, `:77-80`) → a report whose `pass`
+  cell reads `aaaaaaaaaaaaa` and whose detail reads `predicate impact acceptance x.py:1` grades
+  nonzero; the 57 rows of `.agent/archive/review-m2.md` still grade `PASS`. Today the hollow report
+  grades `PASS` rc=0 and a one-character shortening of the `pass` cell is the only thing that reds it.
+- **Review UI feature finder is a three-field substring filter** (`static/cohort.js:212`; searchable
+  English vocabulary = 41 words over 89 features) → a committed check reports the 13 recorded
+  collaborator queries retrieving their intended features, where 12 return 0 today, with no loss on
+  the literal queries substring search already answers and `ja` graded separately.
