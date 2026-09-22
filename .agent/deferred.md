@@ -145,3 +145,36 @@ rows before sizing any unit that touches their surfaces.
   cut acceleration error 31.64→4.15 mm/frame² **and** improved MPJPE 106.90→97.47, where One Euro
   and Savitzky-Golay bought smoothness by worsening MPJPE to 135.71 and 118.25 — evaluate it beside
   the classical two-stage before the rerun commits.
+- **RULING: the >98 %-of-power leg of the 6 Hz recommendation is RETIRED.** Asked twice for its
+  provenance, `res-bandwidth-1` delivered F01-F03 both times and never wrote the `## Provenance`
+  section; `>98%` still stands uncorrected in 6 places in its report, so the report's R08 cell is
+  read with that leg struck. Agent stopped on the second breach. Verified independently: DOI
+  10.1016/j.medengphy.2006.10.012 is paywalled here and its abstract is an accelerometer-vs-Vicon
+  validation with no spectral content. **6 Hz stands on R03's 4-6 Hz clinical-marker cluster, the
+  2.5-3 Hz markerless precedents and Nyquist — no percentage-of-power bound is claimed.** Reopens
+  only on institutional full text.
+- **RULING: Hampel-by-amplitude is out of the upstream design.** F01 — published upper-limb Hampel
+  parameters are scattered and weakly validated (window 4 + multiplier 1 · window 5 after a 10 Hz
+  low-pass · 30 samples + moving mean 30, threshold unstated · 7 samples at 3×1.4826 MAD), and
+  **not one reports removed spectral energy, tremor retention or false-positive removal of
+  physiology**. Our 0.527 retention in 2-5 Hz therefore has no precedent to lean on — it is the
+  measurement the field has not made, and it refuses the stage rather than tuning it.
+  Replacement, per F02: reject on **detector evidence plus motion plausibility plus temporal
+  structure**, never local amplitude — confidence gating, a scale-normalised single-frame
+  relocation limit, biomechanical/limb-length consistency, and persistence over frames (a sustained
+  spectral peak is physiology; a one-frame excursion is not). Anipose's confidence-weighted Viterbi
+  path under an expected-displacement prior is the worked form, and its authors warn in the same
+  paper that median filtering deletes genuine fast motion.
+  Sources: Friedrich et al. (2024), *npj Digital Medicine*, DOI 10.1038/s41746-024-01153-1;
+  Karashchuk et al. (2021), *Cell Reports*, DOI 10.1016/j.celrep.2021.109730; Gionfrida et al.
+  (2022), DOI 10.1371/journal.pone.0276799; Lannan, Zhou & Fan (2022), DOI 10.1109/ACCESS.2022.3157605.
+- **RULING pending user: SPARC becomes the primary smoothness feature, `normalized_jerk` demoted to
+  secondary.** F03 — SPARC takes one segmented scalar speed profile, normalises its Fourier
+  magnitude and integrates negative spectral arc length to an amplitude-selected cutoff; published
+  defaults are threshold 0.05, max 10 Hz, zero-padding level 4, with event segmentation required for
+  rhythmic traces. **SPARC is noise-robust but NOT cutoff-invariant** — upstream filtering, the max
+  cutoff, the amplitude threshold and the segment boundaries each move the score, so the low-pass
+  choice and the smoothness feature are coupled and must be fixed together, before the rerun
+  republishes `cohort/`. Balasubramanian et al. (2015), DOI 10.1186/s12984-015-0090-9;
+  Mohamed Refai et al. (2021), DOI 10.1186/s12984-021-00949-6; Cornec et al. (2024),
+  DOI 10.1186/s12984-024-01382-1.
