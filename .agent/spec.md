@@ -81,7 +81,20 @@ Queue → `.agent/deferred.md`; evidence → `.agent/archive/{polish,review-m2}.
   coordinates into the served player and grades the drawn pixel positions against the canvas scale
   math, max deviation < 1 px, failing on a seeded off-by-one. Needs no committed media.
 - **HEVC decode failure reported but never exercised** (123/379 hevc) → an hevc clip on a
-  decoder-less build shows the `player.decode_failed` banner, overlay still advancing on rAF.
+  decoder-less build shows the `player.decode_failed` banner. The rAF advance itself is now proven
+  by `.scratch/player_clock_qa.mjs` (→ `gates.md`); the banner half is what remains.
+- **2D landmark instability is measured and unrepaired** — three mechanisms, over 24 clips /
+  460 280 keypoint transitions: `det_frequency=7` modulates per-frame displacement 2.32× across its
+  cycle (phase spread 0.86 at k=7, harmonics at 14 and 21, every non-multiple ≤ 0.47); 5.0 % of
+  transitions relocate > 0.1 frame-widths in one frame, half of them at drawable confidence; and the
+  causal One Euro smoother (`min_cutoff=0.5, beta=0.5`, cutoff = `min_cutoff + beta·|velocity|`)
+  leaves a moving-band alternation ratio of 1.60 against 2.0 for pure frame-to-frame noise.
+  **It lands on the measured features, not on cosmetic keypoints** — partitioning by what
+  `analysis/clinical_features.R` consumes (shoulder, elbow, wrist, index, hip; hand 0/4/8/20) moved
+  nothing: used 5.05 % relocations / 0.86 spread vs unused 5.17 % / 0.93. Hands drop out whole on
+  5.33 % of frames, coordinate-absent, so the overlay's threshold cannot restore them.
+  Closes on a stabilisation whose cutoff is swept, not assumed (→ `.agent/deferred.md`), re-measured
+  on the same four preservation figures, with the corpus and cohort republished.
 
 ## Phase
 

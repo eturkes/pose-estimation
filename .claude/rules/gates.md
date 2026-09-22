@@ -123,6 +123,22 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
     moved the view at all, which is exactly the state its own precondition row reds.
   The same-document fragment trap above applies here too and for a second reason: a fragment-only
   `goto` is not a load, and view selection now runs through `hashchange` rather than boot alone.
+- `.scratch/player_clock_qa.mjs` — review-ui playback rate on the rAF clock.
+  `node .scratch/player_clock_qa.mjs http://127.0.0.1:<port>` against a running `python -m review_ui`;
+  same chromiumfish + `playwright-core` resolution as `theme_qa.mjs`, plain context, no capture —
+  it prints frame advances and observed/expected rate ratios, which is what keeps a player-view
+  check inside `data-boundary.md`. 10 checks: `hide` at 0.25×/0.5×/1× each advancing at all and
+  within 20 % of the requested rate, the 0.5×:0.25× and 1×:0.25× advance ratios at 2 and 4, and
+  `layer=show` still driven by the video clock. **10/10 green; the seed fires 6 rows and leaves both
+  `show` rows green**, restored byte-identical by sha256 (`83bff032…`).
+  `videoUsable()` returns false whenever `layer === "hide"`, so `hide` mode **and every clip without
+  a platform decoder** — 123/379 are HEVC — play on the rAF branch of `tick()`. That branch fed
+  `view.frame` back into itself after `setFrame` had rounded it, so any per-tick advance under half
+  a frame accumulated to nothing: measured, **0 frames in 2.5 s at 0.5×, 1 frame at 0.25×, and
+  1.20× the requested rate at 1×**. The fix carries an unrounded `view.framePos`. Rules learned here:
+  a `> 0` liveness row is too weak to catch a near-stall — 0.25× advanced 1 frame and passed it,
+  and only the rate row reds; and the seed must leave the video-clock rows green, or the row set
+  cannot show which clock it graded.
 - `.scratch/steq.py` — ASD-STE100 register scan over the human-facing surface (inventory: `docs/technical/conventions.md` → *Text register*). Drops fences/tables/headings/frontmatter, joins wrapped lines into blocks so a sentence is measured whole, splits on `.!?`, flags `LONG` (> `--max`; 20 for instructions, 25 for descriptions), `FILLER`, `CONTRACTION` (also fires on possessive `'s`), `PASSIVE` (be-verb + participle heuristic). Code-file mode samples quoted `help=`/`description=`/`title=` strings only. Measured at `--max 20`: `README.md` 14 → 2, `docs/capture_protocol.md` 20 → 8; residual flags are 21-25-word descriptions, which the rule allows. **The scanner cannot apply its own rule.** One `--max` covers every sentence, so the instruction-vs-description call that picks 20 or 25 is made by hand on each residual. Measured over the four shipped surfaces: 48 flags at `--max 20`, 24 at `--max 25`; **25 of the 26 `LONG` verdicts sit in the 21-25 band** and turn entirely on that call, 1 fails either way. Of the 24 residuals, both `CONTRACTION` hits are possessives (`instrument's`, `solve's`) and at least 4 of 21 `PASSIVE` hits are predicate adjectives (`is untested`, `is unmeasured`, `is unaffected`, `is closed`) — so **23 of 24 are heuristic output awaiting a human**, and several true passives are mandated by the claim boundary's own "may not be claimed" phrasing.
 - `.scratch/fidelity.sh <base-ref> <file>…` — pairs with it: diffs the multiset of format specifiers, `--flags`, backticked spans, file names and numbers between a base ref and the working tree. A register-only edit must show no delta; every delta needs an explanation. Caught the p-value reformat (`p<.05` → `p < 0.05`) and confirmed 14 R files invariant.
 

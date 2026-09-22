@@ -27,6 +27,9 @@ const view = {
   clip: null,
   series: null,
   frame: 0,
+  // Unrounded playhead. setFrame rounds for display; the rAF clock needs the
+  // fraction it discards, or advances below half a frame accumulate to nothing.
+  framePos: 0,
   playing: false,
   layer: "show",
   showBody: true,
@@ -215,7 +218,9 @@ function fps() {
 
 function setFrame(frame) {
   if (!view.series) return;
-  view.frame = Math.max(0, Math.min(Math.round(frame), view.series.frames - 1));
+  const last = view.series.frames - 1;
+  view.framePos = Math.max(0, Math.min(frame, last));
+  view.frame = Math.max(0, Math.min(Math.round(frame), last));
   const seek = document.getElementById("seek");
   if (seek && Number(seek.value) !== view.frame) seek.value = String(view.frame);
   const readout = document.getElementById("readout");
@@ -242,7 +247,11 @@ function tick(timestamp) {
   } else {
     const elapsed = view.clock ? (timestamp - view.clock) / 1000 : 0;
     view.clock = timestamp;
-    const next = view.frame + elapsed * fps() * view.speed;
+    // Advance the unrounded playhead. Reading view.frame back here dropped every
+    // step under half a frame, so this clock stalled outright at 0.5x and 0.25x
+    // and ran at double rate at 1x. It is the clock `hide` mode and every clip
+    // without a platform decoder play on.
+    const next = view.framePos + elapsed * fps() * view.speed;
     setFrame(next >= view.series.frames ? 0 : next);
   }
   view.raf = requestAnimationFrame(tick);

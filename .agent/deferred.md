@@ -97,3 +97,16 @@ rows before sizing any unit that touches their surfaces.
   `trunk compensation` · `grip` · `coordination` · `tremor` · `movement quality` · `how fast` ·
   `how steady is the reach` · `変動`; `左右差` is the one that hits, on 15, as a literal template
   fragment.
+- **Player rAF clock rate is proven by a scratch script** (`.scratch/player_clock_qa.mjs`; →
+  `gates.md`) → port to a committed check under `prototype/review-ui/tools/`, run from the recorded
+  command, 10 rows green and the seeded `view.framePos`→`view.frame` regression reding exactly the
+  6 rate rows while both `layer=show` rows stay green.
+- **Post-hoc landmark stabilisation is measured but unfunded** (`.scratch/recover.py`,
+  `.scratch/recover2.py`) → Hampel(7,3σ) + zero-phase Butterworth(2, 6 Hz) over the published
+  `output/corpus-2d/` tracks drops the moving-band alternation ratio 1.598→0.483 and the
+  >0.1-frame relocation rate 6.153%→1.182%, holding 99.5 % of sub-6 Hz energy and 98.5 % of
+  excursion. **The 6 Hz cutoff is unswept and is the instrument parameter the whole result turns
+  on** (→ `evidence.md`: sweep any statistic before gating on it). Acceptance = a cutoff sweep over
+  3-12 Hz reporting all four preservation figures per step, the clinical upper bound on voluntary
+  upper-limb movement frequency sourced rather than assumed, and the chosen value recorded with its
+  provenance before any filter ships.
