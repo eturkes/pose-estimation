@@ -178,3 +178,45 @@ rows before sizing any unit that touches their surfaces.
   republishes `cohort/`. Balasubramanian et al. (2015), DOI 10.1186/s12984-015-0090-9;
   Mohamed Refai et al. (2021), DOI 10.1186/s12984-021-00949-6; Cornec et al. (2024),
   DOI 10.1186/s12984-024-01382-1.
+
+## 2D instability — measured mechanism (24 corpus clips, 10 372 fully-observed frames)
+
+Population for every figure below: the 10 body keypoints `analysis/clinical_features.R` consumes
+(shoulder, elbow, wrist, index, hip × 2), `vis >= 0.30`, frames where all 10 are observed.
+Relocation = single-frame displacement > 0.10 normalised. Corpus is 1920-maxdim almost everywhere
+(`inventory/census.json` `shapes`) so normalised × 1920 = px.
+
+- **Relocations are bimodal and trivially separable.** Of relocation frames, **67.3 % move >= 8 of
+  10 keypoints together** (442) and **26.0 % move 1-2** (171); only 6.7 % sit between. The
+  displacement distribution has a hole in it: **p50 4.2 px · p90 18.4 px · p95 203.9 px** ·
+  p99 901.9 px. Real movement lives under ~20 px/frame and the relocation population sits at
+  200-1700 px, with almost nothing between. Fractions over the shipped constants: 30 px
+  (`outlier_cap`) 7.41 % · 150 px (`match_thresh`) 5.25 % · 192 px (teleport) 5.06 %.
+- **The two modes have different phase signatures, so they have different causes.** Whole-skeleton
+  rate by detector phase decays monotonically **7.60 → 7.27 → 5.20 → 4.21 → 3.35 → 2.07 → 1.88 %**
+  (chi2 = 57.66, df = 6, p << .001; phase-0 enrichment 1.90×, peak/floor 4.04×), and replicates at
+  2.00× on the independent 11-clip pilot subset. The isolated mode is U-shaped instead —
+  2.31 · 0.82 · 0.75 · 1.40 · 1.55 · 2.61 · 1.94 % (chi2 = 33.15) — peaking at phase 5, not 0.
+- **A relocation is wholesale re-estimation, not a translation and not a per-keypoint glitch.**
+  Decomposed into centroid motion + shape change with translation removed: whole-skeleton
+  relocations move the centroid **508.9 px** while deforming **320.9 px** (ratio 0.59), against
+  ordinary frames at 2.0 px / 5.1 px (ratio 2.40). So they are 4× more translation-dominated than
+  ordinary motion *and* deform 63× more in absolute terms — the skeleton is being replaced, which
+  is what a jumped detector crop feeding a top-down pose model produces.
+- **Why no shipped stage catches it — all three are keyed on track identity.** `OneEuroFilter`
+  clamps only the *surprise* `|diff - dx_prev*dt|` to `outlier_cap` = 30 px, and
+  `predicted_step = dx_prev*dt` passes through unclamped, so an inflated velocity state carries an
+  arbitrarily large step. `BoneLengthSmoother` ships and runs (the corpus driver passes neither
+  `--no-smooth` nor `--no-constraints`) but allows `tolerance` = 0.4 — **40 % bone-length slack** —
+  and learns per-`body_id` averages at `alpha` = 0.05, ~20 frames to adapt, so a fresh track has no
+  proportions to violate. A track break therefore disarms the velocity clamp, the learned bone
+  lengths and the association gate in the same frame.
+- **Track births are not measurable from published data.** The landmark CSV carries 304 columns and
+  no track, age or carry field (`person_idx` is 0 throughout under `--single-subject`), so
+  attributing relocations to track lifecycle needs pipeline instrumentation, not another query.
+- **`det_frequency=1` is NOT unsafe** — `.claude/rules/rtmlib-runtime.md` already rules the nominal
+  freeze harmless there and the probe confirms it: `tracking=False` at `det_frequency=1` reports
+  `frozen: true` with `det_calls` 60 of 60 and `whole_frame_pose_calls: 0`, because `frame_cnt % 1`
+  is 0 at every residue so the box list is never starved. The failing verdict name
+  `tracking_false_never_freezes` describes a nominal freeze with no consequence. The case against
+  lowering `det_frequency` is the measured sweep, not safety.
