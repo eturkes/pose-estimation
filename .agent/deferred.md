@@ -101,12 +101,21 @@ rows before sizing any unit that touches their surfaces.
   `gates.md`) → port to a committed check under `prototype/review-ui/tools/`, run from the recorded
   command, 10 rows green and the seeded `view.framePos`→`view.frame` regression reding exactly the
   6 rate rows while both `layer=show` rows stay green.
-- **Post-hoc landmark stabilisation is measured but unfunded** (`.scratch/recover.py`,
-  `.scratch/recover2.py`) → Hampel(7,3σ) + zero-phase Butterworth(2, 6 Hz) over the published
-  `output/corpus-2d/` tracks drops the moving-band alternation ratio 1.598→0.483 and the
-  >0.1-frame relocation rate 6.153%→1.182%, holding 99.5 % of sub-6 Hz energy and 98.5 % of
-  excursion. **The 6 Hz cutoff is unswept and is the instrument parameter the whole result turns
-  on** (→ `evidence.md`: sweep any statistic before gating on it). Acceptance = a cutoff sweep over
-  3-12 Hz reporting all four preservation figures per step, the clinical upper bound on voluntary
-  upper-limb movement frequency sourced rather than assumed, and the chosen value recorded with its
-  provenance before any filter ships.
+- **Offline stabiliser parameters — cutoff swept, Hampel is the one that needs it**
+  (`.scratch/recover.py`, `.scratch/recover2.py`, `.scratch/sweep.py`; 236 tracks / 24 clips, used
+  keypoints). Two stages, and the sweep splits the credit between them.
+  **Cutoff has no knee.** Over 3-12 Hz the alternation ratio moves 0.242→1.305 smoothly and
+  excursion never leaves 0.976-0.991, so the curve picks no value and the clinical bound has to —
+  which is why the sourced bandwidth is a precondition, not a nicety.
+  **Outlier rejection must come first.** Low-pass alone at 12 Hz leaves relocations at 8.362 %,
+  *worse* than the raw 6.153 %, because `filtfilt` smears one relocation across its neighbours;
+  Hampel takes the same figure to 1.304 %.
+  **Hampel(7, 3σ) is over-aggressive and was assumed exactly like the 6 Hz was.** Holding the
+  evaluation bands fixed and running the cutoff at 12 Hz, where the Butterworth is nearly inert,
+  2-5 Hz retention is 0.999 without Hampel and 0.527 with it — **Hampel alone removes ~47 % of the
+  2-5 Hz energy**, the band carrying grasp shaping and corrective submovements. An aggregated
+  "keep < 6 Hz = 0.998" hid this completely, because 0-2 Hz energy dominates the sum; only fixed
+  narrow bands show it.
+  Acceptance = window and σ swept on the same fixed-band instrument alongside the cutoff, the
+  clinical upper bound on voluntary upper-limb movement frequency sourced rather than assumed
+  (→ `res-bandwidth-1`), and both chosen values recorded with provenance before the filter ships.

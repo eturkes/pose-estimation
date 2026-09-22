@@ -93,8 +93,12 @@ Queue → `.agent/deferred.md`; evidence → `.agent/archive/{polish,review-m2}.
   `analysis/clinical_features.R` consumes (shoulder, elbow, wrist, index, hip; hand 0/4/8/20) moved
   nothing: used 5.05 % relocations / 0.86 spread vs unused 5.17 % / 0.93. Hands drop out whole on
   5.33 % of frames, coordinate-absent, so the overlay's threshold cannot restore them.
-  Closes on a stabilisation whose cutoff is swept, not assumed (→ `.agent/deferred.md`), re-measured
-  on the same four preservation figures, with the corpus and cohort republished.
+  **User ruling: fix upstream only** — `det_frequency` and the causal smoother change in the
+  pipeline and the corpus reruns, so `output/corpus-2d/` stays the single source of truth and no
+  post-hoc filter bolts onto the published tracks. Filter parameters come from a sourced clinical
+  bandwidth bound plus the fixed-band sweep, both stages (→ `.agent/deferred.md`); `det_frequency`
+  is re-picked against its own measured CPU cost, never a projection (→ `evidence.md`).
+  Closes gate-green with the corpus and cohort republished.
 
 ## Phase
 
