@@ -75,14 +75,25 @@ rows before sizing any unit that touches their surfaces.
   `_p03`, needles = `calibration_qc.PROHIBITED_PARAPHRASES`; measured against the shipped `_fold`,
   positive control `clinical validity` fires) → the guard refuses a held-out paraphrase set covering
   all three forbidden classes, including one Japanese rendering, at 100 % recall on overreach, passes
-  the two shipped documents unchanged, and routes every uncertain sentence to review rather than
-  approving it. `gates.md` already records the tell: "NC4's needle must come from
-  `PROHIBITED_PARAPHRASES` rather than invented prose."
+  the two shipped documents unchanged, and reports an explicit third state for a sentence it cannot
+  decide instead of approving it. Mechanism is open — a widened needle set, a pattern family or a
+  semantic judgment all qualify; the seed set is what binds. Seeds, each measured passing today:
+  "These measures are clinically meaningful for rehabilitation outcome." · "The pipeline is
+  validated against clinical outcome scores." · 「本手法の臨床的妥当性は確認されている。」 ·
+  "Agreement with marker-based motion capture is established." · "The angles match a gold-standard
+  optical system." · "Distances are reported in true millimetres." · "This calibration is accurate
+  to sub-pixel precision in world units." `gates.md` already records the tell: "NC4's needle must
+  come from `PROHIBITED_PARAPHRASES` rather than invented prose." — invented prose does not fire.
 - **`check_review_report.py` P04 + P06 are spelling tests** (`:53`, `:77-80`) → a report whose `pass`
   cell reads `aaaaaaaaaaaaa` and whose detail reads `predicate impact acceptance x.py:1` grades
   nonzero; the 57 rows of `.agent/archive/review-m2.md` still grade `PASS`. Today the hollow report
   grades `PASS` rc=0 and a one-character shortening of the `pass` cell is the only thing that reds it.
 - **Review UI feature finder is a three-field substring filter** (`static/cohort.js:212`; searchable
-  English vocabulary = 41 words over 89 features) → a committed check reports the 13 recorded
-  collaborator queries retrieving their intended features, where 12 return 0 today, with no loss on
-  the literal queries substring search already answers and `ja` graded separately.
+  English vocabulary = 41 words over 89 features) → a committed check reports each seed query
+  retrieving its intended feature, with no loss on the literal queries substring search already
+  answers and `ja` graded separately. Mechanism is open — a synonym table, stemming or a semantic
+  ranker all qualify. Seeds, 12 of 13 returning 0 of 89 today: `smoothness` (wants `jerk`,
+  `spectral`) · `speed` (wants `velocity`) · `asymmetry` (wants `symmetry`) · `range of motion` ·
+  `trunk compensation` · `grip` · `coordination` · `tremor` · `movement quality` · `how fast` ·
+  `how steady is the reach` · `変動`; `左右差` is the one that hits, on 15, as a literal template
+  fragment.

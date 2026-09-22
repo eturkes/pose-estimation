@@ -65,6 +65,9 @@ hospital SCI database.
 - **Acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`** — 7 files under
   `scripts/ src/ tests/` break if it moves, one a generated data field no gate resolves;
   re-derive → `upstream-sync.md`.
+- **External AI-judgment services stay out of this repo** — surveyed and declined by the user.
+  The three defects the survey measured live on as `.agent/deferred.md` rows with mechanism left
+  open; the survey itself is not repeated.
 - **Assurance tier = `kernel`** across pipeline, publishers + analysis.
 
 ## Deferred
