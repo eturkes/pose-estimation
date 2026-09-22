@@ -83,22 +83,32 @@ Queue → `.agent/deferred.md`; evidence → `.agent/archive/{polish,review-m2}.
 - **HEVC decode failure reported but never exercised** (123/379 hevc) → an hevc clip on a
   decoder-less build shows the `player.decode_failed` banner. The rAF advance itself is now proven
   by `.scratch/player_clock_qa.mjs` (→ `gates.md`); the banner half is what remains.
-- **2D landmark instability is measured and unrepaired** — three mechanisms, over 24 clips /
-  460 280 keypoint transitions: `det_frequency=7` modulates per-frame displacement 2.32× across its
-  cycle (phase spread 0.86 at k=7, harmonics at 14 and 21, every non-multiple ≤ 0.47); 5.0 % of
-  transitions relocate > 0.1 frame-widths in one frame, half of them at drawable confidence; and the
-  causal One Euro smoother (`min_cutoff=0.5, beta=0.5`, cutoff = `min_cutoff + beta·|velocity|`)
-  leaves a moving-band alternation ratio of 1.60 against 2.0 for pure frame-to-frame noise.
-  **It lands on the measured features, not on cosmetic keypoints** — partitioning by what
-  `analysis/clinical_features.R` consumes (shoulder, elbow, wrist, index, hip; hand 0/4/8/20) moved
-  nothing: used 5.05 % relocations / 0.86 spread vs unused 5.17 % / 0.93. Hands drop out whole on
-  5.33 % of frames, coordinate-absent, so the overlay's threshold cannot restore them.
-  **User ruling: fix upstream only** — `det_frequency` and the causal smoother change in the
-  pipeline and the corpus reruns, so `output/corpus-2d/` stays the single source of truth and no
-  post-hoc filter bolts onto the published tracks. Filter parameters come from a sourced clinical
-  bandwidth bound plus the fixed-band sweep, both stages (→ `.agent/deferred.md`); `det_frequency`
-  is re-picked against its own measured CPU cost, never a projection (→ `evidence.md`).
-  Closes gate-green with the corpus and cohort republished.
+- **2D landmark instability — cause found, repair not yet built. THE NEXT UNIT.**
+  The source is rtmlib's **pose→box→crop→pose feedback loop**: between detector calls the box is
+  pose-derived (`bboxes_last_frame = pose_to_bbox(kpts)`), and every `det_frequency` frames the
+  detector replaces it. Mixing the two box sources is the defect — when they disagree the crop jumps
+  and the top-down model returns a *different skeleton* (509 px translation **plus** 321 px
+  deformation, against 2.0/5.1 px for ordinary motion). It injects a periodic artifact at
+  `fps/det_frequency`, and the shipped `det_frequency=7` lands it at **4.29 Hz — inside the clinical
+  2-5 Hz band and inside the 1.9-5.8 Hz intention-tremor band**. Raising `det_frequency` only moves
+  the artifact into 0-2 Hz gross transport. Seven-arm sweep, per-arm statistics, spectral evidence
+  and the population split → `.agent/deferred.md`; mechanism law → `.claude/rules/rtmlib-runtime.md`.
+  Three user rulings bind the repair:
+  - **Fix the loop in code first, then re-sweep** — subclass `PoseTracker` so a detector frame
+    *reconciles* its box against the pose-derived box instead of replacing it. Target = the quality
+    `det_frequency=1` reaches (alternation 0.495, zero isolated relocations, no cadence) at
+    something near `det_frequency=7` cost, rather than paying 8.23× = ~64 h for the corpus rerun.
+    `kernel` tier: acceptance contract + diff-blind suite + gate-green before any corpus rerun.
+  - **No low-pass filter stage** — `det_frequency=1` alone reaches alternation 0.495 against the
+    post-hoc Hampel+6 Hz stage's 0.483 while keeping 0.697 of the 2-5 Hz band against its 0.464.
+    Removing the noise at source is what makes filtering unnecessary; a 6 Hz cutoff on top would
+    destroy tremor-band energy the source no longer carries as noise, and SPARC is cutoff-sensitive
+    so it would move the smoothness feature too.
+  - **SPARC becomes the primary smoothness feature, `normalized_jerk` demoted to secondary** —
+    shipped in the same rerun, since `cohort/` republishes anyway.
+  Standing ruling, unchanged: **fix upstream only** — the pipeline changes and the corpus reruns, so
+  `output/corpus-2d/` stays the single source of truth and no post-hoc filter bolts onto published
+  tracks. Closes gate-green with the corpus and cohort republished.
 
 ## Phase
 

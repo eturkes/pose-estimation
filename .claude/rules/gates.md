@@ -142,6 +142,39 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
 - `.scratch/steq.py` — ASD-STE100 register scan over the human-facing surface (inventory: `docs/technical/conventions.md` → *Text register*). Drops fences/tables/headings/frontmatter, joins wrapped lines into blocks so a sentence is measured whole, splits on `.!?`, flags `LONG` (> `--max`; 20 for instructions, 25 for descriptions), `FILLER`, `CONTRACTION` (also fires on possessive `'s`), `PASSIVE` (be-verb + participle heuristic). Code-file mode samples quoted `help=`/`description=`/`title=` strings only. Measured at `--max 20`: `README.md` 14 → 2, `docs/capture_protocol.md` 20 → 8; residual flags are 21-25-word descriptions, which the rule allows. **The scanner cannot apply its own rule.** One `--max` covers every sentence, so the instruction-vs-description call that picks 20 or 25 is made by hand on each residual. Measured over the four shipped surfaces: 48 flags at `--max 20`, 24 at `--max 25`; **25 of the 26 `LONG` verdicts sit in the 21-25 band** and turn entirely on that call, 1 fails either way. Of the 24 residuals, both `CONTRACTION` hits are possessives (`instrument's`, `solve's`) and at least 4 of 21 `PASSIVE` hits are predicate adjectives (`is untested`, `is unmeasured`, `is unaffected`, `is closed`) — so **23 of 24 are heuristic output awaiting a human**, and several true passives are mandated by the claim boundary's own "may not be claimed" phrasing.
 - `.scratch/fidelity.sh <base-ref> <file>…` — pairs with it: diffs the multiset of format specifiers, `--flags`, backticked spans, file names and numbers between a base ref and the working tree. A register-only edit must show no delta; every delta needs an explanation. Caught the p-value reformat (`p<.05` → `p < 0.05`) and confirmed 14 R files invariant.
 
+- `.scratch/detfreq_pilot.sh` · `.scratch/detfreq_up.sh` · `.scratch/detfreq_table.sh` — the
+  det_frequency sweep. Each script drives `scripts/pilot_corpus_run.py` under the accelerator recipe
+  at `--seed 20260922 --min-assets 4 --max-frames 400`, which picks its events from seed plus
+  min-assets alone, so **every arm decodes the same 4 events / 11 assets** and wall clocks compare
+  directly. Downward arms 7/3/2/1 then upward 14/21/35; `detfreq_table.sh` joins the logged
+  `outer_wall_s` to the per-arm defect statistics. Reference arms `.scratch/detfreq/f1` (quality
+  target) and `f7` (shipped baseline) are retained for the loop-fix re-sweep (→ `retention.md`
+  operational test); the other five are deleted and regenerate from these scripts.
+- Offline instruments over any run tree, all six run as
+  `P python .scratch/<name>.py [<sample>]` and all six import shared constants from
+  `.scratch/recover.py` (which parses `argv[1]` as a sample size **at import time** — a caller
+  taking its own arguments must stash and restore `sys.argv` around the import):
+  - `mechanism.py` — splits relocations into the whole-skeleton (>= 8 of 10 used body keypoints) and
+    isolated (1-2) populations and prints the displacement distribution against the shipped 30 px
+    `outlier_cap` / 150 px `match_thresh` constants. Established the bimodality: p90 18.4 px,
+    p95 203.9 px, nothing between.
+  - `phase_split.py` — the same two populations by detector phase, chi-square against a uniform null
+    over the 7 phases. Whole-skeleton decays monotonically from the detector frame (chi2 = 57.66);
+    the isolated mode is U-shaped (chi2 = 33.15), which is what proves the two causes distinct.
+  - `rigid.py` — decomposes a relocation into centroid translation plus shape change with
+    translation removed. Refuted the rigid-translation hypothesis and measured the 509/321 px split.
+  - `arm_stats.py <tree> <det_frequency>` — per-arm relocation rate, both populations normalised by
+    **observed frames**, alternation ratio and phase enrichment. The normalisation is load-bearing:
+    raw counts across arms compare different denominators and reversed the sign of one reading.
+  - `frozen_check.py` — the artifact control for any smoothness claim. Exact bit-identical
+    consecutive keypoint repeats (0.000 % on all seven arms, so no frozen data) **and** the moving
+    fraction, because an arm that is merely still would grade stillness as smoothness.
+  - `cadence_peak.py` — power in a +-12 % band around `fps/det_frequency` over the background beside
+    it, with a 6.7 Hz control column that must read ~1.0 or the statistic is broken. Needs no
+    cross-arm alignment, so it carries ~75-82 tracks per arm against `band_arms.py`'s 10-14.
+  - `band_arms.py` — fixed-band energy per arm against f7 on frame-aligned common tracks. Weakest of
+    the six on sample size; quote it only beside `cadence_peak.py`.
+
 ## Committed report grader
 
 `scripts/check_review_report.py` — 9 predicates over the two-tier report shape, so a review wave's report-shape claim reruns from committed state: three required sections, parseable `| <ID> |` rows, unique ids, a verdict cell per row, **zero `unknown`** (P03 — what makes an all-`unknown` seed grade nonzero), every `pass` row stating what was checked, a `### <id>` detail section per `fail` row carrying `file:line` + `predicate` + `impact` + `acceptance`, an acceptance check on every register entry. This checker is the command global `Subagents` deliverable-first says to name in the brief, and its measured both-ways firing is above.

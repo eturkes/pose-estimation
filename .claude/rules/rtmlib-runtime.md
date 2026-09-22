@@ -33,3 +33,34 @@ paths:
 - **Fatal for *sampled* frames**: seconds-apart samples share no IoU, so the list empties permanently and any count taken from it reads 0. M2.3's detectability run published `detect_rate` median 0.0 over 379 assets from exactly this, while the detector saw a subject in 24/24 probe frames; one tracker instance reused across assets compounds it. **Sampled-frame analysis drives `det_model` + `pose_model` per frame and takes counts from the detector return.** Reserve `PoseTracker` for consecutive video (`run.py:758`, rtmlib's intended mode; its own default `tracking=True` still drops a person whose frame-to-frame IoU falls under 0.3).
 - **Any pre-M2.8.2 output from `run.py` was produced under the freeze** and is suspect per asset, not per run — including `output/rtmw-l_body_single/`. M2.3's re-measured `detect_rate` is median 1.0 (mean 0.989886, min 0.333333, n=379).
 - rtmlib defaults worth knowing: `det_frequency=1`, `tracking=True`, `tracking_thr=0.3`, `backend='onnxruntime'`, `device='cpu'`.
+
+## The box feedback loop — the 2D instability's cause
+
+- **Between detector calls the box is pose-derived, not stale.** `PoseTracker.__call__` ends with
+  `self.bboxes_last_frame = bboxes_current_frame`, and in the stateless branch every entry there is
+  `pose_to_bbox(kpts)`. So the crop follows the pose frame to frame — a closed pose→box→crop→pose
+  loop with no external reference — and every `det_frequency` frames the detector injects one
+  external correction (`bboxes = self.det_model(image)`). **Mixing the two box sources is the
+  instability.** Reading the between-frames box as frozen predicts the opposite repair and is wrong.
+- **A disagreement replaces the skeleton, it does not move it.** Whole-skeleton relocations measure
+  509 px of centroid translation **and** 321 px of shape change with translation removed, against
+  2.0/5.1 px for ordinary motion. A top-down model re-estimating inside a jumped crop returns a
+  different pose, which is why no intra-skeleton predicate helps.
+- **The artifact is periodic at `fps/det_frequency` and raising the value moves it rather than
+  removing it.** Peak-over-background at the cadence, median over ~75-82 tracks: f3 1.814 @ 10 Hz ·
+  f7 1.325 @ 4.29 Hz · f21 1.257 @ 1.43 Hz · f14 1.122 @ 2.14 Hz · f35 1.119 @ 0.86 Hz, against a
+  6.7 Hz control reading 0.781-1.162 on every arm. **`det_frequency=7` is the worst available
+  choice**: 4.29 Hz sits inside the clinical 2-5 Hz band and inside the 1.9-5.8 Hz intention-tremor
+  band, so the artifact is indistinguishable from the signal the features measure.
+- **The det_frequency curve is non-monotone because 1 runs different code.** The stateless guard is
+  `not self.tracking and self.det_frequency != 1`, so at 1 the box is always the detector's and the
+  loop never runs at all. Measured quality is therefore best at 1, **worst at 2** — where the crop
+  alternates every other frame — and improves again upward. Never interpolate across that seam.
+- **Every temporal stage downstream is keyed on track identity, so one break disarms them all.**
+  `OneEuroFilter` clamps only the surprise term `|diff - dx_prev*dt|` to `outlier_cap` = 30 px and
+  lets `dx_prev*dt` through unclamped; `BoneLengthSmoother` allows `tolerance` = 0.4 (40 % length
+  slack) and learns per-`body_id` averages at `alpha` = 0.05, so a fresh track has no proportions to
+  violate for ~20 frames. Tightening any one of them in isolation cannot reach a track-birth event.
+- **The landmark export carries no track id** (304 columns; `person_idx` is 0 throughout under
+  `--single-subject`), so attributing a relocation to the track lifecycle needs pipeline
+  instrumentation. No query over published data can do it.

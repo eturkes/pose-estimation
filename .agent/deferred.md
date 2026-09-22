@@ -266,3 +266,27 @@ Cadence = 30 fps / det_frequency.
 - **Open, unresolved: f1 yields 3.3 % fewer fully-observed frames than f7** (1872 vs 1935) and
   21 % fewer than f35 (2339). Cause unmeasured; candidates are the early `return keypoints, scores`
   on the frozen branch and stricter per-frame detection.
+
+## User rulings on the instability repair
+
+- **Fix the loop in code before any corpus rerun, then re-sweep.** Chosen over adopting
+  `det_frequency=1` (8.23× = ~64 h) and over `det_frequency=35` (0.59×, but its cadence lands in
+  0-2 Hz gross transport and alternation stays 1.662). Shape: subclass rtmlib `PoseTracker` so a
+  detector frame **reconciles** its box against the pose-derived box — blend, or gate on
+  disagreement — instead of `bboxes = self.det_model(image)` replacing it outright. Acceptance:
+  re-run the same seven-arm pilot sweep and show the repaired tracker reaching `det_frequency=1`
+  quality (alternation <= 0.55, isolated relocations ~0, no cadence peak above the 6.7 Hz control)
+  at a wall clock near the `det_frequency=7` arm's 327 s. `kernel` tier → acceptance contract,
+  diff-blind suite, gate-green, red witnessed on the unfixed revision before the fix.
+- **No low-pass filter stage upstream.** Retires the cutoff question and with it the Hampel/tremor
+  collision: there is no second stage to collide. The 6 Hz bandwidth research stands as the reason
+  a filter would have been *wrong* here, not as a parameter to apply.
+- **SPARC primary, `normalized_jerk` secondary**, shipped in the same rerun. Its cutoff-sensitivity
+  (F03) is now a smaller risk, because with no filter stage the only thing moving SPARC's input is
+  the tracker repair itself.
+
+### Reference arms retained
+`.scratch/detfreq/f1` and `.scratch/detfreq/f7` are kept as the re-sweep's two reference arms —
+f1 = the quality target, f7 = the shipped baseline — each with one named open dependency (the
+loop-fix acceptance above). The other five arms are deleted: their figures are recorded in the
+sweep table and they regenerate from `.scratch/detfreq_pilot.sh` / `.scratch/detfreq_up.sh`.
