@@ -220,3 +220,49 @@ Relocation = single-frame displacement > 0.10 normalised. Corpus is 1920-maxdim 
   is 0 at every residue so the box list is never starved. The failing verdict name
   `tracking_false_never_freezes` describes a nominal freeze with no consequence. The case against
   lowering `det_frequency` is the measured sweep, not safety.
+
+## det_frequency sweep — MEASURED, seven arms
+
+Population: the pilot's 4 stratified events / 11 assets, `--max-frames 400`, seed 20260922, under
+the accelerator recipe (`scripts/pilot_corpus_run.py`, which picks events from seed + min-assets
+alone so every arm decodes the SAME assets). Rates are NOT comparable with full-corpus figures.
+Cadence = 30 fps / det_frequency.
+
+| freq | wall s | x f7 | reloc % | whole-skel %obs | isolated %obs | observed | altern | cadence Hz |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 2695.0 | 8.23 | 6.47 | 3.79 | **0.00** | 1872 | **0.495** | none |
+| 2 | 1282.0 | 3.92 | 20.64 | 14.90 | 3.80 | 1631 | 1.815 | 15.00 |
+| 3 | 700.9 | 2.14 | 14.18 | 7.87 | 9.52 | 1639 | 1.717 | 10.00 |
+| 7 | 327.3 | 1.00 | 11.09 | 7.55 | 8.06 | 1935 | 1.484 | 4.29 |
+| 14 | 283.2 | 0.87 | 8.71 | 4.88 | 6.38 | 2133 | 1.629 | 2.14 |
+| 21 | 202.5 | 0.62 | 6.64 | 4.21 | 6.14 | 2231 | 1.652 | 1.43 |
+| 35 | 193.0 | 0.59 | 6.07 | 3.38 | 5.90 | **2339** | 1.662 | 0.86 |
+
+- **The curve is non-monotone because det_frequency=1 runs different code.** rtmlib's stateless
+  guard is `not self.tracking and self.det_frequency != 1`, so at 1 the box is always the
+  detector's and the pose->box->crop->pose loop never runs; at 2+ the box is pose-derived
+  (`self.bboxes_last_frame = bboxes_current_frame`, built from `pose_to_bbox(kpts)`) and the
+  detector injects an external correction every det_frequency frames. **Mixing two box sources is
+  the instability**, worst at 2 where the crop alternates every other frame.
+- **The loop's artifact is periodic at fps/det_frequency and it MOVES rather than vanishing.**
+  Power in a +-12 % band around the cadence over the background beside it, median over ~75-82
+  tracks per arm: **f3 1.814 @ 10 Hz · f7 1.325 @ 4.29 Hz · f21 1.257 @ 1.43 Hz · f14 1.122 @
+  2.14 Hz · f35 1.119 @ 0.86 Hz**, control at 6.7 Hz reading 0.781-1.162 on every arm. **The
+  shipped det_frequency=7 puts its cadence at 4.29 Hz — inside the clinical 2-5 Hz band and inside
+  the 1.9-5.8 Hz intention-tremor band.** Raising det_frequency moves it into 0-2 Hz gross
+  transport instead (f21/f35 show 1.61/1.72x the f7 energy there). Only det_frequency=1 has none.
+- **det_frequency=1 removes noise, it does not flatten the signal.** Band energy against f7 on
+  frame-aligned common tracks: **0-2 Hz 1.074 · 2-5 Hz 0.697 · 5-10 Hz 0.495 · 10+ Hz 0.368** — a
+  monotone low-pass profile with gross transport intact. Against the post-hoc Hampel+6 Hz stage
+  that reached comparable smoothness (alternation 0.483 vs f1's 0.495), f1 keeps **0.697 of the
+  2-5 Hz band where the filter kept 0.464** — 50 % more of the band the Hampel ruling refuses to
+  destroy. Caveat: 10-14 comparable tracks survived frame alignment, so this row is the weakest
+  evidence in the block; the cadence-peak row above rests on ~75-82 tracks per arm and needs no
+  alignment.
+- **Not frozen data.** Exact bit-identical consecutive keypoint repeats = **0.000 % on all seven
+  arms**. But f1's moving fraction is 27.4 % against ~62 % elsewhere and its median step is 2.0 px
+  against 5.2 px, so f1's alternation is measured over a genuinely quieter trajectory — read it
+  beside the band table, never alone.
+- **Open, unresolved: f1 yields 3.3 % fewer fully-observed frames than f7** (1872 vs 1935) and
+  21 % fewer than f35 (2339). Cause unmeasured; candidates are the early `return keypoints, scores`
+  on the frozen branch and stricter per-frame detection.
