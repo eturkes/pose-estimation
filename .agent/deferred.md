@@ -119,3 +119,29 @@ rows before sizing any unit that touches their surfaces.
   Acceptance = window and σ swept on the same fixed-band instrument alongside the cutoff, the
   clinical upper bound on voluntary upper-limb movement frequency sourced rather than assumed
   (→ `res-bandwidth-1`), and both chosen values recorded with provenance before the filter ships.
+- **Stabiliser bandwidth literature — 6 Hz's headline citation is UNVERIFIED**
+  (`.scratch/agents/res-bandwidth-1.md`, 8 rows sourced). R08 rested on ">98 % of reach-and-grasp
+  signal power below 6 Hz" cited to Thies et al. (2007), *Med. Eng. Phys.* 29:967,
+  DOI 10.1016/j.medengphy.2006.10.012. Pulled through the signed-in browser: resolves to IOPscience,
+  **paywalled** ("not registered by an institution with a subscription"), and the abstract is
+  wholly about validating two accelerometers against Vicon — no spectral analysis, no percentage of
+  power, no cutoff. `res-bandwidth-1` is answering P01-P03 (exact provenance, re-attribution, any
+  open-access copy). **Until P01 lands, treat 6 Hz as supported only by R03's 4-6 Hz clinical-marker
+  cluster, the 2.5-3 Hz markerless precedents and Nyquist — not by a percentage-of-power bound.**
+  Institutional full-text access would settle it; ask the user.
+- **Hampel eats the intention-tremor band** — R02 puts intention tremor at 1.9-5.8 Hz (Lenz et al.
+  2002, *J Neurophysiol*, DOI 10.1152/jn.00049.2001) and upper-limb clonus at 8.3 Hz; our
+  Hampel(7, 3σ) removes ~47 % of 2-5 Hz energy. In an SCI cohort that band may be clinical signal,
+  not noise. `res-bandwidth-1` F01-F02 = published Hampel parameters + how pipelines discriminate a
+  tracking-failure relocation from genuine physiological high-frequency movement.
+- **`normalized_jerk` in `cohort/` is the most cutoff-fragile feature shipped** — R07: log
+  dimensionless jerk is severely distorted even at SNR=100 while SPARC stays robust near SNR≈10
+  (Balasubramanian et al. 2015, *JNER*, DOI 10.1186/s12984-015-0090-9). Filtering 30 Hz reach data
+  moved time-to-peak-velocity ICC 0.19→0.55. F03 = what SPARC needs of its input. Acceptance = a
+  ruling on whether SPARC replaces or joins `normalized_jerk`, taken before the rerun republishes.
+- **Architecture precedents for the upstream fix** — Gionfrida et al. (2022), *PLOS ONE*,
+  DOI 10.1371/journal.pone.0276799 ran Hampel + 3 Hz over OpenPose fingers, which is our exact two
+  stages at half our cutoff. SmoothNet (Zeng et al., ECCV 2022, DOI 10.1007/978-3-031-20065-6_36)
+  cut acceleration error 31.64→4.15 mm/frame² **and** improved MPJPE 106.90→97.47, where One Euro
+  and Savitzky-Golay bought smoothness by worsening MPJPE to 135.71 and 118.25 — evaluate it beside
+  the classical two-stage before the rerun commits.
