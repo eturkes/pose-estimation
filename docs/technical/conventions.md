@@ -2,7 +2,7 @@
 
 ## Git
 
-- Commit messages: [Scoped Commits](https://scopedcommits.com/) — `<scope>: <description>`, scope first (the subsystem/area touched, e.g. `tracking`, `calibration`, `multicam`, or a cross-cutting label such as `Tooling`, `Maintenance`, `Refactor`, `Docs`). For multi-area commits, comma-list the scopes, generalize to one, or use `treewide`. Subject + body take the `CLAUDE.md` `Authoring` standard: subject = `<scope>: <cause> → <fix>`, imperative, one line — the cause→fix shape sets the length, and the log runs 45-95 chars, so no 50-char cap applies; body wrap ≤72 chars; measurements + SHAs + the unit's dispatch line kept as payload while the narration around them goes.
+- Commit messages: [Scoped Commits](https://scopedcommits.com/) — `<scope>: <description>`, scope first (the subsystem/area touched, e.g. `tracking`, `calibration`, `multicam`, or a cross-cutting label such as `Tooling`, `Maintenance`, `Refactor`, `Docs`). For multi-area commits, comma-list the scopes, generalize to one, or use `treewide`. Subject + body follow `CLAUDE.md` `Execution` Git (shape + payload) and `Authoring` (register): subject = `<scope>: <cause> → <fix>`, one line — the cause→fix shape sets the length, so no 50-char cap applies; measurements + SHAs + the unit's dispatch line kept as payload while the narration around them goes.
 - Before committing, always check whether `README.md`, `.gitignore`, `pyproject.toml`, or other housekeeping files need a matching update.
 
 ## Quality gate
