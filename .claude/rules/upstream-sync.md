@@ -15,7 +15,8 @@ paths:
 clause below, keep every upstream change no clause contradicts, commit `state: …`. Verify with
 `rg -l 'archive/contract-' scripts/ src/ tests/` = 7, re-derived rather than trusted — a
 whole-tree sweep counts every document that merely mentions the path and drifts on every edit, so
-it carries no figure here (Clause 3). `git log --grep upstream` lists priors. A refresh that
+it carries no figure here (Clause 3). `git log -- CLAUDE.md` lists priors (a message grep on
+`upstream` also hits non-refresh commits). A refresh that
 retires a constant also falsifies claims elsewhere → sweep `.agent/` and `.claude/rules/` for the
 retired term and correct what depended on it, since a stale sizing datum reaches planning as a
 budget. Both dot-dirs must be named or `--hidden` passed, or the sweep reads clean over unread
@@ -23,7 +24,11 @@ files (→ `evidence.md`). **A purely additive clause is not a no-op either**: c
 still binds mechanisms this repo already runs its own way, so resolve every new clause against the
 local mechanism before recording a refresh clean — `CLAUDE.md`'s `Verification integrity` bullet
 binds a red-witness rule whose local form is a targeted run, because the decisive gate has to close
-green (→ `gates.md`).
+green (→ `gates.md`). **A cut is not a reversal either**: guidance upstream drops as redundant
+with the current model (the UI/UX style + report-every-issue lines) stays expected behaviour, so
+keep every local application of it standing. A retired mechanism is the other kind: its local
+dependents re-derive (`/goal` → plain phase sessions, flow kept). The upstream commit + the
+user's refresh note decide which; ask when neither does.
 
 - **Clause 1 — acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`**, never at
   `.agent/contracts/`. Upstream's requirements — committed, outside the attached set, read on
