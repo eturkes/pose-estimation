@@ -244,9 +244,8 @@ Learn these conventions before you open a pull request:
 - **Public API guard.** The package surface is whatever `src/pose_estimation/__init__.py`
   re-exports. If that surface drifts, `tests/test_public_api.py` fails, so update both
   files together.
-- **Commit style.** [Scoped Commits](https://scopedcommits.com/):
-  `<scope>: <imperative subject>` (≤50 chars), where scope is a subsystem (`tracking`,
-  `calibration`, `multicam`) or a cross-cutting label (`Tooling`, `Docs`, `Refactor`).
+- **Commit style.** Follow the commit convention in
+  [`docs/technical/conventions.md`](docs/technical/conventions.md).
 
 Deeper technical reference (architecture, tracking modes, multicam, calibration, analysis,
 optimization, tests, environment) lives under [`docs/technical/`](docs/technical/).
