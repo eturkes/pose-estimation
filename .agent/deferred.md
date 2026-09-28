@@ -3,7 +3,7 @@
 Off-spine queue. One row = one improvement + the acceptance check that closes it, written at
 deferral time while the evidence is fresh; a row leaves only when that check passes on a commit.
 Read on demand — not attached state. A row promoted to an unfinished unit moves to `.agent/spec.md`
-`Deferred`, which carries the spine, and returns here when the spine moves past it.
+`Tasks` as a `- [ ]` row, and returns here when the spine moves past it.
 
 Evidence → `.agent/archive/{polish,review-m2}.md`; regen → `.claude/rules/gates.md`. Read the
 rows before sizing any unit that touches their surfaces.
@@ -178,6 +178,22 @@ rows before sizing any unit that touches their surfaces.
   republishes `cohort/`. Balasubramanian et al. (2015), DOI 10.1186/s12984-015-0090-9;
   Mohamed Refai et al. (2021), DOI 10.1186/s12984-021-00949-6; Cornec et al. (2024),
   DOI 10.1186/s12984-024-01382-1.
+- **`gates.md` accelerator pointer names `~/agents/docs/openvino.md`, which no longer exists** — the
+  upstream repo moved to `~/.local/app/agents` and carries no `docs/openvino.md`; the guidance lives
+  in `CLAUDE.local.md` → every path that bullet names resolves (`ls` rc=0) and
+  `rg -n '~/agents/' .claude/rules/ docs/` returns 0 hits.
+- **Filter-era rows here outlived the instability rulings** — `res-bandwidth-1` "is answering
+  P01-P03" (the agent was stopped), `RULING pending user: SPARC…` (ruled), and
+  `## User rulings on the instability repair` restating spec `Decisions` →
+  `` rg -n '`res-bandwidth-1` [i]s answering|^- \*\*RULING pending user' .agent/deferred.md ``
+  returns 0 hits, and each instability ruling appears once in live state (`.agent/spec.md`
+  `Decisions`), with this file pointing there.
+- **Marksman reports 3 links to existing docs as non-existent** (`docs/calibration_finding.md:9`,
+  `docs/technical/entrypoints.md:181,216` → `technical/{calibration_qc,qualification}.md`; git
+  ignores neither target). Suspected cause, unconfirmed: its index reads the `.gitignore`
+  directory patterns `qualification.*/` + `calibration_qc.*/` as matching the `.md` files →
+  Marksman diagnostics over `docs/` report 0 non-existent-document warnings, and
+  `git check-ignore` still ignores a `qualification.x/` staging directory.
 
 ## 2D instability — measured mechanism (24 corpus clips, 10 372 fully-observed frames)
 

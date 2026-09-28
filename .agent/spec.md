@@ -69,46 +69,52 @@ hospital SCI database.
   The three defects the survey measured live on as `.agent/deferred.md` rows with mechanism left
   open; the survey itself is not repeated.
 - **Assurance tier = `kernel`** across pipeline, publishers + analysis.
+- **2D instability repair = fix rtmlib's box loop in code, then re-sweep** — subclass
+  `PoseTracker` so a detector frame *reconciles* its box against the pose-derived box instead of
+  replacing it, rather than paying 8.23× = ~64 h for a `det_frequency=1` corpus rerun.
+- **No low-pass filter stage** — `det_frequency=1` alone reaches alternation 0.495 against the
+  post-hoc Hampel+6 Hz stage's 0.483 while keeping 0.697 of the 2-5 Hz band against its 0.464.
+  Removing the noise at source is what makes filtering unnecessary; a 6 Hz cutoff on top would
+  destroy tremor-band energy the source no longer carries as noise, and SPARC is cutoff-sensitive
+  so it would move the smoothness feature too.
+- **SPARC becomes the primary smoothness feature, `normalized_jerk` demoted to secondary** —
+  shipped in the instability rerun, since `cohort/` republishes anyway.
+- **Fix upstream only** — the pipeline changes and the corpus reruns, so `output/corpus-2d/` stays
+  the single source of truth and no post-hoc filter bolts onto published tracks.
 
-## Deferred
+## Tasks
 
-Queue → `.agent/deferred.md`; evidence → `.agent/archive/{polish,review-m2}.md`; regen →
-`.claude/rules/gates.md`. The unfinished units = ITERATE's spine, each closing on its own check:
+- [ ] **2D landmark instability — cause found, repair not yet built.**
+  - Cause = rtmlib's **pose→box→crop→pose feedback loop**: between detector calls the box is
+    pose-derived (`bboxes_last_frame = pose_to_bbox(kpts)`), and every `det_frequency` frames the
+    detector replaces it. Mixing the two box sources is the defect — when they disagree the crop
+    jumps and the top-down model returns a *different skeleton* (509 px translation **plus** 321 px
+    deformation, against 2.0/5.1 px for ordinary motion). It injects a periodic artifact at
+    `fps/det_frequency`, and the shipped `det_frequency=7` lands it at **4.29 Hz — inside the
+    clinical 2-5 Hz band and inside the 1.9-5.8 Hz intention-tremor band**. Raising
+    `det_frequency` only moves the artifact into 0-2 Hz gross transport.
+  - Repair, bound by the four instability rulings in `Decisions`: the `PoseTracker` reconcile
+    subclass, then re-sweep.
+  - Target = the quality `det_frequency=1` reaches (alternation 0.495, zero isolated relocations,
+    no cadence) at something near `det_frequency=7` cost.
+  - `kernel` tier: acceptance contract + diff-blind suite + gate-green before any corpus rerun.
+  - Closes gate-green with the corpus and cohort republished, SPARC primary in the same rerun.
+  - Seven-arm sweep, per-arm statistics, spectral evidence and the population split →
+    `.agent/deferred.md`; mechanism law → `.claude/rules/rtmlib-runtime.md`.
+- [ ] **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`**
+  - Acceptance: `build_assets.py` refuses with a named cause when absent; a committed check reports
+    0 missing code points.
+- [ ] **Overlay landmark->pixel map proven by eye alone**
+  - Acceptance: a headless check injects fabricated landmark coordinates into the served player and
+    grades the drawn pixel positions against the canvas scale math, max deviation < 1 px, failing
+    on a seeded off-by-one. Needs no committed media.
+- [ ] **HEVC decode failure reported but never exercised** (123/379 hevc)
+  - Acceptance: an hevc clip on a decoder-less build shows the `player.decode_failed` banner.
+  - The rAF advance itself is proven by `.scratch/player_clock_qa.mjs` (→ `gates.md`); the banner
+    half is what remains.
 
-- **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`** → `build_assets.py`
-  refuses with a named cause when absent; a committed check reports 0 missing code points.
-- **Overlay landmark->pixel map proven by eye alone** → headless check injects fabricated landmark
-  coordinates into the served player and grades the drawn pixel positions against the canvas scale
-  math, max deviation < 1 px, failing on a seeded off-by-one. Needs no committed media.
-- **HEVC decode failure reported but never exercised** (123/379 hevc) → an hevc clip on a
-  decoder-less build shows the `player.decode_failed` banner. The rAF advance itself is now proven
-  by `.scratch/player_clock_qa.mjs` (→ `gates.md`); the banner half is what remains.
-- **2D landmark instability — cause found, repair not yet built. THE NEXT UNIT.**
-  The source is rtmlib's **pose→box→crop→pose feedback loop**: between detector calls the box is
-  pose-derived (`bboxes_last_frame = pose_to_bbox(kpts)`), and every `det_frequency` frames the
-  detector replaces it. Mixing the two box sources is the defect — when they disagree the crop jumps
-  and the top-down model returns a *different skeleton* (509 px translation **plus** 321 px
-  deformation, against 2.0/5.1 px for ordinary motion). It injects a periodic artifact at
-  `fps/det_frequency`, and the shipped `det_frequency=7` lands it at **4.29 Hz — inside the clinical
-  2-5 Hz band and inside the 1.9-5.8 Hz intention-tremor band**. Raising `det_frequency` only moves
-  the artifact into 0-2 Hz gross transport. Seven-arm sweep, per-arm statistics, spectral evidence
-  and the population split → `.agent/deferred.md`; mechanism law → `.claude/rules/rtmlib-runtime.md`.
-  Three user rulings bind the repair:
-  - **Fix the loop in code first, then re-sweep** — subclass `PoseTracker` so a detector frame
-    *reconciles* its box against the pose-derived box instead of replacing it. Target = the quality
-    `det_frequency=1` reaches (alternation 0.495, zero isolated relocations, no cadence) at
-    something near `det_frequency=7` cost, rather than paying 8.23× = ~64 h for the corpus rerun.
-    `kernel` tier: acceptance contract + diff-blind suite + gate-green before any corpus rerun.
-  - **No low-pass filter stage** — `det_frequency=1` alone reaches alternation 0.495 against the
-    post-hoc Hampel+6 Hz stage's 0.483 while keeping 0.697 of the 2-5 Hz band against its 0.464.
-    Removing the noise at source is what makes filtering unnecessary; a 6 Hz cutoff on top would
-    destroy tremor-band energy the source no longer carries as noise, and SPARC is cutoff-sensitive
-    so it would move the smoothness feature too.
-  - **SPARC becomes the primary smoothness feature, `normalized_jerk` demoted to secondary** —
-    shipped in the same rerun, since `cohort/` republishes anyway.
-  Standing ruling, unchanged: **fix upstream only** — the pipeline changes and the corpus reruns, so
-  `output/corpus-2d/` stays the single source of truth and no post-hoc filter bolts onto published
-  tracks. Closes gate-green with the corpus and cohort republished.
+Evidence → `.agent/archive/{polish,review-m2}.md`; regen → `.claude/rules/gates.md`.
+Queue → `.agent/deferred.md`.
 
 ## Phase
 
