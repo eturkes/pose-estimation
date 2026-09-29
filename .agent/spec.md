@@ -82,6 +82,15 @@ hospital SCI database.
 
 ## Tasks
 
+- **Resume note — pose-quality session (user body: watch the review UI → catalog every situation
+  where pose estimation performs poorly → repair each → rerun all videos; no questions).** Finish
+  line = catalog committed; each situation repaired under spine law (`kernel`: contract, red
+  witness, `tester`, `reviewer`, gate green) or reported as a failed attempt with what it taught;
+  corpus rerun 193 events / 379 assets → `output/corpus-2d/` + `cohort/` republished (SPARC
+  primary); review UI serving the new tracks; closing commit on a clean tree. Catalog C01-C10,
+  instruments + roster → `.scratch/tasks.md`.
+- [ ] **Review UI overlay time map (C01)** — player indexed the series by playhead, not
+  `frame_idx`; `|▶`/`◀|` moved the overlay alone.
 - [ ] **2D landmark instability — cause found, repair not yet built.**
   - Cause = rtmlib's **pose→box→crop→pose feedback loop**: between detector calls the box is
     pose-derived (`bboxes_last_frame = pose_to_bbox(kpts)`), and every `det_frequency` frames the

@@ -148,6 +148,18 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   a `> 0` liveness row is too weak to catch a near-stall — 0.25× advanced 1 frame and passed it,
   and only the rate row reds; and the seed must leave the video-clock rows green, or the row set
   cannot show which clock it graded.
+- `.scratch/player_time_qa.mjs` — review-ui overlay time map: the overlay draws the row exported for
+  the decoded frame on screen. `node .scratch/player_time_qa.mjs http://127.0.0.1:<port>` against a
+  running `python -m review_ui`; same resolution as `theme_qa.mjs`, plain context, no capture — it
+  prints frame numbers, pixel counts and times. It picks the first listed clip whose first row sits
+  past frame 0 and whose rows have an interior gap. 7 checks: nothing drawn before the first row or
+  inside the gap, the first row and the row after the gap each at their own timestamp, and `|▶`
+  moving the video to the overlay's frame. **7/7 green; 2 of 2 seeds fire their own rows** — series
+  indexed by the playhead reds the 5 time-map rows, `|▶` without a video seek reds the step row —
+  restored byte-identical by sha256 (`89806610…`). The series holds only frames that carry a row,
+  so indexing it by the playhead drew every frame after the first missing one early: measured over
+  379 clips, ≥ 2 frames on all 379 (352 start at frame 2 — `min_track_age = 3`), ≥ 10 on 69,
+  max 1112 after a long gap.
 - `.scratch/steq.py` — ASD-STE100 register scan over the human-facing surface (inventory: `docs/technical/conventions.md` → *Text register*). Drops fences/tables/headings/frontmatter, joins wrapped lines into blocks so a sentence is measured whole, splits on `.!?`, flags `LONG` (> `--max`; 20 for instructions, 25 for descriptions), `FILLER`, `CONTRACTION` (also fires on possessive `'s`), `PASSIVE` (be-verb + participle heuristic). Code-file mode samples quoted `help=`/`description=`/`title=` strings only. Measured at `--max 20`: `README.md` 14 → 2, `docs/capture_protocol.md` 20 → 8; residual flags are 21-25-word descriptions, which the rule allows. **The scanner cannot apply its own rule.** One `--max` covers every sentence, so the instruction-vs-description call that picks 20 or 25 is made by hand on each residual. Measured over the four shipped surfaces: 48 flags at `--max 20`, 24 at `--max 25`; **25 of the 26 `LONG` verdicts sit in the 21-25 band** and turn entirely on that call, 1 fails either way. Of the 24 residuals, both `CONTRACTION` hits are possessives (`instrument's`, `solve's`) and at least 4 of 21 `PASSIVE` hits are predicate adjectives (`is untested`, `is unmeasured`, `is unaffected`, `is closed`) — so **23 of 24 are heuristic output awaiting a human**, and several true passives are mandated by the claim boundary's own "may not be claimed" phrasing.
 - `.scratch/fidelity.sh <base-ref> <file>…` — pairs with it: diffs the multiset of format specifiers, `--flags`, backticked spans, file names and numbers between a base ref and the working tree. A register-only edit must show no delta; every delta needs an explanation. Caught the p-value reformat (`p<.05` → `p < 0.05`) and confirmed 14 R files invariant.
 

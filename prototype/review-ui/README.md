@@ -46,9 +46,11 @@ event. The stage fills the space that the window leaves. It keeps the shape of
 the clip, so the whole frame stays on screen with the controls under it. The UI
 fits the stage again after a window resize. The controls set the video layer to
 show, dim or hide, switch the body, hands, points and labels, and move the
-visibility threshold. The strip below the transport shows the mean body
-visibility per frame, so a tracking dropout is visible for the whole clip at
-once. The overlay palette does not change with the
+visibility threshold. The overlay draws the landmark row that the pipeline
+exported for the frame on screen. A frame without a row shows no overlay. The
+step buttons move the video and the overlay together. The strip below the
+transport shows the mean body visibility per frame, so a tracking dropout is
+visible for the whole clip at once. A frame without a row shows as a gap. The overlay palette does not change with the
 theme, because the overlay draws over video and not over a page surface. The stage
 turns dark when you dim or hide the video, which keeps the overlay readable. The
 dot colours show the confidence band. The pipeline colours a dot by body group, so

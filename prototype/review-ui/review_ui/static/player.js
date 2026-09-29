@@ -129,13 +129,13 @@ function paint() {
   // clip's own aspect ratio, so one factor maps both axes.
   const displayWidth = clip.width || 1;
   const scale = (series.scale || Math.max(clip.width, clip.height)) * (width / displayWidth);
-  const frame = Math.min(view.frame, series.frames - 1);
+  const row = rowAt(view.frame);
 
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
   if (view.showBody) {
-    const body = unpack(series.body[frame], series.body_names.length, view.threshold);
+    const body = unpack(row < 0 ? null : series.body[row], series.body_names.length, view.threshold);
     ctx.lineWidth = Math.max(width / 300, 1.6);
     drawSegments(ctx, body.points, topology.body.segments, topology.body.colors, scale);
     drawChains(ctx, body.points, topology.body.chains, topology.body.colors, scale);
@@ -161,7 +161,7 @@ function paint() {
   if (view.showHands) {
     ctx.lineWidth = Math.max(width / 420, 1.2);
     for (const side of ["hand_left", "hand_right"]) {
-      const hand = unpack(series[side][frame], series.hand_points, view.threshold);
+      const hand = unpack(row < 0 ? null : series[side][row], series.hand_points, view.threshold);
       drawSegments(ctx, hand.points, topology.hand.segments, topology.hand.colors, scale);
       drawChains(ctx, hand.points, topology.hand.chains, topology.hand.colors, scale);
       if (!view.showPoints) continue;
@@ -191,19 +191,20 @@ function paintStrip() {
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);
 
-  const values = view.series.visibility;
+  const count = view.series.decoded;
   const bands = { high: cssColour("--good"), mid: cssColour("--amber"), low: cssColour("--warn") };
   const absent = cssColour("--line");
-  const step = width / Math.max(values.length, 1);
-  for (let i = 0; i < values.length; i += 1) {
-    const value = values[i];
+  const step = width / Math.max(count, 1);
+  for (let i = 0; i < count; i += 1) {
+    const row = rowAt(i);
+    const value = row < 0 ? null : view.series.visibility[row];
     ctx.fillStyle = colourFor(value, bands) || absent;
     const barHeight = Math.max((value || 0) * height, 1);
     ctx.fillRect(i * step, height - barHeight, Math.max(step, 1), barHeight);
   }
   ctx.strokeStyle = cssColour("--text");
   ctx.lineWidth = 1;
-  const x = (view.frame / Math.max(values.length - 1, 1)) * width;
+  const x = (view.frame / Math.max(count - 1, 1)) * width;
   ctx.beginPath();
   ctx.moveTo(x, 0);
   ctx.lineTo(x, height);
@@ -216,20 +217,45 @@ function fps() {
   return view.clip.fps || 30;
 }
 
+/** Series row exported for one decoded frame, or -1 when the pipeline wrote none.
+    The playhead counts decoded frames, as the video clock does; the series holds
+    only frames that carry a row, so indexing it by the playhead drew every frame
+    after the first missing one early — by 2 frames on every clip and by up to
+    1112 after a long gap. */
+function rowAt(frame) {
+  const rows = view.series?.rowOf;
+  return rows && frame >= 0 && frame < rows.length ? rows[frame] : -1;
+}
+
+/** Decoded frame on screen at a video time.  The epsilon absorbs the float error
+    in `frame / fps * fps`, which otherwise floors a seek target one frame low. */
+function frameAt(seconds) {
+  return Math.floor(seconds * fps() + 1e-6);
+}
+
+/** Seek the video to the middle of a frame's display interval, so the element
+    shows that frame rather than whichever neighbour the boundary rounds to. */
+function seekVideo(frame) {
+  const video = document.getElementById("clip-video");
+  if (video && !video.error) video.currentTime = (frame + 0.5) / fps();
+}
+
 function setFrame(frame) {
   if (!view.series) return;
-  const last = view.series.frames - 1;
+  const last = view.series.decoded - 1;
   view.framePos = Math.max(0, Math.min(frame, last));
-  view.frame = Math.max(0, Math.min(Math.round(frame), last));
+  view.frame = Math.max(0, Math.min(Math.floor(frame), last));
   const seek = document.getElementById("seek");
   if (seek && Number(seek.value) !== view.frame) seek.value = String(view.frame);
   const readout = document.getElementById("readout");
   if (readout) {
-    const seconds = view.series.timestamp_sec[view.frame];
+    const row = rowAt(view.frame);
+    const seconds = row < 0 ? null : view.series.timestamp_sec[row];
+    const visibility = row < 0 ? t("common.none") : view.series.visibility[row].toFixed(2);
     readout.textContent =
-      `${t("player.frame")} ${view.frame + 1}/${view.series.frames} · ` +
+      `${t("player.frame")} ${view.frame + 1}/${view.series.decoded} · ` +
       `${t("player.time")} ${(seconds ?? view.frame / fps()).toFixed(2)}s · ` +
-      `${t("player.visibility")} ${(view.series.visibility[view.frame] ?? 0).toFixed(2)}`;
+      `${t("player.visibility")} ${visibility}`;
   }
   paint();
 }
@@ -243,7 +269,7 @@ function tick(timestamp) {
   if (!view.playing) return;
   const video = document.getElementById("clip-video");
   if (videoUsable() && !video.paused) {
-    setFrame(video.currentTime * fps());
+    setFrame(frameAt(video.currentTime));
   } else {
     const elapsed = view.clock ? (timestamp - view.clock) / 1000 : 0;
     view.clock = timestamp;
@@ -252,7 +278,7 @@ function tick(timestamp) {
     // and ran at double rate at 1x. It is the clock `hide` mode and every clip
     // without a platform decoder play on.
     const next = view.framePos + elapsed * fps() * view.speed;
-    setFrame(next >= view.series.frames ? 0 : next);
+    setFrame(next >= view.series.decoded ? 0 : next);
   }
   view.raf = requestAnimationFrame(tick);
 }
@@ -264,7 +290,7 @@ function play() {
   const video = document.getElementById("clip-video");
   if (video && !video.error) {
     video.playbackRate = view.speed;
-    video.currentTime = view.frame / fps();
+    video.currentTime = (view.frame + 0.5) / fps();
     video.play().catch(() => {});
   }
   document.getElementById("play").textContent = "⏸";
@@ -443,7 +469,7 @@ function stagePane() {
     class: view.layer === "dim" ? "dim" : view.layer === "hide" ? "hidden" : "",
   });
   video.addEventListener("loadedmetadata", () => paint());
-  video.addEventListener("seeked", () => setFrame(video.currentTime * fps()));
+  video.addEventListener("seeked", () => setFrame(frameAt(video.currentTime)));
   video.addEventListener("ended", () => pause());
   // A third of the corpus is HEVC, which a Chromium build without a platform
   // decoder refuses silently: the stage goes black and a reviewer cannot tell a
@@ -495,20 +521,19 @@ function stagePane() {
     "div",
     { class: "transport" },
     el("button", { class: "ctl", id: "play", type: "button", onclick: () => (view.playing ? pause() : play()) }, "▶"),
-    el("button", { class: "ctl", type: "button", onclick: () => { pause(); setFrame(view.frame - 1); } }, "◀|"),
-    el("button", { class: "ctl", type: "button", onclick: () => { pause(); setFrame(view.frame + 1); } }, "|▶"),
+    el("button", { class: "ctl", type: "button", onclick: () => { pause(); setFrame(view.frame - 1); seekVideo(view.frame); } }, "◀|"),
+    el("button", { class: "ctl", type: "button", onclick: () => { pause(); setFrame(view.frame + 1); seekVideo(view.frame); } }, "|▶"),
     el("input", {
       class: "seek",
       id: "seek",
       type: "range",
       min: 0,
-      max: Math.max((view.series?.frames || 1) - 1, 0),
+      max: Math.max((view.series?.decoded || 1) - 1, 0),
       value: view.frame,
       oninput: (event) => {
         pause();
         const frame = Number(event.target.value);
-        const element = document.getElementById("clip-video");
-        if (element && !element.error) element.currentTime = frame / fps();
+        seekVideo(frame);
         setFrame(frame);
       },
     }),
@@ -631,6 +656,12 @@ async function selectClip(clip) {
       seen += 1;
     }
     return seen ? total / seen : 0;
+  });
+  // The clip's own frame count bounds the playhead; a row past it still counts.
+  series.decoded = Math.max(clip.frames || 0, series.frame_idx[series.frames - 1] + 1);
+  series.rowOf = new Int32Array(series.decoded).fill(-1);
+  series.frame_idx.forEach((frame, row) => {
+    series.rowOf[frame] = row;
   });
   view.series = series;
   host.replaceChildren(stagePane());

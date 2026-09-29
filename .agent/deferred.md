@@ -94,10 +94,12 @@ rows before sizing any unit that touches their surfaces.
   `trunk compensation` · `grip` · `coordination` · `tremor` · `movement quality` · `how fast` ·
   `how steady is the reach` · `変動`; `左右差` is the one that hits, on 15, as a literal template
   fragment.
-- **Player rAF clock rate is proven by a scratch script** (`.scratch/player_clock_qa.mjs`; →
-  `gates.md`) → port to a committed check under `prototype/review-ui/tools/`, run from the recorded
-  command, 10 rows green and the seeded `view.framePos`→`view.frame` regression reding exactly the
-  6 rate rows while both `layer=show` rows stay green.
+- **Player clock rate + overlay time map are proven by scratch scripts**
+  (`.scratch/player_clock_qa.mjs`, `.scratch/player_time_qa.mjs`; → `gates.md`) → port both to
+  committed checks under `prototype/review-ui/tools/`, run from the recorded commands: clock 10 rows
+  green with the seeded `view.framePos`→`view.frame` regression reding exactly the 6 rate rows while
+  both `layer=show` rows stay green; time map 7 rows green with the series-index seed reding the 5
+  map rows and the seek-less `|▶` seed reding the step row alone.
 - **Offline stabiliser parameters — cutoff swept, Hampel is the one that needs it**
   (`.scratch/recover.py`, `.scratch/recover2.py`, `.scratch/sweep.py`; 236 tracks / 24 clips, used
   keypoints). Two stages, and the sweep splits the credit between them.
