@@ -26,9 +26,6 @@ hospital SCI database.
   published trees, degrading per absent tree. Commits no media at all → the player needs the
   published trees and lists nothing without them; `README.md` = view guide + regeneration + limits.
   `uv run --directory prototype/review-ui python -m review_ui` → `http://127.0.0.1:8791/`.
-  Proof → `prototype/review-ui/proof/`: 4 captures (3 light + 1 dark, each theme-pinned) + API
-  transcript, by `prototype/review-ui/tools/capture_proof.py`. The player view takes no capture —
-  its stage is patient video.
 - `cohort/` — the `../rehab` export. 12 `(task, side)` cells · 89 features · 1068 rows;
   `descriptors.yaml` = ja/en labels, units, ranges.
   `P pose-estimation-cohort --inventory inventory --sessions sessions --run output/corpus-2d --out cohort`

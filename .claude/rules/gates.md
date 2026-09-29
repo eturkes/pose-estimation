@@ -97,7 +97,7 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   five viewports + the stacked breakpoint (fits its room, fills an axis, ratio error < 1 %, video
   fills the stage, every control row on screen, page fits the viewport), a width-only resize
   rebacking the strip, and the census + cohort panel rectangles against the before state — the
-  change touched shared CSS and those two views are the committed captures. **38/38 green; 4 of 4
+  change touched shared CSS. **38/38 green; 4 of 4
   seeds fire their own rows and nothing else.** The second URL is a `git worktree` of the previous
   commit served with `--repo <primary>` and `UV_PROJECT_ENVIRONMENT=<primary>/prototype/review-ui/.venv
   uv run --no-sync`, which measured controls below the stage at 322 px → 156 px. Seed rules learned

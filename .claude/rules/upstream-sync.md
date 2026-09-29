@@ -11,13 +11,13 @@ paths:
 `CLAUDE.md` = upstream `~/.local/app/agents/claude/CLAUDE.project.md` byte for byte; every local
 adaptation lives in `.claude/rules/`, keyed on the template clause it overrides and indexed below;
 Clauses 1-4 are the only surviving copy of the ones that bind a refresh.
-**`last-sync = agents@db19af0`.**
+**`last-sync = agents@3cbae71`.**
 
 **Template invariants — hold each after every refresh:**
 
 - `cmp CLAUDE.md ~/.local/app/agents/claude/CLAUDE.project.md` = 0, line 1 = `@.agent/spec.md`.
 - `.agent/spec.md` = `Intent` (user-edited alone) · `Artifacts` · `Decisions` · `Tasks` · `Phase`,
-  in that order. `Artifacts` = path each + run command where it runs + proof path for a prototype.
+  in that order. `Artifacts` = path each + run command where it runs.
   `Tasks` = `- [ ]` open units in spine order, `- [x] <sha>` once committed and cleared at phase
   close, last line = the `.agent/deferred.md` pointer. `Phase` = phase + scope.
 - Deferral queue = `.agent/deferred.md`, unattached, one row + acceptance check each.
@@ -29,27 +29,17 @@ Clauses 1-4 are the only surviving copy of the ones that bind a refresh.
   verdict). Thinking depth = the launch `--effort`. No `.claude/settings*.json` env pin or
   `.claude/agents/` definition overrides the user-level models, effort or roles.
 
-**Recipe, every refresh** (`U=~/.local/app/agents`; upstream's session body =
-`$U/claude/prompts/refresh.md`):
+**Recipe, every refresh** = upstream's session body `~/.local/app/agents/claude/prompts/refresh.md`
+(`last-sync` derivation + recording, delta, commit subject). This repo adds:
 
-1. `cp $U/claude/CLAUDE.project.md CLAUDE.md`; `cmp` = 0.
-2. Prior sync = the upstream commit whose template equals `git show HEAD:CLAUDE.md` — derive it,
-   since the recorded `last-sync` can be stale:
-   `git -C $U log --format=%h -- claude/CLAUDE.project.md | while read -r c; do git -C $U show "$c:claude/CLAUDE.project.md" | cmp -s - <(git show HEAD:CLAUDE.md) && { echo "$c"; break; }; done`
-3. Delta = `git -C $U diff <prior> HEAD -- claude/CLAUDE.project.md` + the commit bodies of
-   `git -C $U log <prior>..HEAD -- claude/`. A line `git diff HEAD -- CLAUDE.md` removes outside
-   that delta = repo law → fold it into its owning rule file.
-4. Re-apply every ruling in the index; keep every upstream change no ruling contradicts. A new or
-   changed clause → the repo conforms, or a ruling keyed on it joins the index (ask the user where
-   the choice is theirs). Verify Clause 1 with `rg -l 'archive/contract-' scripts/ src/ tests/` =
-   7, re-derived rather than trusted — a whole-tree sweep counts every document that merely
-   mentions the path and drifts on every edit.
-5. A refresh that retires a term or constant falsifies claims elsewhere → sweep `.agent/` and
+1. Re-apply every ruling in the index; keep every upstream change no ruling contradicts. Verify
+   Clause 1 with `rg -l 'archive/contract-' scripts/ src/ tests/` = 7, re-derived rather than
+   trusted — a whole-tree sweep counts every document that merely mentions the path and drifts on
+   every edit.
+2. A refresh that retires a term or constant falsifies claims elsewhere → sweep `.agent/` and
    `.claude/rules/` for it, beside a positive control, and correct what depended on it, since a
    stale sizing datum reaches planning as a budget. Name both dot-dirs or pass `--hidden`, or the
    sweep reads clean over unread files (→ `evidence.md`).
-6. Update `last-sync` above; commit
-   `<scope>: template agents@<prior> behind upstream → refreshed to agents@<new>`.
 
 **A purely additive clause is not a no-op either**: contradicting nothing, it still binds
 mechanisms this repo already runs its own way, so resolve every new clause against the local
@@ -76,7 +66,6 @@ prototype at `prototype/<name>/` (`prototype/review-ui/`), review ledger `.agent
 | `Engineering` assurance tier "with its contract" | Clause 1 | fixes the path → `.agent/archive/contract-m<m>u<u>.md` |
 | `Session flow` finished work → `.agent/archive/` | Clause 4 + `retention.md` | adapts → archive records frozen, stale pointers kept |
 | `Authoring` durable-guidance routing | Clause 3 | adapts → mutable state stays in `spec.md` + `deferred.md`, never in rules |
-| `Session flow` PROTOTYPE + ITERATE proof | `data-boundary.md` player bullets | adapts → player view uncaptured; proof = census + cohort captures + API transcript; player seen only through `.scratch/player_shot.mjs` |
 
 - **Clause 1 — acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`**; the template
   names no contract path. **7 files under `scripts/ src/ tests/` break if it moves**, one of them a generated data field: `scripts/make_calibration_qc_fixtures.py` writes

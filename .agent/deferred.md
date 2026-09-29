@@ -68,9 +68,6 @@ rows before sizing any unit that touches their surfaces.
   `Plotly.newPlot` until the Plex faces load; measured 3/4 captures agreeing before, 6/6 after) →
   a headless check reports the census rotation legend at 2 rows with the faces loaded, and reds when
   `newPlot` runs ahead of `document.fonts.load`.
-- **`capture_proof.py` port guard fires only against a live stranger** (`already_serving` returns rc=2;
-  measured against a stale host server on 8791 serving deleted code) → a check binds a socket on the
-  target port, asserts rc=2 and the named cause, and asserts rc=0 on a free port.
 - **Claim boundary guarded by 18 substrings; 7/7 semantic overreaches pass** (`check_claim_report.py:89`
   `_p03`, needles = `calibration_qc.PROHIBITED_PARAPHRASES`; measured against the shipped `_fold`,
   positive control `clinical validity` fires) → the guard refuses a held-out paraphrase set covering

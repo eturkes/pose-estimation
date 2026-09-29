@@ -92,38 +92,11 @@ env -u LD_LIBRARY_PATH PYTHONPATH="$PWD/src" uv run --no-sync \
 
 # IBM Plex subsets and the Plotly cartesian bundle. Needs network.
 uv run --directory prototype/review-ui python tools/build_assets.py
-
-# proof/ — four view captures and the API transcript. Needs webcap.
-uv run --directory prototype/review-ui python tools/capture_proof.py
 ```
 
 `build_assets.py` subsets the Japanese faces to the characters this UI renders.
 The charset is the UI strings plus every `ja` label in `cohort/descriptors.yaml`.
 Rerun it after you add a Japanese string, or the new characters render as tofu.
-
-## Proof
-
-`proof/` holds `census-ja.png`, `cohort-ja.png`, `census-en.png`,
-`census-ja-dark.png` and `run.txt`. Each capture pins its theme, because the
-default follows the machine that takes the capture. The three light captures are
-the baseline. The dark capture shows the theme control. The transcript records the
-run command, the published trees, and one probe per endpoint the views consume. It carries no timestamp, host path or
-process id, so a rerun over the same trees rewrites it byte for byte.
-
-The player view takes no capture. Its stage plays patient video, and the clip it
-selects is a real recording, so a committed PNG of that view would carry a frame
-of one subject. The clip and landmark endpoints appear in the transcript instead,
-under a placeholder path. Those rows report the keypoint counts, which are model
-schema. They also report the response status and the byte count that the range
-request asks for. They report no frame count, no person count, no scale and no
-file size, because each of those measures the one clip that answered.
-
-The captures are stable in layout. They are not stable byte for byte. Every chart
-waits for the Plex faces before it measures its text, which pins the legend rows:
-six captures of the census view agreed exactly. A rerun can still differ by a few
-pixels, because the software rasterizer rounds some edges differently. Two full
-runs differed on 31 pixels of one capture, each pixel by one intensity level.
-Compare a capture visually. Do not compare digests.
 
 ## Limits
 
