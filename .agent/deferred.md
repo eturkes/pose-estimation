@@ -37,6 +37,10 @@ rows before sizing any unit that touches their surfaces.
   instruction, no specifier/flag/number delta.
 - **M2.8.4's two corpus checks port** → `scripts/check_corpus_2d_integrity.py` rc=0 on
   `output/corpus-2d` (379/379 set-equal, 11 verdicts true, breach < 0.1 %), rc=1 named on 3 tampers.
+- **2D weak-point triage lives in `.scratch/triage.py` alone** (→ `gates.md`; behind
+  `docs/technical/pose-weak-points.md`) → a committed `scripts/` instrument with no
+  `prototype/` import reproduces the catalog's per-view counts over a run tree and flags a
+  seeded whole-skeleton relocation in a synthetic landmark CSV.
 - **`--det-device GPU` unqualified against real detections** (9.7 vs 213 ms → ~7.1 h toward ~1 h) →
   GPU + CPU agree on the detection set, every padded row rejected by value, pilot green; then flip.
 - **Detector scores outside `[0,1]` accepted silently** → score-range guard fires on NPU, silent on
@@ -289,14 +293,14 @@ Cadence = 30 fps / det_frequency.
 ## User rulings on the instability repair
 
 - **Fix the loop in code before any corpus rerun, then re-sweep.** Chosen over adopting
-  `det_frequency=1` (8.23× = ~64 h) and over `det_frequency=35` (0.59×, but its cadence lands in
-  0-2 Hz gross transport and alternation stays 1.662). Shape: subclass rtmlib `PoseTracker` so a
-  detector frame **reconciles** its box against the pose-derived box — blend, or gate on
-  disagreement — instead of `bboxes = self.det_model(image)` replacing it outright. Acceptance:
-  re-run the same seven-arm pilot sweep and show the repaired tracker reaching `det_frequency=1`
-  quality (alternation <= 0.55, isolated relocations ~0, no cadence peak above the 6.7 Hz control)
-  at a wall clock near the `det_frequency=7` arm's 327 s. `kernel` tier → acceptance contract,
-  diff-blind suite, gate-green, red witnessed on the unfixed revision before the fix.
+  `det_frequency=1` at its CPU-detector cost (8.23× = ~64 h) and over `det_frequency=35` (0.59×,
+  but its cadence lands in 0-2 Hz gross transport and alternation stays 1.662). **Shape superseded
+  → `.agent/spec.md` `Decisions` (`SubjectTracker`)**: the GPU f32 detector retired the cost
+  premise, so every crop is a detector box every frame instead of a reconcile blend. Acceptance
+  unchanged and binding: re-run the same seven-arm pilot sweep and show the repaired tracker
+  reaching `det_frequency=1` quality (alternation <= 0.55, isolated relocations ~0, no cadence
+  peak above the 6.7 Hz control) at a wall clock near the `det_frequency=7` arm's 327 s.
+  `kernel` tier → `.agent/archive/contract-m2u91.md`.
 - **No low-pass filter stage upstream.** Retires the cutoff question and with it the Hampel/tremor
   collision: there is no second stage to collide. The 6 Hz bandwidth research stands as the reason
   a filter would have been *wrong* here, not as a parameter to apply.

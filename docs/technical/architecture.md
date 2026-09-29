@@ -106,6 +106,7 @@ clinical footage were inspected or used to tune them.
 ## Cross-references
 
 - Modes: `tracking-modes.md`
+- 2D pose weak points + repair map: `pose-weak-points.md`
 - Multi-camera sessions: `multicam.md`
 - Calibration format + workflow: `calibration.md`
 - Entry points & CLI: `entrypoints.md`

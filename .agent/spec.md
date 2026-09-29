@@ -67,9 +67,13 @@ hospital SCI database.
   The three defects the survey measured live on as `.agent/deferred.md` rows with mechanism left
   open; the survey itself is not repeated.
 - **Assurance tier = `kernel`** across pipeline, publishers + analysis.
-- **2D instability repair = fix rtmlib's box loop in code, then re-sweep** — subclass
-  `PoseTracker` so a detector frame *reconciles* its box against the pose-derived box instead of
-  replacing it, rather than paying 8.23× = ~64 h for a `det_frequency=1` corpus rerun.
+- **2D instability repair = `SubjectTracker`** — every crop a detector box, never re-sized from
+  the pose; detector every frame on GPU at f32 (41.6 ms/call, bit-identical to CPU on 240 corpus
+  frames); box transported by pose motion across detector misses; sticky largest-box subject;
+  identity-keyed smoothing. Supersedes the *reconcile* subclass (user ruling, `.agent/deferred.md`)
+  whose premise was the CPU detector's 8.23× cost for `det_frequency=1`; that ruling's acceptance
+  (seven-arm re-sweep, alternation <= 0.55, isolated ~0, no cadence peak, wall near f7's 327 s)
+  stands → `.agent/archive/contract-m2u91.md` P14-P17.
 - **No low-pass filter stage** — `det_frequency=1` alone reaches alternation 0.495 against the
   post-hoc Hampel+6 Hz stage's 0.483 while keeping 0.697 of the 2-5 Hz band against its 0.464.
   Removing the noise at source is what makes filtering unnecessary; a 6 Hz cutoff on top would
@@ -83,31 +87,23 @@ hospital SCI database.
 ## Tasks
 
 - **Resume note — pose-quality session (user body: watch the review UI → catalog every situation
-  where pose estimation performs poorly → repair each → rerun all videos; no questions).** Finish
-  line = catalog committed; each situation repaired under spine law (`kernel`: contract, red
-  witness, `tester`, `reviewer`, gate green) or reported as a failed attempt with what it taught;
-  corpus rerun 193 events / 379 assets → `output/corpus-2d/` + `cohort/` republished (SPARC
-  primary); review UI serving the new tracks; closing commit on a clean tree. Catalog C01-C10,
-  instruments + roster → `.scratch/tasks.md`.
-- [ ] **Review UI overlay time map (C01)** — player indexed the series by playhead, not
-  `frame_idx`; `|▶`/`◀|` moved the overlay alone.
-- [ ] **2D landmark instability — cause found, repair not yet built.**
-  - Cause = rtmlib's **pose→box→crop→pose feedback loop**: between detector calls the box is
-    pose-derived (`bboxes_last_frame = pose_to_bbox(kpts)`), and every `det_frequency` frames the
-    detector replaces it. Mixing the two box sources is the defect — when they disagree the crop
-    jumps and the top-down model returns a *different skeleton* (509 px translation **plus** 321 px
-    deformation, against 2.0/5.1 px for ordinary motion). It injects a periodic artifact at
-    `fps/det_frequency`, and the shipped `det_frequency=7` lands it at **4.29 Hz — inside the
-    clinical 2-5 Hz band and inside the 1.9-5.8 Hz intention-tremor band**. Raising
-    `det_frequency` only moves the artifact into 0-2 Hz gross transport.
-  - Repair, bound by the four instability rulings in `Decisions`: the `PoseTracker` reconcile
-    subclass, then re-sweep.
-  - Target = the quality `det_frequency=1` reaches (alternation 0.495, zero isolated relocations,
-    no cadence) at something near `det_frequency=7` cost.
-  - `kernel` tier: acceptance contract + diff-blind suite + gate-green before any corpus rerun.
-  - Closes gate-green with the corpus and cohort republished, SPARC primary in the same rerun.
-  - Seven-arm sweep, per-arm statistics, spectral evidence and the population split →
-    `.agent/deferred.md`; mechanism law → `.claude/rules/rtmlib-runtime.md`.
+  where pose estimation performs poorly → repair each → rerun all videos in one pass; no
+  questions).** Finish line = catalog committed; each situation repaired under spine law
+  (`kernel`: contract, red witness, `tester`, `reviewer`, gate green) or reported as a failed
+  attempt with what it taught; corpus rerun 193 events / 379 assets in ONE pass →
+  `output/corpus-2d/` + `cohort/` republished (SPARC primary); review UI serving the new tracks;
+  closing commit on a clean tree. Catalog → `docs/technical/pose-weak-points.md`; instruments +
+  roster → `.scratch/tasks.md`.
+- [x] 397cc8a **Review UI overlay time map (C01)**
+- [ ] **M2.9.1 subject tracker (C02 C03 C08 C11)** — contract `.agent/archive/contract-m2u91.md`;
+  diff-blind `tester` → own red witness → implementation → `reviewer` → gate → seven-arm re-sweep
+  (P14-P17). Mechanism law → `.claude/rules/rtmlib-runtime.md`.
+- [ ] **M2.9.2 output hygiene (C05 C07 C10)** — out-of-frame points, duplicate hand, face
+  landmark side swap.
+- [ ] **M2.9.3 hands (C09)** — finger metric; RTMW-X 384×288 on GPU and hand-crop refinement
+  against RTMW-L; adopt the winner or report the failed attempt.
+- [ ] **Corpus rerun** — one pass 193/379 under the repaired pipeline → `cohort/` republished with
+  SPARC primary → affected determinism campaigns → decisive gate → review UI restart.
 - [ ] **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`**
   - Acceptance: `build_assets.py` refuses with a named cause when absent; a committed check reports
     0 missing code points.
