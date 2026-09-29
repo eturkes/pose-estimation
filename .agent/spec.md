@@ -103,10 +103,13 @@ hospital SCI database.
   face landmark sides corrected. General occlusion hallucination (legs under the table, hips
   from above) is not separable by score — hallucinated knee median 0.48 vs real wrist q25 0.49
   (right views) — so it stays a reported model limit.
-- [ ] **M2.9.3 hands (C09)** — finger metric; RTMW-X 384×288 on GPU and hand-crop refinement
-  against RTMW-L; adopt the winner or report the failed attempt.
-- [ ] **Corpus rerun** — one pass 193/379 under the repaired pipeline → `cohort/` republished with
-  SPARC primary → affected determinism campaigns → decisive gate → review UI restart.
+- [ ] **M2.9.3 hands (C09) — evaluated, not adopted.** RTMW-X scores saturate; hand-crop
+  refinement moves the confidence scale + collapses occluded hands → catalog § M2.9.3, queued.
+- [ ] **M2.9.4 SPARC** — contract `.agent/archive/contract-m2u94.md`: the R stage's fixed-cutoff
+  SAL becomes SPARC (adaptive cutoff, Balasubramanian 2015), method version v3; runs while the
+  corpus decodes, then an R-only pass over the new tree.
+- [ ] **Corpus rerun** — one pass 193/379 under the repaired pipeline → R pass with SPARC →
+  `cohort/` republished → affected determinism campaigns → decisive gate → review UI restart.
 - [ ] **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`**
   - Acceptance: `build_assets.py` refuses with a named cause when absent; a committed check reports
     0 missing code points.

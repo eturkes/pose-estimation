@@ -30,7 +30,7 @@ Views: above 155 clips, left 93, right 131.
 | C06 | camera-setup footage tracked (floor, ceiling, operator) | no task segmentation | families noted 13/193 | deferred (`.agent/deferred.md`) |
 | C07 | confident points outside the frame | extrapolation past the crop and frame edge at visibility >= 0.3 | `oof > 0.05`: 150/379 (above 106/155) | M2.9.2 hygiene |
 | C08 | rows withheld at track birth + long gaps | smoother `min_track_age = 3` on every re-keyed track | first row >= frame 2 on 379/379; `gap > 0.05`: 28/379 | M2.9.1 identity-keyed smoothing |
-| C09 | finger jitter and dropout | small hands inside a 256×192 whole-person crop | no triage metric; M2.9.3 defines one | M2.9.3 hand evaluation |
+| C09 | finger jitter and dropout | small hands inside a 256×192 whole-person crop | fingertip jitter + alternation (`.scratch/hand_metrics.py`) | M2.9.1 halves it; second-stage models evaluated, not adopted (below) |
 | C10 | face landmarks on the wrong side | `_COCO_TO_BODY_FACE` reads the mirrored iBUG layout: face-derived eye points on the opposite side in 98-99 % of 11 315 frames, mouth 83-90 % | every clip | M2.9.2 mapping fix |
 | C11 | arms-only subject untracked, background people tracked | same argmax as C02; the detector box on the arms is the largest (0.13-0.32 of the frame against 0.012-0.032, 3 probed clips) | families noted 19/193 | M2.9.1 sticky largest-box subject |
 
@@ -55,3 +55,27 @@ chain; v1 = `SubjectTracker` + GPU f32 detector every frame + identity-keyed smo
 | wall, 9 events | 733 s | 523 s |
 
 `oof` and `lowvis` do not move: those classes belong to M2.9.2.
+
+## M2.9.3 hand evaluation — not adopted
+
+Same watch set. Finger metrics (`.scratch/hand_metrics.py`, median over 22 clips): `jitter` =
+fingertip step / hand extent on quasi-static frames; `alt` = fingertip alternation on moving
+frames; `collapse` = present hand frames with extent < 0.25 × forearm.
+
+| arm | pose model | jitter | alt | hand conf | collapse (worst clip) | wall, 9 events |
+| --- | --- | --- | --- | --- | --- | --- |
+| v0 shipped chain | RTMW-L 256×192 NPU | 0.0198 | 1.376 | 0.57 | 3.3 % | 733 s |
+| v1 `SubjectTracker` | RTMW-L 256×192 NPU | 0.0102 | 0.572 | 0.60 | 11.4 % | 523-666 s |
+| v2x | RTMW-X 384×288 GPU f32 | 0.0177 | 1.186 | 1.00 | 22.6 % | 847 s |
+| v3h | v1 + RTMPose-m hand 256×256 on hand crops | 0.0050 | 0.405 | 0.43 | 47.7 % | 737 s |
+
+- RTMW-X: scores run on another scale — 92.9 % of body and 96.7 % of hand observations clip to
+  1.0 — which disarms every confidence gate downstream (smoother, hygiene, R). Rejected.
+- Hand-crop refinement: halves visible-hand jitter, but its confidence scale is lower (0.60 →
+  0.43, moving every threshold calibrated on RTMW-L), and on occluded hands the crop holds no
+  hand, so the output collapses (47.7 / 35.1 / 33.1 % of hand frames in the three worst clips).
+  Not adopted this pass → `.agent/deferred.md`.
+- What shipped for C09 is M2.9.1's effect: jitter 0.0198 → 0.0102, alternation 1.376 → 0.572.
+- `collapse` is not like-for-like across v0 and v1: v1 exports a hand on every frame (above-view
+  presence 1.00 against 0.85), so its population includes the occluded frames v0 dropped. The
+  median clip reads 0 on every arm; the worst clips are above views.

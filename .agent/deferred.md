@@ -37,6 +37,10 @@ rows before sizing any unit that touches their surfaces.
   instruction, no specifier/flag/number delta.
 - **M2.8.4's two corpus checks port** → `scripts/check_corpus_2d_integrity.py` rc=0 on
   `output/corpus-2d` (379/379 set-equal, 11 verdicts true, breach < 0.1 %), rc=1 named on 3 tampers.
+- **Hand-crop refinement halves visible-hand jitter but is not adoptable as measured**
+  (`docs/technical/pose-weak-points.md` § M2.9.3) → refinement gated on whole-body hand
+  visibility, its scores mapped onto the RTMW-L scale, then on the watch set: jitter <= 0.006,
+  collapse <= 1 % on every clip, duplicate-hand census within 10 % of RTMW-L's.
 - **2D weak-point triage lives in `.scratch/triage.py` alone** (→ `gates.md`; behind
   `docs/technical/pose-weak-points.md`) → a committed `scripts/` instrument with no
   `prototype/` import reproduces the catalog's per-view counts over a run tree and flags a
