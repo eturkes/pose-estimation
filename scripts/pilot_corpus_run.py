@@ -37,6 +37,7 @@ from typing import Any
 
 from pose_estimation import inventory as inventory_module
 from pose_estimation import qualify as qualify_module
+from pose_estimation.corpus_run import pose_config, read_pose_config, write_pose_config
 from pose_estimation.multicam import (
     SessionError,
     discover_session,
@@ -47,7 +48,8 @@ from pose_estimation.sessions import tree_digest, validate_generation
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = "scripts/pilot_corpus_run.py"
-GENERATOR_VERSION = "v1"
+# v2: the report gained `tracker` — generations under different trackers are shaped identically.
+GENERATOR_VERSION = "v2"
 CLINICAL_R = ROOT / "analysis" / "clinical_features.R"
 
 # Contract P17's three axes. `pts_monotonic` is reported, never required: it is
@@ -83,6 +85,7 @@ REPORT_FIELDS = frozenset(
         "verdicts",
         "model",
         "tracking",
+        "tracker",
         "det_device",
         "pose_device",
         "det_frequency",
@@ -313,6 +316,8 @@ def _run_event(event_dir: Path, out: Path, log: Path, args: argparse.Namespace) 
         args.model,
         "--tracking",
         args.tracking,
+        "--tracker",
+        args.tracker,
         "--det-device",
         args.det_device,
         "--pose-device",
@@ -329,6 +334,7 @@ def _run_event(event_dir: Path, out: Path, log: Path, args: argparse.Namespace) 
         code = subprocess.call(command, cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT)
     if code != 0:
         raise PilotError(f"a session run exited {code}; its log is at {log}")
+    write_pose_config(event_out, pose_config(args))
     return time.monotonic() - started
 
 
@@ -590,9 +596,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--model", default="rtmw-l")
     parser.add_argument("--tracking", default="hands-arms")
-    parser.add_argument("--det-device", default="CPU")
+    parser.add_argument("--tracker", default="subject", choices=["subject", "rtmlib"])
+    parser.add_argument("--det-device", default="GPU")
     parser.add_argument("--pose-device", default="NPU")
-    parser.add_argument("--det-frequency", type=int, default=7)
+    parser.add_argument("--det-frequency", type=int, default=1)
     parser.add_argument("--single-subject", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--max-frames", type=int, default=0)
     parser.add_argument(
@@ -656,6 +663,10 @@ def main() -> int:
     partition = Partition()
     for index, event_id in enumerate(event_ids):
         event_out = args.out / event_id
+        if args.reuse_run and read_pose_config(event_out) != pose_config(args):
+            # The report's configuration is this invocation's; reused landmarks
+            # from another one would publish under the wrong generation.
+            raise PilotError("--reuse-run: an event was produced under another pose configuration")
         if not args.reuse_run:
             run_seconds += _run_event(
                 args.sessions / event_id, args.out, logs / f"run-{index:02d}.log", args
@@ -686,6 +697,7 @@ def main() -> int:
         "configuration": {
             "model": args.model,
             "tracking": args.tracking,
+            "tracker": args.tracker,
             "det_device": args.det_device,
             "pose_device": args.pose_device,
             "det_frequency": args.det_frequency,
@@ -753,6 +765,7 @@ def main() -> int:
                 GENERATOR_VERSION,
                 args.model,
                 args.tracking,
+                args.tracker,
                 args.det_device,
                 args.pose_device,
             }

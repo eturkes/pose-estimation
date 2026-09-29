@@ -43,6 +43,23 @@ Selected with `--tracking {hands|hands-arms|body}`. Mode constants live in `proc
   including dormant tracks in their grace period, rather than only limiting
   newly emitted results.
 
+## rtmlib tracker (`run.py --tracker`)
+
+- `subject` (default) = `SubjectTracker` (`subject_tracker.py`). Every crop is a detector box.
+  Between detector calls and across detector misses the box moves by the median displacement
+  of keypoints scoring >= 0.3 in consecutive poses; the pose never re-sizes it. Tracks associate
+  by box IoU >= 0.3 (`gated_assignment`) and drop after 15 missed detector frames.
+- Subject = the track with the largest detector box (EMA of box area / frame area). It is
+  sticky: a rival must stay 1.5× larger for 15 consecutive detector frames to take over; a lost
+  subject is replaced by the largest live track. `--single-subject` poses the subject alone.
+- `KeypointSmoother` receives the tracker's ids (`track_ids`) and associates by identity, so a
+  named track exports from its first frame; `min_track_age` gates unnamed tracks only.
+- `rtmlib` = upstream `PoseTracker(tracking=False)`: pose-derived crops between detector calls,
+  replaced by the detector box every `--det-frequency` frames — the instability mechanism in
+  `.claude/rules/rtmlib-runtime.md`. Kept for comparison runs.
+- The corpus drivers run the detector every frame (`--det-device GPU --det-frequency 1`); the GPU
+  plugin compiles at f32, which reproduces the CPU detector's boxes exactly.
+
 ## Single-subject mode (`--single-subject`)
 
 Three resilience layers for unreliable body detection (e.g. top-down views):

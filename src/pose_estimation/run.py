@@ -286,7 +286,10 @@ def parse_args(argv=None):
     p.add_argument(
         "--single-subject",
         action="store_true",
-        help="Track only the highest-confidence person.",
+        help=(
+            "Export one person. --tracker subject exports its sticky subject (largest detector "
+            "box); --tracker rtmlib exports the highest mean-confidence person."
+        ),
     )
     p.add_argument(
         "--backend",
@@ -341,6 +344,15 @@ def parse_args(argv=None):
         type=int,
         default=7,
         help="Run the detector every N frames (default: 7).",
+    )
+    p.add_argument(
+        "--tracker",
+        default="subject",
+        choices=["subject", "rtmlib"],
+        help=(
+            "Select the pose tracker (default: subject). 'subject' crops every frame from a "
+            "detector box and keeps one subject identity. 'rtmlib' is the upstream PoseTracker."
+        ),
     )
     p.add_argument(
         "--headless",
@@ -467,7 +479,11 @@ def process_source(
             latencies.append(dt * 1000)
 
             if smoother is not None:
-                keypoints, scores = smoother(keypoints, scores, timestamp)
+                track_ids = getattr(pose_tracker, "last_track_ids", None)
+                if track_ids is None:
+                    keypoints, scores = smoother(keypoints, scores, timestamp)
+                else:
+                    keypoints, scores = smoother(keypoints, scores, timestamp, track_ids=track_ids)
 
             if bone_smoother is not None:
                 if smoother is not None:
@@ -804,6 +820,8 @@ def main(argv=None):
 
     from rtmlib import PoseTracker, draw_skeleton
 
+    from .subject_tracker import SubjectTracker
+
     # ── Set up model (explicit URLs from registry for all devices) ──
     solution_cls = partial(
         SplitDeviceSolution,
@@ -828,12 +846,18 @@ def main(argv=None):
         f"{constraint_label}"
     )
 
-    pose_tracker = PoseTracker(
+    tracker_cls = PoseTracker
+    tracker_options = {}
+    if args.tracker == "subject":
+        tracker_cls = SubjectTracker
+        tracker_options = {"single_subject": args.single_subject}
+    pose_tracker = tracker_cls(
         solution_cls,  # ty: ignore[invalid-argument-type]  # rtmlib accepts any callable
         mode=args.mode,
         det_frequency=args.det_frequency,
         backend=args.backend,
         to_openpose=False,
+        **tracker_options,
         # rtmlib's IoU tracking indexes the CURRENT frame's keypoint array by a
         # PERSISTENT track id, so one missed match raises IndexError on a path
         # that returns before ``frame_cnt += 1`` and before ``bboxes_last_frame``

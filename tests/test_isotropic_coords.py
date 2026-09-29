@@ -464,6 +464,7 @@ def test_p08_report_payload_carries_the_normalisation_identity(tmp_path, monkeyp
         limit=0,
         model="rtmw-l",
         tracking="body",
+        tracker="rtmlib",
         det_device="CPU",
         pose_device="NPU",
         det_frequency=7,

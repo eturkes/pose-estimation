@@ -48,10 +48,13 @@ from pose_estimation.corpus_run import (
     ManifestError,
     asset_disposition,
     is_complete,
+    pose_config,
     read_marker,
+    read_pose_config,
     validate_manifest,
     write_manifest,
     write_marker,
+    write_pose_config,
 )
 from pose_estimation.export import COORD_NORMALIZATION
 from pose_estimation.multicam import published_overlap
@@ -61,7 +64,9 @@ ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = "scripts/corpus_run_2d.py"
 # v2: the report gained `coord_normalization`, because export.py's normalisation
 # moved and a 2D landmark CSV carries no identity tag able to say which one made it.
-GENERATOR_VERSION = "v2"
+# v3: the report gained `tracker`, for the same reason: two generations under
+# different trackers are shaped identically.
+GENERATOR_VERSION = "v3"
 CLINICAL_R = ROOT / "analysis" / "clinical_features.R"
 # Named because the redaction allowlist has to hold every label the report can
 # emit: `partial` is unreachable on a full corpus run and so shipped un-allowed,
@@ -90,6 +95,7 @@ REPORT_FIELDS = frozenset(
         "verdicts",
         "model",
         "tracking",
+        "tracker",
         "det_device",
         "pose_device",
         "det_frequency",
@@ -191,6 +197,7 @@ def redaction_allowlist(args: Any, placed_assets: Any, codes: Any) -> frozenset[
             GENERATOR_VERSION,
             args.model,
             args.tracking,
+            args.tracker,
             args.det_device,
             args.pose_device,
             MARKER_COMPLETE,
@@ -242,6 +249,8 @@ def _attempt_event(event_id: str, args: argparse.Namespace, logs: Path) -> dict[
         args.model,
         "--tracking",
         args.tracking,
+        "--tracker",
+        args.tracker,
         "--det-device",
         args.det_device,
         "--pose-device",
@@ -347,7 +356,7 @@ def _diagnostic_rows(path: Path) -> list[dict[str, str]]:
 def _artifacts(rows: list[dict[str, str]], placed: dict[str, Any], out: Path) -> dict[str, Any]:
     """P09: an `ok` asset owns one landmark CSV and one diagnostics row; no other does."""
     missing_csv = wrong_diag = trespass = 0
-    counters: list[dict[str, int]] = []
+    counters: list[dict[str, float]] = []
     for row in rows:
         asset = placed.get(row["asset_id"])
         if asset is None:
@@ -465,9 +474,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="rtmw-l")
     # Default = the shipped corpus's own configuration, so a bare rerun reproduces it.
     parser.add_argument("--tracking", default="body")
-    parser.add_argument("--det-device", default="CPU")
+    parser.add_argument("--tracker", default="subject", choices=["subject", "rtmlib"])
+    parser.add_argument("--det-device", default="GPU")
     parser.add_argument("--pose-device", default="NPU")
-    parser.add_argument("--det-frequency", type=int, default=7)
+    parser.add_argument("--det-frequency", type=int, default=1)
     parser.add_argument("--single-subject", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument(
         "--retry-failed",
@@ -517,10 +527,17 @@ def main() -> int:
     # marker's presence is what keeps the run off the published tree.
     validate_generation(args.sessions, inventory_dir=args.inventory)
 
+    generation = pose_config(args)
+
     def due(event_id: str) -> bool:
         event_out = args.out / event_id
         marker = read_marker(event_out)
-        return marker is None or (args.retry_failed and marker.get("status") != MARKER_COMPLETE)
+        if marker is None:
+            return True
+        if marker.get("status") != MARKER_COMPLETE:
+            return args.retry_failed
+        # A complete event from another configuration is a different generation.
+        return read_pose_config(event_out) != generation
 
     pending = [event_id for event_id in event_ids if due(event_id)]
     if args.limit:
@@ -535,6 +552,9 @@ def main() -> int:
         )
         for index, event_id in enumerate(pending, 1):
             outcome = _attempt_event(event_id, args, logs)
+            if outcome.get("stage") == STAGE_CLINICAL:
+                # The run stage passed, so these landmarks are this configuration's.
+                write_pose_config(args.out / event_id, generation)
             attempts[outcome["status"]] += 1
             run_seconds += outcome["run_s"]
             clinical_seconds += outcome["clinical_s"]
@@ -548,6 +568,19 @@ def main() -> int:
     validate_generation(args.sessions, inventory_dir=args.inventory)
     digest_after = tree_digest(args.sessions)
     marker_after = generation_digest(args.sessions)
+
+    # `configuration` below is this invocation's; it may name the tree only when every
+    # complete event was produced under it (resume and --analyse-only reuse old output).
+    foreign = sum(
+        1
+        for event_id in event_ids
+        if is_complete(args.out / event_id) and read_pose_config(args.out / event_id) != generation
+    )
+    if foreign:
+        raise RunError(
+            f"{foreign} complete events were produced under another pose configuration "
+            "than this invocation's; the report would misname their generation"
+        )
 
     rows = _manifest_rows(canonical, placed, args.out)
     try:
@@ -595,6 +628,7 @@ def main() -> int:
         "configuration": {
             "model": args.model,
             "tracking": args.tracking,
+            "tracker": args.tracker,
             "det_device": args.det_device,
             "pose_device": args.pose_device,
             "det_frequency": args.det_frequency,

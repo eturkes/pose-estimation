@@ -64,9 +64,15 @@ def _patch_rtmlib_openvino():
                     print(f"  The runner reshapes the model to {static} for the NPU.")
                     model_onnx.reshape(static)
 
+            config = {"PERFORMANCE_HINT": "LATENCY"}
+            if ov_device == "GPU":
+                # The GPU plugin infers in f16 by default.  f32 reproduces the CPU
+                # detector exactly (240 corpus frames: IoU 1.0000, score delta 0);
+                # f16 drifts to IoU 0.982 and flips a box at the 0.3 score cut.
+                config["INFERENCE_PRECISION_HINT"] = "f32"
             try:
                 self.compiled_model = core.compile_model(
-                    model=model_onnx, device_name=ov_device, config={"PERFORMANCE_HINT": "LATENCY"}
+                    model=model_onnx, device_name=ov_device, config=config
                 )
             except RuntimeError as exc:
                 if ov_device != "CPU":

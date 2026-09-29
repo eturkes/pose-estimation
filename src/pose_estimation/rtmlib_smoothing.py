@@ -187,10 +187,25 @@ class KeypointSmoother:
         )
         return centroids
 
-    def __call__(self, keypoints, scores, t):
-        """Return (smoothed_keypoints, smoothed_scores) or (None, None)."""
+    def __call__(self, keypoints, scores, t, track_ids=None):
+        """Return (smoothed_keypoints, smoothed_scores) or (None, None).
+
+        ``track_ids`` names each input row with the upstream tracker's identity.
+        Given, association is by identity instead of centroid distance, and a
+        named track is emitted from every frame it lives, carried ones included
+        (at score 0): the tracker already owns admission, and a centroid gate
+        re-keyed a subject whose confidence mass moved — a new filter, two
+        withheld frames, a zero-score carry.  ``min_track_age`` gates unnamed
+        tracks alone.
+        """
         if keypoints is None or len(keypoints.shape) != 3 or keypoints.shape[0] == 0:
+            if track_ids is not None and len(track_ids) != 0:
+                raise ValueError(f"track_ids length {len(track_ids)} does not match 0 rows")
             return self._carry(t)
+        if track_ids is not None and len(track_ids) != keypoints.shape[0]:
+            raise ValueError(
+                f"track_ids length {len(track_ids)} does not match {keypoints.shape[0]} rows"
+            )
 
         score_array = np.asarray(scores)
         if score_array.shape != keypoints.shape[:2]:
@@ -204,11 +219,15 @@ class KeypointSmoother:
             return self._carry(t)
         keypoints = keypoints[observed_people]
         scores = score_array[observed_people]
+        if track_ids is not None:
+            track_ids = [tid for tid, keep in zip(track_ids, observed_people, strict=True) if keep]
 
         n_det = keypoints.shape[0]
-        det_centroids = self._detection_centroids(keypoints, scores)
-
-        matched, used_tracks = self._match(det_centroids, t=t)
+        if track_ids is None:
+            det_centroids = self._detection_centroids(keypoints, scores)
+            matched, used_tracks = self._match(det_centroids, t=t)
+        else:
+            matched, used_tracks = self._match_ids(track_ids)
 
         new_tracks = []
         out_kps = []
@@ -221,6 +240,7 @@ class KeypointSmoother:
             finite_measurement = np.isfinite(kp[..., :2]).all(axis=1)
             sc = np.where(finite_measurement & np.isfinite(raw_sc), np.clip(raw_sc, 0.0, 1.0), 0.0)
 
+            ext_id = None if track_ids is None else track_ids[i]
             if i in matched:
                 tr = self.tracks[matched[i]]
                 filt = tr["filter"]
@@ -247,9 +267,10 @@ class KeypointSmoother:
                     "last_kps": smooth_kp.copy(),
                     "last_velocity": self._get_velocity(filt),
                     "last_t": t,
+                    "ext_id": ext_id,
                 }
             )
-            if age >= self.min_track_age:
+            if age >= self.min_track_age or ext_id is not None:
                 out_kps.append(smooth_kp)
                 # EMA is useful internal state, but exported evidence may not
                 # be more confident than this frame's actual observation.
@@ -281,9 +302,10 @@ class KeypointSmoother:
                     "last_kps": predicted,
                     "last_velocity": tr.get("last_velocity"),
                     "last_t": t,
+                    "ext_id": tr.get("ext_id"),
                 }
             )
-            if age >= self.min_track_age:
+            if age >= self.min_track_age or tr.get("ext_id") is not None:
                 out_kps.append(predicted)
                 # Preserve predicted geometry for display/association, but a
                 # carried track is not a fresh image observation.  Zero output
@@ -332,6 +354,14 @@ class KeypointSmoother:
 
         return matched, used_tracks
 
+    def _match_ids(self, track_ids):
+        """Associate rows to tracks carrying the same upstream identity."""
+        index = {
+            tr.get("ext_id"): j for j, tr in enumerate(self.tracks) if tr.get("ext_id") is not None
+        }
+        matched = {i: index[tid] for i, tid in enumerate(track_ids) if tid in index}
+        return matched, set(matched.values())
+
     def _carry(self, t=None):
         """Emit carry-forward tracks when no detections are present."""
         new_tracks = []
@@ -363,9 +393,10 @@ class KeypointSmoother:
                     "last_kps": predicted,
                     "last_velocity": tr.get("last_velocity"),
                     "last_t": t if t is not None else tr.get("last_t", 0),
+                    "ext_id": tr.get("ext_id"),
                 }
             )
-            if age >= self.min_track_age:
+            if age >= self.min_track_age or tr.get("ext_id") is not None:
                 out_kps.append(predicted)
                 out_scores.append(np.zeros_like(decayed))
                 output_track_keys.append(id(tr["filter"]))

@@ -1880,7 +1880,9 @@ def test_report_allowlist_covers_every_throughput_label() -> None:
     driver = runpy.run_path(
         str(_PROJECT_ROOT / "scripts" / "corpus_run_2d.py"), run_name="_allowlist"
     )
-    args = SimpleNamespace(model="rtmw-l", tracking="body", det_device="CPU", pose_device="NPU")
+    args = SimpleNamespace(
+        model="rtmw-l", tracking="body", tracker="rtmlib", det_device="CPU", pose_device="NPU"
+    )
     allowed = driver["redaction_allowlist"](args, [], [])
     labels = driver["THROUGHPUT_LABELS"]
 

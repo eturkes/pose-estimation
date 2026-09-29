@@ -86,6 +86,7 @@ def test_pilot_refuses_unvalidated_source_tables_before_publication(tmp_path, mo
         seed=0,
         model="rtmw-l",
         tracking="hands-arms",
+        tracker="rtmlib",
         det_device="CPU",
         pose_device="NPU",
         det_frequency=7,
@@ -146,6 +147,7 @@ def test_pilot_rerun_clears_the_selected_event_before_launch(tmp_path, monkeypat
     args = SimpleNamespace(
         model="rtmw-l",
         tracking="hands-arms",
+        tracker="rtmlib",
         det_device="CPU",
         pose_device="NPU",
         det_frequency=7,
@@ -185,6 +187,7 @@ def test_complete_resume_keeps_every_published_output_byte_identical(tmp_path, m
         limit=0,
         model="rtmw-l",
         tracking="body",
+        tracker="rtmlib",
         det_device="CPU",
         pose_device="NPU",
         det_frequency=7,
@@ -358,6 +361,7 @@ def test_driver_refuses_every_sink_overlapping_the_published_sessions(
         limit=0,
         model="rtmw-l",
         tracking="body",
+        tracker="rtmlib",
         det_device="CPU",
         pose_device="NPU",
         det_frequency=7,
@@ -465,6 +469,7 @@ def test_throughput_never_labels_mixed_frame_and_wall_populations_as_corpus(
         limit=0,
         model="rtmw-l",
         tracking="body",
+        tracker="rtmlib",
         det_device="CPU",
         pose_device="NPU",
         det_frequency=7,
@@ -472,6 +477,9 @@ def test_throughput_never_labels_mixed_frame_and_wall_populations_as_corpus(
         retry_failed=False,
         analyse_only=True,
     )
+    # M2.9.1 A03: a complete event names the pose configuration it was produced under.
+    for asset in assets:
+        driver.write_pose_config(out / asset.event_id, driver.pose_config(args))
     monkeypatch.setattr(driver, "_parse_args", lambda: args)
     monkeypatch.setattr(driver.pilot, "_load_assets", lambda *_args: assets)
     monkeypatch.setattr(driver, "_canonical_asset_ids", lambda _path: [a.asset_id for a in assets])

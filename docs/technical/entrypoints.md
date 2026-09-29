@@ -55,13 +55,14 @@ python -m pose_estimation.run                                          # webcam 
 python -m pose_estimation.run --model dwpose-m
 python -m pose_estimation.run --source video.mp4 --det-device CPU --pose-device NPU
 python -m pose_estimation.run --batch-dir videos/ --single-subject
+python -m pose_estimation.run --source video.mp4 --tracker rtmlib        # upstream PoseTracker
 python -m pose_estimation.run --session-dir videos/session_a/           # multi-camera
 python -m pose_estimation.run --sessions-dir videos/ --calibration calib.json
 python -m pose_estimation.run --list-sessions                          # read-only discovery probe
 python -m pose_estimation.run --headless                               # no display
 ```
 
-All rtmlib models share the YOLOX-m detector (640×640). Detector + pose URLs are pinned in `MODEL_REGISTRY`. Models download on first run.
+All rtmlib models share the YOLOX-m detector (640×640). Detector + pose URLs are pinned in `MODEL_REGISTRY`. Models download on first run. `--tracker subject` (default) crops every frame from a detector box and keeps one subject identity; `--tracker rtmlib` builds the upstream `PoseTracker` (`tracking-modes.md`).
 
 `--session-dir`/`--sessions-dir`/`--calibration` route through the same multi-camera dispatcher as `main.py`, using an rtmlib camera processor callback that wraps `process_source()`. Session dispatch occurs after model setup so the pose tracker, smoother, and bone smoother are available. With `--model mediapipe`, `_run_mediapipe` forwards these flags to `pose-estimation` via subprocess. `--list-sessions` short-circuits *before* model setup: it resolves `--session-dir`/`--sessions-dir`/`--calibration` (sessions root defaults to `sessions/`, the tree `pose-estimation-sessions` publishes — the old `videos/` default named a non-recursive raw-media root that never held a session directory) through `resolve_cli_sessions(..., summary_label="Discovered sessions", redact_identifiers=True)` — filesystem + `session.json`/`calibration.json` discovery, no frame decoding, no dispatch — prints `session #<i>: N cameras; calibration: present|absent` per session, then exits (`0` = ≥1 found, `1` = none/error). Read-only probe backing the roadmap M2 footage gate; `redact_identifiers` surfaces only an ordinal + camera count + calibration presence, keeping the patient-adjacent tree's session ids / camera names (and all frame + calibration values) out of context.
 
@@ -247,19 +248,26 @@ The script runs every published session through `pose_estimation.run` and then
 falls back to the CPU.
 
 Defaults: `--inventory inventory`, `--qualification qualification`, `--sessions sessions`,
-`--out output/corpus-2d`, `--model rtmw-l`, `--tracking body`, `--det-device CPU`,
-`--pose-device NPU`, `--det-frequency 7`, `--single-subject`, `--retry-failed`.
+`--out output/corpus-2d`, `--model rtmw-l`, `--tracking body`, `--tracker subject`,
+`--det-device GPU`, `--pose-device NPU`, `--det-frequency 1`, `--single-subject`,
+`--retry-failed`.
 `--limit N` runs the first N **due** events, so a rerun with `--limit` processes the next
 events rather than the same ones. `--analyse-only` republishes the manifest and the
 report over an existing `--out` tree and decodes nothing. `--report` moves the report alone.
 
-The defaults reproduce the shipped corpus: `--tracking body` populates the trunk and posture
-columns, and coordinates are normalized by one `max(frame_width, frame_height)` scalar. The
-report publishes that identity as `configuration.coord_normalization`.
+The defaults select the repaired generation: `--tracker subject` with the detector every frame
+on the GPU. `--tracking body` populates the trunk and posture columns, and coordinates are
+normalized by one `max(frame_width, frame_height)` scalar. The report publishes that identity as
+`configuration.coord_normalization`, and the tracker as `configuration.tracker`.
+
+Each event records the pose configuration of its landmarks in `pose_config.json`. A resumed run
+reprocesses any complete event that records another configuration. `--analyse-only` refuses to
+publish over such an event, because the report would name the wrong generation.
 
 The run is resumable. Rerun the identical command after any interruption. Each event writes
-`event_complete.json` after its outputs are final, and that marker is the only resume key:
-a killed run leaves a partial landmark CSV that no row count can tell from a complete one.
+`event_complete.json` after its outputs are final, and that marker plus a matching
+`pose_config.json` decide what is due; output presence never does, because a killed run leaves a
+partial landmark CSV that no row count can tell from a complete one.
 A re-attempt deletes the event's output tree first, so partial work is destroyed and never
 credited.
 

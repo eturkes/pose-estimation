@@ -48,6 +48,21 @@ STAGE_RUN = "run"
 STAGE_CLINICAL = "clinical"
 
 
+#: The pose configuration a landmark generation carries nowhere else: two trees under
+#: different trackers or detector cadences are shaped identically, so a report must read
+#: this per-event record rather than the invocation that happens to publish it.
+POSE_CONFIG_FILENAME = "pose_config.json"
+POSE_CONFIG_FIELDS: tuple[str, ...] = (
+    "model",
+    "tracking",
+    "tracker",
+    "det_device",
+    "pose_device",
+    "det_frequency",
+    "single_subject",
+)
+
+
 class ManifestError(RuntimeError):
     """A corpus-run manifest violates D06's totality or its vocabulary."""
 
@@ -59,6 +74,30 @@ def marker_path(event_out: Path) -> Path:
 def read_marker(event_out: Path) -> dict[str, str] | None:
     """Return the event's completion record, or ``None`` when it has none."""
     path = marker_path(event_out)
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def pose_config(args: object) -> dict[str, object]:
+    """The generation identity of a pose run, read off its argument namespace."""
+    return {name: getattr(args, name) for name in POSE_CONFIG_FIELDS}
+
+
+def write_pose_config(event_out: Path, config: Mapping[str, object]) -> None:
+    event_out.mkdir(parents=True, exist_ok=True)
+    (event_out / POSE_CONFIG_FILENAME).write_text(
+        json.dumps(dict(config), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
+def read_pose_config(event_out: Path) -> dict[str, object] | None:
+    """The configuration the event's landmarks were produced under, or ``None``."""
+    path = event_out / POSE_CONFIG_FILENAME
     if not path.is_file():
         return None
     try:

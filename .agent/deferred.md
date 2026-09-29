@@ -45,8 +45,6 @@ rows before sizing any unit that touches their surfaces.
   `docs/technical/pose-weak-points.md`) → a committed `scripts/` instrument with no
   `prototype/` import reproduces the catalog's per-view counts over a run tree and flags a
   seeded whole-skeleton relocation in a synthetic landmark CSV.
-- **`--det-device GPU` unqualified against real detections** (9.7 vs 213 ms → ~7.1 h toward ~1 h) →
-  GPU + CPU agree on the detection set, every padded row rejected by value, pilot green; then flip.
 - **Detector scores outside `[0,1]` accepted silently** → score-range guard fires on NPU, silent on
   CPU + GPU, under the synthetic zeros probe.
 - **`pose-estimation-run --session-dir … --output-dir X` ignores `X`** → rtmlib session artifacts

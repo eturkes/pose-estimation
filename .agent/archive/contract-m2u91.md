@@ -192,3 +192,57 @@ Appended at close.
 ## 8. Amendments
 
 Appended as ruled.
+
+### A01 — D04: association scores the better of the carried box and the last detector box
+
+`IoU = max(IoU(carried box, detection), IoU(last matched detector box, detection))`; a match
+sets both to the detection. Found by the shipped
+`tests/test_corpus_run_2d.py::test_p04_shipped_detector_cadence_is_frames_over_det_frequency[miss-at-3-1]`:
+one frame whose pose jumps 990 px carries the box off the person (D02), the next detection
+scores IoU 0 against the carried box, a new id is minted, and the orphan is posed at an empty
+box for `max_misses` detector frames — 2 pose calls per frame, and under `single_subject` the
+orphan stays the subject. Scoring the anchor as well re-attaches the detection to its track.
+
+### A02 — D02: transport needs consecutive poses
+
+A track not posed on a frame (a non-subject under `single_subject`) forgets its pose, so the
+next time it is posed its box moves by zero. Otherwise a pose from many frames earlier pairs
+with the current one and moves the box by the whole interval's displacement.
+
+### A03 — D09: the report may name only the generation the tree carries (`reviewer-1` R09)
+
+`reviewer-1` reproduced on `51e2094`: corpus resume, `--analyse-only` and pilot `--reuse-run` each
+published `configuration.tracker = subject` over landmarks an rtmlib run produced (one pose
+invocation, three green reports) — `configuration` was the invocation's, which breaks
+`corpus-run.md`'s "the published report is a function of STATE". Every field of `configuration`
+had the defect; D09 made it likelier by moving the defaults. Repair: after an event's run stage
+passes, the driver writes `pose_config.json` (`corpus_run.POSE_CONFIG_FIELDS`: model, tracking,
+tracker, det_device, pose_device, det_frequency, single_subject) into the event directory; the
+pilot does the same after each run. A complete event whose record is absent or differs from the
+invocation's is due again on resume; `--analyse-only` and any report refuse to publish while a
+complete event carries another configuration; `--reuse-run` refuses the same way. Two fixtures
+that build complete events by hand (`tests/test_review_m2u82.py` throughput case, the P13 pilot
+case) now write the record.
+
+### A04 — D07: an id list is measured by length, never truthiness (`reviewer-1` R07)
+
+`if track_ids:` misread NumPy ids (an empty array raised on truth-testing, `np.array([0])` read
+as empty). The empty-input path now refuses `len(track_ids) != 0`.
+
+### Verdict table (appended at close)
+
+| row | verdict | evidence |
+| --- | --- | --- |
+| D01-D09 + A01-A04 | pass | `tester-1` suite 98/98 green on the implementation, 98/98 red on `e667022`; `reviewer-1` 14 rows: 9 pass, 4 findings fixed + re-reviewed |
+| P01-P13 | pass | `tests/test_m2u91_subject_tracker.py` (98 cases); R14 hardening: the unnamed-smoothing case grades against `ff117de`'s own class (`tests/fixtures/m2u91/`) and reds on a passthrough |
+| P14 | pass | shipped arm (`det_frequency=1`): alternation 0.497 (<= 0.55), isolated 0.000 %, whole 0.000 % (old f1 3.79 %), 2502 observed frames |
+| P15 | pass | 4.29 Hz peak/bg 0.850 inside the 6.7 Hz control range 0.840-1.161; positive control old f7 1.336 |
+| P16 | pass | 283.6 s <= 409.1 s (1.25 × 327.3 s) |
+| P17 | pass | arms 1/2/3/7/14/21/35: wall 283.6/192.6/155.9/125.1/117.0/104.4/97.5 s, alternation 0.497/0.612/0.612/0.611/0.604/0.564/0.556, isolated 0.000/0.039/0.078/0.039/0.082/0.162/0.000 %; only arm 1 meets P14 |
+| reviewer-1 R07 R09 R12 R14 | fixed | A03, A04, `entrypoints.md` reworded, golden oracle; `tests/test_rev1_m2u91.py` 6/6 green (red on `51e2094`/`0fca7cd`) |
+| NC1 | pass | pose-derived crop: 14 red (P01 ×2, P02 ×9, P04 ×3) |
+| NC2 | pass, weaker than written | argmax-mean subject: 16 red (P05 ×3, P06 ×10, P02, P07, P08); P12 stays green — under `single_subject` the seeded rule never poses the bystander, so it never sees its score; P05 is the predicate that grades the rule |
+| NC3 | pass | switch one frame early: 9 red (P06 ×8, P08) |
+| NC4 | pass | named tracks age-gated: 5 red (P09 ×4, P12) |
+| NC5 | pass | no f32 hint: 1 red (P10) |
+| NC6 | pass | default `rtmlib`: 3 red (P11 ×2, P12) |
