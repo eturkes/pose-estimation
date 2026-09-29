@@ -98,8 +98,11 @@ hospital SCI database.
 - [ ] **M2.9.1 subject tracker (C02 C03 C08 C11)** — contract `.agent/archive/contract-m2u91.md`;
   diff-blind `tester` → own red witness → implementation → `reviewer` → gate → seven-arm re-sweep
   (P14-P17). Mechanism law → `.claude/rules/rtmlib-runtime.md`.
-- [ ] **M2.9.2 output hygiene (C05 C07 C10)** — out-of-frame points, duplicate hand, face
-  landmark side swap.
+- [ ] **M2.9.2 output hygiene (C05 subset, C07, C10)** — contract
+  `.agent/archive/contract-m2u92.md`: out-of-frame points score 0, duplicate hand suppressed,
+  face landmark sides corrected. General occlusion hallucination (legs under the table, hips
+  from above) is not separable by score — hallucinated knee median 0.48 vs real wrist q25 0.49
+  (right views) — so it stays a reported model limit.
 - [ ] **M2.9.3 hands (C09)** — finger metric; RTMW-X 384×288 on GPU and hand-crop refinement
   against RTMW-L; adopt the winner or report the failed attempt.
 - [ ] **Corpus rerun** — one pass 193/379 under the repaired pipeline → `cohort/` republished with
