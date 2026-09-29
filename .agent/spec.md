@@ -19,15 +19,16 @@ hospital SCI database.
 
 `P` = the gate prefix; `P` + the mutually-exclusive accelerator recipe → `.claude/rules/gates.md`.
 
-- `prototype/review-ui/` — **the inspectable artifact.** One local web UI, bilingual ja/en
-  (`?lang=en`), themed auto|light|dark (`?theme=`, auto = `light-dark()` + the OS), three views,
-  clip player (the landing view) · corpus census · cohort explorer.
+- `prototype/review-ui/` — **the prototype, the inspectable artifact.** One local web UI,
+  bilingual ja/en (`?lang=en`), themed auto|light|dark (`?theme=`, auto = `light-dark()` + the
+  OS), three views, clip player (the landing view) · corpus census · cohort explorer.
   FastAPI + vanilla JS canvas + vendored Plotly/IBM Plex, own uv project, read-only over the
   published trees, degrading per absent tree. Commits no media at all → the player needs the
   published trees and lists nothing without them; `README.md` = view guide + regeneration + limits.
   `uv run --directory prototype/review-ui python -m review_ui` → `http://127.0.0.1:8791/`.
-  Proof → `proof/`: 4 captures (3 light + 1 dark, each theme-pinned) + API transcript, by
-  `tools/capture_proof.py`. The player view takes no capture — its stage is patient video.
+  Proof → `prototype/review-ui/proof/`: 4 captures (3 light + 1 dark, each theme-pinned) + API
+  transcript, by `prototype/review-ui/tools/capture_proof.py`. The player view takes no capture —
+  its stage is patient video.
 - `cohort/` — the `../rehab` export. 12 `(task, side)` cells · 89 features · 1068 rows;
   `descriptors.yaml` = ja/en labels, units, ranges.
   `P pose-estimation-cohort --inventory inventory --sessions sessions --run output/corpus-2d --out cohort`
@@ -41,8 +42,8 @@ hospital SCI database.
 
 - **Repo scope = `videos/3-cam/`** — retired data + siblings → `.claude/rules/data-boundary.md`.
 - **`src/` + `tests/` + `analysis/` + six publishers = production spine**, gates + verification
-  integrity binding; `prototype/` sits outside under PROTOTYPE law, `testpaths = ["tests"]`
-  keeping it out of collection.
+  integrity binding; the prototype (`prototype/review-ui/`, → `Artifacts`) sits outside under
+  PROTOTYPE law, `testpaths = ["tests"]` keeping it out of collection.
 - **Claim boundary.** Retrospective 3D feasibility may be claimed from internal geometric + QC
   evidence alone; clinical validity, absolute metric accuracy and marker-based equivalence may not.
   Crossing it needs the prospective calibrated capture in `docs/prospective_capture.md`.
@@ -118,5 +119,6 @@ Queue → `.agent/deferred.md`.
 
 ## Phase
 
-**ITERATE.** `prototype/review-ui/` runs by its recorded command, proof under `proof/`.
-IMPLEMENT starts on the user's go.
+**ITERATE — review UI** (`prototype/review-ui/`, the one prototype in `Artifacts`). The production
+spine ships beside it under its own gates; spine rows in `Tasks` (the instability repair) close
+under those gates, never under PROTOTYPE law. IMPLEMENT of the review UI starts on the user's go.

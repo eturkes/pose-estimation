@@ -9,16 +9,21 @@ paths:
 # Upstream instruction sync
 
 `CLAUDE.md` = upstream `~/.local/app/agents/claude/CLAUDE.project.md` byte for byte; every local
-adaptation lives in `.claude/rules/`, and the clauses below are the only surviving copy of the ones
-that bind a refresh. **`last-sync = agents@8fc2e19`.**
+adaptation lives in `.claude/rules/`, keyed on the template clause it overrides and indexed below;
+Clauses 1-4 are the only surviving copy of the ones that bind a refresh.
+**`last-sync = agents@db19af0`.**
 
 **Template invariants — hold each after every refresh:**
 
 - `cmp CLAUDE.md ~/.local/app/agents/claude/CLAUDE.project.md` = 0, line 1 = `@.agent/spec.md`.
 - `.agent/spec.md` = `Intent` (user-edited alone) · `Artifacts` · `Decisions` · `Tasks` · `Phase`,
-  in that order. `Tasks` = `- [ ]` open units in spine order, `- [x] <sha>` once committed and
-  cleared at phase close, last line = the `.agent/deferred.md` pointer.
+  in that order. `Artifacts` = path each + run command where it runs + proof path for a prototype.
+  `Tasks` = `- [ ]` open units in spine order, `- [x] <sha>` once committed and cleared at phase
+  close, last line = the `.agent/deferred.md` pointer. `Phase` = phase + scope.
 - Deferral queue = `.agent/deferred.md`, unattached, one row + acceptance check each.
+- A template structure (prototype location, CI, review ledger, spec layout) holds its default unless
+  a ruling in the index adapts, retires or marks it inapplicable, naming the replacement or the
+  user's waiver.
 - Teammate triggers + mechanics = global `CLAUDE.md` `Subagents`; role rules =
   `~/.claude/agents/<role>.md`; a commit body names each teammate its unit used (name, role,
   verdict). Thinking depth = the launch `--effort`. No `.claude/settings*.json` env pin or
@@ -34,9 +39,11 @@ that bind a refresh. **`last-sync = agents@8fc2e19`.**
 3. Delta = `git -C $U diff <prior> HEAD -- claude/CLAUDE.project.md` + the commit bodies of
    `git -C $U log <prior>..HEAD -- claude/`. A line `git diff HEAD -- CLAUDE.md` removes outside
    that delta = repo law → fold it into its owning rule file.
-4. Re-apply every clause below; keep every upstream change no clause contradicts. Verify Clause 1
-   with `rg -l 'archive/contract-' scripts/ src/ tests/` = 7, re-derived rather than trusted — a
-   whole-tree sweep counts every document that merely mentions the path and drifts on every edit.
+4. Re-apply every ruling in the index; keep every upstream change no ruling contradicts. A new or
+   changed clause → the repo conforms, or a ruling keyed on it joins the index (ask the user where
+   the choice is theirs). Verify Clause 1 with `rg -l 'archive/contract-' scripts/ src/ tests/` =
+   7, re-derived rather than trusted — a whole-tree sweep counts every document that merely
+   mentions the path and drifts on every edit.
 5. A refresh that retires a term or constant falsifies claims elsewhere → sweep `.agent/` and
    `.claude/rules/` for it, beside a positive control, and correct what depended on it, since a
    stale sizing datum reaches planning as a budget. Name both dot-dirs or pass `--hidden`, or the
@@ -54,10 +61,25 @@ behaviour, so keep every local application of it standing. A retired mechanism i
 its local dependents re-derive against the upstream commit that retired it. That commit + the
 user's refresh note decide which; ask when neither does.
 
-- **Clause 1 — acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`**, never at
-  `.agent/contracts/`. Upstream's requirements — committed, outside the attached set, read on
-  demand — are all met at the archive path, and **7 files under `scripts/ src/ tests/` break if
-  it moves**, one of them a generated data field: `scripts/make_calibration_qc_fixtures.py` writes
+**Rulings on template clauses — index.** Every structure absent here holds its template default:
+prototype at `prototype/<name>/` (`prototype/review-ui/`), review ledger `.agent/review.md`
+(created at the next review), spec layout as above. `Phase` scope = the user's ruling, recorded in
+`.agent/spec.md` `Phase`.
+
+| Template clause | Ruling | Effect → replacement |
+| --- | --- | --- |
+| `Session flow` IMPLEMENT: scanning + update automation "in gate + CI" | `gates.md` *Hosted CI* (user) | adapts → full local gate replaces hosted CI; scanners + update automation owed (`.agent/deferred.md`) |
+| `Engineering` verification integrity: red on the unfixed revision | `gates.md` red-witness bullet | adapts → targeted `P pytest tests/<file>` red on the unfixed tree, never a red commit; body names both refs |
+| `Engineering` verification integrity: skipped case → row; `green` | `gates.md` `green` bullet | adapts → environment-completeness `skipif` = entry gate, no row; A32's zero-skip reconciliation carries `green` |
+| `Engineering` deterministic checks ship their firing input | `gates.md` *Check firing evidence* | gap recorded → green-only checks + mutation campaigns owe firing inputs (`.agent/deferred.md`) |
+| `Engineering` review termination | Clause 2 | adapts grain → a pass terminates on rows adjudicated, a wave closes on fixes applied |
+| `Engineering` assurance tier "with its contract" | Clause 1 | fixes the path → `.agent/archive/contract-m<m>u<u>.md` |
+| `Session flow` finished work → `.agent/archive/` | Clause 4 + `retention.md` | adapts → archive records frozen, stale pointers kept |
+| `Authoring` durable-guidance routing | Clause 3 | adapts → mutable state stays in `spec.md` + `deferred.md`, never in rules |
+| `Session flow` PROTOTYPE + ITERATE proof | `data-boundary.md` player bullets | adapts → player view uncaptured; proof = census + cohort captures + API transcript; player seen only through `.scratch/player_shot.mjs` |
+
+- **Clause 1 — acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`**; the template
+  names no contract path. **7 files under `scripts/ src/ tests/` break if it moves**, one of them a generated data field: `scripts/make_calibration_qc_fixtures.py` writes
   the path into `tests/fixtures/calibration_qc_set/manifest.json`, and
   `check_calibration_qc_fixtures.py` validates digests without resolving that field, so a rename
   missing the generator leaves a dangling pointer no gate reports.

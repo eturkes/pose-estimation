@@ -178,10 +178,6 @@ rows before sizing any unit that touches their surfaces.
   republishes `cohort/`. Balasubramanian et al. (2015), DOI 10.1186/s12984-015-0090-9;
   Mohamed Refai et al. (2021), DOI 10.1186/s12984-021-00949-6; Cornec et al. (2024),
   DOI 10.1186/s12984-024-01382-1.
-- **`gates.md` accelerator pointer names `~/agents/docs/openvino.md`, which no longer exists** — the
-  upstream repo moved to `~/.local/app/agents` and carries no `docs/openvino.md`; the guidance lives
-  in `CLAUDE.local.md` → every path that bullet names resolves (`ls` rc=0) and
-  `rg -n '~/agents/' .claude/rules/ docs/` returns 0 hits.
 - **Filter-era rows here outlived the instability rulings** — `res-bandwidth-1` "is answering
   P01-P03" (the agent was stopped), `RULING pending user: SPARC…` (ruled), and
   `## User rulings on the instability repair` restating spec `Decisions` →
@@ -194,6 +190,14 @@ rows before sizing any unit that touches their surfaces.
   directory patterns `qualification.*/` + `calibration_qc.*/` as matching the `.md` files →
   Marksman diagnostics over `docs/` report 0 non-existent-document warnings, and
   `git check-ignore` still ignores a `qualification.x/` staging directory.
+- **The gate runs no security scanner and the remote carries no update automation** (template
+  IMPLEMENT; hosted CI replaced by the local gate → `gates.md` *Hosted CI*) → the gate command in
+  `gates.md` runs a dependency audit over every committed uv lockfile, a secret scan and a security
+  static-analysis pass, each recorded firing on a planted input beside the invocation;
+  `.github/dependabot.yml` covers every committed uv lockfile.
+- **`calibration-qc.md:35` cites `upstream-refresh.md` clause 2, a rule file renamed in `b218092`**
+  → the pointer names `upstream-sync.md` Clause 1, and
+  `rg -Fn 'upstream-refresh.md' .claude/rules/` returns 0 hits.
 
 ## 2D instability — measured mechanism (24 corpus clips, 10 372 fully-observed frames)
 

@@ -26,6 +26,15 @@ The cause is the **inherited `PYTHONPATH`**, which names the host OpenVINO pytho
 - **Find every affected campaign before regenerating: `rg -ln '<file>' tests/*_results.json`.** One source file sits in several campaigns' declared sources — `qualify.py` is in the qualify, calibration-QC **and** cohort lists, `probe_sync_policy.py` in the qualify list alone. Regenerating the obvious one and running the suite is how you discover the rest, at a full suite each time: measured, a comment-only edit to `qualify.py` left 4 failures after the qualify campaign alone was regenerated — `test_calibration_qc`, `test_cohort_review` R35, `test_isotropic_coords` P14, and `test_c8_08` behind them, 9 min 26 s to learn it. The cohort campaign holds **one** `source_digest` over its whole tuple, so its assertion names no file; the sweep is the only thing that names one.
 - **A green suite measures nothing about pinning.** `30280c3` shipped 12 review fixes with 96 tests green and the first mutation campaign showed 18 of 72 mutants surviving. Fix-plus-test is not fix-plus-*pinning*-test.
 
+## Hosted CI — replaced by the local gate (user ruling on `CLAUDE.md` `Session flow` IMPLEMENT)
+
+The template puts security scanning + update automation "in gate + CI". **Here the full local gate
+replaces hosted CI.** The decisive gate reads `videos/` + `inventory/` — patient data that never
+leaves this machine — and `renv/library`; a runner without them fails or skips cases, and A32 fails
+any skipped case (above), so no hosted runner can close it green. Scanners — dependency audit, secret
+scan, static analysis — join the local gate command, and update automation joins the GitHub
+remote, at the next IMPLEMENT or MAINTAIN session (→ `.agent/deferred.md`).
+
 ## The accelerator run recipe — mutually exclusive with the gate prefix
 
 The gate prefix is exactly what strips the accelerator: it reports `['CPU']`, compiles, runs and produces correct output with no warning anywhere, because CPU is a supported device. **Only the wall clock tells.** Measured on the same two events, `--tracking body`: **1015.5 s / 927.4 s under the gate prefix vs 638.5 s / 497.2 s** under the run recipe = **1.6-1.9×**, which is 8 h against 15 h over the corpus.
@@ -37,7 +46,7 @@ PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/<driver>.py
 
 - Verify placement **before** funding hours: `openvino.Core().available_devices` must read `['CPU', 'GPU', 'NPU']`, and the event's own `run.log` must open `pose-device=NPU` + "loaded … with the openvino/NPU backend".
 - The inherited `PYTHONPATH` selects the *host* OpenVINO build, which needs glibc 2.43 — a loud failure in the container, never a silent CPU fallback. Stripping the env entirely falls back to the `.venv` pip wheel at `['CPU']`.
-- Enablement, device preference + self-test → `CLAUDE.local.md` → `~/agents/docs/openvino.md`.
+- Enablement, device preference + self-test → `CLAUDE.local.md`.
 
 ## Worktree gate recipe (`.scratch/worktrees/<name>`)
 
