@@ -94,10 +94,10 @@ class TestMap133Body:
     def test_face_derived_mappings(self):
         kps, scores = _synthetic_133()
         body_lm, _, _, _ = coco_to_mediapipe(kps, scores, 133, TRACKING_BODY)
-        # left_eye_inner: MP 1 ← COCO face sub-idx 36 = COCO 23+36=59
-        np.testing.assert_array_equal(body_lm[0][1, :2], kps[0, 59])
-        # mouth_left: MP 9 ← COCO face sub-idx 48 = COCO 23+48=71
-        np.testing.assert_array_equal(body_lm[0][9, :2], kps[0, 71])
+        # left_eye_inner: MP 1 ← iBUG left-eye inner corner, sub-idx 42 = COCO 23+42=65
+        np.testing.assert_array_equal(body_lm[0][1, :2], kps[0, 65])
+        # mouth_left: MP 9 ← iBUG left mouth corner, sub-idx 54 = COCO 23+54=77
+        np.testing.assert_array_equal(body_lm[0][9, :2], kps[0, 77])
 
     def test_hand_derived_fingertip_keypoints(self):
         kps, scores = _synthetic_133()

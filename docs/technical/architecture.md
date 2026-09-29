@@ -18,6 +18,7 @@
 | `inventory.py` | Builds the task-side family registry and aggregate census. Uses header-only media probes plus optional full-file SHA-256 scans; it never decodes frames. Owns the grammar, dispositions, schemas, and generation validation. See `inventory.md`. |
 | `rtmlib_openvino.py` | Self-contained OpenVINO-backend monkey-patch for rtmlib (`_patch_rtmlib_openvino`). No `run.py` globals. |
 | `constraints.py` | Robust clipped bone-length estimates with iterative x/y projection, plus rigid distal-branch joint-angle clamps; exposes `BoneLengthSmoother`, `clamp_joint_angles`, `BONE_SEGMENTS{,_BODY}`, and `ANGLE_LIMITS{,_BODY}`. |
+| `keypoint_hygiene.py` | Score hygiene before smoothing: out-of-frame points and a duplicated hand score 0 (`apply_hygiene`). See `tracking-modes.md`. |
 | `mapping.py` | COCO-WholeBody → MediaPipe keypoint schema mapping (`coco_to_mediapipe`), including distinct arm-base and full-body fingertip semantics. Translates rtmlib output to `frame_to_rows()` interface. |
 | `export.py` | CSV schema (`frame_to_rows`, `open_csv_writer`, `wrist_to_side`) + read-back for 3D fusion (`read_csv_keypoints`, incl. timestamps) + world3d.csv writer (`make_world3d_header`, `write_world3d_csv` — duck-typed, no multicam import). |
 | `postprocess.py` | Savitzky-Golay offline smoothing (`savgol_smooth_csv`). |

@@ -31,6 +31,7 @@ import numpy as np
 from .calibration import CalibrationError
 from .constraints import BoneLengthSmoother
 from .export import frame_to_rows, open_csv_writer
+from .keypoint_hygiene import apply_hygiene
 from .mapping import coco_hand_confidences, coco_hand_handedness, coco_to_mediapipe
 from .multicam import (
     SessionError,
@@ -477,6 +478,9 @@ def process_source(
             keypoints, scores = pose_tracker(frame)
             dt = time.perf_counter() - t0
             latencies.append(dt * 1000)
+            if keypoints is not None and len(keypoints):
+                # Before the smoother, so a zeroed point is held, never smoothed toward.
+                scores = apply_hygiene(keypoints, scores, frame.shape[1], frame.shape[0])
 
             if smoother is not None:
                 track_ids = getattr(pose_tracker, "last_track_ids", None)

@@ -116,3 +116,33 @@ Appended at close.
 ## 8. Amendments
 
 Appended as ruled.
+
+### A01 — D02 edges, ruled on `tester-2`'s request
+
+`present` = finite x **and** finite y **and** finite score **and** score > 0. When the larger
+of the two hands' extents is 0, `overlap` is undefined and the rule does not fire.
+
+### A02 — D04: the rtmlib path's single-subject pick reads hygienic scores (`reviewer-2` H06)
+
+On `--tracker rtmlib` + `--single-subject`, `filter_single_subject` (argmax of mean score) now
+sees scores after hygiene, so zeroing a person's out-of-frame points can change which person it
+picks (measured: means 0.8 / 0.7 → 0.674 / 0.7 after one 21-point out-of-frame hand). Intended:
+an out-of-frame point is not an observation (D01), so it must not buy a person the pick. The
+default `--tracker subject` path selects by detector box and is unaffected.
+
+### A03 — D04's "holds" is per point (`reviewer-2` H04)
+
+The smoother holds a zeroed point's position while other points of the row stay observed. A row
+whose every score is zeroed is unobserved: the smoother carries it (velocity extrapolation,
+existing carry path) at score 0. The export is visibility / confidence 0 in both cases, which is
+what D04 exists to guarantee.
+
+### Verdict table (appended at close)
+
+| row | verdict | evidence |
+| --- | --- | --- |
+| D01-D05 + A01-A03 | pass | `tester-2` suite 100/100 green on the implementation, 100/100 red on `481ba22`'s tree; `reviewer-2` 10 rows: 9 pass, H08 docs fixed |
+| P01-P07 | pass | `tests/test_m2u92_keypoint_hygiene.py` (100 cases); `tests/test_mapping.py` face pins moved 59/71 → 65/77 (red on the mirrored table) |
+| NC1-NC5 | pass | `x <= width` 18 red (P01 ×3); `overlap <= 0.3` 1 red (P03 boundary); duplicate-first 5 red (P04 ×2); mirrored face 7 red (P07 ×7); hygiene after smoother 3 red (P06 ×3) |
+| H10 cost | measured | `apply_hygiene` 1 × 133: 43.7 µs median, 3 × 133: 110.9 µs (7 × 3000 calls) |
+| P08-P10 | open | corpus measurements on the rerun's output |

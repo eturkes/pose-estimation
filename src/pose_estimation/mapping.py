@@ -79,15 +79,18 @@ _COCO_TO_BODY_DIRECT = [
 ]
 
 # Face-derived MP keypoints: (mp_body_idx, coco_face_subindex)
-# COCO face uses 68-point iBUG layout starting at index 23.
+# COCO face uses the 68-point iBUG-300W layout starting at index 23, named from the
+# subject's own side: 36-41 = right eye (36 outer, 39 inner), 42-47 = left eye
+# (42 inner, 45 outer), 48 = right mouth corner, 54 = left.  Read mirrored, the
+# eye points sat opposite the COCO body eyes in 98-99 % of 11 315 corpus frames.
 _FACE_OFFSET = 23
 _COCO_TO_BODY_FACE = [
-    (1, 36),  # left_eye_inner ← face inner left eye corner
-    (3, 39),  # left_eye_outer ← face outer left eye corner
-    (4, 42),  # right_eye_inner ← face inner right eye corner
-    (6, 45),  # right_eye_outer ← face outer right eye corner
-    (9, 48),  # mouth_left ← face left mouth corner
-    (10, 54),  # mouth_right ← face right mouth corner
+    (1, 42),  # left_eye_inner
+    (3, 45),  # left_eye_outer
+    (4, 39),  # right_eye_inner
+    (6, 36),  # right_eye_outer
+    (9, 54),  # mouth_left
+    (10, 48),  # mouth_right
 ]
 
 # Hand-derived MediaPipe fingertip keypoints:

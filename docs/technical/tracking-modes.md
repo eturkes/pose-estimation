@@ -60,6 +60,21 @@ Selected with `--tracking {hands|hands-arms|body}`. Mode constants live in `proc
 - The corpus drivers run the detector every frame (`--det-device GPU --det-frequency 1`); the GPU
   plugin compiles at f32, which reproduces the CPU detector's boxes exactly.
 
+## Score hygiene (rtmlib path, `keypoint_hygiene.py`)
+
+`process_source` applies `apply_hygiene` to the tracker output before the smoother:
+
+- **Out-of-frame points score 0.** A keypoint outside `[0, width) × [0, height)` of the decoded
+  frame, or with non-finite coordinates, is not an observation. The smoother holds its position
+  while other points of the person stay observed, and carries a person with every point zeroed;
+  either way the export is visibility 0. The R stage reads any score above 0 as evidence, so these
+  extrapolations used to enter the features.
+- **A duplicate hand is suppressed.** When one hand is hidden, RTMW draws it on the visible one at
+  lower confidence. If >= 10 hand points are present in both hands, the median distance between
+  them is below 0.3 of the larger hand extent, and the weaker hand's mean score is below 0.5 and
+  below 0.6 of the stronger's, the weaker hand's 21 scores become 0.
+- Out-of-frame zeroing runs first, so a zeroed point never counts as present in the duplicate test.
+
 ## Single-subject mode (`--single-subject`)
 
 Three resilience layers for unreliable body detection (e.g. top-down views):
@@ -95,6 +110,10 @@ multi-view fusion.
   a calibrated Euclidean coordinate.
 
 ## rtmlib schema mapping
+
+The face-derived MediaPipe points read the iBUG-300W layout from the subject's own
+side: eyes 1 ← 42, 3 ← 45, 4 ← 39, 6 ← 36 and mouth 9 ← 54, 10 ← 48 (face sub-index;
+COCO index = 23 + sub).
 
 COCO-WholeBody's 12-point arm projection intentionally uses MCP/base joints for
 the existing `*_base` columns. Its 33-point MediaPipe-body projection instead

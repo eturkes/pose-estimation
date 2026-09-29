@@ -48,6 +48,24 @@ paths:
   beside the landmarks. Resume re-runs a complete event that records another configuration;
   `--analyse-only` and `--reuse-run` refuse to publish over one.
 
+## Score hygiene — before the smoother, always (`keypoint_hygiene.py`)
+
+- **An out-of-frame keypoint is not an observation**: score 0 outside `[0, w) × [0, h)` of the
+  decoded frame. The R stage counts every score > 0 as evidence, and the shipped generation
+  carried out-of-frame shoulders on 42.3 % of above-view observations and faces on 67.2 % of
+  left-view ones. Shoulder, elbow and hand features lose those frames; that loss is the fix.
+- **A duplicate hand = the hidden hand drawn on the visible one**: overlap < 0.3 of the larger
+  extent AND weaker mean < 0.5 AND weaker < 0.6 × stronger → the weaker hand's 21 scores are 0.
+  Measured 7-12 % of both-hands frames; 15 sampled firings in 8 clips all showed one visible hand.
+- **Hygiene runs on the tracker output, before the smoother** — after it, a zeroed point is
+  smoothed toward instead of held (a negative control reds exactly that). Tracker state keeps
+  the raw scores. On `--tracker rtmlib` the argmax subject pick reads the hygienic scores.
+- **Face landmarks read iBUG-300W from the subject's own side** (MP 1 ← 42, 3 ← 45, 4 ← 39,
+  6 ← 36, 9 ← 54, 10 ← 48). The mirrored table put eye points opposite the body eyes in 98-99 %
+  of 11 315 frames.
+- **Occlusion hallucination in general is not score-separable** — right-view knee median 0.48
+  against wrist q25 0.49 — so no global confidence floor exists; it stays a reported model limit.
+
 ## `PoseTracker` (`--tracker rtmlib`) — stateful, unsound; kept for comparison runs
 
 - **`run.py --tracker rtmlib` constructs it with `tracking=False` (M2.8.2 D01). Never restore `tracking=True`.** The IoU branch reorders the CURRENT frame's keypoints by PERSISTENT track id — `keypoints = np.array([keypoints[i] for i in self.track_ids_last_frame])` — while `track_by_iou` mints `track_id = next_id++` for any unmatched box above `MIN_AREA = 1000`. One missed match indexes a one-person array at `[1]`, raises `IndexError`, and hits a bare `except` that returns **before `frame_cnt += 1` and before `bboxes_last_frame` is replaced**. Both freeze for the rest of the source, permanently, and the pre-reorder keypoints still return, so yield stays ~0.99 and nothing downstream looks broken.

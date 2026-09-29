@@ -95,7 +95,7 @@ hospital SCI database.
   closing commit on a clean tree. Catalog → `docs/technical/pose-weak-points.md`; instruments +
   roster → `.scratch/tasks.md`.
 - [x] 397cc8a **Review UI overlay time map (C01)**
-- [ ] **M2.9.1 subject tracker (C02 C03 C08 C11)** — contract `.agent/archive/contract-m2u91.md`;
+- [x] 481ba22 **M2.9.1 subject tracker (C02 C03 C08 C11)** — contract `.agent/archive/contract-m2u91.md`;
   diff-blind `tester` → own red witness → implementation → `reviewer` → gate → seven-arm re-sweep
   (P14-P17). Mechanism law → `.claude/rules/rtmlib-runtime.md`.
 - [ ] **M2.9.2 output hygiene (C05 subset, C07, C10)** — contract
