@@ -29,11 +29,14 @@ hospital SCI database.
 - `cohort/` — the `../rehab` export. 12 `(task, side)` cells · 89 features · 1068 rows;
   `descriptors.yaml` = ja/en labels, units, ranges.
   `P pose-estimation-cohort --inventory inventory --sessions sessions --run output/corpus-2d --out cohort`
-- `output/corpus-2d/` — per-asset 2D landmarks + clinical features, 379 assets / 193 events /
-  331 152 frame rows, 7.828 h under the accelerator recipe. `python scripts/corpus_run_2d.py`.
+- `output/corpus-2d/` — per-asset 2D landmarks + clinical features. **Pending the M2.9 rerun**
+  (`.scratch/rerun.sh` = `python scripts/corpus_run_2d.py` under the accelerator recipe with the
+  repaired defaults). The superseded generation (rtmlib tracker, CPU detector every 7th frame;
+  379 assets / 193 events / 331 152 frame rows, 7.828 h) sits at
+  `output/corpus-2d-superseded-rtmlib-f7/` for the user's before/after review — delete it after.
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
   run; each `P pose-estimation-<name> … --out <dir>`; `--help` = args.
-- Decisive gate — `P pytest`, 1750 tests, 14-25 min, alone.
+- Decisive gate — `P pytest`, 2129 tests, 14-21 min, alone.
 
 ## Decisions
 
@@ -89,42 +92,59 @@ hospital SCI database.
   Removing the noise at source is what makes filtering unnecessary; a 6 Hz cutoff on top would
   destroy tremor-band energy the source no longer carries as noise, and SPARC is cutoff-sensitive
   so it would move the smoothness feature too.
-- **SPARC becomes the primary smoothness feature, `normalized_jerk` demoted to secondary** —
-  shipped in the instability rerun, since `cohort/` republishes anyway.
+- **SPARC is the primary smoothness feature, `normalized_jerk` secondary** — `*_wrist_sal`
+  computes SPARC (adaptive cutoff, method v3); it publishes with the M2.9 corpus rerun.
 - **Fix upstream only** — the pipeline changes and the corpus reruns, so `output/corpus-2d/` stays
   the single source of truth and no post-hoc filter bolts onto published tracks.
 
 ## Tasks
 
-- **Resume note — pose-quality session (user body: watch the review UI → catalog every situation
-  where pose estimation performs poorly → repair each → rerun all videos in one pass; no
-  questions).** Finish line = catalog committed; each situation repaired under spine law
-  (`kernel`: contract, red witness, `tester`, `reviewer`, gate green) or reported as a failed
-  attempt with what it taught; corpus rerun 193 events / 379 assets in ONE pass →
-  `output/corpus-2d/` + `cohort/` republished (SPARC primary); review UI serving the new tracks;
-  closing commit on a clean tree. Catalog → `docs/technical/pose-weak-points.md`; instruments +
-  roster → `.scratch/tasks.md`.
 - [x] 397cc8a **Review UI overlay time map (C01)**
 - [x] 481ba22 **M2.9.1 subject tracker (C02 C03 C08 C11)** — contract `.agent/archive/contract-m2u91.md`;
   diff-blind `tester` → own red witness → implementation → `reviewer` → gate → seven-arm re-sweep
   (P14-P17). Mechanism law → `.claude/rules/rtmlib-runtime.md`.
-- [ ] **M2.9.2 output hygiene (C05 subset, C07, C10)** — contract
+- [x] d4dafdb **M2.9.2 output hygiene (C05 subset, C07, C10)** — contract
   `.agent/archive/contract-m2u92.md`: out-of-frame points score 0, duplicate hand suppressed,
   face landmark sides corrected. General occlusion hallucination (legs under the table, hips
   from above) is not separable by score — hallucinated knee median 0.48 vs real wrist q25 0.49
   (right views) — so it stays a reported model limit.
-- [ ] **M2.9.3 hands (C09) — evaluated twice, not adopted.** RTMW-X scores saturate; ungated
+- [x] 83b5b40 **M2.9.3 hands (C09) — evaluated twice, not adopted.** RTMW-X scores saturate; ungated
   hand-crop refinement moves the confidence scale + collapses occluded hands; the gated version
   (user-requested) removes the collapse but misses jitter <= 0.006 (0.0079) at +41 % wall →
   catalog § M2.9.3, queued.
-- [ ] **M2.9.5 seated body-part drop (user ruling)** — contract
+- [x] a395e28 **M2.9.5 seated body-part drop (user ruling)** — contract
   `.agent/archive/contract-m2u95.md`: knees, ankles, feet score 0 everywhere; hips score 0 under
   the overhead camera.
-- [ ] **M2.9.4 SPARC** — contract `.agent/archive/contract-m2u94.md`: the R stage's fixed-cutoff
-  SAL becomes SPARC (adaptive cutoff, Balasubramanian 2015), method version v3; runs while the
-  corpus decodes, then an R-only pass over the new tree.
-- [ ] **Corpus rerun** — one pass 193/379 under the repaired pipeline → R pass with SPARC →
-  `cohort/` republished → affected determinism campaigns → decisive gate → review UI restart.
+- [x] 29a24e4 **M2.9.4 SPARC** — contract `.agent/archive/contract-m2u94.md`: the R stage's
+  fixed-cutoff SAL became SPARC (adaptive cutoff, Balasubramanian 2015), method version v3; it
+  runs inside the corpus rerun's own R stage.
+- **Resume note — PAUSED before the full corpus run; the resume's FIRST action is that run
+  (~7.4 h, user instruction).** User body: watch the review UI → catalog every situation where
+  pose estimation performs poorly → repair each → rerun all videos in one pass; questions allowed
+  liberally. Finish line in force: catalog committed; each situation repaired under spine law or
+  reported as a failed attempt with what it taught; ONE-pass corpus rerun 193 events / 379 assets
+  → `output/corpus-2d/` + `cohort/` republished (SPARC primary); review UI :8791 serving the new
+  tracks + comparison UI :8792 serving `output/corpus-2d-superseded-rtmlib-f7/` (user ruling);
+  closing `reviewer` on the closing diff; closing commit on a clean tree; final message per
+  `resume.md` (restate: the lock screen did not disrupt the watch pass).
+  - Landed: C01 `397cc8a` · M2.9.1 `481ba22` · M2.9.2 `d4dafdb` · state `83b5b40` · M2.9.5
+    `a395e28` · M2.9.4 `29a24e4`. Reported, not adopted: RTMW-X + two hand-crop refinements.
+    Not attempted, queued: C06 setup footage. No uncommitted work, no teammates, no worktrees;
+    red-witness tips pinned (`retention.md`).
+  - FIRST ACTION: `nohup .scratch/rerun.sh &` (logs `.scratch/rerun/`). `output/corpus-2d` is
+    absent now; after an interruption the same command resumes (the driver re-runs only events
+    whose marker or `pose_config.json` does not match). Verify placement by counts in the first event's `run.log`
+    (`openvino/GPU backend` 1, `openvino/NPU backend` 1). Pace 12.6 fps measured → ~7.4 h. Poll
+    `.scratch/rerun_status.sh` at least every 55 min; never edit `src/` or `analysis/` while it runs.
+  - Then: `run_report.json` verdicts all true + manifest 379/379 `ok` → `P pose-estimation-cohort
+    --inventory inventory --sessions sessions --run output/corpus-2d --out cohort` → corpus checks
+    (`.scratch/p08_p10.py`, `.scratch/p06_p07.py <new> <superseded>`, `.scratch/triage.py
+    output/corpus-2d` vs `.scratch/watch/triage_f7.json` → catalog after-table) → decisive gate
+    alone → review UI :8791 + :8792 (`--repo` = a symlink root onto the superseded tree) →
+    BrowserOS spot-check of the worst clips → `Artifacts` + `corpus-run.md` measured-whole line →
+    closing `reviewer` → cleanup → final message.
+- [ ] **Corpus rerun** — one pass 193/379 under the repaired pipeline (SPARC in its R stage) →
+  `cohort/` republished → corpus checks → decisive gate → review UI + comparison UI.
 - [ ] **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`**
   - Acceptance: `build_assets.py` refuses with a named cause when absent; a committed check reports
     0 missing code points.
