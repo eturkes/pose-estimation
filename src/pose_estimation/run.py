@@ -356,6 +356,17 @@ def parse_args(argv=None):
         ),
     )
     p.add_argument(
+        "--drop-lower-body",
+        action="store_true",
+        help="Score knees, ankles and feet 0. Use it for seated subjects whose legs the table hides.",
+    )
+    p.add_argument(
+        "--drop-hips-camera",
+        default=None,
+        metavar="TOKEN",
+        help="Score the hips 0 on cameras whose name contains TOKEN, for example an overhead camera.",
+    )
+    p.add_argument(
         "--headless",
         action="store_true",
         help="Skip the display. Print only latency statistics.",
@@ -392,6 +403,8 @@ def process_source(
     output_csv=None,
     output_diag=None,
     video_name=None,
+    drop_lower_body=False,
+    drop_hips_camera=None,
 ):
     """Process a single video/camera source.  Returns latency list (ms).
 
@@ -404,6 +417,11 @@ def process_source(
     corpus run needs the CFR fallback rate measured per asset: the container's
     PTS monotonicity flag counts demux order while this path reads
     presentation order, so it bounds exposure without measuring it.
+
+    *drop_lower_body* scores knees, ankles and feet 0; *drop_hips_camera* scores
+    the hips 0 when the camera label (after the last ``/`` of *video_name*)
+    contains it.  Both default off, so a caller that passes neither keeps every
+    body part.
     """
     source = int(source_str) if source_str.isdigit() else source_str
     cap = open_capture(source, display=source_str)
@@ -443,6 +461,9 @@ def process_source(
     csv_video_name = video_name or (
         pathlib.Path(source_str).name if not source_str.isdigit() else "webcam"
     )
+    # Session labels read `<session>/<camera>`; an overhead camera never sees the hips.
+    camera_label = csv_video_name.rsplit("/", 1)[-1]
+    drop_hips = bool(drop_hips_camera) and drop_hips_camera in camera_label
     if output_csv is not None:
         csv_fh, csv_writer = open_csv_writer(output_csv, tracking=args.tracking)
 
@@ -480,7 +501,14 @@ def process_source(
             latencies.append(dt * 1000)
             if keypoints is not None and len(keypoints):
                 # Before the smoother, so a zeroed point is held, never smoothed toward.
-                scores = apply_hygiene(keypoints, scores, frame.shape[1], frame.shape[0])
+                scores = apply_hygiene(
+                    keypoints,
+                    scores,
+                    frame.shape[1],
+                    frame.shape[0],
+                    drop_lower_body=drop_lower_body,
+                    drop_hips=drop_hips,
+                )
 
             if smoother is not None:
                 track_ids = getattr(pose_tracker, "last_track_ids", None)
@@ -749,6 +777,8 @@ def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoo
             output_csv=str(output_csv),
             output_diag=str(output_diag),
             video_name=video_name,
+            drop_lower_body=args.drop_lower_body,
+            drop_hips_camera=args.drop_hips_camera,
         )
         print_latency_summary(latencies)
         return latencies
@@ -967,6 +997,8 @@ def main(argv=None):
                 bone_smoother=bone_smoother,
                 screen=screen,
                 output_csv=csv_path,
+                drop_lower_body=args.drop_lower_body,
+                drop_hips_camera=args.drop_hips_camera,
             )
             print_latency_summary(latencies)
             all_latencies.extend(latencies)

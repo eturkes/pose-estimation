@@ -95,3 +95,34 @@ Appended at close.
 ## 8. Amendments
 
 Appended as ruled.
+
+### A01 — P07's mechanism was wrong (`reviewer-4` B06); the measured effect stands
+
+`BONE_SEGMENTS_WB_BODY` holds the arms and hip → knee → ankle, no shoulder–hip segment, so the
+bone-length constraint cannot move the upper body. The 12 differing upper-body points (2 frames,
+one left-view clip) sit on frames where the legs were the row's only positive scores: with them
+dropped the row has no positive score, so the smoother carries it by velocity extrapolation
+(M2.9.2 A03) instead of holding it. All 12 points have visibility 0 in both runs — no observation
+changes on those frames. P07 reads, as a watch-set measurement and not an invariant: every
+upper-body point with visibility > 0 in either run was byte-identical. In general a carry skips
+the filter update, so the next visible frames' smoothed values can differ too (`reviewer-4`
+synthetic case: x 31.498 vs 31.960, visibility 0.675 vs 0.855 on the first visible frame after
+a legs-only frame); on the watch set the carried track expired before the subject reappeared.
+
+### A02 — posture symmetry keeps every view (`reviewer-4`); one-item hips flag
+
+D01's list of hip consumers overreached: `posture_symmetry` reads the shoulders alone, so dropping
+above-view hips removes trunk lean, lateral lean and rotation there and leaves posture symmetry.
+The drivers now forward the token as one argv item (`--drop-hips-camera=<token>`), so a token
+beginning with `-` cannot read as another option in the child parser.
+
+### Verdict table (appended at close)
+
+| row | verdict | evidence |
+| --- | --- | --- |
+| D01-D04 + A01-A02 | pass | `tester-4` suite 79/79 green on the implementation, 75 red / 4 preserved-green on `7366694`; `reviewer-4` 9 rows: 8 pass, B09 (runtime-law wording) fixed |
+| P01-P05 | pass | `tests/test_m2u95_body_drop.py` (79 cases) |
+| P06 | pass | watch set, flags vs none: 0 rows with knee/ankle/heel/foot visibility > 0; above-camera hips 0 on every row; side hips kept 11 811/11 811 |
+| P07 | pass (as measured) | every upper-body point with visibility > 0 byte-identical; 12 points on 2 frames of one left-view clip differ at visibility 0 in both runs (carry vs hold, A01) |
+| NC1-NC4 | pass | `LOWER_BODY` 13-22 27 red (P01 ×8); hips on every camera 7 red (P03); drop after the smoother 2 red (P03); drivers default off 2 red (P05) |
+| reviewer-4 | 8 pass, B09 fixed | `tests/test_rev4_m2u95.py` 3 red / 6 green on `7cf599f`, 9 green on the fix; leading-hyphen token forwarding fixed (A02) |

@@ -65,7 +65,8 @@ hospital SCI database.
   elbow and reach features lose the ~42 % of shoulder frames the camera cannot see rather than use
   the model's guess.
 - **Seated subjects drop what the camera cannot see** (user ruling) — knees, ankles and feet score
-  0 on every camera, hips score 0 under the overhead camera; trunk metrics come from side views.
+  0 on every camera, hips score 0 under the overhead camera; trunk lean and rotation come from
+  side views (posture symmetry reads the shoulders alone and keeps every view).
 - **The hand model stays RTMW-L's own hands** — a second-stage hand model is adopted only at
   fingertip jitter <= 0.006 on the watch set, wall <= +15 %, collapse unchanged per clip (user
   bar); RTMW-X and both hand-crop refinements missed it.

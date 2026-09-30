@@ -3,7 +3,9 @@
 A top-down model returns every keypoint inside its crop, so a crop at the frame
 edge places points outside the image at confident-looking scores, and a hidden
 hand is drawn on top of the visible one.  The R stage reads every score above
-zero as an observation, so both enter the features as measurements.  These
+zero as an observation, so both enter the features as measurements.  Seated
+subjects add a third case: legs under the table and hips below an overhead
+camera are placed at scores no cut separates from real points.  These
 functions zero the scores; coordinates stay as the model returned them.
 """
 
@@ -11,6 +13,8 @@ from __future__ import annotations
 
 import numpy as np
 
+HIPS = slice(11, 13)
+LOWER_BODY = slice(13, 23)  # knees, ankles, then the six COCO-WholeBody foot points
 LEFT_HAND = slice(91, 112)
 RIGHT_HAND = slice(112, 133)
 WHOLE_BODY_KEYPOINTS = 133
@@ -74,6 +78,19 @@ def suppress_duplicate_hand(keypoints, scores):
     return out
 
 
-def apply_hygiene(keypoints, scores, width, height):
-    """Out-of-frame zeroing, then duplicate-hand suppression, on new arrays."""
-    return suppress_duplicate_hand(keypoints, zero_out_of_frame(keypoints, scores, width, height))
+def drop_body_parts(scores, *, lower_body=False, hips=False):
+    """Scores with knees, ankles and feet (``lower_body``) and the hips (``hips``) at 0."""
+    out = np.array(scores, dtype=np.float64, copy=True)
+    if out.ndim == 2:
+        if lower_body:
+            out[:, LOWER_BODY] = 0.0
+        if hips:
+            out[:, HIPS] = 0.0
+    return out
+
+
+def apply_hygiene(keypoints, scores, width, height, *, drop_lower_body=False, drop_hips=False):
+    """Out-of-frame zeroing, the requested body-part drops, then duplicate-hand suppression."""
+    out = zero_out_of_frame(keypoints, scores, width, height)
+    out = drop_body_parts(out, lower_body=drop_lower_body, hips=drop_hips)
+    return suppress_duplicate_hand(keypoints, out)

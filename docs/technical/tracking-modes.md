@@ -74,6 +74,10 @@ Selected with `--tracking {hands|hands-arms|body}`. Mode constants live in `proc
   them is below 0.3 of the larger hand extent, and the weaker hand's mean score is below 0.5 and
   below 0.6 of the stronger's, the weaker hand's 21 scores become 0.
 - Out-of-frame zeroing runs first, so a zeroed point never counts as present in the duplicate test.
+- **Seated subjects drop hidden body parts** (`--drop-lower-body`, `--drop-hips-camera TOKEN`;
+  the corpus drivers pass both, with `above`). Knees, ankles and feet score 0 on every camera, and
+  the hips score 0 on cameras whose name contains the token, so trunk lean and rotation come from
+  the side views (posture symmetry reads the shoulders alone). No clinical feature reads a knee, ankle or foot. The drop runs after out-of-frame zeroing.
 
 ## Single-subject mode (`--single-subject`)
 

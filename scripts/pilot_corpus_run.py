@@ -49,7 +49,8 @@ from pose_estimation.sessions import tree_digest, validate_generation
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = "scripts/pilot_corpus_run.py"
 # v2: the report gained `tracker` — generations under different trackers are shaped identically.
-GENERATOR_VERSION = "v2"
+# v3: the report gained `drop_lower_body` + `drop_hips_camera`.
+GENERATOR_VERSION = "v3"
 CLINICAL_R = ROOT / "analysis" / "clinical_features.R"
 
 # Contract P17's three axes. `pts_monotonic` is reported, never required: it is
@@ -86,6 +87,8 @@ REPORT_FIELDS = frozenset(
         "model",
         "tracking",
         "tracker",
+        "drop_lower_body",
+        "drop_hips_camera",
         "det_device",
         "pose_device",
         "det_frequency",
@@ -327,6 +330,11 @@ def _run_event(event_dir: Path, out: Path, log: Path, args: argparse.Namespace) 
     ]
     if args.single_subject:
         command.append("--single-subject")
+    if args.drop_lower_body:
+        command.append("--drop-lower-body")
+    if args.drop_hips_camera:
+        # One argv item: a token beginning with "-" must not read as another option.
+        command.append(f"--drop-hips-camera={args.drop_hips_camera}")
     if args.max_frames:
         command += ["--max-frames", str(args.max_frames)]
     started = time.monotonic()
@@ -597,6 +605,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="rtmw-l")
     parser.add_argument("--tracking", default="hands-arms")
     parser.add_argument("--tracker", default="subject", choices=["subject", "rtmlib"])
+    parser.add_argument("--drop-lower-body", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--drop-hips-camera", default="above")
     parser.add_argument("--det-device", default="GPU")
     parser.add_argument("--pose-device", default="NPU")
     parser.add_argument("--det-frequency", type=int, default=1)
@@ -698,6 +708,8 @@ def main() -> int:
             "model": args.model,
             "tracking": args.tracking,
             "tracker": args.tracker,
+            "drop_lower_body": args.drop_lower_body,
+            "drop_hips_camera": args.drop_hips_camera,
             "det_device": args.det_device,
             "pose_device": args.pose_device,
             "det_frequency": args.det_frequency,
@@ -766,6 +778,7 @@ def main() -> int:
                 args.model,
                 args.tracking,
                 args.tracker,
+                args.drop_hips_camera,
                 args.det_device,
                 args.pose_device,
             }

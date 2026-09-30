@@ -249,8 +249,8 @@ falls back to the CPU.
 
 Defaults: `--inventory inventory`, `--qualification qualification`, `--sessions sessions`,
 `--out output/corpus-2d`, `--model rtmw-l`, `--tracking body`, `--tracker subject`,
-`--det-device GPU`, `--pose-device NPU`, `--det-frequency 1`, `--single-subject`,
-`--retry-failed`.
+`--drop-lower-body`, `--drop-hips-camera above`, `--det-device GPU`, `--pose-device NPU`,
+`--det-frequency 1`, `--single-subject`, `--retry-failed`.
 `--limit N` runs the first N **due** events, so a rerun with `--limit` processes the next
 events rather than the same ones. `--analyse-only` republishes the manifest and the
 report over an existing `--out` tree and decodes nothing. `--report` moves the report alone.

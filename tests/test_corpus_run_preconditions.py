@@ -101,6 +101,8 @@ def _dispatch_with_writing_source(
         sessions_dir=None,
         calibration=None,
         output_dir=str(output_dir),
+        drop_lower_body=False,
+        drop_hips_camera=None,
     )
     run_module._dispatch_sessions(
         args,
@@ -259,6 +261,8 @@ def _source_args() -> SimpleNamespace:
         tracking="body",
         max_frames=0,
         single_subject=False,
+        drop_lower_body=False,
+        drop_hips_camera=None,
     )
 
 
@@ -347,6 +351,8 @@ def test_p06_dispatch_forwards_diagnostic_path_and_announces_existing_file(
         sessions_dir=None,
         calibration=None,
         output_dir=str(output_dir),
+        drop_lower_body=False,
+        drop_hips_camera=None,
     )
 
     run_module._dispatch_sessions(

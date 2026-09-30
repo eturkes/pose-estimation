@@ -64,7 +64,11 @@ paths:
   6 ← 36, 9 ← 54, 10 ← 48). The mirrored table put eye points opposite the body eyes in 98-99 %
   of 11 315 frames.
 - **Occlusion hallucination in general is not score-separable** — right-view knee median 0.48
-  against wrist q25 0.49 — so no global confidence floor exists; it stays a reported model limit.
+  against wrist q25 0.49 — so no global confidence floor exists. For seated subjects the corpus
+  drops what the camera cannot see (user ruling): knees, ankles and feet everywhere, which no
+  feature reads, and the hips under the overhead camera, which moves trunk lean + rotation to the
+  side views (posture symmetry reads shoulders alone) (`--drop-lower-body --drop-hips-camera above`); the rest stays a model limit. A row
+  left with no positive score is carried by the smoother, not held — at visibility 0 either way.
 
 ## `PoseTracker` (`--tracker rtmlib`) — stateful, unsound; kept for comparison runs
 

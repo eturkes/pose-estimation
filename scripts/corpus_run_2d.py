@@ -66,7 +66,8 @@ GENERATOR = "scripts/corpus_run_2d.py"
 # moved and a 2D landmark CSV carries no identity tag able to say which one made it.
 # v3: the report gained `tracker`, for the same reason: two generations under
 # different trackers are shaped identically.
-GENERATOR_VERSION = "v3"
+# v4: the report gained `drop_lower_body` + `drop_hips_camera`.
+GENERATOR_VERSION = "v4"
 CLINICAL_R = ROOT / "analysis" / "clinical_features.R"
 # Named because the redaction allowlist has to hold every label the report can
 # emit: `partial` is unreachable on a full corpus run and so shipped un-allowed,
@@ -96,6 +97,8 @@ REPORT_FIELDS = frozenset(
         "model",
         "tracking",
         "tracker",
+        "drop_lower_body",
+        "drop_hips_camera",
         "det_device",
         "pose_device",
         "det_frequency",
@@ -198,6 +201,7 @@ def redaction_allowlist(args: Any, placed_assets: Any, codes: Any) -> frozenset[
             args.model,
             args.tracking,
             args.tracker,
+            args.drop_hips_camera,
             args.det_device,
             args.pose_device,
             MARKER_COMPLETE,
@@ -260,6 +264,11 @@ def _attempt_event(event_id: str, args: argparse.Namespace, logs: Path) -> dict[
     ]
     if args.single_subject:
         command.append("--single-subject")
+    if args.drop_lower_body:
+        command.append("--drop-lower-body")
+    if args.drop_hips_camera:
+        # One argv item: a token beginning with "-" must not read as another option.
+        command.append(f"--drop-hips-camera={args.drop_hips_camera}")
     code, run_seconds = _run_stage(command, logs / event_id / "run.log")
     if code != 0:
         write_marker(event_out, status=MARKER_FAILED, stage=STAGE_RUN, exit_code=code)
@@ -475,6 +484,8 @@ def _parse_args() -> argparse.Namespace:
     # Default = the shipped corpus's own configuration, so a bare rerun reproduces it.
     parser.add_argument("--tracking", default="body")
     parser.add_argument("--tracker", default="subject", choices=["subject", "rtmlib"])
+    parser.add_argument("--drop-lower-body", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--drop-hips-camera", default="above")
     parser.add_argument("--det-device", default="GPU")
     parser.add_argument("--pose-device", default="NPU")
     parser.add_argument("--det-frequency", type=int, default=1)
@@ -629,6 +640,8 @@ def main() -> int:
             "model": args.model,
             "tracking": args.tracking,
             "tracker": args.tracker,
+            "drop_lower_body": args.drop_lower_body,
+            "drop_hips_camera": args.drop_hips_camera,
             "det_device": args.det_device,
             "pose_device": args.pose_device,
             "det_frequency": args.det_frequency,
