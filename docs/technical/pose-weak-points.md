@@ -26,7 +26,7 @@ Views: above 155 clips, left 93, right 131.
 | C02 | skeleton jumps to a therapist, the person across the table or a passer-by | single-subject pick = argmax of mean score over 133 keypoints, 68 facial → a small fully visible bystander beats a large truncated patient | `whole > 10`: 144/379 (right 90/131, left 49/93, above 5/155); families noted 104/193 | M2.9.1 sticky largest-box subject |
 | C03 | hand or arm untracked while visible, hands blinking | pose-derived crop between detector calls loses the limb; detector every 7th frame | `flick > 5`: 143/379 (above 117/155) | M2.9.1 detector every frame + box transport |
 | C04 | limbs drawn along a therapist's arm or glove | two people inside one top-down crop | families noted 22/193 | M2.9.1 in part (crop = the subject's detector box); residual = model limit |
-| C05 | hallucinated occluded parts: legs under the table, far arm + hand, vertical body lines from the frame edge (above), limbs stretched to frame corners, duplicate hand | a top-down model emits all 133 keypoints, many at moderate confidence | `iso > 10`: 106/379; families noted 107/193 | M2.9.2 hygiene; residual = model limit |
+| C05 | hallucinated occluded parts: legs under the table, far arm + hand, vertical body lines from the frame edge (above), limbs stretched to frame corners, duplicate hand | a top-down model emits all 133 keypoints, many at moderate confidence | `iso > 10`: 106/379; families noted 107/193 | M2.9.2 drops the duplicate hand; M2.9.5 drops legs everywhere + hips under the overhead camera (user ruling); far arm/hand + stretched limbs remain a model limit |
 | C06 | camera-setup footage tracked (floor, ceiling, operator) | no task segmentation | families noted 13/193 | deferred (`.agent/deferred.md`) |
 | C07 | confident points outside the frame | extrapolation past the crop and frame edge at visibility >= 0.3 | `oof > 0.05`: 150/379 (above 106/155) | M2.9.2 hygiene |
 | C08 | rows withheld at track birth + long gaps | smoother `min_track_age = 3` on every re-keyed track | first row >= frame 2 on 379/379; `gap > 0.05`: 28/379 | M2.9.1 identity-keyed smoothing |
@@ -75,6 +75,13 @@ frames; `collapse` = present hand frames with extent < 0.25 × forearm.
   0.43, moving every threshold calibrated on RTMW-L), and on occluded hands the crop holds no
   hand, so the output collapses (47.7 / 35.1 / 33.1 % of hand frames in the three worst clips).
   Not adopted this pass → `.agent/deferred.md`.
+- Gated refinement (second attempt, user-requested): refine only hands the whole-body model
+  scores >= 0.5, keep the whole-body confidences, fall back when the refined hand's extent leaves
+  0.5-2× the whole-body hand's. Against the current pipeline (tracker + hygiene, same watch set):
+  jitter 0.0098 → 0.0079 (above 0.0076 → 0.0051, right 0.0112 → 0.0122), alternation 0.600 →
+  0.566, collapse rose on 0 of 22 clips, 59 % of hands refined / 36 % gated / 5 % fell back, wall
+  523.8 → 741.1 s (+41 %). The user's adoption bar (jitter <= 0.006, wall <= +15 %) is missed on
+  both → not adopted. Gating fixed the collapse; cost and side-view jitter remain.
 - What shipped for C09 is M2.9.1's effect: jitter 0.0198 → 0.0102, alternation 1.376 → 0.572.
 - `collapse` is not like-for-like across v0 and v1: v1 exports a hand on every frame (above-view
   presence 1.00 against 0.85), so its population includes the occluded frames v0 dropped. The

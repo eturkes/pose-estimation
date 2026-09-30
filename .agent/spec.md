@@ -58,8 +58,17 @@ hospital SCI database.
   M3.3b + M3.4-M3.6 cut. Revive = user ruling → `.agent/archive/m3.md`.
 - **`publication.py` extraction stays DECLINED** — six publishers keep their own
   staging/swap/digest/ownership copies; the measured five-way drift is the evidence.
-- **Detector on CPU, pose on NPU** — NPU pads YOLOX's dynamic output with uninitialised memory
-  that passes every validity filter as real rows.
+- **Detector on GPU at f32, pose on NPU** — NPU pads YOLOX's dynamic output with uninitialised
+  memory that passes every validity filter as real rows; GPU f32 reproduces the CPU detector
+  bit for bit (240 corpus frames) at 41.6 vs 318.7 ms/call, and GPU f16 flips a box at the 0.3 cut.
+- **An out-of-frame keypoint is not an observation** (user ruling) — it scores 0, so above-view
+  elbow and reach features lose the ~42 % of shoulder frames the camera cannot see rather than use
+  the model's guess.
+- **Seated subjects drop what the camera cannot see** (user ruling) — knees, ankles and feet score
+  0 on every camera, hips score 0 under the overhead camera; trunk metrics come from side views.
+- **The hand model stays RTMW-L's own hands** — a second-stage hand model is adopted only at
+  fingertip jitter <= 0.006 on the watch set, wall <= +15 %, collapse unchanged per clip (user
+  bar); RTMW-X and both hand-crop refinements missed it.
 - **Acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`** — 7 files under
   `scripts/ src/ tests/` break if it moves, one a generated data field no gate resolves;
   re-derive → `upstream-sync.md`.

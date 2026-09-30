@@ -165,6 +165,12 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   `swapH`; definitions in that file). `P python .scratch/triage.py output/corpus-2d --json <out>`;
   labels clips by the review UI's positional ordinals (imports `prototype/review-ui`), prints
   numbers only. Shipped-tree baseline = `.scratch/watch/triage_f7.json` (379 clips).
+- M2.9 instruments, all `P python .scratch/<name>.py [<tree>]`, review-UI ordinals for labels,
+  numbers only: `hygiene_stats.py` (per view × keypoint group: visibility quantiles, out-of-frame
+  share — the M2.9.2 premise); `dup_hand.py [--ratio --weak --rel --sample]` (duplicate-hand rule
+  firing by view); `hand_metrics.py <tree>…` (fingertip jitter / alternation / hand confidence /
+  collapse per view — the M2.9.3 table); `p08_p10.py` (face-eye side agreement at vis >= 0.5 +
+  the one-hand-all-zero footprint; superseded tree = 4.6 % agreement, 0 footprint).
 - `.scratch/steq.py` — ASD-STE100 register scan over the human-facing surface (inventory: `docs/technical/conventions.md` → *Text register*). Drops fences/tables/headings/frontmatter, joins wrapped lines into blocks so a sentence is measured whole, splits on `.!?`, flags `LONG` (> `--max`; 20 for instructions, 25 for descriptions), `FILLER`, `CONTRACTION` (also fires on possessive `'s`), `PASSIVE` (be-verb + participle heuristic). Code-file mode samples quoted `help=`/`description=`/`title=` strings only. Measured at `--max 20`: `README.md` 14 → 2, `docs/capture_protocol.md` 20 → 8; residual flags are 21-25-word descriptions, which the rule allows. **The scanner cannot apply its own rule.** One `--max` covers every sentence, so the instruction-vs-description call that picks 20 or 25 is made by hand on each residual. Measured over the four shipped surfaces: 48 flags at `--max 20`, 24 at `--max 25`; **25 of the 26 `LONG` verdicts sit in the 21-25 band** and turn entirely on that call, 1 fails either way. Of the 24 residuals, both `CONTRACTION` hits are possessives (`instrument's`, `solve's`) and at least 4 of 21 `PASSIVE` hits are predicate adjectives (`is untested`, `is unmeasured`, `is unaffected`, `is closed`) — so **23 of 24 are heuristic output awaiting a human**, and several true passives are mandated by the claim boundary's own "may not be claimed" phrasing.
 - `.scratch/fidelity.sh <base-ref> <file>…` — pairs with it: diffs the multiset of format specifiers, `--flags`, backticked spans, file names and numbers between a base ref and the working tree. A register-only edit must show no delta; every delta needs an explanation. Caught the p-value reformat (`p<.05` → `p < 0.05`) and confirmed 14 R files invariant.
 
@@ -173,9 +179,13 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   at `--seed 20260922 --min-assets 4 --max-frames 400`, which picks its events from seed plus
   min-assets alone, so **every arm decodes the same 4 events / 11 assets** and wall clocks compare
   directly. Downward arms 7/3/2/1 then upward 14/21/35; `detfreq_table.sh` joins the logged
-  `outer_wall_s` to the per-arm defect statistics. Reference arms `.scratch/detfreq/f1` (quality
-  target) and `f7` (shipped baseline) are retained for the loop-fix re-sweep (→ `retention.md`
-  operational test); the other five are deleted and regenerate from these scripts.
+  `outer_wall_s` to the per-arm defect statistics. All seven arms regenerate from these scripts;
+  their figures live in `.agent/archive/instability-m2u9.md`.
+- `.scratch/resweep.sh` (`ARMS="1 2 3 7 14 21 35"` default) — the same sample and instruments
+  under `--tracker subject --det-device GPU`, arms to `.scratch/resweep/s<F>`; the M2.9.1
+  acceptance table (contract P14-P17). `.scratch/cadence_at.py <tree>… [--hz F]` reads
+  peak/background at a fixed frequency (default the old 4.29 Hz cadence) through
+  `cadence_peak.py`'s own per-track extraction; positive control = old f7 reading ~1.34.
 - Offline instruments over any run tree, all six run as
   `P python .scratch/<name>.py [<sample>]` and all six import shared constants from
   `.scratch/recover.py` (which parses `argv[1]` as a sample size **at import time** — a caller
