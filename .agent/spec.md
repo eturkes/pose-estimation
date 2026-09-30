@@ -70,7 +70,7 @@ hospital SCI database.
 - **2D instability repair = `SubjectTracker`** — every crop a detector box, never re-sized from
   the pose; detector every frame on GPU at f32 (41.6 ms/call, bit-identical to CPU on 240 corpus
   frames); box transported by pose motion across detector misses; sticky largest-box subject;
-  identity-keyed smoothing. Supersedes the *reconcile* subclass (user ruling, `.agent/deferred.md`)
+  identity-keyed smoothing. Supersedes the *reconcile* subclass (user ruling, `.agent/archive/instability-m2u9.md`)
   whose premise was the CPU detector's 8.23× cost for `det_frequency=1`; that ruling's acceptance
   (seven-arm re-sweep, alternation <= 0.55, isolated ~0, no cadence peak, wall near f7's 327 s)
   stands → `.agent/archive/contract-m2u91.md` P14-P17.
@@ -103,8 +103,13 @@ hospital SCI database.
   face landmark sides corrected. General occlusion hallucination (legs under the table, hips
   from above) is not separable by score — hallucinated knee median 0.48 vs real wrist q25 0.49
   (right views) — so it stays a reported model limit.
-- [ ] **M2.9.3 hands (C09) — evaluated, not adopted.** RTMW-X scores saturate; hand-crop
-  refinement moves the confidence scale + collapses occluded hands → catalog § M2.9.3, queued.
+- [ ] **M2.9.3 hands (C09) — evaluated twice, not adopted.** RTMW-X scores saturate; ungated
+  hand-crop refinement moves the confidence scale + collapses occluded hands; the gated version
+  (user-requested) removes the collapse but misses jitter <= 0.006 (0.0079) at +41 % wall →
+  catalog § M2.9.3, queued.
+- [ ] **M2.9.5 seated body-part drop (user ruling)** — contract
+  `.agent/archive/contract-m2u95.md`: knees, ankles, feet score 0 everywhere; hips score 0 under
+  the overhead camera.
 - [ ] **M2.9.4 SPARC** — contract `.agent/archive/contract-m2u94.md`: the R stage's fixed-cutoff
   SAL becomes SPARC (adaptive cutoff, Balasubramanian 2015), method version v3; runs while the
   corpus decodes, then an R-only pass over the new tree.
