@@ -184,17 +184,20 @@ def _trajectory_setup(timestamp: str = "idx") -> str:
 def _legacy_metrics_r() -> str:
     return textwrap.dedent(
         """
-        legacy_sal <- function(v, fs, fc=10) {
-          v <- v[!is.na(v)]; n <- length(v)
+        # METRIC_METHOD_VERSION v3 (M2.9.4): the sal oracle is SPARC, transcribed from the
+        # Balasubramanian et al. (2015) reference, no longer the fixed-cutoff arc length.
+        legacy_sal <- function(v, fs, fc=10, amp_th=0.05, pad=4) {
+          v <- v[is.finite(v)]; n <- length(v)
           if (n < 4 || fs <= 0) return(NA_real_)
-          v_peak <- max(abs(v)); if (v_peak < 1e-10) return(0)
-          V <- Mod(fft(v / v_peak))[seq_len(floor(n / 2) + 1)]
-          V <- V / max(V)
-          freqs <- seq(0, fs / 2, length.out=length(V))
-          fc <- min(fc, fs / 2); keep <- freqs <= fc
-          V <- V[keep]; freqs <- freqs[keep]
-          if (length(freqs) < 2) return(NA_real_)
-          -sum(sqrt((diff(freqs) / fc)^2 + diff(V)^2))
+          if (max(abs(v)) < 1e-10) return(0)
+          nfft <- 2^(ceiling(log2(n)) + pad)
+          M <- abs(fft(c(v, numeric(nfft - n)))); M <- M / max(M)
+          f <- (0:(nfft - 1)) * fs / nfft
+          sel <- which(f <= min(fc, fs / 2)); f <- f[sel]; M <- M[sel]
+          idx <- which(M >= amp_th); r <- seq(min(idx), max(idx))
+          f <- f[r]; M <- M[r]
+          if (length(f) < 2) return(0)
+          -sum(sqrt((diff(f) / (max(f) - min(f)))^2 + diff(M)^2))
         }
         legacy_nj <- function(x, y, z, fs) {
           ok <- !is.na(x) & !is.na(y) & !is.na(z)

@@ -3,7 +3,7 @@
 #
 # For each video with ≥10 per-frame rows, produces a multi-panel
 # time-series plot with left and right sides overlaid.  Window-level
-# features (SAL, velocity) are shown in additional panels when
+# features (SPARC, velocity) are shown in additional panels when
 # available.  A summary overview PNG compares one key feature across
 # all qualifying videos.
 #
@@ -44,7 +44,7 @@ FEATURE_LABELS <- c(
 )
 
 WINDOW_LABELS <- c(
-  wrist_sal           = "Wrist SAL",
+  wrist_sal           = "Wrist SPARC",
   wrist_velocity_mean = "Wrist Velocity (mean)",
   wrist_velocity_peak = "Wrist Velocity (peak)"
 )

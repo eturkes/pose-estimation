@@ -524,7 +524,7 @@ def test_c2_09():
         )
         """
     )
-    assert result == {"producer": "v3", "metric": "v2", "qc": "v3"}
+    assert result == {"producer": "v3", "metric": "v3", "qc": "v3"}
 
 
 # kind: C2.10 = control
@@ -547,7 +547,7 @@ def test_c2_11(golden_outputs: pathlib.Path):
     assert _changed_columns(before_rows, after_rows, stable) == set()
     assert len(after_rows) == len(before_rows)
     for row in after_rows:
-        assert tuple(row[tag] for tag in _VERSION_TAGS) == ("v3", "v2", "v3")
+        assert tuple(row[tag] for tag in _VERSION_TAGS) == ("v3", "v3", "v3")
 
 
 # kind: C2.12 = red

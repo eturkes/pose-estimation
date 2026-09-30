@@ -110,3 +110,51 @@ Appended at close.
 ## 8. Amendments
 
 Appended as ruled.
+
+### A01 — P02's constant-profile clause was wrong (`tester-3`)
+
+Zero-padding a constant profile gives the rectangular window's sidelobes, so under D01 a
+constant nonzero profile does not score 0 (independent transcription: `ones(100)`, fs 30 →
+−2.4019882095949496). D01 governs; P02 keeps its bell-versus-two-sub-movement ordering, and the
+constant profile is graded through P01's differential alone. Red-at-base binds the predicates
+whose behaviour changes (P01, P02, P04, P05); P03 guards and P06 wiring are unchanged behaviour
+and may pass at base.
+
+### A02 — D03's stamp claim holds for 3D alone (`tester-3`)
+
+Only the 3D identity-tagged artifacts carry `metric_method_version`; the 2D artifacts carry no
+stamp and this unit does not extend their frozen schema. P05 grades the emitted version on the 3D
+path. P08 becomes: the corpus R pass runs with `METRIC_METHOD_VERSION == "v3"`, recorded beside
+the republish. `wrist_sal`'s labels are graded through the family's side-prefix composition.
+
+### A03 — the suite's R harness moved finite samples (MAIN, at harvest)
+
+`tests/test_m2u94_sparc.py` sent non-finite samples as `"nan"`/`"inf"` strings and parsed each
+profile with `as.numeric(unlist(value))`; a list mixing numbers and strings coerces every value
+to 15-digit text first (measured: 965 of 1000 finite values changed). The decorated and clean
+profiles of `test_p03_nonfinite_deletion_is_position_independent` were therefore different inputs
+and scored 2e-15 apart. The harness now converts elementwise, so finite samples reach R exactly;
+the predicate and its exact-equality assertion are unchanged.
+
+### Verdict table (appended at close)
+
+| row | verdict | evidence |
+| --- | --- | --- |
+| D01-D05 + A01-A03 | pass | `tester-3` suite 82/82 green on the implementation (after the A03 harness fix), 57 red / 25 green on `d4dafdb`'s tree (bf9bbb8; the 25 = unchanged guards + wiring, A01) |
+| P01-P06 | pass | `tests/test_m2u94_sparc.py` (82 cases, 11 940 generated profiles in P01); the old SAL also ordered a two-sub-movement profile smoother than one bell at 30/60 Hz (P02 reds at base) |
+| P07 | pass | 16 goldens regenerated: only `*_wrist_sal`, its 3 bilateral derivatives and the 3D `metric_method_version` moved; row counts equal |
+| NC1-NC4 | pass | no padding 34/38 P01 red; no adaptive cutoff 37 red (P01 + P04); cutoff-normalised arc 34/38 P01; v2 stamp 5/8 P05 |
+| reviewer-3 | 9 pass, S08 fixed | S08 (docs overclaimed "no low-pass stage" — the One Euro smoother runs) → scoped; `tests/test_rev3_m2u94.py` red on `c6838ca`, green on the fix |
+| P08 | open | corpus R pass at v3 recorded at republish |
+
+### A04 — the v2 method was pinned in three suites; the pins move with the method (MAIN, at gate)
+
+The first decisive gate on the merged unit failed 6 cases + C8.08, every one a pin of the v2
+method: `metric_method_version == "v2"` in `tests/test_r_identity_schema.py:47`,
+`tests/test_r_qc_evidence.py:878` and `tests/test_r_timebase_truth.py:527,550`; the SHA-256 of
+the three 2D `*_clinical_windows.csv` goldens and the normalised digests of both 3D goldens in
+`tests/test_r_qc_evidence.py:112-123`. Evidence that only the method moved: P07 (only `*_sal`, its
+three bilateral derivatives and the 3D version stamp changed; row counts equal), and the 2D
+per-frame goldens keep their digests. The pins now carry v3 and the regenerated goldens' digests
+(computed with the suite's own `_normalized_3d_digest`); no assertion changed shape. These suites
+were not run in the SPARC worktree before the merge — the decisive gate is what caught them.

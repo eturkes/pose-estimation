@@ -42,8 +42,12 @@ library(purrr)
 # Sliding-window duration (seconds) for smoothness features.
 WINDOW_SEC <- 1.0
 
-# Frequency cutoff (Hz) for spectral arc length calculation.
+# SPARC (Balasubramanian et al. 2015, JNER 12:112): maximum cutoff (Hz),
+# amplitude threshold on the normalised spectrum and zero-padding level of
+# the published reference.
 SAL_FREQ_CUTOFF <- 10
+SPARC_AMP_THRESHOLD <- 0.05
+SPARC_PAD_LEVEL <- 4
 
 # Quantum of the exported timebase: src/pose_estimation/export.py rounds
 # timestamp_sec to four decimals, so each endpoint carries up to half a quantum
@@ -92,7 +96,7 @@ PRODUCER_VERSION <- "v3"
 # Metric-definition version — bump when a metric's computation changes.
 # QC evidence is advisory: it never overwrites a computed estimate, so
 # adding it leaves every shipped metric value where it was.
-METRIC_METHOD_VERSION <- "v2"
+METRIC_METHOD_VERSION <- "v3"  # v3: smoothness = SPARC (adaptive cutoff)
 
 # QC-policy version — bump when REPROJ_GATE_PX,
 # TRIANGULATION_ANGLE_GATE_DEG, OBSERVATION_CONFIDENCE_GATE, a window QC
@@ -359,37 +363,49 @@ dist_3d <- function(ax, ay, az, bx, by, bz) {
   sqrt((ax - bx)^2 + (ay - by)^2 + (az - bz)^2)
 }
 
-#' Spectral Arc Length (Balasubramanian et al. 2012/2015).
+#' SPARC — spectral arc length with an adaptive cutoff (Balasubramanian et al.
+#' 2015, JNER 12:112, reference implementation).
 #'
-#' @param v Numeric vector — velocity magnitude time series.
+#' The speed profile is zero-padded to 2^(ceiling(log2 n) + pad_level)
+#' points and its magnitude spectrum normalised to peak 1.  Within
+#' min(fc, fs / 2) the range from the first to the last frequency at or above
+#' amp_th is kept, and the arc length of that stretch, frequency normalised by
+#' the stretch's own span, is the score.  Zero-padding makes a rectangular
+#' window's sidelobes part of the method, so a constant nonzero profile does
+#' not score 0.
+#'
+#' @param v Numeric vector — speed profile.
 #' @param fs Scalar — sampling frequency in Hz.
-#' @return Negative scalar; more negative = less smooth.  Returns
-#'   \code{NA_real_} when the input is too short or degenerate.
-spectral_arc_length <- function(v, fs, fc = SAL_FREQ_CUTOFF) {
-  v <- v[!is.na(v)]
+#' @param fc Maximum cutoff in Hz, clamped to Nyquist.
+#' @param amp_th Amplitude threshold on the normalised spectrum.
+#' @param pad_level Zero-padding level.
+#' @return Non-positive scalar; more negative = less smooth.  \code{NA_real_}
+#'   when fewer than 4 finite samples remain or fs is not positive; 0 when there
+#'   is no movement or one frequency is kept.
+spectral_arc_length <- function(v, fs, fc = SAL_FREQ_CUTOFF,
+                                amp_th = SPARC_AMP_THRESHOLD,
+                                pad_level = SPARC_PAD_LEVEL) {
+  v <- v[is.finite(v)]
   n <- length(v)
   if (n < 4 || fs <= 0) return(NA_real_)
+  if (max(abs(v)) < 1e-10) return(0)  # no movement
 
-  v_peak <- max(abs(v))
-  if (v_peak < 1e-10) return(0)  # no movement
-  v_norm <- v / v_peak
-
-  # One-sided FFT magnitude spectrum, normalised to peak = 1.
-  V <- Mod(fft(v_norm))[seq_len(floor(n / 2) + 1)]
+  nfft <- 2^(ceiling(log2(n)) + pad_level)
+  V <- Mod(fft(c(v, rep(0, nfft - n))))
   V <- V / max(V)
+  freqs <- (seq_len(nfft) - 1) * fs / nfft
 
-  freqs <- seq(0, fs / 2, length.out = length(V))
+  band <- freqs <= min(fc, fs / 2)
+  V <- V[band]
+  freqs <- freqs[band]
+  above <- which(V >= amp_th)
+  if (length(above) == 0) return(NA_real_)
+  kept <- above[1]:above[length(above)]
+  V <- V[kept]
+  freqs <- freqs[kept]
+  if (length(freqs) < 2) return(0)
 
-  fc <- min(fc, fs / 2)
-  keep <- freqs <= fc
-  V     <- V[keep]
-  freqs <- freqs[keep]
-  if (length(freqs) < 2) return(NA_real_)
-
-  # Arc length of the normalised magnitude spectrum.
-  dfreq <- diff(freqs) / fc
-  dV    <- diff(V)
-  -sum(sqrt(dfreq^2 + dV^2))
+  -sum(sqrt((diff(freqs) / (freqs[length(freqs)] - freqs[1]))^2 + diff(V)^2))
 }
 
 #' Normalized Jerk — dimensionless movement smoothness metric.

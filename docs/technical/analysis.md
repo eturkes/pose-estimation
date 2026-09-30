@@ -33,7 +33,7 @@ Live-camera captures now feed these: `pose-estimation-run <idx> --output-dir out
 | Script | Inputs | Outputs |
 |--------|--------|---------|
 | `features.R` | landmark CSVs | Confidence-gated variance ranking, correlation heatmap, scree plot, biplot, UMAP, feature ranking CSV. Requires `uwot`, `tidyverse`. |
-| `clinical_features.R` | landmark CSVs (hands-arms or body) **or `world3d.csv`** (auto-detected) | `*_clinical.csv` (per-frame): elbow flexion, wrist deviation, finger spread, reach distance (raw + shoulder-normalised), grasp aperture (thumb–index, thumb–pinky), wrist/fingertip displacement, **bilateral comparison** (symmetry ratio, dominance index, absolute difference for each metric pair), **trunk/torso metrics** (body mode only: trunk lean, lateral lean, sagittal lean [3D only], trunk rotation, posture symmetry). `*_clinical_windows.csv` (1 s windows, 50 % overlap): spectral arc length (SAL, configurable fc), mean + peak wrist velocity, **normalized jerk** (wrist + fingertip), **movement efficiency** (wrist), **compensatory pattern index** (body mode only), **trunk windowed summaries** (body mode only: mean/sd/range), **bilateral comparison** for each window metric. 3D inputs get `_3d` output suffixes (see below). Hands-only CSVs skipped (no arm keypoints). Helpers include `adapt_2d_confidence`, `adapt_world3d`, `angle_at_vertex`, `dist_3d`, `spectral_arc_length`, `normalized_jerk`, `movement_efficiency`, and the trunk/bilateral helpers. |
+| `clinical_features.R` | landmark CSVs (hands-arms or body) **or `world3d.csv`** (auto-detected) | `*_clinical.csv` (per-frame): elbow flexion, wrist deviation, finger spread, reach distance (raw + shoulder-normalised), grasp aperture (thumb–index, thumb–pinky), wrist/fingertip displacement, **bilateral comparison** (symmetry ratio, dominance index, absolute difference for each metric pair), **trunk/torso metrics** (body mode only: trunk lean, lateral lean, sagittal lean [3D only], trunk rotation, posture symmetry). `*_clinical_windows.csv` (1 s windows, 50 % overlap): SPARC (`*_wrist_sal`, the primary smoothness feature), mean + peak wrist velocity, **normalized jerk** (wrist + fingertip), **movement efficiency** (wrist), **compensatory pattern index** (body mode only), **trunk windowed summaries** (body mode only: mean/sd/range), **bilateral comparison** for each window metric. 3D inputs get `_3d` output suffixes (see below). Hands-only CSVs skipped (no arm keypoints). Helpers include `adapt_2d_confidence`, `adapt_world3d`, `angle_at_vertex`, `dist_3d`, `spectral_arc_length`, `normalized_jerk`, `movement_efficiency`, and the trunk/bilateral helpers. |
 
 ## 2D observation gating
 
@@ -202,9 +202,9 @@ QC evidence is advisory. It never suppresses or overwrites an estimate. A failed
 
 An estimate is `NA` only when the metric kernel cannot compute it. Estimate values remain exclusively in `<stem>_clinical_3d_windows.csv`.
 
-SAL reconstructs missing interior speed intervals linearly. Therefore, the artifact makes no zero-interpolation claim and emits no interpolation-count field.
+SPARC reconstructs missing interior speed intervals linearly. Therefore, the artifact makes no zero-interpolation claim and emits no interpolation-count field.
 
-The `n_valid_intervals` field records observed interval support for SAL. A leading or trailing speed gap still makes SAL undefined.
+The `n_valid_intervals` field records observed interval support for SPARC. A leading or trailing speed gap still makes SPARC undefined.
 
 **Current scope.** The artifact currently emits 12 trajectory metrics across four source groups:
 
@@ -298,7 +298,7 @@ Why it matters: differentiating across a gap as though survivors were adjacent m
 
 The estimands deliberately differ in how they treat an unobserved span:
 - **NJ** — fully observed stencils, fixed `dt`, true span duration.
-- **SAL** — interior missing speed intervals are filled linearly; a leading or trailing gap returns NA rather than extrapolated motion. Needs ≥4 observed intervals.
+- **SPARC** (`*_sal`) — interior missing speed intervals are filled linearly; a leading or trailing gap returns NA rather than extrapolated motion. Needs ≥4 observed intervals.
 - **Velocity mean/peak** — observed support only, so both are biased low under loss; a peak hidden inside a gap is unrecoverable.
 - **Efficiency** — NA on a broken path. Bridging a hole with a straight chord biases the ratio toward 1.0, reporting a straighter, healthier movement than was observed.
 - **Dropout** — missing nominal duration over the full span, plus the longest gap run. Returned by the kernel; it becomes an output column in M3.3.
@@ -318,9 +318,11 @@ Pearson correlation between `trunk_lean_angle` and `max(left_reach, right_reach)
 - Guard: requires ≥5 non-NA frame pairs for meaningful correlation.
 - Column: `compensatory_pattern_index` (not lateralised — single value per window).
 
-### SAL frequency cutoff
+### SPARC — the primary smoothness feature
 
-`spectral_arc_length(v, fs, fc = SAL_FREQ_CUTOFF)` — the `fc` parameter (default 10 Hz) is now configurable. 10 Hz matches Balasubramanian et al. (2012/2015) for upper-limb movements. Higher cutoffs (up to 20 Hz) may be appropriate for fast movements; the function clamps to Nyquist automatically.
+`spectral_arc_length(v, fs, fc = SAL_FREQ_CUTOFF, amp_th = SPARC_AMP_THRESHOLD, pad_level = SPARC_PAD_LEVEL)` computes SPARC as published (Balasubramanian et al. 2015, *JNER* 12:112, DOI 10.1186/s12984-015-0090-9): zero-pad the speed profile to `2^(ceiling(log2 n) + 4)`, normalise the magnitude spectrum to peak 1, keep `f <= min(10 Hz, fs/2)`, then keep the range from the first to the last frequency with magnitude >= 0.05, and take the negative arc length with frequency normalised by that range. Columns keep the `*_sal` names (frozen schema); `METRIC_METHOD_VERSION` v3 marks the change on the 3D artifacts, which carry the stamp. Zero-padding makes the window's sidelobes part of the method, so a constant nonzero profile does not score 0.
+
+Ranking: SPARC is the primary smoothness feature; `wrist_normalized_jerk` and `fingertip_normalized_jerk` are secondary. Log dimensionless jerk is severely distorted by noise even at SNR = 100, where SPARC stays robust near SNR ≈ 10 (Balasubramanian 2015). SPARC is not cutoff-invariant: the maximum cutoff, the amplitude threshold and the window boundaries all move it, which is why the pipeline adds no fixed-cutoff post-hoc filter ahead of it. The tracking path's per-region One Euro smoother (an adaptive low-pass, `rtmlib_smoothing.py`) still runs before export.
 
 ### Per-window bilateral metrics (6 pairs × 3 = 18 columns)
 

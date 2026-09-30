@@ -106,8 +106,8 @@ _FAMILIES: dict[str, tuple[str, str, str, float | None, float | None]] = {
         None,
     ),
     "wrist_sal": (
-        "手関節スペクトルアーク長",
-        "Wrist spectral arc length",
+        "手関節スペクトルアーク長(SPARC)",
+        "Wrist spectral arc length (SPARC)",
         UNIT_DIMENSIONLESS,
         None,
         0.0,

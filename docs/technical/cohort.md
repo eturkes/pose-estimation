@@ -57,6 +57,14 @@ The measured set and the `FEATURES` label table must agree by name.
 A disagreement in either direction is a refusal, and the tool publishes nothing.
 This makes a new upstream column a loud failure instead of a silent omission.
 
+## Smoothness features
+
+SPARC (`*_wrist_sal`) is the primary smoothness feature.
+The normalized jerk columns (`*_wrist_normalized_jerk`, `*_fingertip_normalized_jerk`) are secondary.
+Noise distorts log dimensionless jerk even at a high signal-to-noise ratio, and SPARC stays stable at a much lower one.
+The descriptor schema has no rank field, so this section states the ranking.
+Definition and reference → `analysis.md` § *SPARC — the primary smoothness feature*.
+
 ## Claim boundaries
 
 Read every published number under these four boundaries.

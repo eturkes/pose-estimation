@@ -111,15 +111,15 @@ _GAP_INTERVAL_FACTOR = 1.5
 
 _BASELINE_2D_SHA256 = {
     "2d_csv4dp_clinical.csv": "4b6eb62c5833f45e20b0f9d7972014f131da9737dd6620547ae1e955e001e169",
-    "2d_csv4dp_clinical_windows.csv": "e29cac469203c27789312f4ac519df9fc4292de85025e2b23f015178ea5cc641",
+    "2d_csv4dp_clinical_windows.csv": "a3557c642614902dc960aa8cf083d7a486774d1224005d5f3c2faddfa32b868f",
     "2d_cumsum_clinical.csv": "ee81990d04b803b0065837a1cef0c7907ded04fac0ca72004c09cc8c82743752",
-    "2d_cumsum_clinical_windows.csv": "fef74b73e1b5de3d1b289557b75b064e2bdf9163d400383ffb07a48acbf0ce2c",
+    "2d_cumsum_clinical_windows.csv": "87fccf39e25c588c8853bad53cc9886666952fa3b65abf84ef578978f9017535",
     "2d_idx_clinical.csv": "e717bed3d5a3df4a75929c46a9ef49b86810d40306f6be82739afd5d5e733692",
-    "2d_idx_clinical_windows.csv": "e29cac469203c27789312f4ac519df9fc4292de85025e2b23f015178ea5cc641",
+    "2d_idx_clinical_windows.csv": "a3557c642614902dc960aa8cf083d7a486774d1224005d5f3c2faddfa32b868f",
 }
 _BASELINE_3D_NORMALIZED_SHA256 = {
-    "world3d_clinical_3d.csv": "6cdb7ffaded931a5c59db7be6b9ebac6e6331af5fa2ea362ce7423b257546748",
-    "world3d_clinical_3d_windows.csv": "e5bfb9b78aed2c804b4b4e18c62ce8163cf85e50fb27e3f56e03f2121c6eed7f",
+    "world3d_clinical_3d.csv": "9477b94942398eb5c42a8eba76598a9344e68657fc0d0f3218677b233610c40e",
+    "world3d_clinical_3d_windows.csv": "00dd48c37800bb77917ee3be86ad0fefd46ee2becf9f07d6f176dd561fd947c8",
 }
 
 pytestmark = pytest.mark.skipif(not _r_available(), reason="R or required R packages unavailable")
@@ -875,7 +875,7 @@ def test_qc_identity_tags_and_versions(corpus_run: ProducerRun) -> None:
         "coord_space": "world-metric-3d",
         "distance_unit": "m",
         "producer_version": "v3",
-        "metric_method_version": "v2",
+        "metric_method_version": "v3",
         "qc_policy_version": "v3",
         "metric_qualification": "gap-aware",
         "provenance_class": "unverified",

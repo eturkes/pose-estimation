@@ -44,7 +44,7 @@ _SHARED_VALUES = {
     "coord_space": "world-metric-3d",
     "distance_unit": "m",
     "producer_version": "v3",
-    "metric_method_version": "v2",
+    "metric_method_version": "v3",
     "qc_policy_version": "v3",
     "provenance_class": "unverified",
 }
