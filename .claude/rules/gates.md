@@ -10,8 +10,8 @@ Use both halves; `PYTHONPATH` is the half that does the work. Measured 4 ways, `
 
 | form | rc | outcome |
 | --- | --- | --- |
-| bare `uv run --no-sync` | 4 | `ImportError … GLIBC_2.43 not found` (host `libopenvino.so.2630`) |
-| `env -u LD_LIBRARY_PATH` alone | 4 | `ImportError: libopenvino.so.2630: cannot open shared object file` |
+| bare `uv run --no-sync` | 4 | `ImportError … GLIBC_2.43 not found` (host `libopenvino.so.<ver>`) |
+| `env -u LD_LIBRARY_PATH` alone | 4 | `ImportError: libopenvino.so.<ver>: cannot open shared object file` |
 | `PYTHONPATH="$PWD/src"` alone | 0 | 12 collected |
 | both | 0 | 12 collected |
 
@@ -171,13 +171,23 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   firing by view); `hand_metrics.py <tree>…` (fingertip jitter / alternation / hand confidence /
   collapse per view — the M2.9.3 table); `p08_p10.py` (face-eye side agreement at vis >= 0.5 +
   the one-hand-all-zero footprint; superseded tree = 4.6 % agreement, 0 footprint).
+- `.scratch/ovupgrade/` — OpenVINO build-change qualification of the run side (container archive,
+  accelerator recipe); the gate side (`.venv` wheel, CPU) is graded by the decisive gate alone.
+  Run all three after any archive swap. `pilot.sh <label>` = the det_frequency
+  sample under the corpus defaults → `.scratch/ovupgrade/<label>`; `P python
+  .scratch/ovupgrade/compare.py <treeA> <treeB>` = per-file-kind byte-identity + numeric drift.
+  Same build twice: every landmark, clinical, phases, windows + qc CSV byte-identical, only
+  `diag.csv` latency + report throughput fields move → any other delta is the build's.
+  `det_qual.py [40] [6]` under the accelerator recipe = zero-tensor padding per device + CPU vs
+  GPU-f32 detector over 240 frames / 40 clips (→ `rtmlib-runtime.md`). An older archive build
+  graded beside the new one = `env.sh` with its paths `sed`-rewritten to the kept directory.
 - `.scratch/steq.py` — ASD-STE100 register scan over the human-facing surface (inventory: `docs/technical/conventions.md` → *Text register*). Drops fences/tables/headings/frontmatter, joins wrapped lines into blocks so a sentence is measured whole, splits on `.!?`, flags `LONG` (> `--max`; 20 for instructions, 25 for descriptions), `FILLER`, `CONTRACTION` (also fires on possessive `'s`), `PASSIVE` (be-verb + participle heuristic). Code-file mode samples quoted `help=`/`description=`/`title=` strings only. Measured at `--max 20`: `README.md` 14 → 2, `docs/capture_protocol.md` 20 → 8; residual flags are 21-25-word descriptions, which the rule allows. **The scanner cannot apply its own rule.** One `--max` covers every sentence, so the instruction-vs-description call that picks 20 or 25 is made by hand on each residual. Measured over the four shipped surfaces: 48 flags at `--max 20`, 24 at `--max 25`; **25 of the 26 `LONG` verdicts sit in the 21-25 band** and turn entirely on that call, 1 fails either way. Of the 24 residuals, both `CONTRACTION` hits are possessives (`instrument's`, `solve's`) and at least 4 of 21 `PASSIVE` hits are predicate adjectives (`is untested`, `is unmeasured`, `is unaffected`, `is closed`) — so **23 of 24 are heuristic output awaiting a human**, and several true passives are mandated by the claim boundary's own "may not be claimed" phrasing.
 - `.scratch/fidelity.sh <base-ref> <file>…` — pairs with it: diffs the multiset of format specifiers, `--flags`, backticked spans, file names and numbers between a base ref and the working tree. A register-only edit must show no delta; every delta needs an explanation. Caught the p-value reformat (`p<.05` → `p < 0.05`) and confirmed 14 R files invariant.
 
 - `.scratch/detfreq_pilot.sh` · `.scratch/detfreq_up.sh` · `.scratch/detfreq_table.sh` — the
   det_frequency sweep. Each script drives `scripts/pilot_corpus_run.py` under the accelerator recipe
   at `--seed 20260922 --min-assets 4 --max-frames 400`, which picks its events from seed plus
-  min-assets alone, so **every arm decodes the same 4 events / 11 assets** and wall clocks compare
+  min-assets alone, so **every arm decodes the same 5 events / 11 assets** and wall clocks compare
   directly. Downward arms 7/3/2/1 then upward 14/21/35; `detfreq_table.sh` joins the logged
   `outer_wall_s` to the per-arm defect statistics. All seven arms regenerate from these scripts;
   their figures live in `.agent/archive/instability-m2u9.md`.

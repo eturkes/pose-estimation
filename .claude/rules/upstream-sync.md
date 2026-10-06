@@ -33,7 +33,7 @@ Clauses 1-4 are the only surviving copy of the ones that bind a refresh.
 (`last-sync` derivation + recording, delta, commit subject). This repo adds:
 
 1. Re-apply every ruling in the index; keep every upstream change no ruling contradicts. Verify
-   Clause 1 with `rg -l 'archive/contract-' scripts/ src/ tests/` = 7, re-derived rather than
+   Clause 1 with `rg -l 'archive/contract-' scripts/ src/ tests/` = 8, re-derived rather than
    trusted — a whole-tree sweep counts every document that merely mentions the path and drifts on
    every edit.
 2. A refresh that retires a term or constant falsifies claims elsewhere → sweep `.agent/` and
@@ -68,7 +68,7 @@ prototype at `prototype/<name>/` (`prototype/review-ui/`), review ledger `.agent
 | `Authoring` durable-guidance routing | Clause 3 | adapts → mutable state stays in `spec.md` + `deferred.md`, never in rules |
 
 - **Clause 1 — acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`**; the template
-  names no contract path. **7 files under `scripts/ src/ tests/` break if it moves**, one of them a generated data field: `scripts/make_calibration_qc_fixtures.py` writes
+  names no contract path. **8 files under `scripts/ src/ tests/` break if it moves**, one of them a generated data field: `scripts/make_calibration_qc_fixtures.py` writes
   the path into `tests/fixtures/calibration_qc_set/manifest.json`, and
   `check_calibration_qc_fixtures.py` validates digests without resolving that field, so a rename
   missing the generator leaves a dangling pointer no gate reports.

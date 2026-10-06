@@ -62,8 +62,9 @@ hospital SCI database.
 - **`publication.py` extraction stays DECLINED** — six publishers keep their own
   staging/swap/digest/ownership copies; the measured five-way drift is the evidence.
 - **Detector on GPU at f32, pose on NPU** — NPU pads YOLOX's dynamic output with uninitialised
-  memory that passes every validity filter as real rows; GPU f32 reproduces the CPU detector
-  bit for bit (240 corpus frames) at 41.6 vs 318.7 ms/call, and GPU f16 flips a box at the 0.3 cut.
+  memory that passes every validity filter as real rows; GPU f32 matches the CPU detector
+  (240 corpus frames: IoU 1.0000, score Δ < 3.5e-6, 0 count mismatches) at 41.6 vs 318.7 ms/call,
+  and GPU f16 flips a box at the 0.3 cut.
 - **An out-of-frame keypoint is not an observation** (user ruling) — it scores 0, so above-view
   elbow and reach features lose the ~42 % of shoulder frames the camera cannot see rather than use
   the model's guess.
@@ -73,7 +74,7 @@ hospital SCI database.
 - **The hand model stays RTMW-L's own hands** — a second-stage hand model is adopted only at
   fingertip jitter <= 0.006 on the watch set, wall <= +15 %, collapse unchanged per clip (user
   bar); RTMW-X and both hand-crop refinements missed it.
-- **Acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`** — 7 files under
+- **Acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`** — 8 files under
   `scripts/ src/ tests/` break if it moves, one a generated data field no gate resolves;
   re-derive → `upstream-sync.md`.
 - **External AI-judgment services stay out of this repo** — surveyed and declined by the user.
@@ -81,8 +82,8 @@ hospital SCI database.
   open; the survey itself is not repeated.
 - **Assurance tier = `kernel`** across pipeline, publishers + analysis.
 - **2D instability repair = `SubjectTracker`** — every crop a detector box, never re-sized from
-  the pose; detector every frame on GPU at f32 (41.6 ms/call, bit-identical to CPU on 240 corpus
-  frames); box transported by pose motion across detector misses; sticky largest-box subject;
+  the pose; detector every frame on GPU at f32 (41.6 ms/call, CPU-equal to IoU 1.0000 on 240
+  corpus frames); box transported by pose motion across detector misses; sticky largest-box subject;
   identity-keyed smoothing. Supersedes the *reconcile* subclass (user ruling, `.agent/archive/instability-m2u9.md`)
   whose premise was the CPU detector's 8.23× cost for `det_frequency=1`; that ruling's acceptance
   (seven-arm re-sweep, alternation <= 0.55, isolated ~0, no cadence peak, wall near f7's 327 s)
@@ -131,6 +132,9 @@ hospital SCI database.
     `a395e28` · M2.9.4 `29a24e4`. Reported, not adopted: RTMW-X + two hand-crop refinements.
     Not attempted, queued: C06 setup footage. No uncommitted work, no teammates, no worktrees;
     red-witness tips pinned (`retention.md`).
+  - OpenVINO = 2026.4.1 on both sides (container archive + `.venv` wheel), qualified by
+    `.scratch/ovupgrade/` (→ `gates.md`). The run starts and finishes on that build; a build
+    swap mid-run moves output (→ `rtmlib-runtime.md`).
   - FIRST ACTION: `nohup .scratch/rerun.sh &` (logs `.scratch/rerun/`). `output/corpus-2d` is
     absent now; after an interruption the same command resumes (the driver re-runs only events
     whose marker or `pose_config.json` does not match). Verify placement by counts in the first event's `run.log`

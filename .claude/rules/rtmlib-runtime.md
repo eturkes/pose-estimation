@@ -18,7 +18,7 @@ paths:
 - Detector + pose model take **separate** devices (`--det-device` / `--pose-device` on `run`/`main`/`benchmark`/`validate`). No `--device` flag exists anywhere; a bare `--device` is an argparse error, not a silent default.
 - **rtmlib YOLOX must not run on NPU.** In-graph NMS ⇒ dynamic `dets` shape; NPU demands static ⇒ a fixed 100-row buffer whose unused rows are never written. Symptom: every frame reports exactly 100 detections, all rows sharing one score, values outside `[0,1]` (observed 1.128, 1.263). CPU on the same frames returns 1-3 detections, max 0.918. **It compiles cleanly**, so `rtmlib_openvino.py`'s NPU→CPU fallback never fires; the failure is numerical, silent, and reaches the CSV.
 - **The padding is a device property, and only NPU pads with garbage.** One synthetic probe separates the three devices with no patient data: read `yolox_m_8xb8-300e_humanart-c2c7a14a.onnx` (rtmlib cache), compile per device, infer `np.zeros((1,3,640,640))`, print `dets`/`labels` shape + range. CPU keeps the dynamic output (`(1,1,5)`); GPU and NPU both materialise a fixed 100-row buffer with `labels` all `-1`; only NPU's `dets` hold uninitialised memory (`−0.1471…1.0215` on an all-zero image, so scores clear any threshold) while GPU's read exactly `0.0000`. Median latency: GPU 9.7 ms, NPU 108.4 ms, CPU 213.1 ms. NPU stays excluded.
-- **GPU is qualified and adopted for the detector — at f32 only.** Over 240 corpus frames / 40 clips the f32 GPU detector is bit-identical to CPU (IoU 1.0000, score delta 0, 0 count mismatches) at 41.6 vs 318.7 ms/call. The plugin's f16 default drifts (IoU min 0.982, score delta 0.0018) and flips a box at the 0.3 score cut, so `rtmlib_openvino.py` pins `INFERENCE_PRECISION_HINT: f32` on every GPU compile. RTMW-X on GPU returns scores on another scale (92.9 % of body observations clip to 1.0) — never swap the pose model without checking its score scale, because every gate downstream reads it.
+- **GPU is qualified and adopted for the detector — at f32 only.** Over 240 corpus frames / 40 clips the f32 GPU detector matches CPU to IoU 1.0000, max score Δ 0.000003 at 6 dp (< 3.5e-6), raw box Δ < 0.0005 px in the 640×640 detector-input frame, 0 count mismatches; exact array equality holds on 8/240 frames alone. OpenVINO 2026.4.0 and 2026.4.1 give identical figures (`.scratch/ovupgrade/det_qual.py`). Per call 41.6 vs 318.7 ms (measured on an earlier build; the 2026.4.1 pilot wall sits inside the 2026.4.0 same-build spread). The plugin's f16 default drifts (IoU min 0.982, score delta 0.0018) and flips a box at the 0.3 score cut, so `rtmlib_openvino.py` pins `INFERENCE_PRECISION_HINT: f32` on every GPU compile. RTMW-X on GPU returns scores on another scale (92.9 % of body observations clip to 1.0) — never swap the pose model without checking its score scale, because every gate downstream reads it.
 - Pose models are NPU-safe: RTMW-L NPU vs CPU = 0.505 px mean / 2.265 px p95 / 5.3 px p99 keypoint deviation, score MAE 0.00056. Per-call 7.17 ms NPU vs 134.26 ms CPU (~19×); detector 109.82 ms NPU (garbage) vs 445.21 ms CPU.
 - **Those per-call numbers do not predict run throughput — measured end to end they are 4-5× optimistic.** The projection they supported (≈70 ms/frame ⇒ 6.5 h for the corpus) survived planning and two unit windows unchallenged; the pilot measured 3.03 fps over 8971 frames ⇒ 26.0-30.9 h. **Never size a run from per-call latency; run a stratified pilot and multiply.**
 - MediaPipe is unaffected — SSD anchors + NMS decode in Python (`detection.py`), graphs stay static-shaped ⇒ both roles default NPU. `models.DETECTOR_MODELS` selects which compile on `--det-device`.
@@ -39,14 +39,19 @@ paths:
   over a large truncated patient and ignores arms-only subjects.
 - **The smoother keys on the tracker's ids**: a named track exports from its first frame and
   through its carried frames; `min_track_age` gates unnamed tracks alone.
-- **Measured on the det_frequency sweep's own sample** (4 events / 11 assets / 400 frames, same
+- **Measured on the det_frequency sweep's own sample** (5 events / 11 assets / 400 frames, same
   instruments): `det_frequency=1` → 283.6 s, whole 0.000 %, isolated 0.000 %, alternation
   0.497, 2502 observed frames, 4.29 Hz peak/bg 0.850 (control range 0.840-1.161). The old f7
   arm: 327.3 s, 7.55 % / 8.06 %, 1.484, 1935, 1.336. Repaired arms 2-35 keep relocations near 0
   but sit at alternation 0.556-0.612, so 1 is the only arm meeting the ruling.
 - **A generation names itself per event**: `pose_config.json` (`corpus_run.POSE_CONFIG_FIELDS`)
   beside the landmarks. Resume re-runs a complete event that records another configuration;
-  `--analyse-only` and `--reuse-run` refuse to publish over one.
+  `--analyse-only` and `--reuse-run` refuse to publish over one. **The OpenVINO build is not in
+  that config**, and a build change moves output: 2026.4.0 → 2026.4.1 on the det_frequency sample
+  changed 593 of 1.27 M landmark cells — 576 coordinates by 1e-6 to 4.1e-5 (6-dp quantum), 17
+  confidences by 1e-4 (4-dp quantum) — and every feature column by
+  ≤ 4.1e-4 of its own max, where the same build reruns byte-identical. Finish a corpus run on the
+  build it started on (→ `.agent/deferred.md`).
 
 ## Score hygiene — before the smoother, always (`keypoint_hygiene.py`)
 

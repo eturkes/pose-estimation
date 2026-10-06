@@ -66,8 +66,8 @@ def _patch_rtmlib_openvino():
 
             config = {"PERFORMANCE_HINT": "LATENCY"}
             if ov_device == "GPU":
-                # The GPU plugin infers in f16 by default.  f32 reproduces the CPU
-                # detector exactly (240 corpus frames: IoU 1.0000, score delta 0);
+                # The GPU plugin infers in f16 by default.  f32 matches the CPU
+                # detector (240 corpus frames: IoU 1.0000, score delta < 3.5e-6);
                 # f16 drifts to IoU 0.982 and flips a box at the 0.3 score cut.
                 config["INFERENCE_PRECISION_HINT"] = "f32"
             try:
