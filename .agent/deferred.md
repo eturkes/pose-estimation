@@ -132,3 +132,10 @@ rows before sizing any unit that touches their surfaces.
 - **`.scratch/ovupgrade/` build-change instruments are scratch-local** (`pilot.sh`, `compare.py`,
   `det_qual.py` → `gates.md`) → committed under `scripts/` with a test that seeds a one-cell CSV
   drift and asserts `compare` reports it, and a same-tree run reports 0 drift.
+- **`upstream-sync.md`'s declined-gate paragraph counts `7 shipped files` naming the archive path;
+  Clause 1 and `rg -l 'archive/contract-' scripts/ src/ tests/` both give 8** → that paragraph
+  points at Clause 1 instead of its own figure; `rg -c '7 shipped files' .claude/rules/` = 0.
+- **`test_c8_08`'s 900 s inner-suite timeout ≈ one suite pass under co-tenant host load** (other
+  projects' sessions, load avg 6-12 on 8 cores: `1 failed, 2128 passed` in 28:07 on
+  `TimeoutExpired`, the rerun `2129 passed` in 30:12) → inner wall ≤ 0.7 × its timeout, measured
+  on a quiet host, and 3 consecutive gates green at load avg ≥ 6; a timeout change needs approval.

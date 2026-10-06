@@ -11,22 +11,24 @@ paths:
 `CLAUDE.md` = upstream `~/.local/app/agents/claude/CLAUDE.project.md` byte for byte; every local
 adaptation lives in `.claude/rules/`, keyed on the template clause it overrides and indexed below;
 Clauses 1-4 are the only surviving copy of the ones that bind a refresh.
-**`last-sync = agents@3cbae71`.**
+**`last-sync = agents@5471e83`.**
 
 **Template invariants — hold each after every refresh:**
 
 - `cmp CLAUDE.md ~/.local/app/agents/claude/CLAUDE.project.md` = 0, line 1 = `@.agent/spec.md`.
 - `.agent/spec.md` = `Intent` (user-edited alone) · `Artifacts` · `Decisions` · `Tasks` · `Phase`,
   in that order. `Artifacts` = path each + run command where it runs.
-  `Tasks` = `- [ ]` open units in spine order, `- [x] <sha>` once committed and cleared at phase
-  close, last line = the `.agent/deferred.md` pointer. `Phase` = phase + scope.
+  `Tasks` = `- [ ]` open units in order, `- [x] <sha>` once committed, on-path finds appended,
+  ticked rows cleared at phase close, last line = the `.agent/deferred.md` pointer.
+  `Phase` = phase + scope.
 - Deferral queue = `.agent/deferred.md`, unattached, one row + acceptance check each.
 - A template structure (prototype location, CI, review ledger, spec layout) holds its default unless
   a ruling in the index adapts, retires or marks it inapplicable, naming the replacement or the
   user's waiver.
 - Teammate triggers + mechanics = global `CLAUDE.md` `Subagents`; role rules =
   `~/.claude/agents/<role>.md`; a commit body names each teammate its unit used (name, role,
-  verdict). Thinking depth = the launch `--effort`. No `.claude/settings*.json` env pin or
+  verdict). Closing diff → `reviewer`: one per lens in IMPLEMENT, one covering every lens
+  elsewhere. Thinking depth = the launch `--effort`. No `.claude/settings*.json` env pin or
   `.claude/agents/` definition overrides the user-level models, effort or roles.
 
 **Recipe, every refresh** = upstream's session body `~/.local/app/agents/claude/prompts/refresh.md`
@@ -52,9 +54,8 @@ its local dependents re-derive against the upstream commit that retired it. That
 user's refresh note decide which; ask when neither does.
 
 **Rulings on template clauses — index.** Every structure absent here holds its template default:
-prototype at `prototype/<name>/` (`prototype/review-ui/`), review ledger `.agent/review.md`
-(created at the next review), spec layout as above. `Phase` scope = the user's ruling, recorded in
-`.agent/spec.md` `Phase`.
+prototype at `prototype/<name>/` (`prototype/review-ui/`), review ledger `.agent/review.md`, spec
+layout as above. `Phase` scope = the user's ruling, recorded in `.agent/spec.md` `Phase`.
 
 | Template clause | Ruling | Effect → replacement |
 | --- | --- | --- |
