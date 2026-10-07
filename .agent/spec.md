@@ -29,9 +29,12 @@ hospital SCI database.
 - `cohort/` — the `../rehab` export. 12 `(task, side)` cells · 89 features · 1068 rows;
   `descriptors.yaml` = ja/en labels, units, ranges.
   `P pose-estimation-cohort --inventory inventory --sessions sessions --run output/corpus-2d --out cohort`
-- `output/corpus-2d/` — per-asset 2D landmarks + clinical features. **Pending the M2.9 rerun**
-  (`.scratch/rerun.sh` = `python scripts/corpus_run_2d.py` under the accelerator recipe with the
-  repaired defaults). The superseded generation (rtmlib tracker, CPU detector every 7th frame;
+- `output/corpus-2d/` — per-asset 2D landmarks + clinical features, M2.9 generation (subject
+  tracker, GPU-f32 detector every frame, NPU pose, seated drops, SPARC v3): 193/193 events,
+  379/379 `ok`, 337 090 frames, 5.559 h at 17.35 fps measured, all 11 `run_report.json` verdicts
+  true. `.scratch/rerun.sh` = `python scripts/corpus_run_2d.py` under the accelerator recipe;
+  resumes per event marker. `cohort/` still carries the superseded generation until republished.
+  The superseded generation (rtmlib tracker, CPU detector every 7th frame;
   379 assets / 193 events / 331 152 frame rows, 7.828 h) sits at
   `output/corpus-2d-superseded-rtmlib-f7/` for the user's before/after review — delete it after.
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
@@ -119,36 +122,15 @@ hospital SCI database.
 - [x] 29a24e4 **M2.9.4 SPARC** — contract `.agent/archive/contract-m2u94.md`: the R stage's
   fixed-cutoff SAL became SPARC (adaptive cutoff, Balasubramanian 2015), method version v3; it
   runs inside the corpus rerun's own R stage.
-- **Resume note — PAUSED before the full corpus run; the resume's FIRST action is that run
-  (~7.4 h, user instruction).** User body: watch the review UI → catalog every situation where
-  pose estimation performs poorly → repair each → rerun all videos in one pass; questions allowed
-  liberally. Finish line in force: catalog committed; each situation repaired under spine law or
-  reported as a failed attempt with what it taught; ONE-pass corpus rerun 193 events / 379 assets
-  → `output/corpus-2d/` + `cohort/` republished (SPARC primary); review UI :8791 serving the new
-  tracks + comparison UI :8792 serving `output/corpus-2d-superseded-rtmlib-f7/` (user ruling);
-  closing `reviewer` on the closing diff; closing commit on a clean tree; final message per
-  `resume.md` (restate: the lock screen did not disrupt the watch pass).
-  - Landed: C01 `397cc8a` · M2.9.1 `481ba22` · M2.9.2 `d4dafdb` · state `83b5b40` · M2.9.5
-    `a395e28` · M2.9.4 `29a24e4`. Reported, not adopted: RTMW-X + two hand-crop refinements.
-    Not attempted, queued: C06 setup footage. No uncommitted work, no teammates, no worktrees;
-    red-witness tips pinned (`retention.md`).
-  - OpenVINO = 2026.4.1 on both sides (container archive + `.venv` wheel), qualified by
-    `.scratch/ovupgrade/` (→ `gates.md`). The run starts and finishes on that build; a build
-    swap mid-run moves output (→ `rtmlib-runtime.md`).
-  - FIRST ACTION: `nohup .scratch/rerun.sh &` (logs `.scratch/rerun/`). `output/corpus-2d` is
-    absent now; after an interruption the same command resumes (the driver re-runs only events
-    whose marker or `pose_config.json` does not match). Verify placement by counts in the first event's `run.log`
-    (`openvino/GPU backend` 1, `openvino/NPU backend` 1). Pace 12.6 fps measured → ~7.4 h. Poll
-    `.scratch/rerun_status.sh` at least every 55 min; never edit `src/` or `analysis/` while it runs.
-  - Then: `run_report.json` verdicts all true + manifest 379/379 `ok` → `P pose-estimation-cohort
-    --inventory inventory --sessions sessions --run output/corpus-2d --out cohort` → corpus checks
-    (`.scratch/p08_p10.py`, `.scratch/p06_p07.py <new> <superseded>`, `.scratch/triage.py
-    output/corpus-2d` vs `.scratch/watch/triage_f7.json` → catalog after-table) → decisive gate
-    alone → review UI :8791 + :8792 (`--repo` = a symlink root onto the superseded tree) →
-    BrowserOS spot-check of the worst clips → `Artifacts` + `corpus-run.md` measured-whole line →
-    closing `reviewer` → cleanup → final message.
-- [ ] **Corpus rerun** — one pass 193/379 under the repaired pipeline (SPARC in its R stage) →
-  `cohort/` republished → corpus checks → decisive gate → review UI + comparison UI.
+- [x] CLOSESHA **Corpus rerun** — one pass, 193/193 events, 379/379 `ok`, verdicts all true
+  (→ `Artifacts`).
+- [ ] **Corpus rerun downstream** — `P pose-estimation-cohort --inventory inventory --sessions
+  sessions --run output/corpus-2d --out cohort` → corpus checks (`.scratch/p08_p10.py`,
+  `.scratch/p06_p07.py <new> <superseded>`, `.scratch/triage.py output/corpus-2d` vs
+  `.scratch/watch/triage_f7.json` → catalog after-table) → decisive gate alone → review UI :8791
+  + comparison UI :8792 (`--repo` = a symlink root onto the superseded tree) → BrowserOS
+  spot-check of the worst clips → `corpus-run.md` measured-whole line → `Artifacts` → closing
+  `reviewer` → cleanup → final message.
 - [ ] **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`**
   - Acceptance: `build_assets.py` refuses with a named cause when absent; a committed check reports
     0 missing code points.

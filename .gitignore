@@ -131,10 +131,10 @@ Thumbs.db
 mediapipe/
 
 # Claude Code machine-local state (.claude/rules/ is the committed half);
-# .claude/.headroom_wrap_marker.json is ephemeral per-session (pid/port/env key).
+# .claude/.headroom_wrap_* = ephemeral per-session headroom state (pid/port/env key, owners, lock).
 CLAUDE.local.md
 .claude/settings.local.json
-.claude/.headroom_wrap_marker.json
+.claude/.headroom_wrap_*
 .claude/worktrees/
 
 # Per-session teammate reports, rosters + per-teammate git worktrees
