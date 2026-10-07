@@ -122,7 +122,7 @@ hospital SCI database.
 - [x] 29a24e4 **M2.9.4 SPARC** — contract `.agent/archive/contract-m2u94.md`: the R stage's
   fixed-cutoff SAL became SPARC (adaptive cutoff, Balasubramanian 2015), method version v3; it
   runs inside the corpus rerun's own R stage.
-- [x] CLOSESHA **Corpus rerun** — one pass, 193/193 events, 379/379 `ok`, verdicts all true
+- [x] 7a1201d **Corpus rerun** — one pass, 193/193 events, 379/379 `ok`, verdicts all true
   (→ `Artifacts`).
 - [ ] **Corpus rerun downstream** — `P pose-estimation-cohort --inventory inventory --sessions
   sessions --run output/corpus-2d --out cohort` → corpus checks (`.scratch/p08_p10.py`,
