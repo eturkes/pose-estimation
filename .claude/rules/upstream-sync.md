@@ -11,7 +11,7 @@ paths:
 `CLAUDE.md` = upstream `~/.local/app/agents/claude/CLAUDE.project.md` byte for byte; every local
 adaptation lives in `.claude/rules/`, keyed on the template clause it overrides and indexed below;
 Clauses 1-4 are the only surviving copy of the ones that bind a refresh.
-**`last-sync = agents@5471e83`.**
+**`last-sync = agents@2cedb4f`.**
 
 **Template invariants — hold each after every refresh:**
 
@@ -31,17 +31,16 @@ Clauses 1-4 are the only surviving copy of the ones that bind a refresh.
   elsewhere. Thinking depth = the launch `--effort`. No `.claude/settings*.json` env pin or
   `.claude/agents/` definition overrides the user-level models, effort or roles.
 
-**Recipe, every refresh** = upstream's session body `~/.local/app/agents/claude/prompts/refresh.md`
-(`last-sync` derivation + recording, delta, commit subject). This repo adds:
+**Recipe, every refresh** = upstream's session body
+`~/.local/app/agents/claude/prompts/{auto,steered}/refresh.md` (`last-sync` derivation + recording,
+delta, retired-term sweep, commit subject). This repo adds:
 
 1. Re-apply every ruling in the index; keep every upstream change no ruling contradicts. Verify
    Clause 1 with `rg -l 'archive/contract-' scripts/ src/ tests/` = 8, re-derived rather than
    trusted — a whole-tree sweep counts every document that merely mentions the path and drifts on
    every edit.
-2. A refresh that retires a term or constant falsifies claims elsewhere → sweep `.agent/` and
-   `.claude/rules/` for it, beside a positive control, and correct what depended on it, since a
-   stale sizing datum reaches planning as a budget. Name both dot-dirs or pass `--hidden`, or the
-   sweep reads clean over unread files (→ `evidence.md`).
+2. A retired constant counts as a retired term (refresh.md steps 2 + 7): a stale sizing datum —
+   a window, a trigger, a tier — reaches planning as a budget.
 
 **A purely additive clause is not a no-op either**: contradicting nothing, it still binds
 mechanisms this repo already runs its own way, so resolve every new clause against the local
