@@ -452,13 +452,13 @@ input[type="range"] {
 
 /* The player fills the viewport: the stage takes every pixel the bar and the
    list leave, so the clip is as large as the window allows and the transport
-   never leaves the screen.  player.js reads `--fit-viewport` to learn whether
-   this stylesheet is in its stacked state, and measures the height itself —
-   the chrome above the layout moves with the language and the top bar's wrap. */
+   never leaves the screen, at every width.  player.js measures the height —
+   the chrome above the layout moves with the language and the top bar's wrap.
+   The list column narrows before the panes stack, so a window down to 761 px
+   keeps the stage beside the list. */
 .player-layout {
-  --fit-viewport: 1;
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: clamp(220px, 28vw, 300px) minmax(0, 1fr);
   gap: 14px;
   align-items: stretch;
 }
@@ -685,32 +685,30 @@ canvas.strip {
 /* ------------------------------------------------------------- responsive */
 
 @media (max-width: 1100px) {
-  /* Stacked, the two panels cannot share one screen, so the layout goes back to
-     content height and the stage takes a fixed share of the viewport. */
-  /* `minmax(0, …)` as in the wide layout: `paintStrip` sets the strip's backing
-     width to its laid-out width × devicePixelRatio, a canvas's natural width is
-     its backing width, and a bare `1fr` track grows to content — so the track
-     grew by that ratio on every paint (measured 27.9M px at ratio 1.1). */
-  .player-layout {
-    --fit-viewport: 0;
-    grid-template-columns: minmax(0, 1fr);
-  }
-  /* `flex: none`, or the base `flex: 1` basis overrides the height, the panel
-     takes content height, and the stage-wrap — the room `fitStage` reads — is
-     the stage's own height: each fit floored it smaller at fractional layout
-     (scale 1.1: 530 → 375 px in 3 s, down to the wrap's 140 px floor). */
-  .stage-panel {
-    flex: none;
-    height: 68dvh;
-  }
-  .clip-list {
-    max-height: 40dvh;
-  }
   .topbar {
     flex-wrap: wrap;
     gap: 12px;
   }
   .tabs {
     margin-left: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  /* Stacked, the list pane takes 2/7 of the fitted height and scrolls inside
+     itself, and the stage pane takes the rest, so the stage stays on screen here
+     too (700×900: stage 286 px, page unscrolled).  Every track is
+     `minmax(0, …)`: `paintStrip` sets the strip's backing width to its laid-out
+     width × devicePixelRatio, a canvas's natural width is its backing width, and
+     a bare `1fr` column grew to it on every paint (27.9M px at ratio 1.1).  The
+     stage row stays definite too: a content-height panel made the room
+     `fitStage` reads the stage's own height, and each floored fit shrank it at
+     fractional layout (scale 1.1: 530 → 375 px in 3 s). */
+  .player-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 2fr) minmax(0, 5fr);
+  }
+  .clips-panel {
+    overflow: auto;
   }
 }

@@ -308,25 +308,18 @@ function pause() {
 
 /* ---------------------------------------------------------------- fitting */
 
-/** The player is the one view sized to the viewport instead of to its content:
-    the transport has to stay on screen while a clip plays.  The chrome above the
-    layout moves with the language and with the top bar's wrap, so it is measured
-    rather than assumed.  The stylesheet owns the breakpoint and reports it back
-    through `--fit-viewport`, so the stacked layout keeps its content height. */
+/** The player is the one view sized to the viewport instead of to its content,
+    in both layouts: the stage and the transport have to stay on screen while a
+    clip plays.  The chrome above the layout moves with the language and with the
+    top bar's wrap, so it is measured rather than assumed. */
 function fitLayout() {
   const layout = document.querySelector(".player-layout");
   if (!layout) return;
-  if (getComputedStyle(layout).getPropertyValue("--fit-viewport").trim() === "0") {
-    layout.style.height = "";
-  } else {
-    const main = layout.closest("main");
-    const below = main ? parseFloat(getComputedStyle(main).paddingBottom) || 0 : 0;
-    const top = layout.getBoundingClientRect().top + window.scrollY;
-    layout.style.height = `${Math.max(window.innerHeight - top - below, 360)}px`;
-  }
+  const main = layout.closest("main");
+  const below = main ? parseFloat(getComputedStyle(main).paddingBottom) || 0 : 0;
+  const top = layout.getBoundingClientRect().top + window.scrollY;
+  layout.style.height = `${Math.max(window.innerHeight - top - below, 360)}px`;
   fitStage();
-  // The strip spans the panel, so its backing store moves with a width the stage
-  // can keep — a height-limited stage does not change when the window widens.
   // The strip spans the panel, so its backing store moves with a width the stage
   // can keep — a height-limited stage does not change when the window widens.
   paintStrip();
