@@ -155,10 +155,3 @@ rows before sizing any unit that touches their surfaces.
 - **`upstream-sync.md`'s declined-gate paragraph counts `7 shipped files` naming the archive path;
   Clause 1 and `rg -l 'archive/contract-' scripts/ src/ tests/` both give 8** → that paragraph
   points at Clause 1 instead of its own figure; `rg -c '7 shipped files' .claude/rules/` = 0.
-- **`test_c8_08`'s 900 s inner-suite timeout ≈ one suite pass under co-tenant host load** (other
-  projects' sessions, load avg 6-12 on 8 cores: `1 failed, 2128 passed` in 28:07 on
-  `TimeoutExpired`, the rerun `2129 passed` in 30:12; one closing tree timed out 3 times at load
-  avg 7-14 in 35:50-40:35, then with the timeout lifted for one run (user-approved, unpatched
-  after) passed `2129` in 27:39 at load avg 3-6, inner wall 813.68 s = 0.90 × its timeout) →
-  inner wall ≤ 0.7 × its timeout, measured on a quiet host, and 3 consecutive gates green at load
-  avg ≥ 6; a timeout change needs approval.

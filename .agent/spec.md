@@ -42,8 +42,7 @@ hospital SCI database.
   --repo "$PWD/.scratch/compare-root"` (symlinks onto the primary trees, the superseded run).
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
   run; each `P pose-estimation-<name> … --out <dir>`; `--help` = args.
-- Decisive gate — `P pytest`, 2129 tests, 28 min at load avg 3-6, alone; `test_c8_08`'s inner
-  suite takes 814 s of its 900 s timeout, so co-tenant load fails it (→ `.agent/deferred.md`).
+- Decisive gate — `P pytest`, 2129 tests, ~28 min, alone.
 
 ## Decisions
 

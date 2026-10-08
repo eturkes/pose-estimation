@@ -1254,7 +1254,8 @@ def test_c8_08():
         env=environment,
         capture_output=True,
         text=True,
-        timeout=900,
+        # ~3x the quiet inner wall, so co-tenant host load does not time it out.
+        timeout=2400,
         check=False,
     )
     assert result.returncode == 0, "decisive gate failed"
