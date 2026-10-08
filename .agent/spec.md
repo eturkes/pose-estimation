@@ -42,7 +42,8 @@ hospital SCI database.
   --repo "$PWD/.scratch/compare-root"` (symlinks onto the primary trees, the superseded run).
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
   run; each `P pose-estimation-<name> … --out <dir>`; `--help` = args.
-- Decisive gate — `P pytest`, 2129 tests, 14-21 min, alone.
+- Decisive gate — `P pytest`, 2129 tests, 28 min at load avg 3-6, alone; `test_c8_08`'s inner
+  suite takes 814 s of its 900 s timeout, so co-tenant load fails it (→ `.agent/deferred.md`).
 
 ## Decisions
 
@@ -130,7 +131,7 @@ hospital SCI database.
 - [x] b8ccd71 **Review UI stacked layout drifted right + shrank at ratio 1.1 (user report)**
 - [x] aed1e7d **Review UI player needed page scroll to show the stage (user request)** — side by
   side down to 761 px, fitted 2:5 stack below; user-approved ("much better and stable").
-- [x] PENDING **Corpus rerun downstream** — cohort republished from M2.9 (`cohort.md` trunk
+- [x] 0814560 **Corpus rerun downstream** — cohort republished from M2.9 (`cohort.md` trunk
   bullet); catalog after-table + P08 pass / P09 fail / P10 vacuous (`pose-weak-points.md`
   § M2.9 corpus, 3 `deferred.md` rows); `corpus-run.md` measured-whole = 5.559 h; spot-check
   sheets watched; review ledger `.agent/review.md`.
