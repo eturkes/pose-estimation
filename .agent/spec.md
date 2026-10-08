@@ -26,17 +26,20 @@ hospital SCI database.
   published trees, degrading per absent tree. Commits no media at all → the player needs the
   published trees and lists nothing without them; `README.md` = view guide + regeneration + limits.
   `uv run --directory prototype/review-ui python -m review_ui` → `http://127.0.0.1:8791/`.
-- `cohort/` — the `../rehab` export. 12 `(task, side)` cells · 89 features · 1068 rows;
+- `cohort/` — the `../rehab` export, from the M2.9 generation. 12 `(task, side)` cells · 89
+  features · 1068 rows; trunk features 6-16 subjects (side views alone, → `cohort.md`);
   `descriptors.yaml` = ja/en labels, units, ranges.
   `P pose-estimation-cohort --inventory inventory --sessions sessions --run output/corpus-2d --out cohort`
 - `output/corpus-2d/` — per-asset 2D landmarks + clinical features, M2.9 generation (subject
   tracker, GPU-f32 detector every frame, NPU pose, seated drops, SPARC v3): 193/193 events,
   379/379 `ok`, 337 090 frames, 5.559 h at 17.35 fps measured, all 11 `run_report.json` verdicts
   true. `.scratch/rerun.sh` = `python scripts/corpus_run_2d.py` under the accelerator recipe;
-  resumes per event marker. `cohort/` still carries the superseded generation until republished.
-  The superseded generation (rtmlib tracker, CPU detector every 7th frame;
-  379 assets / 193 events / 331 152 frame rows, 7.828 h) sits at
-  `output/corpus-2d-superseded-rtmlib-f7/` for the user's before/after review — delete it after.
+  resumes per event marker. Before/after vs the superseded generation →
+  `docs/technical/pose-weak-points.md` § M2.9 corpus. That generation (rtmlib tracker, CPU
+  detector every 7th frame) + its cohort sit at `output/corpus-2d-superseded-rtmlib-f7/` +
+  `.scratch/compare-root/cohort/` for the user's before/after review — delete both on the user's
+  word. Comparison UI = `uv run --directory prototype/review-ui python -m review_ui --port 8792
+  --repo "$PWD/.scratch/compare-root"` (symlinks onto the primary trees, the superseded run).
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
   run; each `P pose-estimation-<name> … --out <dir>`; `--help` = args.
 - Decisive gate — `P pytest`, 2129 tests, 14-21 min, alone.
@@ -124,13 +127,13 @@ hospital SCI database.
   runs inside the corpus rerun's own R stage.
 - [x] 7a1201d **Corpus rerun** — one pass, 193/193 events, 379/379 `ok`, verdicts all true
   (→ `Artifacts`).
-- [ ] **Corpus rerun downstream** — `P pose-estimation-cohort --inventory inventory --sessions
-  sessions --run output/corpus-2d --out cohort` → corpus checks (`.scratch/p08_p10.py`,
-  `.scratch/p06_p07.py <new> <superseded>`, `.scratch/triage.py output/corpus-2d` vs
-  `.scratch/watch/triage_f7.json` → catalog after-table) → decisive gate alone → review UI :8791
-  + comparison UI :8792 (`--repo` = a symlink root onto the superseded tree) → BrowserOS
-  spot-check of the worst clips → `corpus-run.md` measured-whole line → `Artifacts` → closing
-  `reviewer` → cleanup → final message.
+- [x] b8ccd71 **Review UI stacked layout drifted right + shrank at ratio 1.1 (user report)**
+- [x] aed1e7d **Review UI player needed page scroll to show the stage (user request)** — side by
+  side down to 761 px, fitted 2:5 stack below; user-approved ("much better and stable").
+- [x] PENDING **Corpus rerun downstream** — cohort republished from M2.9 (`cohort.md` trunk
+  bullet); catalog after-table + P08 pass / P09 fail / P10 vacuous (`pose-weak-points.md`
+  § M2.9 corpus, 3 `deferred.md` rows); `corpus-run.md` measured-whole = 5.559 h; spot-check
+  sheets watched; review ledger `.agent/review.md`.
 - [ ] **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`**
   - Acceptance: `build_assets.py` refuses with a named cause when absent; a committed check reports
     0 missing code points.

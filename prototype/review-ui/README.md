@@ -43,7 +43,10 @@ skeleton and the palette come from `pose_estimation.drawing`, so the overlay dra
 what the pipeline draws. Each list row names one camera artifact. The `#nnn`
 prefix is a recording event. Rows with the same number are the other views of that
 event. The stage fills the space that the window leaves. It keeps the shape of
-the clip, so the whole frame stays on screen with the controls under it. The UI
+the clip, so the whole frame stays on screen with the controls under it. The
+list and the stage stand side by side in a window 761 px wide or wider, and
+stack in a narrower one. The page fits a window at least 550 px tall, or 700 px
+tall when the panes stack. A shorter window scrolls. The UI
 fits the stage again after a window resize. The controls set the video layer to
 show, dim or hide, switch the body, hands, points and labels, and move the
 visibility threshold. The overlay draws the landmark row that the pipeline

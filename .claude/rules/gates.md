@@ -98,8 +98,8 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   fills the stage, every control row on screen, page fits the viewport), a width-only resize
   rebacking the strip, and the census + cohort panel rectangles against the before state — the
   change touched shared CSS. **38/38 green; 4 of 4
-  seeds fire their own rows and nothing else**; the four viewports added with the 2:5 stack read
-  48/48 after-only, its 4 seeds not rerun since (the new rows carry the drift + ratchet seeds below). The second URL is a `git worktree` of the previous
+  seeds fire their own rows and nothing else**; with the four viewports added for the 2:5 stack
+  it reads 48/48 after-only, the 4 seed rows among them, each still reding exactly its own rows. The second URL is a `git worktree` of the previous
   commit served with `--repo <primary>` and `UV_PROJECT_ENVIRONMENT=<primary>/prototype/review-ui/.venv
   uv run --no-sync`, which measured controls below the stage at 322 px → 156 px. Seed rules learned
   here: `.stage`'s own `max-width: 100%` absorbs a `width` seed, so a seed that must escape the room
@@ -165,7 +165,8 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   layouts fit the viewport, side by side down to 761 px and a 2:5 stack below it.
   `node .scratch/<name>.mjs http://127.0.0.1:<port> ['#NNN Task Side · View']` against a running
   `python -m review_ui`; same resolution as `theme_qa.mjs`, no capture — layout numbers alone.
-  Both loops run only off ratio 1, which is why every earlier layout QA read green:
+  Earlier layout QA ran at ratio 1 with integral layout and a content-height stack, which is why
+  it read green; both suites keep ratio-1 rows as controls:
   - drift — `paintStrip` sets the strip's backing width to its laid-out width × devicePixelRatio, a
     canvas's natural width is its backing width, and a stacked bare `1fr` track grew to it every
     paint (live, ratio 1.1: strip 27.9M px). 22 rows; the structural row injects a 40× backing
@@ -175,8 +176,8 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
     overrides the getter; that override never reproduced the per-paint growth itself, which is why
     the injection row, not the playback row, carries the check.
   - ratchet — a content-height stage pane made the stage-wrap `fitStage` reads as its room the
-    stage's own height, and each floored fit shrank it at fractional layout (scale 1.1: 530 → 375 px
-    in 3 s, on to the 140 px floor). Real fractional layout needs a browser per ratio launched with
+    stage's own height, and each floored fit shrank it, fastest at fractional layout (scale 1.1:
+    530 → 375 px in 3 s, on to the 140 px floor; one ratio-1 seed run fired too). Real fractional layout needs a browser per ratio launched with
     `--force-device-scale-factor` (JS still reads 1). 60 rows (5 viewports × ratios
     1/1.1/1.25/1.5 × holds/room/onscreen). **60/60 green; stacked rows `auto auto` red 12 stacked
     room/onscreen rows and nothing else.** Both seeds restored byte-identical by sha256.
@@ -184,7 +185,16 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   `docs/technical/pose-weak-points.md` (`whole`, `iso`, `alt`, `flick`, `oof`, `gap`, `lowvis`,
   `swapH`; definitions in that file). `P python .scratch/triage.py output/corpus-2d --json <out>`;
   labels clips by the review UI's positional ordinals (imports `prototype/review-ui`), prints
-  numbers only. Shipped-tree baseline = `.scratch/watch/triage_f7.json` (379 clips).
+  numbers only. Baselines, 379 clips each: `.scratch/watch/triage_m29.json` (M2.9, shipped) and
+  `.scratch/watch/triage_f7.json` (superseded rtmlib-f7).
+- Corpus after-table instruments, numbers only, review-UI ordinals for labels:
+  `P python .scratch/oof_probe.py [<tree>]` (P09: out-of-frame observations at vis >= 0.3, overshoot
+  px by edge + keypoint; M2.9 = 3648/2 555 251); `P python .scratch/flick_cause.py [<tree>]` (hand
+  blink-outs per 100 rows by view, attributed by the hand's state one frame earlier);
+  `python3 .scratch/after_table.py .scratch/watch/triage_f7.json <after.json>` (catalog prevalence
+  before/after + paired fixed/new; reproduces the catalog's before figures, `flick` 144 vs 143);
+  `P python .scratch/frames_of.py '<#NNN task/side/view>' <metric>` (frame indices behind one
+  clip's worst metric, for `bgrab.py` sheets).
 - M2.9 instruments, all `P python .scratch/<name>.py [<tree>]`, review-UI ordinals for labels,
   numbers only: `hygiene_stats.py` (per view × keypoint group: visibility quantiles, out-of-frame
   share — the M2.9.2 premise); `dup_hand.py [--ratio --weak --rel --sample]` (duplicate-hand rule

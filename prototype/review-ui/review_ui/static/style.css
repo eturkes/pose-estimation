@@ -452,7 +452,8 @@ input[type="range"] {
 
 /* The player fills the viewport: the stage takes every pixel the bar and the
    list leave, so the clip is as large as the window allows and the transport
-   never leaves the screen, at every width.  player.js measures the height —
+   never leaves the screen — measured down to a 550 px tall window side by side
+   and 700 px stacked; a shorter one scrolls.  player.js measures the height —
    the chrome above the layout moves with the language and the top bar's wrap.
    The list column narrows before the panes stack, so a window down to 761 px
    keeps the stage beside the list. */
