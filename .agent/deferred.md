@@ -111,6 +111,10 @@ rows before sizing any unit that touches their surfaces.
   green with the seeded `view.framePos`→`view.frame` regression reding exactly the 6 rate rows while
   both `layer=show` rows stay green; time map 7 rows green with the series-index seed reding the 5
   map rows and the seek-less `|▶` seed reding the step row alone.
+- **Review UI stacked-layout stability proven by scratch scripts** (`.scratch/drift_qa.mjs`,
+  `.scratch/ratchet_qa.mjs`; → `gates.md`) → committed checks under `prototype/review-ui/tools/`:
+  drift 14/14 with the `1fr` stacked-track seed reding exactly the 4 injection rows; ratchet
+  24/24 across scales 1/1.1/1.25/1.5 with the `flex: none` removal reding the stacked holds rows.
 - **Marksman reports 3 links to existing docs as non-existent** (`docs/calibration_finding.md:9`,
   `docs/technical/entrypoints.md:181,216` → `technical/{calibration_qc,qualification}.md`; git
   ignores neither target). Suspected cause, unconfirmed: its index reads the `.gitignore`

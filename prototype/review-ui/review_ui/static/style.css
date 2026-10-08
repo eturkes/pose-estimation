@@ -687,11 +687,20 @@ canvas.strip {
 @media (max-width: 1100px) {
   /* Stacked, the two panels cannot share one screen, so the layout goes back to
      content height and the stage takes a fixed share of the viewport. */
+  /* `minmax(0, …)` as in the wide layout: `paintStrip` sets the strip's backing
+     width to its laid-out width × devicePixelRatio, a canvas's natural width is
+     its backing width, and a bare `1fr` track grows to content — so the track
+     grew by that ratio on every paint (measured 27.9M px at ratio 1.1). */
   .player-layout {
     --fit-viewport: 0;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
+  /* `flex: none`, or the base `flex: 1` basis overrides the height, the panel
+     takes content height, and the stage-wrap — the room `fitStage` reads — is
+     the stage's own height: each fit floored it smaller at fractional layout
+     (scale 1.1: 530 → 375 px in 3 s, down to the wrap's 140 px floor). */
   .stage-panel {
+    flex: none;
     height: 68dvh;
   }
   .clip-list {

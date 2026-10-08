@@ -160,6 +160,24 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   so indexing it by the playhead drew every frame after the first missing one early: measured over
   379 clips, ≥ 2 frames on all 379 (352 start at frame 2 — `min_track_age = 3`), ≥ 10 on 69,
   max 1112 after a long gap.
+- `.scratch/drift_qa.mjs` + `.scratch/ratchet_qa.mjs` — review-ui stacked-layout stability (≤ 1100 px).
+  `node .scratch/<name>.mjs http://127.0.0.1:<port> ['#NNN Task Side · View']` against a running
+  `python -m review_ui`; same resolution as `theme_qa.mjs`, no capture — layout numbers alone.
+  Both loops run only off ratio 1, which is why every earlier layout QA read green:
+  - drift — `paintStrip` sets the strip's backing width to its laid-out width × devicePixelRatio, a
+    canvas's natural width is its backing width, and the stacked `1fr` track grew to it every
+    paint (live, ratio 1.1: strip 27.9M px). 14 rows; the structural row injects a 40× backing
+    width and requires layout unmoved. **14/14 green; the `1fr` seed reds exactly the 4 stacked
+    injection rows.** This build pins `devicePixelRatio` to 1 and ignores the context's
+    `deviceScaleFactor`, so the script overrides the getter; that override never reproduced the
+    per-paint growth itself, which is why the injection row, not the playback row, carries the check.
+  - ratchet — the stacked `.stage-panel`'s `flex: 1` basis voided its `height: 68dvh`, so the
+    stage-wrap `fitStage` reads as its room was the stage's own height, and each floored fit
+    shrank it at fractional layout (scale 1.1: 530 → 375 px in 3 s, on to the 140 px floor).
+    Real fractional layout needs a browser per ratio launched with `--force-device-scale-factor`
+    (JS still reads 1). 24 rows (3 viewports × ratios 1/1.1/1.25/1.5 × holds/room). **24/24 green;
+    dropping `flex: none` reds 4 stacked holds rows and nothing else.** Both seeds restored
+    byte-identical by sha256.
 - `.scratch/triage.py [<run-tree>] [--json <out>]` — per-clip 2D weak-point metrics behind
   `docs/technical/pose-weak-points.md` (`whole`, `iso`, `alt`, `flick`, `oof`, `gap`, `lowvis`,
   `swapH`; definitions in that file). `P python .scratch/triage.py output/corpus-2d --json <out>`;
