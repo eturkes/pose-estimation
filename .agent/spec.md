@@ -148,7 +148,8 @@ hospital SCI database.
     velocity/smoothness; 3D (SAM 3D Body) = pilot more first, next run stays 2D.
   - [x] census `.scratch/messy_probe.py`; surveys `researcher-1/-2`; plan review `consultant-1`
   - [x] watch set 81 clips / 36 families; det+GMC cache; labels batch 1 (20 clips, `general-purpose-1`)
-  - [ ] labels batch 2 = held-out; hand gate graded held-out
+  - [x] labels batch 2 = held-out (`general-purpose-2/-3`, 61 clips); hand gate graded held-out
+  - [x] PENDING **M2.10.1 hand presence gate** — contract `.agent/archive/contract-m2u101.md`
   - [ ] task-span detector meets C06 bar on dense labels; shake control
   - [ ] contract → tester → impl → reviewer → gate per unit; run recipe here
   - [ ] 3D pilot widened (non-collapse control, more events/joints) → report

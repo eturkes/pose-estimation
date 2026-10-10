@@ -1886,6 +1886,7 @@ def test_report_allowlist_covers_every_throughput_label() -> None:
         tracker="rtmlib",
         drop_lower_body=False,
         drop_hips_camera=None,
+        hand_gate=False,
         det_device="CPU",
         pose_device="NPU",
     )

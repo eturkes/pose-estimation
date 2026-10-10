@@ -467,6 +467,7 @@ def test_p08_report_payload_carries_the_normalisation_identity(tmp_path, monkeyp
         tracker="rtmlib",
         drop_lower_body=False,
         drop_hips_camera=None,
+        hand_gate=False,
         det_device="CPU",
         pose_device="NPU",
         det_frequency=7,

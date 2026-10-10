@@ -58,6 +58,7 @@ POSE_CONFIG_FIELDS: tuple[str, ...] = (
     "tracker",
     "drop_lower_body",
     "drop_hips_camera",
+    "hand_gate",
     "det_device",
     "pose_device",
     "det_frequency",

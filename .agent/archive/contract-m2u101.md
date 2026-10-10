@@ -108,8 +108,32 @@ env -u LD_LIBRARY_PATH PYTHONPATH="$PWD/src" uv run --no-sync <ruff check|ruff f
 
 ## 7. Verdict table
 
-Appended at close.
+| row | verdict | evidence |
+| --- | --- | --- |
+| D01-D06 + A01-A02 | pass | `tester-1` suite 103/103 green on the implementation, 103 red on `1e335a4` (test bytes `archive/m2u101-test-1` = `d45c463`); `reviewer-1` 12 rows: 11 pass, B03 fixed |
+| P01-P06 | pass | `tests/test_m2u101_hand_gate.py` (103 cases) |
+| P07 | pass | held-out 61 clips / 732 labelled frames (`general-purpose-2/-3`): hallucinated hands dropped 191/212 = 0.90, other-person hands 7/10, real hands 28/754 = 0.037; per subject (13 with >= 5 real hands) median 0.000, max 0.123, 1 subject above 0.06 |
+| P08 | pass | 9-asset pilot, 400 frames, `--hand-gate`: per-clip presence share vs replay over M2.9, max abs delta 0.0000; 2037/6085 hand-frames gated (non-vacuous) |
+| NC1-NC4 | pass | `>` for `>=` 4 red; gate before smoother 4 red; row-index keys 2 red; drivers default off 1 red; files restored byte-identical |
+| reviewer-1 B03 | fixed | `tests/test_rev1_m2u101.py` 2 red / 6 green before, 8 green after: pruning ran only on rows; now every frame |
 
 ## 8. Amendments
 
 Appended as ruled.
+
+### A01 — a gated hand's body proxies go with it (`tester-1` P05 reading)
+
+MediaPipe body points 17-22 (pinky, index, thumb) are mapped from the hand's COCO-WholeBody
+points, so zeroing a hand's 21 scores exports those three body points of that side at
+visibility 0 as well; their coordinates stay. A hallucinated hand's fingertips are no more an
+observation as body points than as hand points. `tester-1`'s P05 case read "body stays exact"
+over every body column; the case now excludes the three proxies of the gated side and asserts
+them at 0.
+
+### A02 — schema pins of earlier units follow D05/D06
+
+`tests/test_corpus_run_preconditions.py` pins the diagnostics header (now + `hand_frames_present`,
+`hand_frames_gated`); `tests/test_m2u95_body_drop.py` pinned corpus v4 / pilot v3 (now an
+ordering: >= the version that introduced its fields); four suites build driver-args namespaces
+without `hand_gate` (`pose_config` reads every `POSE_CONFIG_FIELDS` name) and gain
+`hand_gate=False`.

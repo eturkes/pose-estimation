@@ -78,6 +78,14 @@ Selected with `--tracking {hands|hands-arms|body}`. Mode constants live in `proc
   the corpus drivers pass both, with `above`). Knees, ankles and feet score 0 on every camera, and
   the hips score 0 on cameras whose name contains the token, so trunk lean and rotation come from
   the side views (posture symmetry reads the shoulders alone). No clinical feature reads a knee, ankle or foot. The drop runs after out-of-frame zeroing.
+- **The hand gate admits a hand by its exported score** (`--hand-gate`; the corpus drivers pass
+  it). It runs after the smoother and before export, keyed by track. A hand is present when at
+  least 10 of its 21 scores are positive; its level is their mean. An absent hand turns on at a
+  level of 0.65 or more and stays on until its level falls below 0.5 or it goes absent. While it
+  is off, its 21 scores are 0, so the export writes no coordinates for it and the body pinky,
+  index and thumb points of that side carry visibility 0. RTMW draws a hidden hand where no hand
+  is at a median score of 0.43, against 0.83 for real hands (148 labelled frames, 20 watch-set clips). The diagnostics row counts
+  `hand_frames_present` and `hand_frames_gated` per source.
 
 ## Single-subject mode (`--single-subject`)
 

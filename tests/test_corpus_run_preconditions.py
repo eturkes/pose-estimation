@@ -103,6 +103,7 @@ def _dispatch_with_writing_source(
         output_dir=str(output_dir),
         drop_lower_body=False,
         drop_hips_camera=None,
+        hand_gate=False,
     )
     run_module._dispatch_sessions(
         args,
@@ -229,6 +230,9 @@ _SOURCE_DIAGNOSTIC_FIELDS = (
     "fps_nominal",
     "latency_ms_mean",
     "latency_ms_p95",
+    # M2.10.1 D06: the hand gate's firing counters.
+    "hand_frames_present",
+    "hand_frames_gated",
 )
 
 
@@ -263,6 +267,7 @@ def _source_args() -> SimpleNamespace:
         single_subject=False,
         drop_lower_body=False,
         drop_hips_camera=None,
+        hand_gate=False,
     )
 
 
@@ -353,6 +358,7 @@ def test_p06_dispatch_forwards_diagnostic_path_and_announces_existing_file(
         output_dir=str(output_dir),
         drop_lower_body=False,
         drop_hips_camera=None,
+        hand_gate=False,
     )
 
     run_module._dispatch_sessions(

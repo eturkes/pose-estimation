@@ -31,7 +31,7 @@ import numpy as np
 from .calibration import CalibrationError
 from .constraints import BoneLengthSmoother
 from .export import frame_to_rows, open_csv_writer
-from .keypoint_hygiene import apply_hygiene
+from .keypoint_hygiene import HandPresenceGate, apply_hygiene
 from .mapping import coco_hand_confidences, coco_hand_handedness, coco_to_mediapipe
 from .multicam import (
     SessionError,
@@ -367,6 +367,14 @@ def parse_args(argv=None):
         help="Score the hips 0 on cameras whose name contains TOKEN, for example an overhead camera.",
     )
     p.add_argument(
+        "--hand-gate",
+        action="store_true",
+        help=(
+            "Export a hand only while its mean score holds: on at 0.65, off below 0.5. "
+            "It removes hands the model draws where no hand is."
+        ),
+    )
+    p.add_argument(
         "--headless",
         action="store_true",
         help="Skip the display. Print only latency statistics.",
@@ -405,6 +413,7 @@ def process_source(
     video_name=None,
     drop_lower_body=False,
     drop_hips_camera=None,
+    hand_gate=None,
 ):
     """Process a single video/camera source.  Returns latency list (ms).
 
@@ -422,6 +431,9 @@ def process_source(
     the hips 0 when the camera label (after the last ``/`` of *video_name*)
     contains it.  Both default off, so a caller that passes neither keeps every
     body part.
+
+    *hand_gate* (a ``keypoint_hygiene.HandPresenceGate``) zeroes the scores of
+    hands it does not admit, after the smoother and before export.
     """
     source = int(source_str) if source_str.isdigit() else source_str
     cap = open_capture(source, display=source_str)
@@ -431,6 +443,7 @@ def process_source(
     _reset_if_supported(pose_tracker)
     _reset_if_supported(smoother)
     _reset_if_supported(bone_smoother)
+    _reset_if_supported(hand_gate)
 
     fps_video = safe_fps(cap.get(cv2.CAP_PROP_FPS))
     source_clock = SourceTimestampClock(
@@ -544,6 +557,26 @@ def process_source(
                     # the temporal constraint.
                     bone_smoother.prune([])
 
+            if hand_gate is not None:
+                rows = scores is not None and scores.ndim == 2 and scores.shape[0] > 0
+                if smoother is not None:
+                    gate_keys = list(smoother.output_track_keys()) if rows else []
+                    live_keys = list(smoother.live_track_keys())
+                else:
+                    tracker_ids = getattr(pose_tracker, "last_track_ids", None)
+                    n_rows = scores.shape[0] if rows else 0
+                    gate_keys = (
+                        list(tracker_ids)
+                        if tracker_ids is not None and len(tracker_ids) == n_rows
+                        else list(range(n_rows))
+                    )
+                    live_keys = gate_keys
+                # Pruned every frame, rows or none: an expired key must not hand its state to a
+                # re-born track (M2.10.1 B03).
+                hand_gate.prune(live_keys)
+                if rows:
+                    scores = hand_gate(scores, gate_keys)
+
             if args.single_subject:
                 keypoints, scores = filter_single_subject(keypoints, scores)
 
@@ -649,6 +682,7 @@ def process_source(
                 clock=source_clock,
                 fps_nominal=fps_video,
                 latencies=latencies,
+                hand_gate=hand_gate,
             )
 
     return latencies
@@ -664,10 +698,12 @@ SOURCE_DIAGNOSTIC_FIELDS: tuple[str, ...] = (
     "fps_nominal",
     "latency_ms_mean",
     "latency_ms_p95",
+    "hand_frames_present",
+    "hand_frames_gated",
 )
 
 
-def write_source_diagnostics(path, *, video, clock, fps_nominal, latencies):
+def write_source_diagnostics(path, *, video, clock, fps_nominal, latencies, hand_gate=None):
     """Write the one-row per-source diagnostics summary.
 
     Written from the ``finally`` arm, so an interrupted run still reports what
@@ -685,6 +721,8 @@ def write_source_diagnostics(path, *, video, clock, fps_nominal, latencies):
         "fps_nominal": f"{fps_nominal:.6f}",
         "latency_ms_mean": f"{float(np.mean(latencies)):.3f}" if latencies else "",
         "latency_ms_p95": f"{float(np.percentile(latencies, 95)):.3f}" if latencies else "",
+        "hand_frames_present": hand_gate.hand_frames_present if hand_gate is not None else 0,
+        "hand_frames_gated": hand_gate.hand_frames_gated if hand_gate is not None else 0,
     }
     pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as handle:  # noqa: PTH123
@@ -756,7 +794,9 @@ def _run_mediapipe(args):
     return subprocess.call(cmd)
 
 
-def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoother, screen):
+def _dispatch_sessions(
+    args, *, pose_tracker, draw_skeleton, smoother, bone_smoother, screen, hand_gate=None
+):
     """Resolve --session-dir / --sessions-dir and run per-camera processing.
 
     Constructs an rtmlib camera processor closure that wraps
@@ -779,6 +819,7 @@ def _dispatch_sessions(args, *, pose_tracker, draw_skeleton, smoother, bone_smoo
             video_name=video_name,
             drop_lower_body=args.drop_lower_body,
             drop_hips_camera=args.drop_hips_camera,
+            hand_gate=hand_gate,
         )
         print_latency_summary(latencies)
         return latencies
@@ -922,6 +963,8 @@ def main(argv=None):
         segments = BONE_SEGMENTS_WB_BODY if args.tracking == "body" else BONE_SEGMENTS_WB
         bone_smoother = BoneLengthSmoother(segments=segments)
 
+    hand_gate = HandPresenceGate() if args.hand_gate else None
+
     # ── Multi-camera session dispatch ─────────────────────────────
     if args.session_dir or args.sessions_dir:
         screen = None
@@ -939,6 +982,7 @@ def main(argv=None):
                 smoother=smoother,
                 bone_smoother=bone_smoother,
                 screen=screen,
+                hand_gate=hand_gate,
             )
         except SessionError as exc:
             print(f"ERROR: {exc}")
@@ -999,6 +1043,7 @@ def main(argv=None):
                 output_csv=csv_path,
                 drop_lower_body=args.drop_lower_body,
                 drop_hips_camera=args.drop_hips_camera,
+                hand_gate=hand_gate,
             )
             print_latency_summary(latencies)
             all_latencies.extend(latencies)

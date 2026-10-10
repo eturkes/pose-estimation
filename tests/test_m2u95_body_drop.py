@@ -507,7 +507,8 @@ def test_p05_driver_defaults_vocabulary_and_generator_version(name, monkeypatch)
         "above",
     )
     assert driver["REPORT_FIELDS"] >= _DROP_FIELDS
-    assert driver["GENERATOR_VERSION"] == ("v4" if name == "corpus_run_2d.py" else "v3")
+    # M2.9.5 introduced the drop fields at corpus v4 / pilot v3; later units bump past it.
+    assert int(driver["GENERATOR_VERSION"].lstrip("v")) >= (4 if name == "corpus_run_2d.py" else 3)
 
 
 @pytest.mark.parametrize("name", _DRIVERS)

@@ -24,6 +24,12 @@ DUPLICATE_WEAK = 0.5
 DUPLICATE_RELATIVE = 0.6
 DUPLICATE_MIN_COMMON = 10
 
+# Calibrated on the smoother's exported score (min(EMA, raw)) over 148 labelled frames: hallucinated
+# hands median 0.43, real hands 0.83.  Hysteresis keeps a real hand through brief dips.
+HAND_GATE_ON = 0.65
+HAND_GATE_OFF = 0.5
+HAND_GATE_MIN_POINTS = 10
+
 
 def zero_out_of_frame(keypoints, scores, width, height):
     """Scores with 0 wherever a keypoint is non-finite or outside ``[0, w) x [0, h)``."""
@@ -94,3 +100,61 @@ def apply_hygiene(keypoints, scores, width, height, *, drop_lower_body=False, dr
     out = zero_out_of_frame(keypoints, scores, width, height)
     out = drop_body_parts(out, lower_body=drop_lower_body, hips=drop_hips)
     return suppress_duplicate_hand(keypoints, out)
+
+
+def _finite_mean(values):
+    """Mean of positive finite values; rescaled by the maximum only when the plain sum overflows."""
+    with np.errstate(over="ignore"):
+        mean = float(values.mean())
+    if np.isfinite(mean):
+        return mean
+    peak = float(values.max())
+    return peak * float((values / peak).mean())
+
+
+class HandPresenceGate:
+    """Export admission per hand with hysteresis, keyed by track.
+
+    A hand is present when at least ``min_points`` of its 21 scores are finite
+    and positive; its level is their mean.  Off -> on at ``level >= on``; on ->
+    off when absent or ``level < off``.  An off hand's scores return as 0.
+    Runs after the smoother: the thresholds are calibrated on its output score.
+    """
+
+    def __init__(self, on=HAND_GATE_ON, off=HAND_GATE_OFF, min_points=HAND_GATE_MIN_POINTS):
+        if on <= off:
+            raise ValueError(f"hand gate needs on > off, got on={on} off={off}")
+        self.on, self.off, self.min_points = float(on), float(off), int(min_points)
+        self.reset()
+
+    def reset(self):
+        self.state: dict = {}
+        self.hand_frames_present = 0
+        self.hand_frames_gated = 0
+
+    def prune(self, live_keys):
+        live = set(live_keys)
+        self.state = {key: value for key, value in self.state.items() if key in live}
+
+    def __call__(self, scores, keys):
+        out = np.array(scores, dtype=np.float64, copy=True)
+        if out.ndim != 2 or out.shape[1] != WHOLE_BODY_KEYPOINTS:
+            return out
+        keys = list(keys)
+        if len(keys) != out.shape[0]:
+            raise ValueError(f"{len(keys)} keys for {out.shape[0]} rows")
+        for row, key in enumerate(keys):
+            states = self.state.setdefault(key, [False, False])
+            for hand, part in enumerate((LEFT_HAND, RIGHT_HAND)):
+                conf = out[row, part]
+                positive = np.isfinite(conf) & (conf > 0.0)
+                present = int(positive.sum()) >= self.min_points
+                level = _finite_mean(conf[positive]) if present else 0.0
+                if present:
+                    self.hand_frames_present += 1
+                states[hand] = present and level >= (self.off if states[hand] else self.on)
+                if not states[hand]:
+                    if present:
+                        self.hand_frames_gated += 1
+                    out[row, part] = 0.0
+        return out

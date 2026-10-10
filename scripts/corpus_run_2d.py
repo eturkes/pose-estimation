@@ -67,7 +67,8 @@ GENERATOR = "scripts/corpus_run_2d.py"
 # v3: the report gained `tracker`, for the same reason: two generations under
 # different trackers are shaped identically.
 # v4: the report gained `drop_lower_body` + `drop_hips_camera`.
-GENERATOR_VERSION = "v4"
+# v5: the report gained `hand_gate`.
+GENERATOR_VERSION = "v5"
 CLINICAL_R = ROOT / "analysis" / "clinical_features.R"
 # Named because the redaction allowlist has to hold every label the report can
 # emit: `partial` is unreachable on a full corpus run and so shipped un-allowed,
@@ -99,6 +100,7 @@ REPORT_FIELDS = frozenset(
         "tracker",
         "drop_lower_body",
         "drop_hips_camera",
+        "hand_gate",
         "det_device",
         "pose_device",
         "det_frequency",
@@ -269,6 +271,8 @@ def _attempt_event(event_id: str, args: argparse.Namespace, logs: Path) -> dict[
     if args.drop_hips_camera:
         # One argv item: a token beginning with "-" must not read as another option.
         command.append(f"--drop-hips-camera={args.drop_hips_camera}")
+    if args.hand_gate:
+        command.append("--hand-gate")
     code, run_seconds = _run_stage(command, logs / event_id / "run.log")
     if code != 0:
         write_marker(event_out, status=MARKER_FAILED, stage=STAGE_RUN, exit_code=code)
@@ -486,6 +490,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--tracker", default="subject", choices=["subject", "rtmlib"])
     parser.add_argument("--drop-lower-body", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--drop-hips-camera", default="above")
+    parser.add_argument("--hand-gate", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--det-device", default="GPU")
     parser.add_argument("--pose-device", default="NPU")
     parser.add_argument("--det-frequency", type=int, default=1)
@@ -642,6 +647,7 @@ def main() -> int:
             "tracker": args.tracker,
             "drop_lower_body": args.drop_lower_body,
             "drop_hips_camera": args.drop_hips_camera,
+            "hand_gate": args.hand_gate,
             "det_device": args.det_device,
             "pose_device": args.pose_device,
             "det_frequency": args.det_frequency,

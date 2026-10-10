@@ -50,7 +50,8 @@ ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = "scripts/pilot_corpus_run.py"
 # v2: the report gained `tracker` — generations under different trackers are shaped identically.
 # v3: the report gained `drop_lower_body` + `drop_hips_camera`.
-GENERATOR_VERSION = "v3"
+# v4: the report gained `hand_gate`.
+GENERATOR_VERSION = "v4"
 CLINICAL_R = ROOT / "analysis" / "clinical_features.R"
 
 # Contract P17's three axes. `pts_monotonic` is reported, never required: it is
@@ -89,6 +90,7 @@ REPORT_FIELDS = frozenset(
         "tracker",
         "drop_lower_body",
         "drop_hips_camera",
+        "hand_gate",
         "det_device",
         "pose_device",
         "det_frequency",
@@ -335,6 +337,8 @@ def _run_event(event_dir: Path, out: Path, log: Path, args: argparse.Namespace) 
     if args.drop_hips_camera:
         # One argv item: a token beginning with "-" must not read as another option.
         command.append(f"--drop-hips-camera={args.drop_hips_camera}")
+    if args.hand_gate:
+        command.append("--hand-gate")
     if args.max_frames:
         command += ["--max-frames", str(args.max_frames)]
     started = time.monotonic()
@@ -607,6 +611,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--tracker", default="subject", choices=["subject", "rtmlib"])
     parser.add_argument("--drop-lower-body", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--drop-hips-camera", default="above")
+    parser.add_argument("--hand-gate", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--det-device", default="GPU")
     parser.add_argument("--pose-device", default="NPU")
     parser.add_argument("--det-frequency", type=int, default=1)
@@ -710,6 +715,7 @@ def main() -> int:
             "tracker": args.tracker,
             "drop_lower_body": args.drop_lower_body,
             "drop_hips_camera": args.drop_hips_camera,
+            "hand_gate": args.hand_gate,
             "det_device": args.det_device,
             "pose_device": args.pose_device,
             "det_frequency": args.det_frequency,
