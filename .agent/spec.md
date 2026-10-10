@@ -134,6 +134,24 @@ hospital SCI database.
   bullet); catalog after-table + P08 pass / P09 fail / P10 vacuous (`pose-weak-points.md`
   § M2.9 corpus, 3 `deferred.md` rows); `corpus-run.md` measured-whole = 5.559 h; spot-check
   sheets watched; review ledger `.agent/review.md`.
+- [ ] **M2.10 messy-footage compensation, run prep (user request; resume note)** — bystanders
+  (wrong person whole clip, mid-clip switch, limb mixing, passer-by jumps), hand-held camera
+  (shake, re-aim, setup spans, zoom), inconsistent angles; user: cost no concern, frame viewing
+  authorized MAIN + teammates this request, scratch images deleted at close.
+  - Finish line: each compensation measured on a labelled watch set vs M2.9, winners landed under
+    spine gates (contract → tester → impl → reviewer → decisive gate green), run recipe +
+    command written here; corpus run NOT started (fresh session runs it); clean tree.
+  - User rulings (this session): hand gate adopt, hysteresis on 0.65 / off 0.5 frozen, held-out
+    validation + per-subject visible-hand loss; setup = trim to the settled task span, outside exports
+    no rows, counted in the run report, no interior gap bridged; shake = synthetic-shake control
+    first, compensate only if it recovers truth, else export camera motion + exclude shaky clips'
+    velocity/smoothness; 3D (SAM 3D Body) = pilot more first, next run stays 2D.
+  - [x] census `.scratch/messy_probe.py`; surveys `researcher-1/-2`; plan review `consultant-1`
+  - [x] watch set 81 clips / 36 families; det+GMC cache; labels batch 1 (20 clips, `general-purpose-1`)
+  - [ ] labels batch 2 = held-out; hand gate graded held-out
+  - [ ] task-span detector meets C06 bar on dense labels; shake control
+  - [ ] contract → tester → impl → reviewer → gate per unit; run recipe here
+  - [ ] 3D pilot widened (non-collapse control, more events/joints) → report
 - [ ] **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`**
   - Acceptance: `build_assets.py` refuses with a named cause when absent; a committed check reports
     0 missing code points.
