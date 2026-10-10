@@ -171,5 +171,14 @@ rows before sizing any unit that touches their surfaces.
   CUDA calls patched to `SAM3D_DEVICE`; weights gated, granted) → a widened pilot over >= 40 events
   reports, per joint (elbow, shoulder, trunk), synced cross-view MAE against a time-shuffled control
   and against 2D, per-frame wall, and a non-collapse check (within-series SD vs 2D); adoption is the
-  user's ruling. Watch-set first read: elbow 5.9° synced vs 12.0° shuffled (2D 59.7 vs 59.7),
-  ~1.3 s/frame.
+  user's ruling. Widened read (19 events / 620 synced instants, `.scratch/pilot3d/xview_wide.json`,
+  `xview_stats.py`): elbow flexion cross-view MAE 6.0° synced vs 11.7° time-shuffled (2D 33.5 vs
+  35.8), 3D closer on 23/24 series; shoulder 4.3 vs 5.2 (ratio 0.82, worse than 2D's 0.51 — the
+  3D shoulder may lean on the model's prior); inference 0.67 s/frame median on the Arc GPU.
+- **Pose latency runs 3-5× slow on some assets, cause unmeasured** — paired probes on one day: 1-3 of
+  11 assets at 130-274 ms/frame mean in BOTH arms (survey on and off) against M2.9's corpus median
+  50.0 ms and 0/379 assets above 100 ms; AC power, `performance` profile, no GPU throttle flag at
+  idle (`.scratch/messy/latency/probe_*_assets.json`) → one measurement names the stalled stage
+  (detector GPU, pose NPU or decode) on a slow asset, and a rerun of that asset reads <= 70 ms/frame
+  after the named fix or the cause is recorded as host-side.
+

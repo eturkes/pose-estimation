@@ -40,9 +40,12 @@ hospital SCI database.
   `.scratch/compare-root/cohort/` for the user's before/after review — delete both on the user's
   word. Comparison UI = `uv run --directory prototype/review-ui python -m review_ui --port 8792
   --repo "$PWD/.scratch/compare-root"` (symlinks onto the primary trees, the superseded run).
+  Next generation = M2.10 (hand gate + camera survey, drivers default on): `.scratch/rerun_m210.sh`
+  moves M2.9 to `output/corpus-2d-superseded-m29/` (user: keep both superseded trees), then runs
+  `python scripts/corpus_run_2d.py` under the accelerator recipe → `.scratch/rerun-m210/`.
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
   run; each `P pose-estimation-<name> … --out <dir>`; `--help` = args.
-- Decisive gate — `P pytest`, 2129 tests, ~28 min, alone.
+- Decisive gate — `P pytest`, 2367 tests, ~32 min, alone.
 
 ## Decisions
 
@@ -101,6 +104,13 @@ hospital SCI database.
   so it would move the smoothness feature too.
 - **SPARC is the primary smoothness feature, `normalized_jerk` secondary** — `*_wrist_sal`
   computes SPARC (adaptive cutoff, method v3); it publishes with the M2.9 corpus rerun.
+- **Hallucinated hands are gated by their exported score** (user ruling) — hysteresis on 0.65 /
+  off 0.5 per track after the smoother; held out: 90 % of hallucinated hands removed, 3.7 % of real
+  hands lost (one subject 12 %) → `docs/technical/pose-weak-points.md` § M2.10.
+- **Clips are trimmed to their estimated task span and motion is read in the reference frame** (user
+  ruling) — frames outside the span export no rows (setup frames excluded 0.967 on 13 densely
+  labelled clips); each row's estimated camera similarity is applied in R before velocity, jerk,
+  SPARC and reach (validated on synthetic shake); per-row inter-segment angles are unchanged.
 - **Fix upstream only** — the pipeline changes and the corpus reruns, so `output/corpus-2d/` stays
   the single source of truth and no post-hoc filter bolts onto published tracks.
 
@@ -134,27 +144,18 @@ hospital SCI database.
   bullet); catalog after-table + P08 pass / P09 fail / P10 vacuous (`pose-weak-points.md`
   § M2.9 corpus, 3 `deferred.md` rows); `corpus-run.md` measured-whole = 5.559 h; spot-check
   sheets watched; review ledger `.agent/review.md`.
-- [ ] **M2.10 messy-footage compensation, run prep (user request; resume note)** — bystanders
-  (wrong person whole clip, mid-clip switch, limb mixing, passer-by jumps), hand-held camera
-  (shake, re-aim, setup spans, zoom), inconsistent angles; user: cost no concern, frame viewing
-  authorized MAIN + teammates this request, scratch images deleted at close.
-  - Finish line: each compensation measured on a labelled watch set vs M2.9, winners landed under
-    spine gates (contract → tester → impl → reviewer → decisive gate green), run recipe +
-    command written here; corpus run NOT started (fresh session runs it); clean tree.
-  - User rulings (this session): hand gate adopt, hysteresis on 0.65 / off 0.5 frozen, held-out
-    validation + per-subject visible-hand loss; setup = trim to the settled task span, outside exports
-    no rows, counted in the run report, no interior gap bridged; shake = synthetic-shake control
-    first, compensate only if it recovers truth, else export camera motion + exclude shaky clips'
-    velocity/smoothness; 3D (SAM 3D Body) = pilot more first, next run stays 2D.
-  - [x] census `.scratch/messy_probe.py`; surveys `researcher-1/-2`; plan review `consultant-1`
-  - [x] watch set 81 clips / 36 families; det+GMC cache; labels batch 1 (20 clips, `general-purpose-1`)
-  - [x] labels batch 2 = held-out (`general-purpose-2/-3`, 61 clips); hand gate graded held-out
-  - [x] 4c471ab **M2.10.1 hand presence gate** — contract `.agent/archive/contract-m2u101.md`
-  - [x] shake control: compensation recovers synthetic shake (14 clips, side + above)
-  - [x] PENDING **M2.10.2 camera survey** — contract `.agent/archive/contract-m2u102.md`; task span
-    + compensation export + R stabilization
-  - [ ] contract → tester → impl → reviewer → gate per unit; run recipe here
-  - [ ] 3D pilot widened (non-collapse control, more events/joints) → report
+- [x] ecd0d86 **M2.10 messy-footage compensation, run prep (user request)** — M2.10.1 hand gate
+  `4c471ab`, M2.10.2 camera survey `ecd0d86`; wrong-person residue + 3D angles → `.agent/deferred.md`.
+- [ ] **M2.10 corpus run — fresh session (resume note)**. Finish line: 193/193 events, 379/379 `ok`,
+  all verdicts true, `task_span` block published; cohort republished; after-table vs M2.9 in
+  `pose-weak-points.md` § M2.10; user reviews the new videos.
+  - Run: `bash .scratch/rerun_m210.sh` (background, log `.scratch/rerun-m210/driver.log`). Sizing:
+    paired probes (11 assets × <= 600 frames, survey on vs off, `scripts/pilot_corpus_run.py --seed
+    20261011 --min-assets 1 --tracking body --max-frames 600`) measured 1.14× (568.4 vs 500.6 s,
+    `.scratch/messy/latency/`) → **projected** ~6.3 h over M2.9's measured 5.56 h, longer if the
+    slow-latency assets persist (`.agent/deferred.md`). Preflight: devices
+    `['CPU','GPU','NPU']`; first event's `run.log` = `pose-device=NPU`, pose latency ~50 ms/frame.
+  - Then: the `cohort/` command in `Artifacts`; the M2.10 graders (`gates.md`) on the new tree.
 - [ ] **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`**
   - Acceptance: `build_assets.py` refuses with a named cause when absent; a committed check reports
     0 missing code points.

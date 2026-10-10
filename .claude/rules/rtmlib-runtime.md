@@ -75,6 +75,17 @@ paths:
   side views (posture symmetry reads shoulders alone) (`--drop-lower-body --drop-hips-camera above`); the rest stays a model limit. A row
   left with no positive score is carried by the smoother, not held — at visibility 0 either way.
 
+## Export admission after the smoother (`HandPresenceGate`, `camera_survey`)
+
+- **The hand gate reads the smoother's exported score, so it runs after the smoother** — unlike
+  hygiene, which zeroes raw observations before it. Thresholds (on 0.65 / off 0.5) were calibrated
+  on `min(EMA, raw)` as exported; moving the gate before the smoother changes the admitted score
+  (NC2 reds). It prunes its per-key state every frame, rows or none: an expired key re-born under
+  the same smoother key otherwise inherits "on" (M2.10.1 B03).
+- **The camera survey's GMC uses no person mask.** On frames a seated patient and a therapist fill,
+  masking left 1960/7209 steps unmeasured and SPARC error median 0.20 (max 6.8) under known shake;
+  unmasked RANSAC: 0 unmeasured, 0.05 (max 0.19). Thresholds + measurements → `contract-m2u102.md`.
+
 ## `PoseTracker` (`--tracker rtmlib`) — stateful, unsound; kept for comparison runs
 
 - **`run.py --tracker rtmlib` constructs it with `tracking=False` (M2.8.2 D01). Never restore `tracking=True`.** The IoU branch reorders the CURRENT frame's keypoints by PERSISTENT track id — `keypoints = np.array([keypoints[i] for i in self.track_ids_last_frame])` — while `track_by_iou` mints `track_id = next_id++` for any unmatched box above `MIN_AREA = 1000`. One missed match indexes a one-person array at `[1]`, raises `IndexError`, and hits a bare `except` that returns **before `frame_cnt += 1` and before `bboxes_last_frame` is replaced**. Both freeze for the rest of the source, permanently, and the pre-reorder keypoints still return, so yield stays ~0.99 and nothing downstream looks broken.

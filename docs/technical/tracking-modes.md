@@ -82,10 +82,11 @@ Selected with `--tracking {hands|hands-arms|body}`. Mode constants live in `proc
   it). It runs after the smoother and before export, keyed by track. A hand is present when at
   least 10 of its 21 scores are positive; its level is their mean. An absent hand turns on at a
   level of 0.65 or more and stays on until its level falls below 0.5 or it goes absent. While it
-  is off, its 21 scores are 0, so the export writes no coordinates for it and the body pinky,
-  index and thumb points of that side carry visibility 0. RTMW draws a hidden hand where no hand
-  is at a median score of 0.43, against 0.83 for real hands (148 labelled frames, 20 watch-set clips). The diagnostics row counts
-  `hand_frames_present` and `hand_frames_gated` per source.
+  is off, its 21 scores are 0. The export then writes no coordinates for that hand. The body pinky,
+  index and thumb points of that side carry visibility 0 too. RTMW draws a hidden hand where no
+  hand is at a median score of 0.43. Real hands score a median of 0.83 (148 labelled frames,
+  20 watch-set clips). The diagnostics row counts `hand_frames_present` and `hand_frames_gated`
+  per source.
 
 ## Camera survey (`--camera-survey`, `camera_survey.py`)
 
@@ -94,26 +95,27 @@ zooms in between. With `--camera-survey` (the corpus drivers pass it), `process_
 file source once before pose:
 
 - **Camera steps.** Between consecutive frames it tracks Shi-Tomasi corners at 640 px with
-  forward-backward LK and fits a similarity by RANSAC. The fit uses no person mask: on frames that
-  a seated patient and a therapist fill, a mask leaves too few background points, and RANSAC
-  rejects the minority that moves on its own.
-- **Task view.** A settled placement is at least 1 s whose next-second camera motion stays under
-  0.05 (centre shift / max-dim + rotation deg / 100 + |log scale|) and where a person is detected
-  on at least 0.6 of the sampled frames. The reference is the sampled frame (every fifth) nearest
-  the middle of the longest placement.
-- **Task span.** Every fifth frame registers to the reference by ORB. A frame is in view when its
-  transform onto the reference, carried through the camera steps from the nearest registered frame,
-  stays within 0.25 max-dim shift, 20 deg and 0.35 log-scale. The span is the in-view run holding
-  the reference, merged with in-view runs across gaps up to `--task-gap-s` (2.5 s). Frames outside
-  it are not posed and export no row. A clip without a settled placement keeps every frame.
+  forward-backward LK and fits a similarity by RANSAC. The fit uses no person mask. On frames that
+  a seated patient and a therapist fill, a mask leaves too few background points. RANSAC rejects
+  the minority of points that move on their own.
+- **Task view.** A settled placement lasts at least 1 s. Over it, the camera motion of the next
+  second stays under 0.05 (centre shift / max-dim + rotation deg / 100 + |log scale|). A person is
+  detected on at least 0.6 of its sampled frames. The reference is the sampled frame (every fifth)
+  nearest the middle of the longest placement.
+- **Task span.** Every fifth frame registers to the reference by ORB. The camera steps carry each
+  frame's transform onto the reference from the nearest registered frame. A frame is in view when
+  that transform stays within 0.25 max-dim shift, 20 deg and 0.35 log-scale. The span is the
+  in-view run that holds the reference, merged with in-view runs across gaps up to `--task-gap-s`
+  (2.5 s). Frames outside it are not posed and export no row. A clip without a settled placement
+  keeps every frame.
 - **Compensation.** Each exported row carries `cam_a`, `cam_b`, `cam_tx`, `cam_ty`: its similarity
   onto the reference frame in normalized coordinates, composed from the camera steps alone.
   `analysis/clinical_features.R` maps every x/y pair onto the reference frame before it computes
-  features, so velocity, jerk and SPARC read the subject's motion without the camera's. Image-plane
-  angles between segments do not change; orientations against the image axes (trunk lean) read the
-  reference frame's axes.
-- The diagnostics row records the span, the frames outside it, the reference frame, unmeasured
-  steps and the camera's median and p90 speed over the span.
+  features. Velocity, jerk and SPARC then read the subject's motion with the estimated camera
+  motion removed. Angles between segments, trunk rotation included, do not change per row. Trunk lean is
+  measured against the image vertical, so it reads the reference frame's vertical.
+- The diagnostics row records the span, the frames outside it and the reference frame. It also
+  records the unmeasured steps and the camera's median and p90 speed over the span.
 
 ## Single-subject mode (`--single-subject`)
 
