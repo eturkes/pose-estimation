@@ -166,3 +166,33 @@ Appended at close.
 ## 8. Amendments
 
 Appended as ruled.
+
+### A01 — the API, frozen (`tester-2` request)
+
+```python
+CameraSurvey(width: int, height: int, fps: float, steps: np.ndarray, measured: np.ndarray,
+             reference: int | None, span: tuple[int, int], to_reference: np.ndarray)  # frozen dataclass
+  .n_frames -> int                      # len(steps)
+  .speeds(start, end) -> np.ndarray     # centre speed of each MEASURED step t in [max(start,1), end), max-dim/s
+# steps[t]: 3x3 similarity frame t-1 -> frame t, full-res px; steps[0] = identity, measured[0] = False.
+estimate_step(previous: gray, current: gray, scale: float = 1.0) -> np.ndarray | None  # 3x3; translation x scale
+in_bounds(transform: 3x3, width, height) -> bool                      # D04 bounds, all strict "<"
+net_motion(steps, measured, width, height, fps) -> np.ndarray (n,)
+  # horizon = max(1, round(fps)) steps t+1..min(n-1, t+horizon); inf if any of them unmeasured;
+  # last frame (no steps ahead) = the previous frame's value (0.0 when n == 1).
+runs(mask) -> list[tuple[int, int]]                                   # maximal True runs, [a, b)
+choose_reference(motion: (n,), person: dict[int, bool], fps) -> int | None
+  # person = {sampled frame index: has a person}; placement = run of motion < SETTLED with
+  # b - a >= fps and mean(person over sampled frames inside) >= PERSON_SHARE (no sampled frame -> skip);
+  # longest placement wins (first on ties); reference = sampled frame minimising (|f - (a+b)/2|, f).
+register(frame_features, reference_features, scale) -> (3x3 | None, inliers: int)
+  # features = (points (k,2) full-res float32, ORB descriptors | None)
+in_view(steps, anchors: dict[int, 3x3], width, height) -> np.ndarray bool (n,)
+  # forward: anchor replaces; else carried @ inv(steps[t]); backward: anchor replaces; else carried @ steps[t+1]
+task_span(view, reference: int | None, fps, gap_s=TASK_GAP_S) -> tuple[int, int]
+  # gap = round(gap_s * fps) frames; merge when distance <= gap; no reference / no run holding it -> (0, n)
+to_reference(steps, reference: int | None) -> np.ndarray (n,3,3)
+  # identity at the reference; t > ref: out[t-1] @ inv(steps[t]); t < ref: out[t+1] @ steps[t+1]; None -> all identity
+survey_source(capture, detector=None, *, max_frames=0, gap_s=TASK_GAP_S) -> CameraSurvey | None  # None when no frame
+export.camera_values(transform, frame_h, frame_w) -> dict[str, str]   # 6-dp strings, keys CAMERA_COLUMNS
+```
