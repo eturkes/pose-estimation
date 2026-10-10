@@ -189,3 +189,14 @@ rows before sizing any unit that touches their surfaces.
   same-stem `.md` targets from Marksman's startup index → Marksman reports zero such warnings on those
   three links in a fresh session, the published trees stay ignored (`git check-ignore calibration_qc
   qualification` rc 0).
+
+- **Two live pointers cite a global `Subagents` label the global file never carries** —
+  `.claude/rules/delegation.md:16` + `.claude/rules/gates.md:268` say "global `Subagents`
+  deliverable-first"; `~/.claude/CLAUDE.md` holds 0 `deliverable-first` at agents@4d22203 and at
+  agents@eac5295 (the seed-before-dispatch rule lives in its `Brief` bullet) → every live pointer
+  into global `Subagents` names a term `command grep -F` finds in `~/.claude/CLAUDE.md`.
+
+- **Full-suite size disagrees across live law** — `.claude/rules/gates.md:20` says `≈ 28 min (2129
+  tests)`; `.agent/spec.md` `Artifacts` says 2367 tests, ~32 min; the two full runs at 41d174a
+  measured 2367 passed in 43:35 + 28:48 → one place carries the collected count + the measured wall
+  with its provenance, and the other points at it.

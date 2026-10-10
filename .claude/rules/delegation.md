@@ -1,6 +1,6 @@
 # Delegation — traps measured in this project
 
-Teammate triggers + mechanics = global `CLAUDE.md` `Subagents`; each role's standing rules =
+Teammate fits + mechanics = global `CLAUDE.md` `Subagents`; each role's standing rules =
 `~/.claude/agents/<role>.md`. These are the project's own measured corrections.
 
 - **Poll a worktree teammate's report inside its worktree.** A teammate whose cwd is `.scratch/worktrees/<name>` writes `.scratch/agents/<name>.md` **there** — a different file from MAIN's `.scratch/agents/<name>.md`, which keeps the unfilled seed forever. A flush counter reading MAIN's copy reports `0/N` against an agent fully on pace; one such agent reached its supersession trigger at 5/6. Always poll `.scratch/worktrees/<name>/.scratch/agents/<name>.md`, and copy that file into MAIN's `.scratch/agents/` before removing the worktree — `.scratch/` is gitignored in main, so the report does not survive teardown otherwise.

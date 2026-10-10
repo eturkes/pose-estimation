@@ -11,7 +11,7 @@ paths:
 `CLAUDE.md` = upstream `~/.local/app/agents/claude/CLAUDE.project.md` byte for byte; every local
 adaptation lives in `.claude/rules/`, keyed on the template clause it overrides and indexed below;
 Clauses 1-5 are the only surviving copy of the ones that bind a refresh.
-**`last-sync = agents@4d22203`.**
+**`last-sync = agents@eac5295`.**
 
 **Template invariants — hold each after every refresh:**
 
@@ -23,15 +23,17 @@ Clauses 1-5 are the only surviving copy of the ones that bind a refresh.
   resume note = one `- [ ] RESUME: …` row at the head of its unit (`pause.md`; the statusline reads
   that form). `Phase` = phase + scope.
 - Every phase = one session per pasted body (`prompts/{auto,steered}/<phase>.md`), ITERATE
-  included, run until its `Met when`. Advisor on through IMPLEMENT + MAINTAIN.
+  included, run until its `Met when`.
 - Deferral queue = `.agent/deferred.md`, unattached, one row + acceptance check each.
 - A template structure (prototype location, CI, review ledger, spec layout) holds its default unless
   a ruling in the index adapts, retires or marks it inapplicable, naming the replacement or the
   user's waiver.
-- Teammate triggers + mechanics = global `CLAUDE.md` `Subagents`; role rules =
-  `~/.claude/agents/<role>.md`; a commit body names each teammate its unit used (name, role,
-  verdict). The phase sets dispatch rate; closing diff → `reviewer`: one per lens in IMPLEMENT +
-  MAINTAIN, one covering every lens elsewhere. Thinking depth = the launch `--effort`. No
+- Teammate fits, their reasons + mechanics = global `CLAUDE.md` `Subagents`; role rules =
+  `~/.claude/agents/<role>.md`; each dispatch + advisor call = MAIN's per-case call over the fits,
+  a user request binding; a commit body names each teammate its unit used (name, role, verdict).
+  The phase sets teammate cost + depth + its own phase fits; closing diff → `reviewer`: one per
+  lens in IMPLEMENT + MAINTAIN, one covering every lens elsewhere. Advisor tool absent where a call
+  would pay → ask the user for `/advisor claude-fable-5-1`. Thinking depth = the launch `--effort`. No
   `.claude/settings*.json` env pin or `.claude/agents/` definition overrides the user-level models,
   effort or roles.
 
@@ -66,8 +68,8 @@ layout as above. `Phase` scope = the user's ruling, recorded in `.agent/spec.md`
 | `Engineering` assurance tier "with its contract" | Clause 1 | fixes the path → `.agent/archive/contract-m<m>u<u>.md` |
 | `Session flow` finished work → `.agent/archive/` | Clause 4 + `retention.md` | adapts → archive records frozen, stale pointers kept |
 | `Authoring` durable-guidance routing | Clause 3 | adapts → mutable state stays in `spec.md` + `deferred.md`, never in rules |
-| `Session flow` Teammates + Advisor, `Execution` research, `Engineering` `data` tier: depth keyed on phase | Clause 5 (user) | adapts scope → spine rows run MAINTAIN law whatever phase the review UI holds |
-| `Session flow` PROTOTYPE + ITERATE: finalist screenshot, `operator` visual QA | `data-boundary.md` blanked-stage bullet | adapts → player view captured as the blanked stage alone (`.scratch/player_shot.mjs`); census + cohort by view fragment |
+| `Session flow` Teammates: cost, depth, phase fits + closing-`reviewer` count keyed on phase | Clause 5 (user) | adapts scope → spine rows run MAINTAIN law whatever phase the review UI holds |
+| `Session flow` PROTOTYPE + ITERATE: finalist screenshot (+ global `Subagents` `operator` visual-QA fit) | `data-boundary.md` blanked-stage bullet | adapts → player view captured as the blanked stage alone (`.scratch/player_shot.mjs`); census + cohort by view fragment |
 
 - **Clause 1 — acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`**; the template
   names no contract path. **9 files under `scripts/ src/ tests/` break if it moves**, one of them a generated data field: `scripts/make_calibration_qc_fixtures.py` writes
@@ -95,12 +97,14 @@ layout as above. `Phase` scope = the user's ruling, recorded in `.agent/spec.md`
   deny list). Read an archive pointer as a citation of its own time. The live surfaces are
   `.agent/spec.md`, `.agent/deferred.md` and `.claude/rules/`.
 - **Clause 5 — spine rows = MAINTAIN requests on the shipped spine, whatever phase the review UI
-  holds** (user ruling). The template keys teammate depth, research count, the `data`-tier
-  `reviewer` and the advisor on phase, while `Phase` scopes the review UI alone. A spine row in
-  the same `Tasks` therefore runs IMPLEMENT + MAINTAIN law: `researcher` at any source count,
-  `consultant` per kernel contract, `reviewer` + `tester` per kernel unit, `reviewer` per `data`
-  unit, `scientist` per shipped analysis result (after-tables, cohort), advisor on. Review-UI rows
-  follow the phase `Phase` names.
+  holds** (user ruling). The template keys teammate cost + depth, the phase fits and the
+  closing-`reviewer` count on phase, while `Phase` scopes the review UI alone. A spine row in the
+  same `Tasks` therefore runs IMPLEMENT + MAINTAIN teammate law: deep teammates wherever one adds
+  assurance MAIN's own pass would miss, the phase fits (`researcher` SOTA survey before the unit
+  that commits to an open choice, `consultant` on a kernel contract before code, `reviewer` per
+  `data` unit) and one closing `reviewer` per lens. Review-UI rows follow the phase `Phase` names.
+  Global fits (`tester` on a committed kernel contract, `reviewer` on a kernel-unit diff,
+  `scientist` on an after-table or a cohort republication) hold in every phase, scope-free.
 
 **Superseded by upstream — never restore.** The `Read()` path-exclusion control (→
 `data-boundary.md`). The `N% NK/1M` gauge convention: MAIN and a teammate read against different
@@ -113,10 +117,13 @@ budget rewards compressing live prose over deleting dead rows, which is the oppo
 **The deferral queue as a `spec.md` section**: a queue is monotonic, so attached it is a permanent
 growth term; it lives at `.agent/deferred.md`, which every queue write names by path, while
 `spec.md` `Tasks` carries the unfinished units + the queue pointer. **Teammate law as project
-scope**: triggers + mechanics live in global `CLAUDE.md` `Subagents` and role rules in
+scope**: fits + mechanics live in global `CLAUDE.md` `Subagents` and role rules in
 `~/.claude/agents/<role>.md`, so `.claude/rules/delegation.md` points at them and never restates
-them. `.serena/project.yml` `ignored_paths` and the `read-guard.sh` volume budget: both mechanisms
-are deregistered toolchain-wide.
+them. **Per-phase teammate + advisor mandates** — every-phase `consultant` on the phase plan, a
+`researcher` at any source count, `reviewer` + `tester` per kernel unit, a `scientist` reproducing
+each result, the advisor on through IMPLEMENT + MAINTAIN: each call is MAIN's per-case judgment over
+the fits, so Clause 5 rules scope, never a dispatch list. `.serena/project.yml` `ignored_paths`
+and the `read-guard.sh` volume budget: both mechanisms are deregistered toolchain-wide.
 
 **A `scripts/check_drop_ins.py` gate was weighed and declined**: the user announces every
 refresh, and the clauses self-evidence against the tree — every Clause 1 file names the archive path,
