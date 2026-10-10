@@ -78,6 +78,18 @@ uv run --no-sync ruff check && uv run --no-sync ruff format --check \
 A gate backing a durable claim must rerun from committed state, so a scratch-local validator is a temporary encoding: its regeneration path is recorded here and its port is a `.agent/deferred.md` row.
 
 - `.scratch/nc_m2u74.py` — the nine M2.7.4 negative controls over `docs/prospective_capture.md`. Each control mutates the document in place, grades `scripts/check_prospective_capture.py` in a fresh `runpy` namespace, and restores the bytes under `try/finally`; the run reports `controls_firing N of 9` and proves the file byte-identical against its pre-run digest. **9/9 fire, restored `55eb769a1768`.** Seed rules learned here: P03 needs S20's single `MUST` (S14 carries three, so lowercasing one grades nothing), and NC4's needle must come from `calibration_qc.PROHIBITED_PARAPHRASES` rather than invented prose.
+- **M2.10 watch-set labels + graders** (`.scratch/messy/`; `P` = gate prefix; GPU steps under the
+  accelerator recipe). Labels = `.scratch/agents/general-purpose-{1,2,3}-labels.md` (972 frames,
+  81 clips; codebook `.scratch/messy/CODEBOOK.md`, validator `python3 .scratch/messy/label_check.py
+  <file>` — fires `FAIL` on a seeded bad code) + `.scratch/messy/setup_spans.json` (MAIN's dense
+  setup spans, 13 clips). Inputs: `detcache.py cache <labels.json>` (per-frame GPU-f32 boxes + GMC),
+  `sheet.py` / `render800.sh` (contact sheets; patient frames → `data-boundary.md`, viewing
+  authorized per session by the user only). Graders: `gate_flicker.py <labels.md>…` (hand gate
+  replay: drop shares by label, per-subject loss), `select_eval.py <labels.md>… --algos a0`
+  (subject-box choice vs labelled rank), `p11_shipped.py` + `p11_grade.py <labels.md>…` (shipped
+  task span vs dense + sparse setup labels), `shake_control.py --variant shipped [--view above]`
+  (known synthetic camera shake through the shipped compensation), `p08_compare.py <pilot-tree>`
+  (in-pipeline gate vs offline replay). Port → `.agent/deferred.md`.
 - `.scratch/theme_qa.mjs` — review-ui theme control, the paths a still capture cannot show.
   `node .scratch/theme_qa.mjs http://127.0.0.1:<port>` against a running `python -m review_ui`;
   resolves `chromiumfish` + `playwright-core` out of the pnpm global store exactly as `webcap` does,

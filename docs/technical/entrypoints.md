@@ -249,7 +249,8 @@ falls back to the CPU.
 
 Defaults: `--inventory inventory`, `--qualification qualification`, `--sessions sessions`,
 `--out output/corpus-2d`, `--model rtmw-l`, `--tracking body`, `--tracker subject`,
-`--drop-lower-body`, `--drop-hips-camera above`, `--hand-gate`, `--det-device GPU`, `--pose-device NPU`,
+`--drop-lower-body`, `--drop-hips-camera above`, `--hand-gate`, `--camera-survey`, `--task-gap-s 2.5`,
+`--det-device GPU`, `--pose-device NPU`,
 `--det-frequency 1`, `--single-subject`, `--retry-failed`.
 `--limit N` runs the first N **due** events, so a rerun with `--limit` processes the next
 events rather than the same ones. `--analyse-only` republishes the manifest and the

@@ -20,6 +20,10 @@ from .processing import (
 # generation from a post-fix one.
 COORD_NORMALIZATION = "image-isotropic-maxdim"
 
+#: Per-row similarity onto the clip's camera reference frame, in normalized coordinates
+#: (`camera_survey`, M2.10.2 D07): x_ref = a*x - b*y + tx, y_ref = b*x + a*y + ty.
+CAMERA_COLUMNS = ("cam_a", "cam_b", "cam_tx", "cam_ty")
+
 ARM_KEYPOINT_NAMES = [
     "left_shoulder",
     "right_shoulder",
@@ -91,7 +95,7 @@ def wrist_to_side(tracking):
     return {WRIST_KPS_12[0]: "left", WRIST_KPS_12[1]: "right"}
 
 
-def make_csv_header(tracking=TRACKING_HANDS_ARMS):
+def make_csv_header(tracking=TRACKING_HANDS_ARMS, camera=False):
     """Return the full list of column names for the given tracking mode."""
     cols = ["video", "frame_idx", "timestamp_sec", "person_idx"]
 
@@ -118,6 +122,8 @@ def make_csv_header(tracking=TRACKING_HANDS_ARMS):
                 ]
             )
 
+    if camera:
+        cols.extend(CAMERA_COLUMNS)
     return cols
 
 
@@ -556,14 +562,22 @@ def write_world3d_csv(output_path, video_name, keypoint_names, frames):
     return output_path
 
 
-def open_csv_writer(output_path, tracking=TRACKING_HANDS_ARMS):
+def camera_values(transform, frame_h, frame_w):
+    """The four ``CAMERA_COLUMNS`` cells of a full-pixel similarity, in normalized units, 6 dp."""
+    scale = coord_scale(frame_h, frame_w)
+    a, b = float(transform[0][0]), float(transform[1][0])
+    tx, ty = float(transform[0][2]) / scale, float(transform[1][2]) / scale
+    return dict(zip(CAMERA_COLUMNS, (f"{v:.6f}" for v in (a, b, tx, ty)), strict=True))
+
+
+def open_csv_writer(output_path, tracking=TRACKING_HANDS_ARMS, camera=False):
     """Open a CSV file for writing and return (file_handle, csv.DictWriter).
 
     Caller owns the file handle and must close it (typically via try/finally).
     """
     output_path = pathlib.Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    header = make_csv_header(tracking)
+    header = make_csv_header(tracking, camera=camera)
     fh = output_path.open("w", newline="")
     writer = csv.DictWriter(fh, fieldnames=header)
     writer.writeheader()

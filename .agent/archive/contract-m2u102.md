@@ -161,7 +161,16 @@ env -u LD_LIBRARY_PATH PYTHONPATH="$PWD/src" uv run --no-sync <ruff check|ruff f
 
 ## 7. Verdict table
 
-Appended at close.
+| row | verdict | evidence |
+| --- | --- | --- |
+| D01-D12 + A01-A03 | pass | `tester-2` suite 118/118 green on the implementation, 117 red / 1 control green on `e996025` (test bytes `archive/m2u102-test-2` = `3e43b4e`); `reviewer-2` 12 rows: 9 pass, B06/B07/B09 fixed |
+| P01-P09 | pass | `tests/test_m2u102_camera_survey.py` (118 cases) |
+| P10 | pass | shipped `estimate_step` + `to_reference`, 14 clips (7 side, 7 above), RMS camera speed 0.15 max-dim/s: SPARC abs error median 0.070 side / 0.012 above (uncompensated 0.663 / 1.292); mean speed rel error 0.017 / 0.006; 0/18 819 steps unmeasured |
+| P11 | pass | shipped `survey_source` over 83 cached clips (spans equal the prototype's on 78/81; 0 without reference; 11 trimmed); 82 labelled assets: dense (13 clips) setup excluded 6613/6836 = 0.967, task lost 75/6695 = 0.011; sparse setup excluded 41/44, task lost 1/855 = 0.001 (+4 frames the one-span rule drops) |
+| P12 | pass | driver pilot 11 assets / 11 289 decoded frames: every row inside its span, `cam_*` present, R completed on every event, verdicts all true, `task_span` {1493 outside, 1 trimmed, 0 without reference} = the diagnostics' sums |
+| NC1 | pass (MAIN) | person-masked steps on the synthetic-shake control: SPARC error median 0.202, max 6.78, 1960/7209 unmeasured vs open 0.051 / 0.19 / 0 |
+| NC2-NC5 | pass | `<` gap merge 5 red; anchor-reset `to_reference` 3 red; R `+ b*y` 3 red; drivers default off 1 red; sources restored byte-identical |
+| reviewer-2 B06/B07/B09 | fixed | `tests/test_rev2_m2u102.py` 8 red / 1 green before, 9 green after |
 
 ## 8. Amendments
 
@@ -196,3 +205,27 @@ to_reference(steps, reference: int | None) -> np.ndarray (n,3,3)
 survey_source(capture, detector=None, *, max_frames=0, gap_s=TASK_GAP_S) -> CameraSurvey | None  # None when no frame
 export.camera_values(transform, frame_h, frame_w) -> dict[str, str]   # 6-dp strings, keys CAMERA_COLUMNS
 ```
+
+### A02 — tester harness calls repaired against shipped signatures; reading rulings
+
+`tests/test_m2u102_camera_survey.py` (`tester-2`, `archive/m2u102-test-2`) called
+`corpus_run_2d._attempt_event` without its `logs` argument, `pilot_corpus_run._run_event` with a
+`logs` attribute the args namespace does not carry and into a directory not yet created, and wrote a
+list through `export.open_csv_writer`, which returns a `csv.DictWriter`. Each call now matches the
+shipped signature; no assertion changed. Rulings on `tester-2`'s readings: `assets_without_reference`
+counts every asset whose diagnostics carry no reference, survey on or off (the literal D11 sum);
+the survey stops reading once `max_frames` well-formed frames are in (no extra read); the export
+inside a merged span is continuous (out-of-view gaps <= `task_gap_s` are posed and exported);
+P08's similarity invariance covers inter-segment angles, not image-axis orientations.
+
+
+### A03 — `reviewer-2` fixes (B06, B07, B09)
+
+- B06: a malformed read clears the survey's previous frame, so the next step is unmeasured rather
+  than a two-frame displacement booked as one.
+- B07.1: D11 sums over every asset whose own (owner-matching) diagnostics row exists, any
+  disposition — `_artifacts(...)["task_counters"]`, kept apart from the `ok`-only CFR population;
+  the reviewer's witness reads that key.
+- B07.2: `frames_outside_task` counts decoded indices `< min(n_frames_decoded, survey.n_frames)`
+  outside the span, so an early end never counts frames the pass did not reach.
+- B09: the survey reads the frame rate through `video_io.safe_fps`, the pose pass's own policy.

@@ -656,7 +656,8 @@ def test_p06_nc4_driver_defaults_on_and_declares_generation_identity(name, monke
     args = driver["_parse_args"]()
     assert getattr(args, "hand_gate", None) is True, "N04: driver must default hand gate on"
     assert "hand_gate" in driver["REPORT_FIELDS"]
-    assert driver["GENERATOR_VERSION"] == ("v5" if name == "corpus_run_2d.py" else "v4")
+    # M2.10.1 introduced `hand_gate` at corpus v5 / pilot v4; later units bump past it.
+    assert int(driver["GENERATOR_VERSION"].lstrip("v")) >= (5 if name == "corpus_run_2d.py" else 4)
 
 
 @pytest.mark.parametrize("name", _DRIVERS)

@@ -1887,6 +1887,8 @@ def test_report_allowlist_covers_every_throughput_label() -> None:
         drop_lower_body=False,
         drop_hips_camera=None,
         hand_gate=False,
+        camera_survey=False,
+        task_gap_s=2.5,
         det_device="CPU",
         pose_device="NPU",
     )

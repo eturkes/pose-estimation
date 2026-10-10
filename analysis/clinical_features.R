@@ -249,6 +249,33 @@ adapt_2d_confidence <- function(df) {
   df
 }
 
+# Camera-motion compensation (M2.10.2 D08).  A camera-surveyed CSV carries each
+# row's similarity onto the clip's reference frame; every x/y pair moves onto that
+# frame, so velocity, jerk and SPARC read the subject's motion without the camera's.
+# A similarity keeps image-plane angles; input without the columns is unchanged.
+CAMERA_COLUMNS <- c("cam_a", "cam_b", "cam_tx", "cam_ty")
+
+stabilize_camera <- function(df) {
+  if (!all(CAMERA_COLUMNS %in% names(df))) {
+    return(df)
+  }
+  a <- as.numeric(df$cam_a)
+  b <- as.numeric(df$cam_b)
+  tx <- as.numeric(df$cam_tx)
+  ty <- as.numeric(df$cam_ty)
+  ok <- is.finite(a) & is.finite(b) & is.finite(tx) & is.finite(ty)
+  x_cols <- names(df)[str_detect(names(df), "^((arm|body)_.+|(left|right)_hand_[0-9]+)_x$")]
+  for (x_col in x_cols) {
+    y_col <- sub("_x$", "_y", x_col)
+    if (!(y_col %in% names(df))) next
+    x <- as.numeric(df[[x_col]])
+    y <- as.numeric(df[[y_col]])
+    df[[x_col]] <- ifelse(ok, a * x - b * y + tx, x)
+    df[[y_col]] <- ifelse(ok, b * x + a * y + ty, y)
+  }
+  df
+}
+
 # ------------------------------------------------------------------
 # 3D input adapter (world3d.csv)
 # ------------------------------------------------------------------
@@ -2008,7 +2035,7 @@ for (f in files) {
     }
     df <- adapt_world3d(df)
   } else {
-    df <- adapt_2d_confidence(df)
+    df <- stabilize_camera(adapt_2d_confidence(df))
   }
   tracking <- detect_tracking(names(df))
   cat(sprintf("  Tracking mode: %s\n", tracking))

@@ -51,7 +51,8 @@ GENERATOR = "scripts/pilot_corpus_run.py"
 # v2: the report gained `tracker` — generations under different trackers are shaped identically.
 # v3: the report gained `drop_lower_body` + `drop_hips_camera`.
 # v4: the report gained `hand_gate`.
-GENERATOR_VERSION = "v4"
+# v5: the report gained `camera_survey`, `task_gap_s` + the `task_span` block.
+GENERATOR_VERSION = "v5"
 CLINICAL_R = ROOT / "analysis" / "clinical_features.R"
 
 # Contract P17's three axes. `pts_monotonic` is reported, never required: it is
@@ -91,6 +92,12 @@ REPORT_FIELDS = frozenset(
         "drop_lower_body",
         "drop_hips_camera",
         "hand_gate",
+        "camera_survey",
+        "task_gap_s",
+        "task_span",
+        "frames_outside_task",
+        "assets_trimmed",
+        "assets_without_reference",
         "det_device",
         "pose_device",
         "det_frequency",
@@ -172,6 +179,8 @@ class AssetRun:
     monotonic_forced: int
     latency_ms_mean: float | None
     latency_ms_p95: float | None
+    frames_outside_task: int = 0
+    without_reference: bool = False
 
     @property
     def cfr_fallback_rate(self) -> float:
@@ -339,6 +348,9 @@ def _run_event(event_dir: Path, out: Path, log: Path, args: argparse.Namespace) 
         command.append(f"--drop-hips-camera={args.drop_hips_camera}")
     if args.hand_gate:
         command.append("--hand-gate")
+    if args.camera_survey:
+        command.append("--camera-survey")
+    command.append(f"--task-gap-s={args.task_gap_s}")
     if args.max_frames:
         command += ["--max-frames", str(args.max_frames)]
     started = time.monotonic()
@@ -390,6 +402,8 @@ def _diagnostics(event_out: Path, assets: dict[tuple[str, str], Asset]) -> list[
                 monotonic_forced=int(row["monotonic_forced"]),
                 latency_ms_mean=float(latency_mean) if latency_mean else None,
                 latency_ms_p95=float(latency_p95) if latency_p95 else None,
+                frames_outside_task=int(row.get("frames_outside_task") or 0),
+                without_reference=row.get("camera_reference_frame", "") == "",
             )
         )
     return runs
@@ -612,6 +626,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--drop-lower-body", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--drop-hips-camera", default="above")
     parser.add_argument("--hand-gate", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--camera-survey", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--task-gap-s", type=float, default=2.5)
     parser.add_argument("--det-device", default="GPU")
     parser.add_argument("--pose-device", default="NPU")
     parser.add_argument("--det-frequency", type=int, default=1)
@@ -716,6 +732,8 @@ def main() -> int:
             "drop_lower_body": args.drop_lower_body,
             "drop_hips_camera": args.drop_hips_camera,
             "hand_gate": args.hand_gate,
+            "camera_survey": args.camera_survey,
+            "task_gap_s": args.task_gap_s,
             "det_device": args.det_device,
             "pose_device": args.pose_device,
             "det_frequency": args.det_frequency,
@@ -747,6 +765,12 @@ def main() -> int:
             else 0.0,
             "per_asset_rate": _stat([run.cfr_fallback_rate for run in runs]),
             "assets_with_fallback": sum(1 for run in runs if run.cfr_fallback_rate > 0),
+        },
+        "task_span": {
+            "frames_decoded": frames,
+            "frames_outside_task": sum(run.frames_outside_task for run in runs),
+            "assets_trimmed": sum(1 for run in runs if run.frames_outside_task > 0),
+            "assets_without_reference": sum(1 for run in runs if run.without_reference),
         },
         "partition": {
             "groups_input": partition.n_input,

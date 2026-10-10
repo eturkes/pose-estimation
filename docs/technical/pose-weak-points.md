@@ -132,3 +132,23 @@ beside stretched limbs and legs on the table. Inference: the right-view rise is 
 hallucination toggled by D02 rather than a tracking regression — a per-frame D02 counter decides
 it (`.agent/deferred.md`). A far hand duplicating the near one can also survive the rule
 outright (hand-to-wrist distance up to 9.8 forearm lengths on one clip).
+
+## M2.10 messy footage, measured
+
+The footage is hand-held and crowded. Over all 379 clips × 8 sampled positions (GPU detector,
+`.scratch/messy_probe.py`), 186 clips show two or more people on at least half the positions
+(above 21/155, left 58/93, right 107/131), and 142 clips have a second box at least half the size
+of the largest. Labelled watch set = 81 clips / 36 families / 14 subjects, 12 frames per clip =
+972 frames (MAIN + `general-purpose-1/-2/-3`); 20 clips tuned thresholds, 61 held them out.
+
+| class | measured on the labels | M2.10 response |
+| --- | --- | --- |
+| hallucinated hand (C05) | 357 of 1 494 decided drawn hands sit where no hand is (24 %; 195 more marked unsure), mostly the occluded far hand under the overhead camera | M2.10.1 hand presence gate: held-out 191/212 removed, 28/754 real hands lost (3.7 %; per subject median 0, max 12.3 %) |
+| setup / handling footage (C06) | 44 of 972 sampled frames; dense labels on 13 clips: 6 836 setup frames | M2.10.2 task span: setup excluded 0.967 (dense) / 41/44 (sparse); task lost 0.011 (dense) / 1/855 (sparse), + 4 frames the one-span rule drops by design |
+| hand-held shake | camera motion at 0.5 s is 2.5 % of wrist motion at the median clip, ≥ 50 % on 10 overhead clips; per-frame it reaches wrist speed | M2.10.2 compensation: on known synthetic shake (14 clips) SPARC abs error median 0.3-1.9 uncompensated → 0.01-0.07 compensated |
+| wrong person (C02, C11) | patient's box chosen on 459/473 visible labelled task frames (0.970); body on another person or mixed on 17 labelled task frames in 9 clips (3 more in setup footage); the two worst clips (4 and 3 frames) show limb lines drawn across to another arm and a therapist leaning over the patient | none this unit → `.agent/deferred.md` |
+| other person's hand drawn as the patient's (C04) | 21 of 1 494 decided drawn hands | the gate removes 7/10 held-out; mask-conditioned pose → `.agent/deferred.md` |
+| inconsistent angles | 2D image-plane elbow flexion disagrees across synced views by median 60° on 14 series, no better than time-shuffled pairing (ratio 1.00) | SAM 3D Body pilot (not adopted; user: pilot more first): 5.9° synced vs 12.0° shuffled (ratio 0.49) |
+
+The label vocabulary, graders and their regeneration paths → `.claude/rules/gates.md`
+§ *Scratch validators pending port*.

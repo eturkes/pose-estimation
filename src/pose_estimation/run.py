@@ -29,8 +29,9 @@ import cv2
 import numpy as np
 
 from .calibration import CalibrationError
+from .camera_survey import TASK_GAP_S, survey_source
 from .constraints import BoneLengthSmoother
-from .export import frame_to_rows, open_csv_writer
+from .export import camera_values, frame_to_rows, open_csv_writer
 from .keypoint_hygiene import HandPresenceGate, apply_hygiene
 from .mapping import coco_hand_confidences, coco_hand_handedness, coco_to_mediapipe
 from .multicam import (
@@ -375,6 +376,21 @@ def parse_args(argv=None):
         ),
     )
     p.add_argument(
+        "--camera-survey",
+        action="store_true",
+        help=(
+            "Decode each source once first to measure camera motion and find the settled task "
+            "span. Frames outside the span export no rows, and every row carries its transform "
+            "onto the reference frame."
+        ),
+    )
+    p.add_argument(
+        "--task-gap-s",
+        type=float,
+        default=TASK_GAP_S,
+        help=f"Merge task-view runs across gaps up to this many seconds (default: {TASK_GAP_S}).",
+    )
+    p.add_argument(
         "--headless",
         action="store_true",
         help="Skip the display. Print only latency statistics.",
@@ -414,6 +430,8 @@ def process_source(
     drop_lower_body=False,
     drop_hips_camera=None,
     hand_gate=None,
+    camera_survey=False,
+    task_gap_s=TASK_GAP_S,
 ):
     """Process a single video/camera source.  Returns latency list (ms).
 
@@ -434,8 +452,27 @@ def process_source(
 
     *hand_gate* (a ``keypoint_hygiene.HandPresenceGate``) zeroes the scores of
     hands it does not admit, after the smoother and before export.
+
+    *camera_survey* decodes a file source once before pose (``camera_survey``
+    module): frames outside the settled task span are not posed and export no
+    row, and each exported row carries its similarity onto the reference frame.
     """
     source = int(source_str) if source_str.isdigit() else source_str
+    survey = None
+    if camera_survey and not isinstance(source, int):
+        survey_cap = open_capture(source, display=source_str)
+        if survey_cap is None:
+            return []
+        try:
+            survey = survey_source(
+                survey_cap,
+                getattr(pose_tracker, "det_model", None),
+                max_frames=args.max_frames,
+                gap_s=task_gap_s,
+            )
+        finally:
+            survey_cap.release()
+    span = survey.span if survey is not None else None
     cap = open_capture(source, display=source_str)
     if cap is None:
         return []
@@ -478,7 +515,9 @@ def process_source(
     camera_label = csv_video_name.rsplit("/", 1)[-1]
     drop_hips = bool(drop_hips_camera) and drop_hips_camera in camera_label
     if output_csv is not None:
-        csv_fh, csv_writer = open_csv_writer(output_csv, tracking=args.tracking)
+        csv_fh, csv_writer = open_csv_writer(
+            output_csv, tracking=args.tracking, camera=survey is not None
+        )
 
     latencies = []
     processing_times = collections.deque(maxlen=60)
@@ -507,6 +546,8 @@ def process_source(
             frame_idx += 1
             if args.max_frames and frame_idx > args.max_frames:
                 break
+            if span is not None and not span[0] <= decoded_frame_idx < span[1]:
+                continue
 
             t0 = time.perf_counter()
             keypoints, scores = pose_tracker(frame)
@@ -608,6 +649,12 @@ def process_source(
                     hand_handedness=hand_handedness,
                     hand_confidences=hand_confidences,
                 )
+                if survey is not None and decoded_frame_idx < survey.n_frames:
+                    cells = camera_values(
+                        survey.to_reference[decoded_frame_idx], frame.shape[0], frame.shape[1]
+                    )
+                    for row in rows:
+                        row.update(cells)
                 for row in rows:
                     csv_writer.writerow(row)
 
@@ -683,6 +730,7 @@ def process_source(
                 fps_nominal=fps_video,
                 latencies=latencies,
                 hand_gate=hand_gate,
+                survey=survey,
             )
 
     return latencies
@@ -700,10 +748,46 @@ SOURCE_DIAGNOSTIC_FIELDS: tuple[str, ...] = (
     "latency_ms_p95",
     "hand_frames_present",
     "hand_frames_gated",
+    "task_start_frame",
+    "task_end_frame",
+    "frames_outside_task",
+    "camera_reference_frame",
+    "camera_steps_unmeasured",
+    "camera_speed_p50",
+    "camera_speed_p90",
 )
 
 
-def write_source_diagnostics(path, *, video, clock, fps_nominal, latencies, hand_gate=None):
+def _survey_diagnostics(survey, n_decoded):
+    """D10 fields: the span, what it excludes, and the camera's speed over it."""
+    if survey is None:
+        return {
+            "task_start_frame": 0,
+            "task_end_frame": n_decoded,
+            "frames_outside_task": 0,
+            "camera_reference_frame": "",
+            "camera_steps_unmeasured": 0,
+            "camera_speed_p50": "",
+            "camera_speed_p90": "",
+        }
+    start, end = survey.span
+    speeds = survey.speeds(start, end)
+    # Counted over the indices this pass decoded, so an early end never counts unreached frames.
+    reached = min(n_decoded, survey.n_frames)
+    return {
+        "task_start_frame": start,
+        "task_end_frame": end,
+        "frames_outside_task": reached - max(0, min(end, reached) - min(start, reached)),
+        "camera_reference_frame": "" if survey.reference is None else survey.reference,
+        "camera_steps_unmeasured": int((~survey.measured[1:]).sum()),
+        "camera_speed_p50": f"{float(np.percentile(speeds, 50)):.6f}" if len(speeds) else "",
+        "camera_speed_p90": f"{float(np.percentile(speeds, 90)):.6f}" if len(speeds) else "",
+    }
+
+
+def write_source_diagnostics(
+    path, *, video, clock, fps_nominal, latencies, hand_gate=None, survey=None
+):
     """Write the one-row per-source diagnostics summary.
 
     Written from the ``finally`` arm, so an interrupted run still reports what
@@ -723,6 +807,7 @@ def write_source_diagnostics(path, *, video, clock, fps_nominal, latencies, hand
         "latency_ms_p95": f"{float(np.percentile(latencies, 95)):.3f}" if latencies else "",
         "hand_frames_present": hand_gate.hand_frames_present if hand_gate is not None else 0,
         "hand_frames_gated": hand_gate.hand_frames_gated if hand_gate is not None else 0,
+        **_survey_diagnostics(survey, clock.n_timestamps),
     }
     pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as handle:  # noqa: PTH123
@@ -820,6 +905,8 @@ def _dispatch_sessions(
             drop_lower_body=args.drop_lower_body,
             drop_hips_camera=args.drop_hips_camera,
             hand_gate=hand_gate,
+            camera_survey=args.camera_survey,
+            task_gap_s=args.task_gap_s,
         )
         print_latency_summary(latencies)
         return latencies
@@ -1044,6 +1131,8 @@ def main(argv=None):
                 drop_lower_body=args.drop_lower_body,
                 drop_hips_camera=args.drop_hips_camera,
                 hand_gate=hand_gate,
+                camera_survey=args.camera_survey,
+                task_gap_s=args.task_gap_s,
             )
             print_latency_summary(latencies)
             all_latencies.extend(latencies)

@@ -25,6 +25,7 @@ Rerun (source the accelerator env first, so pose inference reaches the NPU)::
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import importlib.util
 import json
@@ -68,7 +69,8 @@ GENERATOR = "scripts/corpus_run_2d.py"
 # different trackers are shaped identically.
 # v4: the report gained `drop_lower_body` + `drop_hips_camera`.
 # v5: the report gained `hand_gate`.
-GENERATOR_VERSION = "v5"
+# v6: the report gained `camera_survey`, `task_gap_s` + the `task_span` block.
+GENERATOR_VERSION = "v6"
 CLINICAL_R = ROOT / "analysis" / "clinical_features.R"
 # Named because the redaction allowlist has to hold every label the report can
 # emit: `partial` is unreachable on a full corpus run and so shipped un-allowed,
@@ -101,6 +103,12 @@ REPORT_FIELDS = frozenset(
         "drop_lower_body",
         "drop_hips_camera",
         "hand_gate",
+        "camera_survey",
+        "task_gap_s",
+        "task_span",
+        "frames_outside_task",
+        "assets_trimmed",
+        "assets_without_reference",
         "det_device",
         "pose_device",
         "det_frequency",
@@ -273,6 +281,9 @@ def _attempt_event(event_id: str, args: argparse.Namespace, logs: Path) -> dict[
         command.append(f"--drop-hips-camera={args.drop_hips_camera}")
     if args.hand_gate:
         command.append("--hand-gate")
+    if args.camera_survey:
+        command.append("--camera-survey")
+    command.append(f"--task-gap-s={args.task_gap_s}")
     code, run_seconds = _run_stage(command, logs / event_id / "run.log")
     if code != 0:
         write_marker(event_out, status=MARKER_FAILED, stage=STAGE_RUN, exit_code=code)
@@ -370,6 +381,7 @@ def _artifacts(rows: list[dict[str, str]], placed: dict[str, Any], out: Path) ->
     """P09: an `ok` asset owns one landmark CSV and one diagnostics row; no other does."""
     missing_csv = wrong_diag = trespass = 0
     counters: list[dict[str, float]] = []
+    task_counters: list[dict[str, int]] = []
     for row in rows:
         asset = placed.get(row["asset_id"])
         if asset is None:
@@ -377,6 +389,21 @@ def _artifacts(rows: list[dict[str, str]], placed: dict[str, Any], out: Path) ->
         event_out = out / asset.event_id
         csv_path = event_out / f"{asset.camera_name}.csv"
         diagnostics = _diagnostic_rows(event_out / f"{asset.camera_name}_diag.csv")
+        # D11 sums over every asset whose own diagnostics row exists, a failed clinical pass
+        # included: the survey's exclusions were measured before R ran.
+        if len(diagnostics) == 1 and diagnostics[0].get("video") == (
+            f"{asset.event_id}/{asset.camera_name}"
+        ):
+            with contextlib.suppress(KeyError, TypeError, ValueError):
+                task_counters.append(
+                    {
+                        "n_frames_decoded": int(diagnostics[0]["n_frames_decoded"]),
+                        "frames_outside_task": int(diagnostics[0].get("frames_outside_task") or 0),
+                        "without_reference": int(
+                            diagnostics[0].get("camera_reference_frame", "") == ""
+                        ),
+                    }
+                )
         if row["disposition"] != DISPOSITION_OK:
             trespass += int(csv_path.is_file() or bool(diagnostics))
             continue
@@ -412,6 +439,7 @@ def _artifacts(rows: list[dict[str, str]], placed: dict[str, Any], out: Path) ->
         "wrong_diag": wrong_diag,
         "trespass": trespass,
         "counters": counters,
+        "task_counters": task_counters,
     }
 
 
@@ -461,6 +489,16 @@ def _cfr(counters: list[dict[str, float]]) -> dict[str, Any]:
     }
 
 
+def _task_span(counters: list[dict[str, int]]) -> dict[str, Any]:
+    """D11: what the camera survey kept out, summed over assets carrying diagnostics."""
+    return {
+        "frames_decoded": sum(entry["n_frames_decoded"] for entry in counters),
+        "frames_outside_task": sum(entry["frames_outside_task"] for entry in counters),
+        "assets_trimmed": sum(1 for entry in counters if entry["frames_outside_task"] > 0),
+        "assets_without_reference": sum(entry["without_reference"] for entry in counters),
+    }
+
+
 def _partitions(event_ids: list[str], out: Path, header, codes) -> tuple[Any, int]:
     """P10 at corpus grain: every landmark CSV yields a group-disposition artifact."""
     total = pilot.Partition()
@@ -491,6 +529,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--drop-lower-body", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--drop-hips-camera", default="above")
     parser.add_argument("--hand-gate", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--camera-survey", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--task-gap-s", type=float, default=2.5)
     parser.add_argument("--det-device", default="GPU")
     parser.add_argument("--pose-device", default="NPU")
     parser.add_argument("--det-frequency", type=int, default=1)
@@ -648,6 +688,8 @@ def main() -> int:
             "drop_lower_body": args.drop_lower_body,
             "drop_hips_camera": args.drop_hips_camera,
             "hand_gate": args.hand_gate,
+            "camera_survey": args.camera_survey,
+            "task_gap_s": args.task_gap_s,
             "det_device": args.det_device,
             "pose_device": args.pose_device,
             "det_frequency": args.det_frequency,
@@ -681,6 +723,7 @@ def main() -> int:
             "trespass": artifacts["trespass"],
         },
         "cfr": cfr,
+        "task_span": _task_span(artifacts["task_counters"]),
         "partition": {
             "groups_input": partition.n_input,
             "groups_windowed": partition.n_windowed,

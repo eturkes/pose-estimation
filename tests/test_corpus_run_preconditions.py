@@ -104,6 +104,8 @@ def _dispatch_with_writing_source(
         drop_lower_body=False,
         drop_hips_camera=None,
         hand_gate=False,
+        camera_survey=False,
+        task_gap_s=2.5,
     )
     run_module._dispatch_sessions(
         args,
@@ -233,6 +235,14 @@ _SOURCE_DIAGNOSTIC_FIELDS = (
     # M2.10.1 D06: the hand gate's firing counters.
     "hand_frames_present",
     "hand_frames_gated",
+    # M2.10.2 D10: the camera survey's span + motion summary.
+    "task_start_frame",
+    "task_end_frame",
+    "frames_outside_task",
+    "camera_reference_frame",
+    "camera_steps_unmeasured",
+    "camera_speed_p50",
+    "camera_speed_p90",
 )
 
 
@@ -268,6 +278,8 @@ def _source_args() -> SimpleNamespace:
         drop_lower_body=False,
         drop_hips_camera=None,
         hand_gate=False,
+        camera_survey=False,
+        task_gap_s=2.5,
     )
 
 
@@ -359,6 +371,8 @@ def test_p06_dispatch_forwards_diagnostic_path_and_announces_existing_file(
         drop_lower_body=False,
         drop_hips_camera=None,
         hand_gate=False,
+        camera_survey=False,
+        task_gap_s=2.5,
     )
 
     run_module._dispatch_sessions(

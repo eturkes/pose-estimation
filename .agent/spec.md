@@ -151,8 +151,8 @@ hospital SCI database.
   - [x] labels batch 2 = held-out (`general-purpose-2/-3`, 61 clips); hand gate graded held-out
   - [x] 4c471ab **M2.10.1 hand presence gate** — contract `.agent/archive/contract-m2u101.md`
   - [x] shake control: compensation recovers synthetic shake (14 clips, side + above)
-  - [ ] **M2.10.2 camera survey** — contract `.agent/archive/contract-m2u102.md`; task span (C06
-    bar on labels) + compensation export + R stabilization
+  - [x] PENDING **M2.10.2 camera survey** — contract `.agent/archive/contract-m2u102.md`; task span
+    + compensation export + R stabilization
   - [ ] contract → tester → impl → reviewer → gate per unit; run recipe here
   - [ ] 3D pilot widened (non-collapse control, more events/joints) → report
 - [ ] **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`**

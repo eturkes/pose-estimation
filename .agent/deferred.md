@@ -155,3 +155,21 @@ rows before sizing any unit that touches their surfaces.
 - **`upstream-sync.md`'s declined-gate paragraph counts `7 shipped files` naming the archive path;
   Clause 1 and `rg -l 'archive/contract-' scripts/ src/ tests/` both give 8** → that paragraph
   points at Clause 1 instead of its own figure; `rg -c '7 shipped files' .claude/rules/` = 0.
+- **M2.10 watch-set graders are scratch-local** (`.scratch/messy/` + 972 labels; regen →
+  `gates.md` § *Scratch validators pending port*) → a committed `scripts/` grader with a synthetic
+  label fixture reproduces the gate's held-out drop shares (hallucinated 0.90, real 0.037) and the
+  span's dense setup-excluded / task-lost figures from committed inputs, and reds on a seeded
+  threshold swap. Labels stay uncommitted (patient-adjacent ordinals + frames).
+- **Wrong-person residue (C02/C04 after M2.10)** — 17 labelled task frames in 9 clips carry the body
+  on another person or mixed; worst = a therapist leaning over the patient (larger box) and limb
+  lines drawn to another arm; selector picks the patient's box on 459/473 (0.970) → a candidate
+  (patient anchor + promptable tracker of the DAM4SAM/SAM2 class, part-aware re-ID, or a
+  mask-conditioned pose model such as BMPv2/PMPose; `.scratch/agents/researcher-2.md`) raises the
+  box hit share to >= 0.99 on the same 473 frames and halves the `o`/`x` body frames, held out by
+  family, without lowering hand `k` retention.
+- **Monocular 3D angles (SAM 3D Body) — user: pilot more first** (`.scratch/pilot3d/`, Arc XPU,
+  CUDA calls patched to `SAM3D_DEVICE`; weights gated, granted) → a widened pilot over >= 40 events
+  reports, per joint (elbow, shoulder, trunk), synced cross-view MAE against a time-shuffled control
+  and against 2D, per-frame wall, and a non-collapse check (within-series SD vs 2D); adoption is the
+  user's ruling. Watch-set first read: elbow 5.9° synced vs 12.0° shuffled (2D 59.7 vs 59.7),
+  ~1.3 s/frame.
