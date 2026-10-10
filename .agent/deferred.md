@@ -182,3 +182,10 @@ rows before sizing any unit that touches their surfaces.
   (detector GPU, pose NPU or decode) on a slow asset, and a rerun of that asset reads <= 70 ms/frame
   after the named fix or the cause is recorded as host-side.
 
+- **Marksman flags 3 live doc links as `Link to non-existent document`** — `docs/calibration_finding.md:9`
+  → `technical/calibration_qc.md`, `docs/technical/entrypoints.md:182` → `qualification.md`, `:217` →
+  `calibration_qc.md`; all three targets exist and `git check-ignore` passes them. Suspected cause
+  (unconfirmed): the unanchored `.gitignore` patterns `calibration_qc` + `qualification` hide the
+  same-stem `.md` targets from Marksman's startup index → Marksman reports zero such warnings on those
+  three links in a fresh session, the published trees stay ignored (`git check-ignore calibration_qc
+  qualification` rc 0).

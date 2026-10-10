@@ -83,7 +83,7 @@ hospital SCI database.
 - **The hand model stays RTMW-L's own hands** — a second-stage hand model is adopted only at
   fingertip jitter <= 0.006 on the watch set, wall <= +15 %, collapse unchanged per clip (user
   bar); RTMW-X and both hand-crop refinements missed it.
-- **Acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`** — 8 files under
+- **Acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`** — 9 files under
   `scripts/ src/ tests/` break if it moves, one a generated data field no gate resolves;
   re-derive → `upstream-sync.md`.
 - **External AI-judgment services stay out of this repo** — surveyed and declined by the user.
@@ -146,7 +146,9 @@ hospital SCI database.
   sheets watched; review ledger `.agent/review.md`.
 - [x] ecd0d86 **M2.10 messy-footage compensation, run prep (user request)** — M2.10.1 hand gate
   `4c471ab`, M2.10.2 camera survey `ecd0d86`; wrong-person residue + 3D angles → `.agent/deferred.md`.
-- [ ] **M2.10 corpus run — fresh session (resume note)**. Finish line: 193/193 events, 379/379 `ok`,
+- [ ] RESUME: M2.10 corpus run in a fresh session. Prep committed (`546b19a`); no teammate branch;
+  run not started. Finish line = the unit row below; next action = its `Run` line.
+- [ ] **M2.10 corpus run**. Finish line: 193/193 events, 379/379 `ok`,
   all verdicts true, `task_span` block published; cohort republished; after-table vs M2.9 in
   `pose-weak-points.md` § M2.10; user reviews the new videos.
   - Run: `bash .scratch/rerun_m210.sh` (background, log `.scratch/rerun-m210/driver.log`). Sizing:
@@ -174,5 +176,6 @@ Queue → `.agent/deferred.md`.
 ## Phase
 
 **ITERATE — review UI** (`prototype/review-ui/`, the one prototype in `Artifacts`). The production
-spine ships beside it under its own gates; spine rows in `Tasks` (the instability repair) close
-under those gates, never under PROTOTYPE law. IMPLEMENT of the review UI starts on the user's go.
+spine ships beside it under its own gates; spine rows in `Tasks` = MAINTAIN requests on it, under
+MAINTAIN law (→ `upstream-sync.md` Clause 5), never PROTOTYPE or ITERATE law. IMPLEMENT of the
+review UI starts on the user's go.

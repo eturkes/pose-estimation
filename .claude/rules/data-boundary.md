@@ -7,7 +7,8 @@ Patient recordings + every derivative = sensitive. Binds MAIN + every teammate.
 - **A program may read what I may not, but its committed output obeys this rule.** `prototype/review-ui/` joins `sessions/`, `inventory/` and the run tree to list clips, and labels each recording event with a positional ordinal (`clips._number_families`) so `event_id` never reaches a rendering. **The player view stays uncaptured**: the repo commits no media, so the clip it plays is always a real recording and any PNG of that stage carries a frame of one subject. A committed rendering of a patient-adjacent tree names the fields it displays and shows they are corpus-level — census + cohort qualify (aggregates by contract), the player never does.
 - **Look at the player only through a blanked stage.** A screenshot of that view carries a frame of
   one subject, and the strip is derived from the same clip, so a raw capture is out of bounds even
-  uncommitted — a scratch PNG reaches the transcript exactly like a committed one. `.scratch/player_shot.mjs`
+  uncommitted — a scratch PNG reaches the transcript exactly like a committed one; `CLAUDE.md`
+  `Session flow` finalist screenshots and `operator` visual QA included. `.scratch/player_shot.mjs`
   is the sanctioned form: it hides `#clip-video`, `#overlay`, `#strip`, `.readout` and every
   `.factline .fact-v`, fills the stage with a flat hatch, refuses unless every one of those nodes is
   unpainted, and leaves page chrome — panels, control rows, labels, the fitted box. The factline
