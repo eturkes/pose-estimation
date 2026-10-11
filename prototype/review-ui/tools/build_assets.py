@@ -27,6 +27,7 @@ from fontTools.ttLib import TTFont
 PROTOTYPE = Path(__file__).resolve().parents[1]
 STATIC = PROTOTYPE / "review_ui" / "static"
 CACHE = PROTOTYPE / ".cache"
+DESCRIPTORS = PROTOTYPE.parent.parent / "cohort" / "descriptors.yaml"
 REGISTRY = "https://registry.npmjs.org"
 
 PACKAGES = {
@@ -85,13 +86,16 @@ def charset() -> str:
     strings = json.loads((STATIC / "strings.json").read_text(encoding="utf-8"))
     for entry in strings.values():
         text += entry["ja"] + entry["en"]
-    descriptors = PROTOTYPE.parent.parent / "cohort" / "descriptors.yaml"
-    if descriptors.is_file():
-        parsed = yaml.safe_load(descriptors.read_text(encoding="utf-8")) or {}
-        for column in parsed.get("columns", []):
-            text += f"{column.get('ja', '')}{column.get('en', '')}{column.get('unit', '')}"
-    else:
-        print("warning: cohort/descriptors.yaml absent — JP subset covers UI strings only")
+    # Gitignored + published by the cohort run: a subset built without it renders every
+    # descriptor label as tofu, so its absence refuses rather than degrades.
+    if not DESCRIPTORS.is_file():
+        raise SystemExit(
+            f"refused: {DESCRIPTORS.relative_to(PROTOTYPE.parent.parent)} absent — publish the "
+            "cohort first (`.agent/spec.md` Artifacts); the JP subset needs its labels"
+        )
+    parsed = yaml.safe_load(DESCRIPTORS.read_text(encoding="utf-8")) or {}
+    for column in parsed.get("columns", []):
+        text += f"{column.get('ja', '')}{column.get('en', '')}{column.get('unit', '')}"
     return text
 
 

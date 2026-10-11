@@ -102,6 +102,12 @@ uv run --directory prototype/review-ui python tools/build_assets.py
 `build_assets.py` subsets the Japanese faces to the characters this UI renders.
 The charset is the UI strings plus every `ja` label in `cohort/descriptors.yaml`.
 Rerun it after you add a Japanese string, or the new characters render as tofu.
+The file is gitignored, so you must publish the cohort first; the builder refuses without it.
+`tools/check_glyphs.py` checks the result: every character the UI draws must have a glyph.
+
+```sh
+uv run --directory prototype/review-ui python tools/check_glyphs.py
+```
 
 ## Limits
 
