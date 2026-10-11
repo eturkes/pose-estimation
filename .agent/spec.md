@@ -146,8 +146,10 @@ hospital SCI database.
   sheets watched; review ledger `.agent/review.md`.
 - [x] ecd0d86 **M2.10 messy-footage compensation, run prep (user request)** — M2.10.1 hand gate
   `4c471ab`, M2.10.2 camera survey `ecd0d86`; wrong-person residue + 3D angles → `.agent/deferred.md`.
-- [ ] RESUME: M2.10 corpus run in a fresh session. Prep committed (`546b19a`); no teammate branch;
-  run not started. Finish line = the unit row below; next action = its `Run` line.
+- [ ] RESUME: M2.10 corpus run RUNNING (started 2026-10-12, `.scratch/rerun-m210/started.txt`;
+  M2.9 moved to `output/corpus-2d-superseded-m29/`); resumes per event marker → relaunch
+  `bash .scratch/rerun_m210.sh` if dead. Finish line = the unit row below (user video review =
+  handoff); the three review-UI rows after it closed during the run; no teammate branch.
 - [ ] **M2.10 corpus run**. Finish line: 193/193 events, 379/379 `ok`,
   all verdicts true, `task_span` block published; cohort republished; after-table vs M2.9 in
   `pose-weak-points.md` § M2.10; user reviews the new videos.
@@ -158,17 +160,11 @@ hospital SCI database.
     slow-latency assets persist (`.agent/deferred.md`). Preflight: devices
     `['CPU','GPU','NPU']`; first event's `run.log` = `pose-device=NPU`, pose latency ~50 ms/frame.
   - Then: the `cohort/` command in `Artifacts`; the M2.10 graders (`gates.md`) on the new tree.
-- [ ] **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`**
-  - Acceptance: `build_assets.py` refuses with a named cause when absent; a committed check reports
-    0 missing code points.
-- [ ] **Overlay landmark->pixel map proven by eye alone**
-  - Acceptance: a headless check injects fabricated landmark coordinates into the served player and
-    grades the drawn pixel positions against the canvas scale math, max deviation < 1 px, failing
-    on a seeded off-by-one. Needs no committed media.
-- [ ] **HEVC decode failure reported but never exercised** (123/379 hevc)
-  - Acceptance: an hevc clip on a decoder-less build shows the `player.decode_failed` banner.
-  - The rAF advance itself is proven by `.scratch/player_clock_qa.mjs` (→ `gates.md`); the banner
-    half is what remains.
+- [x] 677e56b **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`** — builder
+  refuses absent; `tools/check_glyphs.py` 0 missing (→ `gates.md` firing).
+- [x] 57a891d **Overlay landmark->pixel map proven** — `tools/overlay_map_qa.mjs`, max 0.089 px after
+  the contain-matched transform (was 0.871 px).
+- [x] 57a891d **HEVC decode banner exercised** — `tools/decode_banner_qa.mjs`, synthetic hvc1.
 
 Evidence → `.agent/archive/{polish,review-m2}.md`; regen → `.claude/rules/gates.md`.
 Queue → `.agent/deferred.md`.
