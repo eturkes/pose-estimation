@@ -75,6 +75,19 @@ uv run --no-sync ruff check && uv run --no-sync ruff format --check \
   live tree = 436 code points, 0 missing per weight, rc=0; `--extra 鬱` (the shipped firing input)
   = 1 missing per weight, `FAIL 2 missing`, rc=1. Absent `cohort/descriptors.yaml` → `charset()`
   refuses with a named cause, rc=1, in builder + check alike.
+- **`prototype/review-ui/tools/{overlay_map_qa,decode_banner_qa}.mjs` — self-seeding, measured.**
+  `node <tool> http://127.0.0.1:<port>` against any `python -m review_ui` (`--repo <empty dir>`
+  works: `/api/clip*` routed to synthetic clips, no recording loaded → capture-free + inside
+  `data-boundary.md`). Seeds = `player.js` served mutated through `page.route`, no file edited, so
+  nothing to restore; a seed that reds nothing fails the run.
+  - overlay map: 5 lone dots × landscape/portrait × dpr 1/2, expected = the video's own
+    `object-fit: contain` mapping. **20/20 green + 3/3 seeds firing, max 0.089 px**; `axis` + `offby1` red the
+    < 1 px rows (Infinity / 1.510 px), `legacy` = the pre-fix `w/W` factor reds exactly the 4
+    < 0.25 px rows at 0.779-0.871 px — the letterbox residual `fitStage`'s per-axis floor left.
+  - decode banner: PyAV (root `.venv`, `libx265`/`libx264`) encodes 1 s 320×180 clips at run time,
+    both decoding 30/30 frames in PyAV. This chromiumfish answers `canPlayType` `"probably"` for
+    `hvc1` and fails it with MediaError 4 → **6/6 green + 2/2 seeds firing**; `nobanner` reds the banner row alone,
+    `nohide` the hidden-video row alone. A build that decodes HEVC reds its own `decoder present` row.
 - Recorded firings that ship no input: `check_prospective_capture.py` at 9/9 through `.scratch/nc_m2u74.py` (below). A recorded count with a gitignored input satisfies the record half and fails the shipped half.
 
 ## Scratch validators pending port

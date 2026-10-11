@@ -119,16 +119,22 @@ function paint() {
     canvas.width = Math.round(width * ratio);
     canvas.height = Math.round(height * ratio);
   }
+  const series = view.series;
+  const clip = view.clip;
+  // Coordinates were normalised by max(frame_w, frame_h). The video letterboxes
+  // (`object-fit: contain`) inside a box fitStage floors per axis, so the overlay
+  // takes the same min factor + centring offset; w/W alone drifted ~0.9 px at the
+  // far corner (tools/overlay_map_qa.mjs).
+  const frameWidth = clip.width || 1;
+  const frameHeight = clip.height || 1;
+  const fit = Math.min(width / frameWidth, height / frameHeight);
+  const scale = (series.scale || Math.max(frameWidth, frameHeight)) * fit;
+  const offsetX = (width - frameWidth * fit) / 2;
+  const offsetY = (height - frameHeight * fit) / 2;
   const ctx = canvas.getContext("2d");
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);
-
-  const series = view.series;
-  const clip = view.clip;
-  // Coordinates were normalised by max(frame_w, frame_h); the stage box has the
-  // clip's own aspect ratio, so one factor maps both axes.
-  const displayWidth = clip.width || 1;
-  const scale = (series.scale || Math.max(clip.width, clip.height)) * (width / displayWidth);
+  ctx.setTransform(ratio, 0, 0, ratio, ratio * offsetX, ratio * offsetY);
   const row = rowAt(view.frame);
 
   ctx.lineCap = "round";

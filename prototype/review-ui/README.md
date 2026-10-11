@@ -117,8 +117,17 @@ uv run --directory prototype/review-ui python tools/check_glyphs.py
   clock.
 - The theme needs the CSS `light-dark()` function and the `:has()` selector.
   Chrome 123, Firefox 121 and Safari 17.5 support both.
-- The prototype carries no tests and no gate. It is a behavioural reference for
-  the IMPLEMENT phase, not its code base.
+- The prototype carries no test suite and no gate. It is a behavioural reference for
+  the IMPLEMENT phase, not its code base. Two headless checks run against a live
+  server. Each check routes the API to synthetic clips, so it loads no recording.
+  `tools/overlay_map_qa.mjs` measures where each landmark dot lands on the stage.
+  `tools/decode_banner_qa.mjs` encodes an HEVC clip and an H.264 clip and checks the
+  decode banner. Each check also replays seeded defects and must report them red.
+
+  ```sh
+  node prototype/review-ui/tools/overlay_map_qa.mjs http://127.0.0.1:8791
+  node prototype/review-ui/tools/decode_banner_qa.mjs http://127.0.0.1:8791
+  ```
 - The server trusts its caller. It binds the loopback address and serves
   read-only. Every request resolves through the built clip index, so a request
   supplies a key and never a path.
