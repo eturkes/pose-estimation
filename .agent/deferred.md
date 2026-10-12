@@ -176,19 +176,32 @@ rows before sizing any unit that touches their surfaces.
   35.8), 3D closer on 23/24 series; shoulder 4.3 vs 5.2 (ratio 0.82, worse than 2D's 0.51 — the
   3D shoulder may lean on the model's prior); inference 0.67 s/frame median on the Arc GPU.
 - **Pose latency runs 3-5× slow on some assets, cause unmeasured** — paired probes on one day: 1-3 of
-  11 assets at 130-274 ms/frame mean in BOTH arms (survey on and off) against M2.9's corpus median
-  50.0 ms and 0/379 assets above 100 ms; AC power, `performance` profile, no GPU throttle flag at
-  idle (`.scratch/messy/latency/probe_*_assets.json`) → one measurement names the stalled stage
-  (detector GPU, pose NPU or decode) on a slow asset, and a rerun of that asset reads <= 70 ms/frame
-  after the named fix or the cause is recorded as host-side.
-
-- **Marksman flags 3 live doc links as `Link to non-existent document`** — `docs/calibration_finding.md:9`
-  → `technical/calibration_qc.md`, `docs/technical/entrypoints.md:182` → `qualification.md`, `:217` →
-  `calibration_qc.md`; all three targets exist and `git check-ignore` passes them. Suspected cause
-  (unconfirmed): the unanchored `.gitignore` patterns `calibration_qc` + `qualification` hide the
-  same-stem `.md` targets from Marksman's startup index → Marksman reports zero such warnings on those
-  three links in a fresh session, the published trees stay ignored (`git check-ignore calibration_qc
-  qualification` rc 0).
+  11 assets at 130-274 ms/frame mean in BOTH arms (survey on and off); the M2.10 corpus: median
+  51.4 ms, 10/379 assets above 100 ms (M2.9: 50.0 ms, 0/379); AC power, `performance` profile, no
+  GPU throttle flag at idle (`.scratch/messy/latency/probe_*_assets.json`) → one measurement names
+  the stalled stage (detector GPU, pose NPU or decode) on a slow asset, and a rerun of that asset
+  reads <= 70 ms/frame after the named fix or the cause is recorded as host-side.
+- **M2.10 gate + span graded on the watch set alone (`scientist-m210-1` S01/S03/S07)** — the watch
+  set samples problem clips, so corpus-scale real-hand loss, false-hand rejection and missed setup
+  are unmeasured; rival = visibility-dependent rejection excluding severe impairment or
+  therapist-assisted posture from hand features → a stratified random sample outside the watch set
+  (frozen codebook, view × task × task/other hand, subject-clustered intervals) reports the three
+  rates separately, and the gated share among real hands per impairment stratum where the SCI join
+  later allows it.
+- **Cohort shifts M2.9 → M2.10 not factorized by mechanism (`scientist-m210-1` S10)** → offline arms
+  over the M2.9 rows (baseline / + gate / + trim / + compensation, no new inference) attribute each
+  feature family's median shift, fixed-support and available-support, and the residual on the
+  distinct-score P08 clip is named.
+- **Hand gate state is keyed by smoother track, presence judged on the exported subject (M2.10.1
+  P08 at corpus scale: 13/379 clips beyond 0.01, max 0.766)** — a transient second track takes the
+  exported row while the subject's own track carries a handless row, which switches that hand off;
+  back on the exported row, 0.50-0.65 levels hold it off (`pose-weak-points.md` § M2.10 corpus;
+  measured on 1 clip with `.scratch/messy/p08_keys.py`; 11 share its signature via `p08_sign.py`,
+  undiagnosed; 1 exports scores that differ from M2.9, cause unmeasured) → the gate keys on the
+  exported subject's identity (or carries state across the transient), `p08_compare.py` over a
+  corpus rerun reads <= 0.01 on every clip, the held-out drop shares (`gate_flicker.py`: hallucinated
+  >= 0.90 removed, real <= 0.06 lost) hold, and a synthetic two-track fixture with a handless
+  subject row reds on the current keying.
 
 - **Two live pointers cite a global `Subagents` label the global file never carries** —
   `.claude/rules/delegation.md:16` + `.claude/rules/gates.md:268` say "global `Subagents`

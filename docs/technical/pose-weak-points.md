@@ -90,7 +90,7 @@ frames; `collapse` = present hand frames with extent < 0.25 × forearm.
 
 ## M2.9 corpus, measured
 
-Population = `output/corpus-2d/` M2.9 generation (`SubjectTracker`, GPU f32 detector every frame,
+Population = the M2.9 generation, now `output/corpus-2d-superseded-m29/` (`SubjectTracker`, GPU f32 detector every frame,
 RTMW-L on NPU, hygiene, seated drops, SPARC v3), 379 clips; before = the rtmlib-f7 generation,
 same 379 clips paired by label. Same triage instrument; it reproduces the catalog's own before
 figures exactly except `flick > 5` (144 against the catalog's 143). `flick` = max of the two hands.
@@ -152,3 +152,62 @@ of the largest. Labelled watch set = 81 clips / 36 families / 14 subjects, 12 fr
 
 The label vocabulary, graders and their regeneration paths → `.claude/rules/gates.md`
 § *Scratch validators pending port*.
+
+## M2.10 corpus, measured
+
+Population = `output/corpus-2d/` M2.10 generation (M2.9 + hand presence gate + camera survey: task
+span, per-row camera similarity applied in R), 379 clips; before = the M2.9 generation at
+`output/corpus-2d-superseded-m29/`, same 379 clips paired by label. Same triage instrument as above.
+
+| metric | M2.9 | M2.10 |
+| --- | --- | --- |
+| `whole > 10` (C02, C11) | 0/379 | 0/379; mean 0.018 → 0.000 |
+| `iso > 10` (C05) | 1/379 | 0/379 — 1 fixed, 0 new; mean 0.097 → 0.000 |
+| `alt` median | 0.525 | 0.531 |
+| `oof > 0.05` (C07) | 4/379 | 2/379 — 3 fixed, 1 new; 67 clips rise by a median 0.00014 share |
+| `gap > 0.05` (C08) | 11/379 | 13/379 — the 11 clips whose `gap` rose = exactly the 11 trimmed clips (`gap` counts decoded frames with no row, so trimming raises it by design) |
+| `flick > 5` (C03) | 167/379 | 0/379 — 167 fixed, 0 new; median 3.415 → 0.000, max 35.6 → 4.2; gate-conditioned: a hand held off cannot blink, so this is no real-hand tracking claim |
+| hand blink-outs / 100 rows | above 3.10, left 2.63, right 3.27 (10 074) | above 0.23, left 0.33, right 0.14 (744) |
+
+- **Hand gate, corpus.** 160 720 of 599 140 drawn hand-frames gated (0.268; above 0.342, left
+  0.229, right 0.248) — compatible with the watch set's 357/1 494 decided hands hallucinated (24 %;
+  195 more unsure) under held-out removal 0.90 / real loss 0.037. Compatibility only: no corpus
+  labels grade which gated hands were real.
+- **P08 at corpus scale: 366/379 clips within 0.01** of the offline replay over M2.9 (347 exact);
+  13 exceed it (5 above 0.05, max 0.766) — the every-clip bar fails. On 12 of the 13 the hand
+  scores the pipeline exports equal M2.9's (identity over those frames alone; gated frames carry
+  no score to compare) and the pipeline gates only frames the replay keeps, never the reverse.
+  Mechanism, measured on the 0.766 clip (in-process rerun, CSV byte-identical to the corpus, every
+  gate call logged): the smoother emitted a transient second track for 9 frames that took the
+  exported row with the hands, while the subject's own track carried a handless row that switched
+  its right-hand state off; back on the exported row its levels sat in the 0.50-0.65 band, so
+  hysteresis held the hand off for most of the remaining 241 frames. The gate is keyed by track,
+  presence is judged on the exported subject. Partition of the 13: 1 measured, 11 sharing its
+  signature (compatible with the mechanism, not diagnosed — other gate histories can share it), 1
+  (positional 24) whose exported scores differ from M2.9 (identity 0.90/0.92), cause unmeasured.
+  → `.agent/deferred.md`.
+- **P11 at corpus scale reproduces the offline module**: published `task_start_frame` /
+  `task_end_frame` equal `camera_survey.survey_source` over the detection cache on 83/83 labelled
+  clips → setup excluded 0.967 (dense, 13 clips) / 41/44 (sparse), task lost 0.011 / 1/855.
+- **Task span, corpus**: 6 864 of 337 090 decoded frames outside the task on 11 assets, all 11
+  overhead and all inside the watch set (10 densely labelled); 9 of M2.9's 10 overhead
+  `gap > 0.05` clips (a label-independent setup signature; one stays untrimmed) are among them.
+  Observed: trimming and high gap concentrate on ~10 overhead clips. Setup prevalence outside the
+  watch set is unmeasured — the watch set samples problem clips, and `gap` is no setup ground
+  truth. `assets_without_reference` 0.
+- **P09 still fails**: 2134 of 2 426 249 feature-keypoint observations at vis >= 0.3 out of frame
+  (0.088 %, M2.9 0.143 %) on 83/379 clips; overshoot median 17 px (M2.9 36 px).
+- **Cohort** (`cohort/`, 1068 rows unchanged in shape): frame rows 334 129 → 329 810, window rows
+  21 507 → 21 168; 154/1068 medians identical. Median absolute relative shift by family: elbow
+  angle (60 rows) 0.000, hand angles (120) 0.080 with 96/120 changing subject count, trunk 0.005, SPARC 0.011, velocity 0.027, jerk 0.047; relative tails (p90 to ~1.4) sit on
+  near-zero medians (`compensatory_pattern_index`, `posture_symmetry`: <= 0.24 of the M2.9 cohort
+  IQR). Against that IQR, 89/360 hand rows and 13/708 others move > 0.5 IQR (others max 0.70; 12
+  motion or wrist-path features + `elbow_angle_deg_symmetry_ratio`; 5 in `glass-l`, home of two
+  heavily trimmed clips). Hand features
+  lose subjects on the non-task hand (→ `.claude/rules/cohort.md`). The M2.10 mechanisms
+  (compensation, trimming, gate membership, reference vertical) can move these features; no
+  factorization attributes each shift, and the one distinct-score P08 clip stays unexplained.
+
+Instruments: `.scratch/triage.py` → `.scratch/watch/triage_m210.json`, `.scratch/after_table.py`,
+`.scratch/oof_probe.py`, `.scratch/flick_cause.py`, `.scratch/messy/{p08_compare,p08_sign,p08_keys,
+p11_corpus}.py` (→ `.claude/rules/gates.md`).

@@ -26,23 +26,22 @@ hospital SCI database.
   published trees, degrading per absent tree. Commits no media at all → the player needs the
   published trees and lists nothing without them; `README.md` = view guide + regeneration + limits.
   `uv run --directory prototype/review-ui python -m review_ui` → `http://127.0.0.1:8791/`.
-- `cohort/` — the `../rehab` export, from the M2.9 generation. 12 `(task, side)` cells · 89
-  features · 1068 rows; trunk features 6-16 subjects (side views alone, → `cohort.md`);
-  `descriptors.yaml` = ja/en labels, units, ranges.
+- `cohort/` — the `../rehab` export, from the M2.10 generation. 12 `(task, side)` cells · 89
+  features · 1068 rows; trunk features 6-16 subjects (side views alone), non-task-hand + bilateral
+  hand features 6-16 (hand gate) → `cohort.md`; `descriptors.yaml` = ja/en labels, units, ranges.
   `P pose-estimation-cohort --inventory inventory --sessions sessions --run output/corpus-2d --out cohort`
-- `output/corpus-2d/` — per-asset 2D landmarks + clinical features, M2.9 generation (subject
-  tracker, GPU-f32 detector every frame, NPU pose, seated drops, SPARC v3): 193/193 events,
-  379/379 `ok`, 337 090 frames, 5.559 h at 17.35 fps measured, all 11 `run_report.json` verdicts
-  true. `.scratch/rerun.sh` = `python scripts/corpus_run_2d.py` under the accelerator recipe;
-  resumes per event marker. Before/after vs the superseded generation →
-  `docs/technical/pose-weak-points.md` § M2.9 corpus. That generation (rtmlib tracker, CPU
-  detector every 7th frame) + its cohort sit at `output/corpus-2d-superseded-rtmlib-f7/` +
-  `.scratch/compare-root/cohort/` for the user's before/after review — delete both on the user's
-  word. Comparison UI = `uv run --directory prototype/review-ui python -m review_ui --port 8792
-  --repo "$PWD/.scratch/compare-root"` (symlinks onto the primary trees, the superseded run).
-  Next generation = M2.10 (hand gate + camera survey, drivers default on): `.scratch/rerun_m210.sh`
-  moves M2.9 to `output/corpus-2d-superseded-m29/` (user: keep both superseded trees), then runs
-  `python scripts/corpus_run_2d.py` under the accelerator recipe → `.scratch/rerun-m210/`.
+- `output/corpus-2d/` — per-asset 2D landmarks + clinical features, M2.10 generation (M2.9's subject
+  tracker, GPU-f32 detector every frame, NPU pose, seated drops, SPARC v3 + hand presence gate +
+  camera survey: task span, per-row camera similarity in R): 193/193 events, 379/379 `ok`,
+  337 090 frames, 8.197 h measured, all 11 `run_report.json` verdicts true, `task_span` published.
+  `.scratch/rerun_m210.sh` = `python scripts/corpus_run_2d.py` under the accelerator recipe;
+  resumes per event marker. Before/after vs M2.9 → `docs/technical/pose-weak-points.md`
+  § M2.10 corpus. Superseded generations kept for the user's before/after review (user: keep
+  both; delete on the user's word): M2.9 at `output/corpus-2d-superseded-m29/` + cohort
+  `.scratch/compare-m29/cohort/`; rtmlib-f7 at `output/corpus-2d-superseded-rtmlib-f7/` +
+  `.scratch/compare-root/cohort/`. Comparison UI = `uv run --directory prototype/review-ui python
+  -m review_ui --port 8792 --repo "$PWD/.scratch/compare-m29"` (`compare-root` for rtmlib-f7;
+  symlinks onto the primary trees + the superseded run).
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
   run; each `P pose-estimation-<name> … --out <dir>`; `--help` = args.
 - Decisive gate — `P pytest`, 2367 tests, ~32 min, alone.

@@ -106,7 +106,11 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   (subject-box choice vs labelled rank), `p11_shipped.py` + `p11_grade.py <labels.md>…` (shipped
   task span vs dense + sparse setup labels), `shake_control.py --variant shipped [--view above]`
   (known synthetic camera shake through the shipped compensation), `p08_compare.py <pilot-tree>`
-  (in-pipeline gate vs offline replay). Port → `.agent/deferred.md`.
+  (in-pipeline gate vs offline replay); corpus-scale: `p11_corpus.py <tree> <labels.md>…` (published
+  diag spans → `p11_grade.py` via `P11_SPANS`; 83/83 equal the offline module), `p08_sign.py <m210>
+  <m29>` (signed P08 delta + exported-score identity per divergent clip), `p08_keys.py <index> <tree>
+  <out>` under the accelerator recipe (one event rerun in-process with every `HandPresenceGate` call
+  logged; its CSV must cmp equal the corpus's). Port → `.agent/deferred.md`.
 - `.scratch/theme_qa.mjs` — review-ui theme control, the paths a still capture cannot show.
   `node .scratch/theme_qa.mjs http://127.0.0.1:<port>` against a running `python -m review_ui`;
   resolves `chromiumfish` + `playwright-core` out of the pnpm global store exactly as `webcap` does,
@@ -214,7 +218,7 @@ A gate backing a durable claim must rerun from committed state, so a scratch-loc
   `docs/technical/pose-weak-points.md` (`whole`, `iso`, `alt`, `flick`, `oof`, `gap`, `lowvis`,
   `swapH`; definitions in that file). `P python .scratch/triage.py output/corpus-2d --json <out>`;
   labels clips by the review UI's positional ordinals (imports `prototype/review-ui`), prints
-  numbers only. Baselines, 379 clips each: `.scratch/watch/triage_m29.json` (M2.9, shipped) and
+  numbers only. Baselines, 379 clips each: `.scratch/watch/triage_m210.json` (M2.10, shipped), `.scratch/watch/triage_m29.json` (M2.9, superseded) and
   `.scratch/watch/triage_f7.json` (superseded rtmlib-f7).
 - Corpus after-table instruments, numbers only, review-UI ordinals for labels:
   `P python .scratch/oof_probe.py [<tree>]` (P09: out-of-frame observations at vis >= 0.3, overshoot
