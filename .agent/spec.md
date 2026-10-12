@@ -145,20 +145,10 @@ hospital SCI database.
   sheets watched; review ledger `.agent/review.md`.
 - [x] ecd0d86 **M2.10 messy-footage compensation, run prep (user request)** — M2.10.1 hand gate
   `4c471ab`, M2.10.2 camera survey `ecd0d86`; wrong-person residue + 3D angles → `.agent/deferred.md`.
-- [ ] RESUME: M2.10 corpus run RUNNING (started 2026-10-12, `.scratch/rerun-m210/started.txt`;
-  M2.9 moved to `output/corpus-2d-superseded-m29/`); resumes per event marker → relaunch
-  `bash .scratch/rerun_m210.sh` if dead. Finish line = the unit row below (user video review =
-  handoff); the three review-UI rows after it closed during the run; no teammate branch.
-- [ ] **M2.10 corpus run**. Finish line: 193/193 events, 379/379 `ok`,
-  all verdicts true, `task_span` block published; cohort republished; after-table vs M2.9 in
-  `pose-weak-points.md` § M2.10; user reviews the new videos.
-  - Run: `bash .scratch/rerun_m210.sh` (background, log `.scratch/rerun-m210/driver.log`). Sizing:
-    paired probes (11 assets × <= 600 frames, survey on vs off, `scripts/pilot_corpus_run.py --seed
-    20261011 --min-assets 1 --tracking body --max-frames 600`) measured 1.14× (568.4 vs 500.6 s,
-    `.scratch/messy/latency/`) → **projected** ~6.3 h over M2.9's measured 5.56 h, longer if the
-    slow-latency assets persist (`.agent/deferred.md`). Preflight: devices
-    `['CPU','GPU','NPU']`; first event's `run.log` = `pose-device=NPU`, pose latency ~50 ms/frame.
-  - Then: the `cohort/` command in `Artifacts`; the M2.10 graders (`gates.md`) on the new tree.
+- [x] 08d0594 **M2.10 corpus run** — 193/193 events, 379/379 `ok`, 11/11 verdicts, `task_span`
+  published; cohort republished; after-table → `pose-weak-points.md` § M2.10 corpus.
+- [ ] **User reviews the M2.10 videos** — player at `:8791` (M2.10) beside `:8792 --repo
+  "$PWD/.scratch/compare-m29"` (M2.9); the user's word also decides the superseded trees' deletion.
 - [x] 677e56b **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`** — builder
   refuses absent; `tools/check_glyphs.py` 0 missing (→ `gates.md` firing).
 - [x] 57a891d **Overlay landmark->pixel map proven** — `tools/overlay_map_qa.mjs`, max 0.089 px after
