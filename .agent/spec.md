@@ -6,14 +6,14 @@ Turn the hospital's uncontrolled three-camera recordings of spinal-cord-injury r
 tasks into measured movement statistics that feed the `../rehab` clinical dashboard over the
 hospital SCI database.
 
-- Corpus = `videos/3-cam/`: 382 hand-held clips, 16 subjects × 6 tasks × 2 sides, three views per
-  family at best, no fixed rig, no calibration.
+- The corpus is `videos/3-cam/`: 382 hand-held clips of 16 subjects × 6 tasks × 2 sides. Each
+  family has three views at best. The recordings have no fixed rig and no calibration.
 - The pipeline tracks 2D pose per clip, extracts clinical kinematic features, and aggregates to
   cohort level — no per-subject rows, no patient identifier, no join column leaving this repo.
 - The shareable review UI is itself an intended deliverable for collaborators, not only a
   prototype step.
-- Eventual destination = a subject↔patient join into the hospital SCI database; that mapping does
-  not exist yet.
+- The eventual destination is a subject↔patient join into the hospital SCI database. That mapping
+  does not exist yet.
 
 ## Artifacts
 
@@ -44,14 +44,16 @@ hospital SCI database.
   symlinks onto the primary trees + the superseded run).
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
   run; each `P pose-estimation-<name> … --out <dir>`; `--help` = args.
-- Decisive gate — `P pytest`, 2367 tests, ~32 min, alone.
+- Decisive gate — `P pytest`, 2370 tests, ~32 min, alone.
 
 ## Decisions
 
 - **Repo scope = `videos/3-cam/`** — retired data + siblings → `.claude/rules/data-boundary.md`.
 - **`src/` + `tests/` + `analysis/` + six publishers = production spine**, gates + verification
   integrity binding; the prototype (`prototype/review-ui/`, → `Artifacts`) sits outside under
-  PROTOTYPE law, `testpaths = ["tests"]` keeping it out of collection.
+  PROTOTYPE law, `testpaths = ["tests"]` keeping it out of collection. Spine rows in `Tasks` =
+  MAINTAIN requests on it, under MAINTAIN law, never PROTOTYPE or ITERATE law (→
+  `upstream-sync.md` Clause 5).
 - **Claim boundary.** Retrospective 3D feasibility may be claimed from internal geometric + QC
   evidence alone; clinical validity, absolute metric accuracy and marker-based equivalence may not.
   Crossing it needs the prospective calibrated capture in `docs/prospective_capture.md`.
@@ -116,33 +118,9 @@ hospital SCI database.
 ## Tasks
 
 - [x] 397cc8a **Review UI overlay time map (C01)**
-- [x] 481ba22 **M2.9.1 subject tracker (C02 C03 C08 C11)** — contract `.agent/archive/contract-m2u91.md`;
-  diff-blind `tester` → own red witness → implementation → `reviewer` → gate → seven-arm re-sweep
-  (P14-P17). Mechanism law → `.claude/rules/rtmlib-runtime.md`.
-- [x] d4dafdb **M2.9.2 output hygiene (C05 subset, C07, C10)** — contract
-  `.agent/archive/contract-m2u92.md`: out-of-frame points score 0, duplicate hand suppressed,
-  face landmark sides corrected. General occlusion hallucination (legs under the table, hips
-  from above) is not separable by score — hallucinated knee median 0.48 vs real wrist q25 0.49
-  (right views) — so it stays a reported model limit.
-- [x] 83b5b40 **M2.9.3 hands (C09) — evaluated twice, not adopted.** RTMW-X scores saturate; ungated
-  hand-crop refinement moves the confidence scale + collapses occluded hands; the gated version
-  (user-requested) removes the collapse but misses jitter <= 0.006 (0.0079) at +41 % wall →
-  catalog § M2.9.3, queued.
-- [x] a395e28 **M2.9.5 seated body-part drop (user ruling)** — contract
-  `.agent/archive/contract-m2u95.md`: knees, ankles, feet score 0 everywhere; hips score 0 under
-  the overhead camera.
-- [x] 29a24e4 **M2.9.4 SPARC** — contract `.agent/archive/contract-m2u94.md`: the R stage's
-  fixed-cutoff SAL became SPARC (adaptive cutoff, Balasubramanian 2015), method version v3; it
-  runs inside the corpus rerun's own R stage.
-- [x] 7a1201d **Corpus rerun** — one pass, 193/193 events, 379/379 `ok`, verdicts all true
-  (→ `Artifacts`).
 - [x] b8ccd71 **Review UI stacked layout drifted right + shrank at ratio 1.1 (user report)**
 - [x] aed1e7d **Review UI player needed page scroll to show the stage (user request)** — side by
   side down to 761 px, fitted 2:5 stack below; user-approved ("much better and stable").
-- [x] 0814560 **Corpus rerun downstream** — cohort republished from M2.9 (`cohort.md` trunk
-  bullet); catalog after-table + P08 pass / P09 fail / P10 vacuous (`pose-weak-points.md`
-  § M2.9 corpus, 3 `deferred.md` rows); `corpus-run.md` measured-whole = 5.559 h; spot-check
-  sheets watched; review ledger `.agent/review.md`.
 - [x] ecd0d86 **M2.10 messy-footage compensation, run prep (user request)** — M2.10.1 hand gate
   `4c471ab`, M2.10.2 camera survey `ecd0d86`; wrong-person residue + 3D angles → `.agent/deferred.md`.
 - [x] 08d0594 **M2.10 corpus run** — 193/193 events, 379/379 `ok`, 11/11 verdicts, `task_span`
@@ -150,17 +128,13 @@ hospital SCI database.
 - [ ] **User reviews the M2.10 videos** — player at `:8791` (M2.10) beside `:8792 --repo
   "$PWD/.scratch/compare-m29"` (M2.9); the user's word also decides the superseded trees' deletion.
 - [x] 677e56b **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`** — builder
-  refuses absent; `tools/check_glyphs.py` 0 missing (→ `gates.md` firing).
+  refuses absent; `tools/check_glyphs.py` 0 missing (→ `review-ui.md` firing).
 - [x] 57a891d **Overlay landmark->pixel map proven** — `tools/overlay_map_qa.mjs`, max 0.089 px after
   the contain-matched transform (was 0.871 px).
 - [x] 57a891d **HEVC decode banner exercised** — `tools/decode_banner_qa.mjs`, synthetic hvc1.
 
-Evidence → `.agent/archive/{polish,review-m2}.md`; regen → `.claude/rules/gates.md`.
-Queue → `.agent/deferred.md`.
+Evidence → `.agent/archive/{polish,review-m2}.md`; regen → each check's `paths:` rule in `.claude/rules/`; queue → `.agent/deferred.md`.
 
 ## Phase
 
-**ITERATE — review UI** (`prototype/review-ui/`, the one prototype in `Artifacts`). The production
-spine ships beside it under its own gates; spine rows in `Tasks` = MAINTAIN requests on it, under
-MAINTAIN law (→ `upstream-sync.md` Clause 5), never PROTOTYPE or ITERATE law. IMPLEMENT of the
-review UI starts on the user's go.
+ITERATE — review UI (`prototype/review-ui/`, the one prototype in `Artifacts`)

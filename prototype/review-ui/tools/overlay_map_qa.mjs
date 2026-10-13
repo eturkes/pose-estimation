@@ -90,7 +90,7 @@ const SEEDS = {
 
 async function measure(browser, ratio, seed) {
   const context = await browser.newContext({ viewport: { width: 1400, height: 950 } });
-  // This build pins devicePixelRatio to 1 whatever the context says (→ gates.md drift).
+  // This build pins devicePixelRatio to 1 whatever the context says (→ review-ui.md drift).
   await context.addInitScript((r) => {
     Object.defineProperty(window, "devicePixelRatio", { get: () => r });
   }, ratio);

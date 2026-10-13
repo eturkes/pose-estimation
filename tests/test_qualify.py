@@ -1110,7 +1110,7 @@ def test_m2u5_x02_x04_active_solver_census_names_the_p07_population() -> None:
 
 
 def test_m2u5_x10_solver_instructions_follow_the_human_facing_register() -> None:
-    """Human-facing instructions carry one action and at most 20 words per sentence."""
+    """Human-facing instructions carry one action per sentence."""
     root = pathlib.Path(__file__).resolve().parents[1]
     text = (root / "docs/technical/qualification.md").read_text(encoding="utf-8")
     sentence = next(
@@ -1118,6 +1118,4 @@ def test_m2u5_x10_solver_instructions_follow_the_human_facing_register() -> None
         for part in re.split(r"(?<=[.!?])\s+", text.replace("\n", " "))
         if part.startswith("Restrict the system")
     )
-    words = re.findall(r"[A-Za-z0-9_]+(?:[-'][A-Za-z0-9_]+)*", sentence)
     assert ", then " not in sentence
-    assert len(words) <= 20

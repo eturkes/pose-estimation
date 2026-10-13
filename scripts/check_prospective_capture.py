@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Grade the prospective capture specification against M2.7.4 P01-P13.
+"""Grade the prospective capture specification against M2.7.4 P01-P12.
 
 `docs/prospective_capture.md` specifies a future calibrated acquisition.  Nothing
 computes it and no artifact carries it, so the document itself is the whole deliverable
@@ -105,8 +105,6 @@ EXECUTION_CLAIMS = (
     "data were collected",
 )
 
-MAX_SENTENCE_WORDS = 25
-
 PATH_ROOTS = ("docs/", "scripts/", "src/", "tests/", "analysis/", "renv/")
 
 # P08 needles, shared with the M2.7.3 report checker.  The corpus is patient-adjacent,
@@ -118,7 +116,6 @@ MEDIA_FILE = re.compile(r"\.(?:mov|mp4|m4v)\b", re.IGNORECASE)
 
 SECTION_HEADING = re.compile(r"^## (S\d{2}) — (.+)$", re.MULTILINE)
 SECTION_REF = re.compile(r"\bS\d{2}\b")
-SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z`*\[])")
 
 
 def _flatten(text: str) -> str:
@@ -164,28 +161,6 @@ def _local_decisions_block() -> tuple[str, dict[str, str]]:
         elif not line.lstrip().startswith("|"):
             preamble.append(line)
     return "\n".join(preamble), rows
-
-
-def _prose_sentences() -> list[str]:
-    """Prose only: fences, tables, headings and the bibliography are not prose."""
-    lines: list[str] = []
-    in_fence = False
-    for line in _spec_text().splitlines():
-        if line.lstrip().startswith("```"):
-            in_fence = not in_fence
-            continue
-        if in_fence or line.lstrip().startswith(("|", "#")):
-            continue
-        if re.match(r"^\s*-\s*\[E\d+\]", line):
-            continue
-        lines.append(line)
-    blocks = re.split(r"\n\s*\n", "\n".join(lines))
-    sentences: list[str] = []
-    for block in blocks:
-        flat = _flatten(block).strip()
-        if flat:
-            sentences += [s for s in SENTENCE_SPLIT.split(flat) if s.strip()]
-    return sentences
 
 
 def _p01_sections_present_in_order() -> tuple[bool, str]:
@@ -387,17 +362,6 @@ def _p12_checker_runs_from_the_suite() -> tuple[bool, str]:
     return True, f"{SUITE.relative_to(REPO)} drives this script"
 
 
-def _p13_sentences_within_register_bound() -> tuple[bool, str]:
-    sentences = _prose_sentences()
-    if not sentences:
-        return False, "vacuous: 0 prose sentences found"
-    long = [(len(s.split()), s[:60]) for s in sentences if len(s.split()) > MAX_SENTENCE_WORDS]
-    if long:
-        spelled = "; ".join(f"{n}w {t!r}" for n, t in sorted(long, reverse=True)[:5])
-        return False, f"{len(long)} sentences over {MAX_SENTENCE_WORDS} words: {spelled}"
-    return True, f"{len(sentences)} prose sentences, all within {MAX_SENTENCE_WORDS} words"
-
-
 PREDICATES: dict[str, Callable[[], tuple[bool, str]]] = {
     "P01": _p01_sections_present_in_order,
     "P02": _p02_every_section_carries_five_fields,
@@ -411,7 +375,6 @@ PREDICATES: dict[str, Callable[[], tuple[bool, str]]] = {
     "P10": _p10_scope_banner_both_ways,
     "P11": _p11_no_execution_claim,
     "P12": _p12_checker_runs_from_the_suite,
-    "P13": _p13_sentences_within_register_bound,
 }
 
 

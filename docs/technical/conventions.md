@@ -2,7 +2,7 @@
 
 ## Git
 
-- Commit messages: [Scoped Commits](https://scopedcommits.com/) — `<scope>: <description>`, scope first (the subsystem/area touched, e.g. `tracking`, `calibration`, `multicam`, or a cross-cutting label such as `Tooling`, `Maintenance`, `Refactor`, `Docs`). For multi-area commits, comma-list the scopes, generalize to one, or use `treewide`. Subject + body follow `CLAUDE.md` `Execution` Git (shape + payload) and `Authoring` (register): subject = `<scope>: <cause> → <fix>`, one line — the cause→fix shape sets the length, so no 50-char cap applies; measurements + SHAs + each teammate the unit used (name, role, verdict) kept as payload while the narration around them goes.
+- Commit messages: [Scoped Commits](https://scopedcommits.com/) — `<scope>: <description>`, scope first (the subsystem/area touched, e.g. `tracking`, `calibration`, `multicam`, or a cross-cutting label such as `Tooling`, `Maintenance`, `Refactor`, `Docs`). For multi-area commits, comma-list the scopes, generalize to one, or use `treewide`. Subject + body follow global `CLAUDE.md` `Delivery` Git (shape + payload) and `Authoring` (register): subject = `<scope>: <cause> → <fix>`, one line — the cause→fix shape sets the length, so no 50-char cap applies; measurements + SHAs + each teammate the unit used (name, role, verdict) kept as payload while the narration around them goes.
 - Before committing, always check whether `README.md`, `.gitignore`, `pyproject.toml`, or other housekeeping files need a matching update.
 
 ## Quality gate
@@ -50,7 +50,7 @@ mutated bytes.
 
 ## Text register
 
-Both registers + the human-facing/code-surface rule live in `CLAUDE.md` `Authoring`; this section owns the repo inventory alone. ASD-STE100 applies to this surface:
+Both registers + the human-facing/code-surface rule live in global `CLAUDE.md` `Authoring`; this section owns the repo inventory alone. ASD-STE100 applies to this surface:
 
 - `README.md`, `docs/capture_protocol.md`, `docs/calibration_finding.md`,
   `docs/prospective_capture.md` — the shipped docs. `docs/technical/` is internal → agent register, as is every artifact left unlisted here.
@@ -109,4 +109,4 @@ Strict config: `-ra --strict-config --strict-markers --import-mode=importlib`. W
 - Public API: only what's re-exported from `src/pose_estimation/__init__.py`. Internal helpers may move freely.
 - TypedDicts in `_types.py` document dict-passed pipeline state. Treat them as the contract.
 - Prefer editing existing modules to introducing new ones; the surface is small on purpose.
-- Comment policy + the agent-legibility bounds live in `CLAUDE.md` `Engineering`.
+- Comment policy + the agent-legibility bounds live in global `CLAUDE.md` `Engineering`.

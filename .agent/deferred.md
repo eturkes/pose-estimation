@@ -5,7 +5,7 @@ deferral time while the evidence is fresh; a row leaves only when that check pas
 Read on demand — not attached state. A row promoted to an unfinished unit moves to `.agent/spec.md`
 `Tasks` as a `- [ ]` row, and returns here when the spine moves past it.
 
-Evidence → `.agent/archive/{polish,review-m2}.md`; regen → `.claude/rules/gates.md`. Read the
+Evidence → `.agent/archive/{polish,review-m2}.md`; regen → each check's `paths:` rule in `.claude/rules/`. Read the
 rows before sizing any unit that touches their surfaces.
 
 - **`isotropy_angle_fidelity_results.json` pins sample ids alone** (T2 R23) → binds script,
@@ -17,7 +17,7 @@ rows before sizing any unit that touches their surfaces.
 - **`inventory_mutation_results.json` + `measure_mutation_results.json` target moved bytes** (2/2,
   2/3) → each campaign runs from clean checkout, no target-mismatch refusal, reproduces its kill
   list, and exits 1 on a seeded survivor with `M028` the sole allowlisted equivalent — today
-  `run_inventory_mutations.py` returns 0 whatever survives (their only firing → `gates.md`).
+  `run_inventory_mutations.py` returns 0 whatever survives (their only firing → `checks.md`).
 - **Six legacy R clinical consumers re-implement suffix/read/bind** → one mode-aware reader; a
   mixed 2D+3D tree yields named mode outputs or rejection, 2D goldens unchanged.
 - **`make_templates.R` + `validate_metadata.R` skip `_3d` silently** → both route through that
@@ -28,13 +28,14 @@ rows before sizing any unit that touches their surfaces.
   worktree, bare `uv run pytest` still reproduces `GLIBC_2.43`, 0 bare invocations in `.agent/spec.md`
   + `.claude/rules/` + `docs/` + `scripts/` (`.agent/archive/` frozen, keeps its bare forms).
 - **12/12 `check_*.py` ship green-only; `run_measure_mutations.py` firing unrecorded** (census +
-  acceptance → `gates.md`) → each checker grows a committed seed driving it to its own named
+  acceptance → `checks.md`) → each checker grows a committed seed driving it to its own named
   failure; a runner reports 12/12 refused, rc=1 naming one that stops. Covers the
-  `nc_m2u74.py` port: 9/9 from clean, `SEED-INERT` on an inert seed,
+  `nc_m2u74.py` port: 8/8 from clean, `SEED-INERT` on an inert seed,
   `docs/prospective_capture.md` byte-identical.
-- **`steq.py` + `fidelity.sh` port; 24 register flags on four human surfaces** → one committed
-  scanner reports 0 `LONG`/`FILLER` over the `conventions.md` inventory, fails a seeded 30-word
-  instruction, no specifier/flag/number delta.
+- **`steq.py` + `fidelity.sh` port; 24 register flags on four human surfaces at `--max 25`** → one
+  committed scanner reports 0 `FILLER` over the `conventions.md` inventory and lists every
+  `LONG`/`CONTRACTION`/`PASSIVE` flag as a lead for judgment (no length cap), fails a seeded
+  `simply`, no specifier/flag/number delta.
 - **M2.8.4's two corpus checks port** → `scripts/check_corpus_2d_integrity.py` rc=0 on
   `output/corpus-2d` (379/379 set-equal, 11 verdicts true, breach < 0.1 %), rc=1 named on 3 tampers.
 - **Camera-setup and other non-task footage is tracked as the subject (C06,
@@ -62,7 +63,7 @@ rows before sizing any unit that touches their surfaces.
   § M2.9.3: jitter 0.0079 vs <= 0.006, wall +41 % vs <= +15 %, right views worse) → a variant
   (batched crops, refinement only where the whole-body hand is small or unstable) reaches jitter
   <= 0.006 on the watch set at <= +15 % wall with collapse unchanged on every clip.
-- **2D weak-point triage lives in `.scratch/triage.py` alone** (→ `gates.md`; behind
+- **2D weak-point triage lives in `.scratch/triage.py` alone** (→ `pose-instruments.md`; behind
   `docs/technical/pose-weak-points.md`) → a committed `scripts/` instrument with no
   `prototype/` import reproduces the catalog's per-view counts over a run tree and flags a
   seeded whole-skeleton relocation in a synthetic landmark CSV.
@@ -73,14 +74,14 @@ rows before sizing any unit that touches their surfaces.
 - **`sessions.py` predicates pinned by tests alone** → a campaign mirroring
   `run_inventory_mutations.py` kills every mutant with >=1 committed test, replaying from clean.
 - **Review UI theme control proven by a scratch script alone** (`.scratch/theme_qa.mjs` → regen path
-  in `.claude/rules/gates.md`) → a committed check drives the cycle, the pre-paint rehydration and
+  in `.claude/rules/review-ui.md`) → a committed check drives the cycle, the pre-paint rehydration and
   the `:has()` stage backdrop, 13/13 green, failing under the two recorded seeds.
 - **Review UI player fit proven by a scratch script alone** (`.scratch/player_layout_qa.mjs` → regen
-  path in `.claude/rules/gates.md`) → a committed check reports the stage fitting its room, filling
+  path in `.claude/rules/review-ui.md`) → a committed check reports the stage fitting its room, filling
   an axis and holding its ratio over five viewports plus the stacked breakpoint, every control row
   on screen, and reds under the four recorded seeds.
 - **Review UI landing view + fragment routing proven by a scratch script alone**
-  (`.scratch/default_view_qa.mjs` → regen path in `.claude/rules/gates.md`) → a committed check
+  (`.scratch/default_view_qa.mjs` → regen path in `.claude/rules/review-ui.md`) → a committed check
   reports the player first in the tab strip, the bare URL settling on `#player` with its stage drawn,
   a `#cohort` deep link and an unknown fragment resolving, and the same-document group — a
   `location.hash` write, the Back button, an unknown same-document hash — 16/16 green, failing under
@@ -106,7 +107,7 @@ rows before sizing any unit that touches their surfaces.
   validated against clinical outcome scores." · 「本手法の臨床的妥当性は確認されている。」 ·
   "Agreement with marker-based motion capture is established." · "The angles match a gold-standard
   optical system." · "Distances are reported in true millimetres." · "This calibration is accurate
-  to sub-pixel precision in world units." `gates.md` already records the tell: "NC4's needle must
+  to sub-pixel precision in world units." `capture-docs.md` already records the tell: "NC4's needle must
   come from `PROHIBITED_PARAPHRASES` rather than invented prose." — invented prose does not fire.
 - **`check_review_report.py` P04 + P06 are spelling tests** (`:53`, `:77-80`) → a report whose `pass`
   cell reads `aaaaaaaaaaaaa` and whose detail reads `predicate impact acceptance x.py:1` grades
@@ -122,13 +123,13 @@ rows before sizing any unit that touches their surfaces.
   `how steady is the reach` · `変動`; `左右差` is the one that hits, on 15, as a literal template
   fragment.
 - **Player clock rate + overlay time map are proven by scratch scripts**
-  (`.scratch/player_clock_qa.mjs`, `.scratch/player_time_qa.mjs`; → `gates.md`) → port both to
+  (`.scratch/player_clock_qa.mjs`, `.scratch/player_time_qa.mjs`; → `review-ui.md`) → port both to
   committed checks under `prototype/review-ui/tools/`, run from the recorded commands: clock 10 rows
   green with the seeded `view.framePos`→`view.frame` regression reding exactly the 6 rate rows while
   both `layer=show` rows stay green; time map 7 rows green with the series-index seed reding the 5
   map rows and the seek-less `|▶` seed reding the step row alone.
 - **Review UI stacked-layout stability proven by scratch scripts** (`.scratch/drift_qa.mjs`,
-  `.scratch/ratchet_qa.mjs`; → `gates.md`) → committed checks under `prototype/review-ui/tools/`:
+  `.scratch/ratchet_qa.mjs`; → `review-ui.md`) → committed checks under `prototype/review-ui/tools/`:
   drift 22/22 with a stacked `1fr` column reding exactly the 4 stacked injection rows; ratchet
   60/60 across scales 1/1.1/1.25/1.5 with stacked `auto auto` rows reding only stacked rows.
 - **Marksman reports 3 links to existing docs as non-existent** (`docs/calibration_finding.md:9`,
@@ -140,7 +141,7 @@ rows before sizing any unit that touches their surfaces.
 - **The gate runs no security scanner and the remote carries no update automation** (template
   IMPLEMENT; hosted CI replaced by the local gate → `gates.md` *Hosted CI*) → the gate command in
   `gates.md` runs a dependency audit over every committed uv lockfile, a secret scan and a security
-  static-analysis pass, each recorded firing on a planted input beside the invocation;
+  static-analysis pass, each firing on a planted input recorded in a `paths:` rule on the check's files;
   `.github/dependabot.yml` covers every committed uv lockfile.
 - **`calibration-qc.md:35` cites `upstream-refresh.md` clause 2, a rule file renamed in `b218092`**
   → the pointer names `upstream-sync.md` Clause 1, and
@@ -150,13 +151,13 @@ rows before sizing any unit that touches their surfaces.
   records `openvino.get_version()`; a resume under another build re-runs the event; a test seeds a
   recorded config with a foreign build string and asserts the event is due.
 - **`.scratch/ovupgrade/` build-change instruments are scratch-local** (`pilot.sh`, `compare.py`,
-  `det_qual.py` → `gates.md`) → committed under `scripts/` with a test that seeds a one-cell CSV
+  `det_qual.py` → `pose-instruments.md`) → committed under `scripts/` with a test that seeds a one-cell CSV
   drift and asserts `compare` reports it, and a same-tree run reports 0 drift.
 - **`upstream-sync.md`'s declined-gate paragraph counts `7 shipped files` naming the archive path;
   Clause 1 and `rg -l 'archive/contract-' scripts/ src/ tests/` both give 8** → that paragraph
   points at Clause 1 instead of its own figure; `rg -c '7 shipped files' .claude/rules/` = 0.
 - **M2.10 watch-set graders are scratch-local** (`.scratch/messy/` + 972 labels; regen →
-  `gates.md` § *Scratch validators pending port*) → a committed `scripts/` grader with a synthetic
+  `pose-instruments.md`) → a committed `scripts/` grader with a synthetic
   label fixture reproduces the gate's held-out drop shares (hallucinated 0.90, real 0.037) and the
   span's dense setup-excluded / task-lost figures from committed inputs, and reds on a seeded
   threshold swap. Labels stay uncommitted (patient-adjacent ordinals + frames).
@@ -204,7 +205,7 @@ rows before sizing any unit that touches their surfaces.
   subject row reds on the current keying.
 
 - **Two live pointers cite a global `Subagents` label the global file never carries** —
-  `.claude/rules/delegation.md:16` + `.claude/rules/gates.md:268` say "global `Subagents`
+  `.claude/rules/delegation.md:16` + `.claude/rules/checks.md:19` say "global `Subagents`
   deliverable-first"; `~/.claude/CLAUDE.md` holds 0 `deliverable-first` at agents@4d22203 and at
   agents@eac5295 (the seed-before-dispatch rule lives in its `Brief` bullet) → every live pointer
   into global `Subagents` names a term `command grep -F` finds in `~/.claude/CLAUDE.md`.
@@ -213,3 +214,15 @@ rows before sizing any unit that touches their surfaces.
   tests)`; `.agent/spec.md` `Artifacts` says 2367 tests, ~32 min; the two full runs at 41d174a
   measured 2367 passed in 43:35 + 28:48 → one place carries the collected count + the measured wall
   with its provenance, and the other points at it.
+
+- **`test_m2u5_x10` grades a `docs/technical/qualification.md` sentence as human-facing; the
+  `conventions.md` *Text register* inventory marks `docs/technical/` agent register** → one
+  register holds for that sentence: the inventory lists the surface the test grades, or the test's
+  name + docstring claim no human-facing register; `rg -n 'human' tests/test_qualify.py` and the
+  inventory agree.
+- **No Python mutation tool in the stack** (`pyproject.toml` + `.venv` carry none; the
+  `scripts/run_*_mutations.py` campaigns hand-pick their mutants) → global `Engineering` credits a
+  test pinning already-passing behavior only through the stack's mutation tool, so none earns that
+  credit today. Acceptance: a researched tool in the dev dependencies runs from committed state with
+  default operators over the files one pinning test imports or calls, its scope, command and every
+  survivor recorded.

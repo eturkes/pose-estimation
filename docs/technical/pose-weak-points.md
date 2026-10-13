@@ -8,7 +8,7 @@ Two instruments:
 - **Watch pass** — every clip through the review UI, overlay at keypoint threshold 0.3, 8 frames
   spread over each clip, 97 contact sheets. "Families noted" counts families where the class was
   seen at least once (approximate: one note line can name two families).
-- **Triage** — per clip, person 0, image-isotropic coordinates (`.scratch/triage.py`, → `gates.md`):
+- **Triage** — per clip, person 0, image-isotropic coordinates (`.scratch/triage.py`, → `pose-instruments.md`):
   - `whole` = frames where >= 8 of the 10 feature keypoints jump > 0.10, per 1000 observed frames.
   - `iso` = frames where 1-2 of them jump > 0.10, per 1000.
   - `alt` = median |2nd difference| / mean |1st difference| over moving frames (0 smooth, 2 alternating).
@@ -150,8 +150,7 @@ of the largest. Labelled watch set = 81 clips / 36 families / 14 subjects, 12 fr
 | other person's hand drawn as the patient's (C04) | 21 of 1 494 decided drawn hands | the gate removes 7/10 held-out; mask-conditioned pose → `.agent/deferred.md` |
 | inconsistent angles | 2D image-plane elbow flexion disagrees across synced views by median 60° on 14 series, no better than time-shuffled pairing (ratio 1.00) | SAM 3D Body pilot (not adopted; user: pilot more first): 5.9° synced vs 12.0° shuffled (ratio 0.49) |
 
-The label vocabulary, graders and their regeneration paths → `.claude/rules/gates.md`
-§ *Scratch validators pending port*.
+The label vocabulary, graders and their regeneration paths → `.claude/rules/pose-instruments.md`.
 
 ## M2.10 corpus, measured
 
@@ -210,4 +209,4 @@ span, per-row camera similarity applied in R), 379 clips; before = the M2.9 gene
 
 Instruments: `.scratch/triage.py` → `.scratch/watch/triage_m210.json`, `.scratch/after_table.py`,
 `.scratch/oof_probe.py`, `.scratch/flick_cause.py`, `.scratch/messy/{p08_compare,p08_sign,p08_keys,
-p11_corpus}.py` (→ `.claude/rules/gates.md`).
+p11_corpus}.py` (→ `.claude/rules/pose-instruments.md`).

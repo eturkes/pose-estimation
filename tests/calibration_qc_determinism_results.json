@@ -27,7 +27,7 @@
     "src/pose_estimation/video_io.py": "3a7f2e95a80eaa1a6b1d096437fa35e894d77b8ffd8eccc3f536710b449717ea",
     "tests/test_calibration_qc.py": "9c107fbfe90af0ceb994f06596fe89a2134d46da3928b71ec91f94172a8bca19",
     "tests/test_measure.py": "9e7a077dc191664af8cd2ea40c78258194da1afb6dd2bfee1dc9cb11233c17a4",
-    "tests/test_qualify.py": "ae0decd75449f47deae55ab6b6f5c8947197931920e662322ce47a698c3a8f92",
+    "tests/test_qualify.py": "c630877ebe9a4a4c1876b21721b0fad487ad5e41373b03ede22b5878d67e5156",
     "tests/test_sessions.py": "570ed80320204100c7ed4e790fd9a126048945815dee47185546f00850c1f021"
   },
   "sweeps": {
