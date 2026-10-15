@@ -7,9 +7,10 @@ paths:
 
 # Spec lint
 
-- `.agent/spec-lint` = a byte copy of `~/.local/app/agents/claude/spec-lint` (template
-  `Session flow`); fixes land upstream and reach this repo at the next refresh (`upstream-sync.md`).
-  The decisive gate runs it through `tests/test_spec_lint.py`: the live `.agent/spec.md` lints rc 0
+- `.agent/spec-lint` = a template file (`CLAUDE.md` `Session flow` shape check), copied in whole at
+  each refresh beside `CLAUDE.md` + `.claude/agents/`; a fix goes to the template, never to this copy.
+  `scripts/gate.sh` runs it as its first step, and the decisive gate runs it through
+  `tests/test_spec_lint.py`: the live `.agent/spec.md` lints rc 0
   with empty output, and three planted specs (a Phase history line, a stray `Tasks` line, a bolded
   Phase line 1) each lint rc 1 naming their finding.
 - Firing, measured (`P pytest tests/test_spec_lint.py`, 4 cases): each mutant of `.agent/spec-lint`

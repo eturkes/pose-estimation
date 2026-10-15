@@ -1,6 +1,6 @@
 """`.agent/spec-lint` grades `.agent/spec.md` shape inside the decisive gate.
 
-The lint is a byte copy of the upstream template's checker; each planted spec is its shipped
+The lint is a template file, copied in whole at each refresh; each planted spec is its shipped
 firing input.
 """
 

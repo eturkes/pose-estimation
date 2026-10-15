@@ -1,7 +1,27 @@
 # Delegation — traps measured in this project
 
-Teammate fits + mechanics = global `CLAUDE.md` `Subagents`; each role's standing rules =
-`~/.claude/agents/<role>.md`. These are the project's own measured corrections.
+Teammate fits + mechanics = `CLAUDE.md` `Teammates`; each role's standing rules =
+`.claude/agents/<role>.md`. These are the project's own rulings + measured corrections.
+
+- **Spine rows = MAINTAIN requests on the shipped spine, whatever phase the review UI holds** (user
+  ruling on `CLAUDE.md` `Session flow` Teammates + Advisor, which key teammate cost, dispatch bar,
+  advisor bar + phase fits on phase while `Phase` scopes the review UI alone). A spine row in the
+  same `Tasks` runs MAINTAIN law, depth per unit: a unit over pipeline, publisher or analysis code
+  is `kernel` (`.agent/spec.md` `Decisions`), so deep — dispatch wherever a teammate adds assurance
+  MAIN's own pass would miss (a close call → dispatch), `consultant` on its contract before code,
+  the advisor at the low bar, the closing-diff `reviewer` where needed (one covering every lens).
+  Review-UI rows follow the phase `Phase` names. Role fits (`tester` on a committed kernel contract,
+  `reviewer` on a kernel-unit diff, `scientist` on an after-table or a cohort republication) hold
+  in every phase, scope-free.
+- **A review PASS terminates on rows adjudicated; a review WAVE closes on fixes applied** (ruling on
+  `CLAUDE.md` `Engineering` review termination, which quantifies over the pass and is kept whole —
+  check set fixed before the diff is read, every row adjudicated, an all-`pass` table complete, no
+  open-ended re-review after it). Closure quantifies over the wave: an adjudicated row whose ruling
+  accepts a fix stays open until that fix closes on its own acceptance check under MAIN's rerun, so
+  a wave that rules every row and applies none has not closed and re-enters to apply them.
+  Measured: M2's wave 1 adjudicated 193 rows / 55 fails in one pass and needed three further
+  sessions to close 40 of its 43 accepted fixes. Reading the clause as an override instead of a
+  grain split takes its anti-flip-flop mechanism down as collateral (grain law → `evidence.md`).
 
 - **Poll a worktree teammate's report inside its worktree.** A teammate whose cwd is `.scratch/worktrees/<name>` writes `.scratch/agents/<name>.md` **there** — a different file from MAIN's `.scratch/agents/<name>.md`, which keeps the unfilled seed forever. A flush counter reading MAIN's copy reports `0/N` against an agent fully on pace; one such agent reached its supersession trigger at 5/6. Always poll `.scratch/worktrees/<name>/.scratch/agents/<name>.md`, and copy that file into MAIN's `.scratch/agents/` before removing the worktree — `.scratch/` is gitignored in main, so the report does not survive teardown otherwise.
 - **A worktree branch tip moves after the poll that read it.** Deleting a branch prints `was <sha>` for a commit the poll never saw. Check ancestry (`git log --oneline -3 <sha>`) before concluding work was lost — the later sha is normally a descendant carrying one more report edit.
@@ -13,4 +33,4 @@ Teammate fits + mechanics = global `CLAUDE.md` `Subagents`; each role's standing
 - **Copy a reviewer's red suite into the primary tree and rerun it; the pass/fail split is the adjudication ledger.** M2.7.1 window 4 scored `rev-m2u71` + `rev3-m2u71` at 41 failed / 4 passed before fixes and 7 failed / 38 passed after, where the 7 are exactly the rows ruled rejected. The rerun is what caught the half-fixes: window 3 recorded C01/C11 closed after correcting a module docstring while the roadmap headline still carried the unscoped claim. Reds scoring against an older branch point separate into fixed / open-scope / live only under execution — a report's own tally cannot make that split.
 - **A restored red is evidence, not law.** Of 27 reds restored from M2's reviewer tips, 3 were themselves defective (the "a case that grades a stand-in grades nothing" class) — one contradicted its own ledger row with the *test* right. Read each red against the shipped contract **and** against its own ledger row before crediting it.
 **Reds from one reviewer are no more mutually consistent than reds from two**: `rev-m2u82`'s R20 byte-idempotence fixture omitted the `video` column its own R25 row demands be checked, so applying both fixes left R20 red on `artifacts_owned` rather than on idempotence. Restore a battery whole and run it as a set — a per-row restore hides the contradiction as a fix that "did not take".
-- **Review-wave sizing, measured on M2 wave 1: 5 reviewers × ~40 rows = 193 rows / 55 fails fits one MAIN window** — but only because harvest is mechanical: archive the report, script-extract the verdict table, read `fail` rows alone (~25K for 193 rows). Seeding + both-ways grading = global `Subagents` deliverable-first; this project's grader is `scripts/check_review_report.py` (→ `checks.md`). It parses `| <ID> |` with `<ID>` matching `[A-Z]\d{2}` and requires the literal headings `## Verdict table`, `## Detail`, `## Register` — **write the brief in the grader's own row and section vocabulary**, since a brief naming one-digit ids or `## Findings` costs the agent a schema reconciliation before it can flush anything.
+- **Review-wave sizing, measured on M2 wave 1: 5 reviewers × ~40 rows = 193 rows / 55 fails fits one MAIN window** — but only because harvest is mechanical: archive the report, script-extract the verdict table, read `fail` rows alone (~25K for 193 rows). Seeding + both-ways grading = `CLAUDE.md` `Teammates` (a seeded deliverable + its validator, graded both ways at seed); this project's grader is `scripts/check_review_report.py` (→ `checks.md`). It parses `| <ID> |` with `<ID>` matching `[A-Z]\d{2}` and requires the literal headings `## Verdict table`, `## Detail`, `## Register` — **write the brief in the grader's own row and section vocabulary**, since a brief naming one-digit ids or `## Findings` costs the agent a schema reconciliation before it can flush anything. Verdict spelling included (ruling on `.claude/agents/reviewer.md` Deliverable `pass` | `finding`): the grader reads `pass` | `fail` | `unknown`, so a brief maps the role's `finding` to `fail` — a role-spelled `finding` row grades `FAIL P02c`.

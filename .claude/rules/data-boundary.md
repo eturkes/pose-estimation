@@ -8,7 +8,8 @@ Patient recordings + every derivative = sensitive. Binds MAIN + every teammate.
 - **Look at the player only through a blanked stage.** A screenshot of that view carries a frame of
   one subject, and the strip is derived from the same clip, so a raw capture is out of bounds even
   uncommitted — a scratch PNG reaches the transcript exactly like a committed one; `CLAUDE.md`
-  `Session flow` finalist screenshots and global `Subagents` `operator` visual QA included.
+  `Execution` UI design's screenshot + critique, `Engineering`'s runnable-change UI screenshot,
+  `Session flow` finalist screenshots and `operator` visual QA (`.claude/agents/operator.md`) included.
   `.scratch/player_shot.mjs` is the sanctioned form: it hides `#clip-video`, `#overlay`, `#strip`, `.readout` and every
   `.factline .fact-v`, fills the stage with a flat hatch, refuses unless every one of those nodes is
   unpainted, and leaves page chrome — panels, control rows, labels, the fitted box. The factline

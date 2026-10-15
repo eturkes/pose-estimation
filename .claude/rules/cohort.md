@@ -37,6 +37,12 @@ Publication contract → `publishers.md`.
 
 Separate git repo, dashboard over the hospital SCI database. Its conventions bind any artifact this repo publishes for it.
 
+- **`../rehab` = the one sanctioned pointer to another repo, by user ruling** (on `CLAUDE.md`
+  `Authoring` portability): the product's named consumer (`.agent/spec.md` `Intent`, `retention.md`)
+  and an optional code input — `cohort._external_raws()` reads its `schema/columns.yaml` (label
+  `EXTERNAL_DESCRIPTOR_SOURCE`) for the descriptor-collision check, `None` when the sibling does
+  not resolve.
+
 - **The pose↔rehab join is CUT by user ruling — M2.8 publishes cohort aggregates only.** No per-subject rows, no patient identifier, no join column, no join template. The ruling SHRINKS the consumer delta: full ingest was priced at one untracked table plus six tracked files, whose three heaviest items are the authorized identifier map, a join-validating loader and the dataset merge — a cohort artifact carries no `IDNumber`/`TIMES`, so all three vanish. **Do not re-plan a join surface**; `analysis/make_templates.R`'s operator-filled `sessions.csv` pattern is not extended.
 - Sole raw source `data/raw/ALL_SCIDATA.csv` (**cp932**, Japanese headers). `schema/columns.yaml` = **67 direct descriptors + 152 family-expanded = 219 `ColumnSpec`**; observed key union `{raw, ja, en, group, role, dtype, unit, range, levels}`, six required. **`short_ja`/`short_en`/`description` are a comment-only aspiration — ZERO literal descriptors carry them**, and short labels are absent from `ColumnSpec` and from dashboard code, so dense charts reuse the full labels. Groups `demographics id injury isncsci isncsci_motor isncsci_sensory meta scim`; roles `feature id meta outcome`; dtypes `categorical datetime numeric ordinal`; `missing_sentinels: ["_","","NA","NT","ND"]`.
 - **Bilingual ja/en is a requirement** — `ui_strings.yaml` holds 395 keys, every one exactly `ja`+`en`, 0 missing arms; `ui_str()` resolves lang → `ja` → `en` → key; the dashboard defaults to `ja`.

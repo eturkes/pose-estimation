@@ -24,9 +24,10 @@ rows before sizing any unit that touches their surfaces.
   reader; 2D templates + validation unchanged.
 - **Four `../rehab` JP faces miss 14 cohort-label characters** → each reports 0 missing code points
   over the `cohort.FEATURES` `ja` union.
-- **Gate prefix recalled by failure** → `scripts/gate.sh pytest -q` collects in primary tree + fresh
-  worktree, bare `uv run pytest` still reproduces `GLIBC_2.43`, 0 bare invocations in `.agent/spec.md`
-  + `.claude/rules/` + `docs/` + `scripts/` (`.agent/archive/` frozen, keeps its bare forms).
+- **Gate prefix recalled by failure** (`scripts/gate.sh <cmd…>` carries it: collects in the primary
+  tree + a fresh worktree, bare `uv run` still reproduces `GLIBC_2.43`) → 0 bare invocations in
+  `.agent/spec.md` + `.claude/rules/` + `docs/` + `scripts/` (`.agent/archive/` frozen, keeps its
+  bare forms).
 - **12/12 `check_*.py` ship green-only; `run_measure_mutations.py` firing unrecorded** (census +
   acceptance → `checks.md`) → each checker grows a committed seed driving it to its own named
   failure; a runner reports 12/12 refused, rc=1 naming one that stops. Covers the
@@ -139,13 +140,10 @@ rows before sizing any unit that touches their surfaces.
   Marksman diagnostics over `docs/` report 0 non-existent-document warnings, and
   `git check-ignore` still ignores a `qualification.x/` staging directory.
 - **The gate runs no security scanner and the remote carries no update automation** (template
-  IMPLEMENT; hosted CI replaced by the local gate → `gates.md` *Hosted CI*) → the gate command in
-  `gates.md` runs a dependency audit over every committed uv lockfile, a secret scan and a security
+  IMPLEMENT; hosted CI replaced by the local gate → `gates.md` *Hosted CI*) → the gate command
+  (`scripts/gate.sh`) runs a dependency audit over every committed uv lockfile, a secret scan and a security
   static-analysis pass, each firing on a planted input recorded in a `paths:` rule on the check's files;
   `.github/dependabot.yml` covers every committed uv lockfile.
-- **`calibration-qc.md:35` cites `upstream-refresh.md` clause 2, a rule file renamed in `b218092`**
-  → the pointer names `upstream-sync.md` Clause 1, and
-  `rg -Fn 'upstream-refresh.md' .claude/rules/` returns 0 hits.
 - **`pose_config.json` omits the OpenVINO build** (`corpus_run.POSE_CONFIG_FIELDS`; a build swap
   moves landmarks by ≤ 1e-4, features ≤ 4.1e-4 of column max → `rtmlib-runtime.md`) → the config
   records `openvino.get_version()`; a resume under another build re-runs the event; a test seeds a
@@ -153,9 +151,6 @@ rows before sizing any unit that touches their surfaces.
 - **`.scratch/ovupgrade/` build-change instruments are scratch-local** (`pilot.sh`, `compare.py`,
   `det_qual.py` → `pose-instruments.md`) → committed under `scripts/` with a test that seeds a one-cell CSV
   drift and asserts `compare` reports it, and a same-tree run reports 0 drift.
-- **`upstream-sync.md`'s declined-gate paragraph counts `7 shipped files` naming the archive path;
-  Clause 1 and `rg -l 'archive/contract-' scripts/ src/ tests/` both give 8** → that paragraph
-  points at Clause 1 instead of its own figure; `rg -c '7 shipped files' .claude/rules/` = 0.
 - **M2.10 watch-set graders are scratch-local** (`.scratch/messy/` + 972 labels; regen →
   `pose-instruments.md`) → a committed `scripts/` grader with a synthetic
   label fixture reproduces the gate's held-out drop shares (hallucinated 0.90, real 0.037) and the
@@ -204,25 +199,40 @@ rows before sizing any unit that touches their surfaces.
   >= 0.90 removed, real <= 0.06 lost) hold, and a synthetic two-track fixture with a handless
   subject row reds on the current keying.
 
-- **Two live pointers cite a global `Subagents` label the global file never carries** —
-  `.claude/rules/delegation.md:16` + `.claude/rules/checks.md:19` say "global `Subagents`
-  deliverable-first"; `~/.claude/CLAUDE.md` holds 0 `deliverable-first` at agents@4d22203 and at
-  agents@eac5295 (the seed-before-dispatch rule lives in its `Brief` bullet) → every live pointer
-  into global `Subagents` names a term `command grep -F` finds in `~/.claude/CLAUDE.md`.
-
-- **Full-suite size disagrees across live law** — `.claude/rules/gates.md:20` says `≈ 28 min (2129
-  tests)`; `.agent/spec.md` `Artifacts` says 2367 tests, ~32 min; the two full runs at 41d174a
-  measured 2367 passed in 43:35 + 28:48 → one place carries the collected count + the measured wall
-  with its provenance, and the other points at it.
-
 - **`test_m2u5_x10` grades a `docs/technical/qualification.md` sentence as human-facing; the
   `conventions.md` *Text register* inventory marks `docs/technical/` agent register** → one
   register holds for that sentence: the inventory lists the surface the test grades, or the test's
   name + docstring claim no human-facing register; `rg -n 'human' tests/test_qualify.py` and the
   inventory agree.
 - **No Python mutation tool in the stack** (`pyproject.toml` + `.venv` carry none; the
-  `scripts/run_*_mutations.py` campaigns hand-pick their mutants) → global `Engineering` credits a
+  `scripts/run_*_mutations.py` campaigns hand-pick their mutants) → `CLAUDE.md` `Engineering` credits a
   test pinning already-passing behavior only through the stack's mutation tool, so none earns that
   credit today. Acceptance: a researched tool in the dev dependencies runs from committed state with
   default operators over the files one pinning test imports or calls, its scope, command and every
-  survivor recorded.
+  survivor recorded, each survivor ruled against the contract by a non-author (missing test added,
+  open behavior recorded, else an open row).
+- **The full gate's pytest step dominates** (static steps ~2 s against a 21:54 pytest step at `502affa`;
+  `test_c8_08` replays the whole suite inside it, so the suite runs twice per gate: its call =
+  905.8 s of a 1595 s pytest step, per `scripts/gate.sh`'s `--durations` on the template-refresh
+  gate run) → an
+  equal-strength speedup (parallel runner, a single suite pass feeding A32's reconciliation, …):
+  every collected case still runs, A32 still reconciles passed against collected at zero
+  skipped/xfailed, each planted firing in `checks.md` + `spec-lint.md` still reds, and
+  `scripts/gate.sh` reports the pytest step at <= 50 % of its wall on the same host.
+- **Review UI predates the `CLAUDE.md` `Execution` UI design + Charts + figures and `Authoring`
+  UI-copy clauses** (known gap: the census rotation + sync panels, `static/census.js`
+  `rotationPanel` + `syncPanel`, are interactive charts with no table view) → an audit table over
+  `prototype/review-ui/` names each generated-UI default the clause lists (` · `-joined meta
+  strings, monospace data labels, `→` on links, tracked ALL-CAPS eyebrows, numbered markers,
+  identical shadowed cards, per-section fades), each chart rule (form by the data's job, one
+  y-scale per plot, color by job, legend + direct labels, a table view per interactive chart) and
+  each UI-copy rule (user-world names, outcome-named controls kept through the flow, errors with
+  cause + fix, inviting empty states) with a `file:line` verdict; every hit is replaced or kept by a `.agent/spec.md` `Decisions` ruling; the player view
+  is judged through the blanked stage alone (`data-boundary.md`).
+- **No palette-safety check on any figure** (`CLAUDE.md` `Execution` Charts + figures: review-UI Plotly
+  palettes in `static/{census,cohort,app}.js` + `style.css`; ggplot figures in 11 `analysis/*.R`
+  files matching `ggplot\(|palette|scale_(colou?r|fill)_`) → a computed check (Machado protan +
+  deutan simulation, OKLab ΔE×100 >= 8 between adjacent series — all pairs for scatter — >= 15
+  unsimulated, marks >= 3:1 against the surface) runs in the
+  gate over every committed palette, passes or names each failing pair, and reds on a planted
+  near-duplicate pair recorded in a `paths:` rule on the check's files.

@@ -5,6 +5,11 @@ paths:
 
 # Review UI — check firing + scratch validators
 
+- **QA browser = this machine's `chromiumfish` + `playwright-core`, resolved from the pnpm global
+  store, by user ruling** (on `CLAUDE.md` `Authoring` portability): `tools/*.mjs`, the scratch
+  validators below and `data-boundary.md`'s `webcap` capture name these tools as written; a machine
+  without them cannot run those checks.
+
 ## Check firing evidence
 
 - **`prototype/review-ui/tools/check_glyphs.py` firing, measured** (prototype, outside the 16):
@@ -27,7 +32,7 @@ paths:
 
 ## Scratch validators pending port
 
-Scratch-local validators = temporary encodings (global `CLAUDE.md` `Engineering`); each port = a `.agent/deferred.md` row.
+Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each port = a `.agent/deferred.md` row.
 
 - `.scratch/theme_qa.mjs` — review-ui theme control, the paths a still capture cannot show.
   `node .scratch/theme_qa.mjs http://127.0.0.1:<port>` against a running `python -m review_ui`;

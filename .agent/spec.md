@@ -44,7 +44,9 @@ hospital SCI database.
   symlinks onto the primary trees + the superseded run).
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
   run; each `P pose-estimation-<name> … --out <dir>`; `--help` = args.
-- Decisive gate — `P pytest`, 2370 tests, ~32 min, alone.
+- Gate — `scripts/gate.sh` (full chain + per-step wall-clock; `--fast <tests>` iterates) →
+  `.claude/rules/gates.md`. Its pytest step = the decisive gate: 2370 collected, 21:54 wall measured
+  at `502affa` (host load moves it), run alone.
 
 ## Decisions
 
@@ -53,7 +55,7 @@ hospital SCI database.
   integrity binding; the prototype (`prototype/review-ui/`, → `Artifacts`) sits outside under
   PROTOTYPE law, `testpaths = ["tests"]` keeping it out of collection. Spine rows in `Tasks` =
   MAINTAIN requests on it, under MAINTAIN law, never PROTOTYPE or ITERATE law (→
-  `upstream-sync.md` Clause 5).
+  `.claude/rules/delegation.md`).
 - **Claim boundary.** Retrospective 3D feasibility may be claimed from internal geometric + QC
   evidence alone; clinical validity, absolute metric accuracy and marker-based equivalence may not.
   Crossing it needs the prospective calibrated capture in `docs/prospective_capture.md`.
@@ -86,7 +88,7 @@ hospital SCI database.
   bar); RTMW-X and both hand-crop refinements missed it.
 - **Acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`** — 9 files under
   `scripts/ src/ tests/` break if it moves, one a generated data field no gate resolves;
-  re-derive → `upstream-sync.md`.
+  re-derive → `.claude/rules/retention.md`.
 - **External AI-judgment services stay out of this repo** — surveyed and declined by the user.
   The three defects the survey measured live on as `.agent/deferred.md` rows with mechanism left
   open; the survey itself is not repeated.

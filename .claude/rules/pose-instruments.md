@@ -15,7 +15,7 @@ paths:
 
 # 2D pose instruments — scratch validators pending port
 
-Scratch-local validators = temporary encodings (global `CLAUDE.md` `Engineering`); each port = a `.agent/deferred.md` row.
+Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each port = a `.agent/deferred.md` row.
 
 - **M2.10 watch-set labels + graders** (`.scratch/messy/`; `P` = gate prefix; GPU steps under the
   accelerator recipe). Labels = `.scratch/agents/general-purpose-{1,2,3}-labels.md` (972 frames,
