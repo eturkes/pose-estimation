@@ -149,3 +149,13 @@ def test_p04_request_refuses_an_unknown_arm():
     p.check_request("rtmw-m-256")
     with pytest.raises(ValueError, match="MODEL_REGISTRY"):
         p.check_request("not-an-arm")
+
+
+def test_p01_g4_needs_both_hands_exported():
+    """Contract §2 G4 population = both hands labelled present AND exported (review C05c)."""
+    p = _pilot()
+    consensus, row = _frame_two(swapped=False)
+    row = {k: v for k, v in row.items() if not k.startswith("right_hand_")}
+    rows = p.side_rows("s1", consensus, row, SCALE)
+    assert all("swap" not in r for r in rows)
+    assert math.isnan(p.endpoints(rows)["G4"])

@@ -11,8 +11,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-_MMPOSE = "https://download.openmmlab.com/mmpose/v1/projects/"
-
 
 @dataclass(frozen=True)
 class PoseArm:
@@ -22,43 +20,37 @@ class PoseArm:
     note: str
 
 
-POSE_ARMS = {
-    a.name: a
-    for a in (
-        PoseArm(
-            "rtmw-m-256",
-            _MMPOSE + "rtmw/onnx_sdk/rtmw-dw-l-m_simcc-cocktail14_270e-256x192_20231122.zip",
-            (192, 256),
-            "shipped through M2.10 (registry key rtmw-l)",
-        ),
-        PoseArm(
-            "rtmw-l-256",
-            _MMPOSE + "rtmw/onnx_sdk/rtmw-dw-x-l_simcc-cocktail14_270e-256x192_20231122.zip",
-            (192, 256),
-            "",
-        ),
-        PoseArm(
-            "rtmw-l-384",
-            _MMPOSE + "rtmw/onnx_sdk/rtmw-dw-x-l_simcc-cocktail14_270e-384x288_20231122.zip",
-            (288, 384),
-            "export emits large raw logits (COCO median 4.2)",
-        ),
-        PoseArm(
-            "rtmw-x-384-c13",
-            _MMPOSE
-            + "rtmw/onnx_sdk/rtmw-x_simcc-cocktail13_pt-ucoco_270e-384x288-0949e3a9_20230925.zip",
-            (288, 384),
-            "cocktail13 ONNX; mmpose's table scores the cocktail14 .pth",
-        ),
-        PoseArm(
-            "dwpose-l-384",
-            _MMPOSE
-            + "rtmposev1/onnx_sdk/rtmpose-l_simcc-ucoco_dw-ucoco_270e-384x288-2438fd99_20230728.zip",
-            (288, 384),
-            "",
-        ),
-    )
+#: Screened arms = `run.MODEL_REGISTRY` keys, so a benchmark name, its runtime configuration and
+#: its calibration file (`score_calibrations/<key>.json`) can never name one checkpoint twice.
+_NOTES = {
+    "rtmw-m-256": "shipped through M2.10 (registry alias rtmw-l)",
+    "rtmw-l-256": "",
+    "rtmw-l-384": "export emits large raw logits (COCO median 4.2)",
+    "rtmw-x-384": "cocktail13 ONNX; mmpose's table scores the cocktail14 .pth",
+    "dwpose-l-384": "",
 }
+
+
+def _size(value) -> tuple[int, int]:
+    width, height = value
+    return int(width), int(height)
+
+
+def _arms() -> dict[str, PoseArm]:
+    from pose_estimation.run import MODEL_REGISTRY  # deferred: run imports the inference stack
+
+    return {
+        key: PoseArm(
+            key,
+            str(MODEL_REGISTRY[key]["pose"]),
+            _size(MODEL_REGISTRY[key]["pose_input_size"]),
+            note,
+        )
+        for key, note in _NOTES.items()
+    }
+
+
+POSE_ARMS = _arms()
 
 
 def load(arm: PoseArm, device: str = "GPU"):

@@ -29,6 +29,8 @@ Contracts `.agent/archive/contract-m4u{1,2,3a,3b,4,6}.md`; measured resolutions 
 - **Every cache is resumable, every scorer re-runs from caches**: `public-eval`, `hand-eval`,
   `corpus-gross` save predictions before scoring (`*.npz`), and `preroll` reuses finished windows,
   so a crash costs the unfinished arm alone.
+- **Bench arm names are `run.MODEL_REGISTRY` keys** (`bench.arms` derives from the registry), so
+  a cache directory, a calibration file and a corpus run all name one checkpoint one way.
 - **Screening intervals are paired.** `bench.py screen` reuses COCOeval's per-image matches and
   re-accumulates per image resample (`tools/cocowb-eval/bootstrap.py`, refused unless the full-set
   accumulation equals `COCOeval.stats[0]`), so every arm sees the same draws; DexYCB pairs by hand
@@ -45,6 +47,8 @@ Contracts `.agent/archive/contract-m4u{1,2,3a,3b,4,6}.md`; measured resolutions 
   shifted right hand loses right-hand AP alone, swapped hands lose hand AP → rc 0; mutant
   `score.SIGMAS * 100` (OKS too loose to see a 25 px shift) → 2 FAIL rows, rc 1. Its bootstrap rows
   (`bootstrap.accumulate_ap` = COCOeval over the full set, one image dropped, one drawn twice):
-  npig ignoring draw counts → 2 FAIL rows, no precision envelope → 3 FAIL rows, rc 1 each.
+  npig ignoring draw counts → 2 FAIL rows, no precision envelope → 3 FAIL rows, rc 1 each; the two
+  tied-score rows (copies adjacent, COCOeval's stable tie order) → 2 FAIL rows under per-detection
+  weights (the pre-review accumulation).
 - `scripts/bench.py progress`: half-answered public set → `50/100`, rc 1; complete → rc 0.
 - `scripts/check_review_report.py` on a seeded all-`unknown` reviewer table → `FAIL P03`.

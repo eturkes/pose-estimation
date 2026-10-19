@@ -98,7 +98,7 @@ def test_p01_subject_means_aggregate_frames_then_subjects():
     ]
     means = c.subject_means(scores)
     assert means["a"]["E1"] == pytest.approx(0.2)
-    assert means["a"]["E3"] == pytest.approx(2 / 3)
+    assert means["a"]["E3"] == pytest.approx(3 / 4)  # frames first: (1/2 + 1) / 2
     assert means["a"]["E4"] == pytest.approx(0.5)
     assert math.isnan(means["b"]["E1"])
 
@@ -187,3 +187,11 @@ def test_p04_scorer_refuses_without_named_candidates(tmp_path):
         "## 8. Amendments\n\n- **A01 (candidates).** `rtmw-x-384` and `rtmw-l-384`.\n"
     )
     assert c.frozen_candidates(contract) == ["rtmw-x-384", "rtmw-l-384"]
+
+
+def test_p01_observed_errors_are_not_capped_at_the_miss_penalty():
+    """1.0 is the miss value (contract §2); a far exported point keeps its error (closing review C05a)."""
+    c = _confirm()
+    record = _record(left_hand={"wrist": (100, 100), "index_tip": (200, 100)})
+    row = _row({"left_hand_0": (400, 100), "left_hand_8": (500, 100)})
+    assert c.score_frame(record, row, "s1").e1 == pytest.approx(3.0)  # 300 px / 100 px extent

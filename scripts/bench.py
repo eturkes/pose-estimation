@@ -417,44 +417,6 @@ def cmd_progress(a: argparse.Namespace) -> int:
     return 0 if done == len(wanted) and not malformed and not unknown else 1
 
 
-_META = {"video", "frame_idx", "timestamp_sec", "person_idx"}
-
-
-def _landmark_cells(row: dict[str, str] | None) -> dict[str, str]:
-    if row is None:
-        return {}
-    return {k: v for k, v in row.items() if k not in _META and not k.startswith("cam_")}
-
-
-#: A replayed point "equals" the whole-clip run within this (frame-normalised, ~2 px at 1920):
-#: the smoother's state decays geometrically, so byte equality never arrives.
-PREROLL_TOLERANCE = 0.001
-
-
-def _read_point_delta(want: dict[str, str], got: dict[str, str]) -> tuple[float, int]:
-    """Max |dx|, |dy| over points both rows expose to the R stage (vis / conf > 0), and the
-    count of points one row exposes and the other does not."""
-    worst, flips = 0.0, 0
-    for k in want.keys() | got.keys():
-        if not k.endswith("_x"):
-            continue
-        base = k[:-2]
-        conf = f"{base}_vis" if base.startswith(("body_", "arm_")) else f"{base}_conf"
-
-        def seen(row: dict[str, str], k=k, conf=conf) -> bool:
-            v = row.get(conf) or ""
-            return v not in ("", "NA") and float(v) > 0 and row.get(k, "") != ""
-
-        a_seen, b_seen = seen(want), seen(got)
-        if a_seen != b_seen:
-            flips += 1
-        elif a_seen:
-            y = f"{base}_y"
-            delta = max(abs(float(want[k]) - float(got[k])), abs(float(want[y]) - float(got[y])))
-            worst = max(worst, delta)
-    return worst, flips
-
-
 def cmd_preroll(a: argparse.Namespace) -> int:
     from pose_estimation.bench import replay
 
@@ -480,7 +442,7 @@ def cmd_preroll(a: argparse.Namespace) -> int:
         ref_csv = ref_out / f"{media.stem}.csv"
         if not (ref_csv.is_file() and replay.row_at(ref_csv, f["frame"]) is not None):
             ref_csv = replay.replay_window(media, 0, f["frame"], ref_out)
-        want = _landmark_cells(replay.row_at(ref_csv, f["frame"]))
+        want = replay.landmark_cells(replay.row_at(ref_csv, f["frame"]))
         for seconds in a.seconds:
             start = f["frame"] - round(seconds * fps)
             out = a.scratch / f"w{n_done}_{seconds}"
@@ -490,15 +452,15 @@ def cmd_preroll(a: argparse.Namespace) -> int:
                 got_csv = done
             else:
                 got_csv = replay.replay_window(media, start, f["frame"], out)
-            got = _landmark_cells(replay.row_at(got_csv, f["frame"] - start))
-            table[seconds].append(_read_point_delta(want, got))
+            got = replay.landmark_cells(replay.row_at(got_csv, f["frame"] - start))
+            table[seconds].append(replay.read_point_delta(want, got))
         print(f"preroll: {n_done}/{len(chosen)} frames replayed", flush=True)
     for seconds in a.seconds:
         rows = table[seconds]
-        near = sum(d <= PREROLL_TOLERANCE and not flips for d, flips in rows)
+        near = sum(d <= replay.PREROLL_TOLERANCE and not flips for d, flips in rows)
         print(
             f"preroll: {seconds:>4} s  equivalent {near}/{len(rows)} (every read point within "
-            f"{PREROLL_TOLERANCE}, no visibility flip)  max |dxy| {max(d for d, _ in rows):.5f}  "
+            f"{replay.PREROLL_TOLERANCE}, no visibility flip)  max |dxy| {max(d for d, _ in rows):.5f}  "
             f"frames with a visibility flip {sum(bool(f) for _, f in rows)}"
         )
     return 0
@@ -643,42 +605,6 @@ def cmd_hand_eval(a: argparse.Namespace) -> int:
     return 0
 
 
-#: Correct = normalised error under the group's tolerance (M4.3a): body/foot of the person-box
-#: diagonal, face likewise but tighter, hand of the hand-box diagonal.
-CAL_TOLERANCE = {"body": 0.05, "foot": 0.05, "face": 0.02, "hand": 0.1}
-
-
-def _correctness(persons, kps, scores) -> tuple[dict, dict]:
-    """Per keypoint group: raw scores + whether each prediction is correct (CAL_TOLERANCE)."""
-    from pose_estimation import score_calibration
-
-    raw: dict[str, list[np.ndarray]] = defaultdict(list)
-    correct: dict[str, list[np.ndarray]] = defaultdict(list)
-    for p, k, sc in zip(persons, kps, scores, strict=True):
-        diag = float(np.hypot(p.box[2], p.box[3]))
-        for group, (lo, hi) in score_calibration.GROUPS.items():
-            if group == "hand":
-                sides = {h.side for h in p.hands}
-                for h in p.hands:
-                    first = 91 if h.side == "L" else 112
-                    err = np.hypot(*(k[first : first + 21] - h.kpts[:, :2]).T) / h.diagonal
-                    raw[group].append(sc[first : first + 21])
-                    correct[group].append((h.kpts[:, 2] > 0) & (err < CAL_TOLERANCE["hand"]))
-                for side, first in (("L", 91), ("R", 112)):
-                    if side not in sides:  # unannotated hand: no prediction there is correct
-                        raw[group].append(sc[first : first + 21])
-                        correct[group].append(np.zeros(21, bool))
-                continue
-            gt = _gt_part(p, group)
-            err = np.hypot(*(k[lo:hi] - gt[:, :2]).T) / diag
-            raw[group].append(sc[lo:hi])
-            correct[group].append((gt[:, 2] > 0) & (err < CAL_TOLERANCE[group]))
-    return (
-        {g: np.concatenate(v) for g, v in raw.items()},
-        {g: np.concatenate(v) for g, v in correct.items()},
-    )
-
-
 def cmd_calibrate(a: argparse.Namespace) -> int:
     """M4.3b: the arm's raw score → the reference arm's raw score of equal P(correct)."""
     from pose_estimation import score_calibration
@@ -687,8 +613,8 @@ def cmd_calibrate(a: argparse.Namespace) -> int:
     persons = [p for p in persons if p.box[2] > 1 and p.box[3] > 1]
     arm_z = np.load(a.out / a.arm / "coco_wb_pred.npz")
     ref_z = np.load(a.out / a.reference / "coco_wb_pred.npz")
-    raw, correct = _correctness(persons, arm_z["kps"], arm_z["scores"])
-    ref_raw, ref_correct = _correctness(persons, ref_z["kps"], ref_z["scores"])
+    raw, correct = screen.calibration_targets(persons, arm_z["kps"], arm_z["scores"])
+    ref_raw, ref_correct = screen.calibration_targets(persons, ref_z["kps"], ref_z["scores"])
     curves = {
         g: score_calibration.fit_reference(raw[g], correct[g], ref_raw[g], ref_correct[g])
         for g in raw
@@ -704,39 +630,6 @@ def cmd_calibrate(a: argparse.Namespace) -> int:
     return 0
 
 
-def _gt_part(person, group: str) -> np.ndarray:
-    """The person's GT rows for a non-hand group, from the raw COCO-WholeBody annotation."""
-    if group == "body":
-        return person.body
-    return person.extra[group]
-
-
-def _consensus(first: dict, second: dict) -> dict:
-    """Two labellers' records → agreed states, mean points; disagreements become `?`."""
-    out = {"patient": None, "sides": {}}
-    if first["patient"] and second["patient"]:
-        out["patient"] = list(np.mean([first["patient"], second["patient"]], axis=0))
-    for side in labels.SIDES:
-        s1, s2 = first["sides"][side], second["sides"][side]
-        hand = s1["hand"] if s1["hand"] == s2["hand"] else "?"
-        joints = {}
-        for part, names in (("joints", labels.HAND_JOINTS), ("body", labels.BODY_JOINTS)):
-            for name in names:
-                j1, j2 = s1[part].get(name, {}), s2[part].get(name, {})
-                state = j1.get("state") if j1.get("state") == j2.get("state") else "?"
-                entry = {"state": state}
-                if state == "vis":
-                    entry["xy"] = list(np.mean([j1["xy"], j2["xy"]], axis=0))
-                joints[f"{part}.{name}"] = entry
-        ext = [e for e in (s1.get("extent"), s2.get("extent")) if e]
-        out["sides"][side] = {
-            "hand": hand,
-            "joints": joints,
-            "extent": list(np.mean(ext, axis=0)) if ext else None,
-        }
-    return out
-
-
 #: COCO-WholeBody indices of the labelled arm joints per anatomical side.
 _ARM_IDX = {
     "L": {"shoulder": 5, "elbow": 7, "wrist": 9},
@@ -747,7 +640,7 @@ _ARM_IDX = {
 def cmd_corpus_gross(a: argparse.Namespace) -> int:
     first = {r["frame"]["key"]: r for r in labels.load(a.labels[0])}
     second = {r["frame"]["key"]: r for r in labels.load(a.labels[1])}
-    consensus = {k: _consensus(first[k], second[k]) for k in sorted(set(first) & set(second))}
+    consensus = {k: labels.consensus(first[k], second[k]) for k in sorted(set(first) & set(second))}
     consensus = {k: c for k, c in consensus.items() if c["patient"]}
     meta = {
         f"{f['event_id']}/{f['camera_name']}#{f['frame']}": f
@@ -896,7 +789,7 @@ def _pilot_replays(a: argparse.Namespace, arm: str):
             m = meta[key]
             row = _tree_row(tree, m["event_id"], m["camera_name"], m["frame"])
             size = max(first[key]["frame"]["width"], first[key]["frame"]["height"])
-            yield key, m, _consensus(first[key], second[key]), row, size, None
+            yield key, m, labels.consensus(first[key], second[key]), row, size, None
         return
     by_clip: dict[str, list[str]] = defaultdict(list)
     for key in keys:
@@ -918,7 +811,7 @@ def _pilot_replays(a: argparse.Namespace, arm: str):
             m = meta[key]
             row = replay.row_at(done, m["frame"]) if done.is_file() else None
             size = max(first[key]["frame"]["width"], first[key]["frame"]["height"])
-            yield key, m, _consensus(first[key], second[key]), row, size, wall
+            yield key, m, labels.consensus(first[key], second[key]), row, size, wall
 
 
 def cmd_presence(a: argparse.Namespace) -> int:
@@ -926,8 +819,9 @@ def cmd_presence(a: argparse.Namespace) -> int:
     for _, m, c, row, _, _ in _pilot_replays(a, a.arm):
         states = {side: c["sides"][side]["hand"] for side in labels.SIDES}
         rows.extend(qualify.presence_rows(m["subject"], states, qualify.exported_hands(row)))
-    summary = {"arm": a.arm, "rows_from": str(_run_trees(a.from_run).get(a.arm, "replay"))}
+    summary = {"arm": a.arm, "rows_from": "run" if a.arm in _run_trees(a.from_run) else "replay"}
     summary |= qualify.presence_summary(rows, BOOT_SEED_PRESENCE)
+    (a.out / a.arm).mkdir(parents=True, exist_ok=True)
     (a.out / a.arm / "presence.json").write_text(
         json.dumps({"summary": summary, "rows": rows}, indent=1)
     )
@@ -969,9 +863,11 @@ def cmd_pilot_eval(a: argparse.Namespace) -> int:
         "subjects": len({r["subject"] for r in rows[a.baseline]}),
         "sides": {arm: len(r) for arm, r in rows.items()},
         "presence_f1_paired_subject_sd": {"sd": sd, "subjects": n_sd},
-        "rows_from": {arm: str(t) for arm, t in _run_trees(a.from_run).items()} or "replay",
+        # Arm names alone: a run-tree path stays out of stdout + reports (data boundary).
+        "rows_from": sorted(_run_trees(a.from_run)) or "replay",
     }
     out = a.out / a.arm / "pilot_eval.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report | {"rows": rows}, indent=1), encoding="utf-8")
     print(json.dumps(report))
     return 0
@@ -996,7 +892,7 @@ def cmd_confirm(a: argparse.Namespace) -> int:
         f"{j['event_id']}/{j['camera_name']}#{j['frame']}": j
         for j in json.loads(a.jobs.read_text(encoding="utf-8"))
     }
-    records = labels.load(a.labels)
+    records = list(labels.load(a.labels))  # every arm scores the same records
     scores = {}
     for arm in (*candidates, a.baseline):
         frames = []
@@ -1022,6 +918,7 @@ def cmd_confirm(a: argparse.Namespace) -> int:
         "states": states,
         "adopted": adopted,
     }
+    a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(report, indent=1), encoding="utf-8")
     print(json.dumps(report))
     return 0
@@ -1185,7 +1082,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--images", type=Path, required=True)
     s.add_argument("--exclude", type=Path, help="sheet dir whose hands stay out (labeller set)")
     s.add_argument("--arm-a", default="rtmw-m-256", choices=sorted(arms.POSE_ARMS))
-    s.add_argument("--arm-b", default="rtmw-x-384-c13", choices=sorted(arms.POSE_ARMS))
+    s.add_argument("--arm-b", default="rtmw-x-384", choices=sorted(arms.POSE_ARMS))
     s.add_argument("--min-diag", type=float, default=40.0)
     s.add_argument("--pool", type=int, default=400)
     s.add_argument("--per-bin", type=int, default=40)

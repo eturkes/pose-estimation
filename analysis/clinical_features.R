@@ -2192,6 +2192,9 @@ bout_runs <- function(grid, fs,
     threshold * as.numeric(quantile(det_all, normaliser_q, names = FALSE, type = 7)),
     noise_k * as.numeric(quantile(det_all, BOUT_NOISE_Q, names = FALSE, type = 7))
   )
+  # A noise-free series whose motion fills less than 1 - normaliser_q of it has a zero
+  # quantile and a zero floor; the series maximum keeps that movement detectable.
+  if (!is.finite(level) || level <= 0) level <- threshold * max(det_all)
   if (!is.finite(level) || level <= 0) return(empty)
   merge_n <- floor(merge_sec * fs + 1e-9)
   rows <- list()

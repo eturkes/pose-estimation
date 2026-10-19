@@ -35,9 +35,24 @@ def _box_of(points: np.ndarray) -> tuple[float, float, float, float]:
     return float(lo[0]), float(lo[1]), float(hi[0]), float(hi[1])
 
 
-#: COCO-WholeBody hand slot → DexYCB joint index. dex-ycb-toolkit `dex_ycb.py` `_MANO_JOINTS` =
-#: wrist, then mcp/pip/dip/tip for thumb, index, middle, ring, little — COCO-WB's own hand order.
-DEXYCB_TO_COCO_WB = tuple(range(21))
+#: dex-ycb-toolkit `dex_ycb.py` `_MANO_JOINTS`, verbatim order.
+DEXYCB_JOINTS = (
+    "wrist",
+    "thumb_mcp", "thumb_pip", "thumb_dip", "thumb_tip",
+    "index_mcp", "index_pip", "index_dip", "index_tip",
+    "middle_mcp", "middle_pip", "middle_dip", "middle_tip",
+    "ring_mcp", "ring_pip", "ring_dip", "ring_tip",
+    "little_mcp", "little_pip", "little_dip", "little_tip",
+)  # fmt: skip
+#: COCO-WholeBody hand order (mmpose `coco_wholebody_hand`): wrist, then four joints per finger,
+#: thumb → little, base → tip; named in the toolkit's vocabulary.
+COCO_WB_HAND = (
+    "wrist",
+    *(f"{finger}_{joint}" for finger in ("thumb", "index", "middle", "ring", "little")
+      for joint in ("mcp", "pip", "dip", "tip")),
+)  # fmt: skip
+#: COCO-WholeBody hand slot → DexYCB joint index, joined by name.
+DEXYCB_TO_COCO_WB = tuple(DEXYCB_JOINTS.index(name) for name in COCO_WB_HAND)
 
 
 def dexycb(root: Path, every: int = 12) -> Iterator[GtHandFrame]:

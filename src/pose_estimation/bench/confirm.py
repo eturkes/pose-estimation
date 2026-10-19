@@ -76,9 +76,8 @@ def score_frame(record: Mapping, row: Mapping[str, str] | None, subject: str) ->
             diag = float(np.hypot(*(pts.max(axis=0) - pts.min(axis=0))))
             for name, xy in visible.items():
                 got = _xy(row, f"{word}_hand_{HAND_JOINTS[name]}", scale)
-                hand_errors.append(
-                    1.0 if got is None else min(1.0, float(np.hypot(*(got - xy))) / diag)
-                )
+                # 1.0 = a miss (contract §2); an exported point keeps its own error, however large.
+                hand_errors.append(1.0 if got is None else float(np.hypot(*(got - xy))) / diag)
         norm = upper_arm.get(side) or upper_arm.get("R" if side == "L" else "L")
         if norm:
             for name in ("shoulder", "elbow", "wrist"):
@@ -105,14 +104,15 @@ def score_frame(record: Mapping, row: Mapping[str, str] | None, subject: str) ->
 
 
 def subject_means(scores: Sequence[FrameScore]) -> dict[str, dict[str, float]]:
-    """Per subject: E1/E2 = mean over frames; E3 = agreeing share of sides; E4 = swap share."""
+    """Per subject = mean over frames: E1, E2, E3 (each frame's agreeing share of sides), E4."""
     out: dict[str, dict[str, float]] = {}
     for subject in sorted({s.subject for s in scores}):
         mine = [s for s in scores if s.subject == subject]
         values: dict[str, list[float]] = {
             "E1": [s.e1 for s in mine if s.e1 is not None],
             "E2": [s.e2 for s in mine if s.e2 is not None],
-            "E3": [float(p) for s in mine for p in s.e3],
+            # Per frame first (share of its decided sides), then the subject mean (§2 grain).
+            "E3": [float(np.mean(s.e3)) for s in mine if s.e3],
             "E4": [float(s.e4) for s in mine if s.e4 is not None],
         }
         out[subject] = {k: float(np.mean(v)) if v else math.nan for k, v in values.items()}

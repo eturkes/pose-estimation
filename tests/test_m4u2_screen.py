@@ -161,3 +161,24 @@ def test_p04_finalist_rule_dominance_body_slack_and_baseline():
     assert s.finalists(arm_pck | {"flat": 0.9199}, [ap, pck], "base")["flat"][0].startswith(
         "arm PCK@0.05"
     )
+
+
+def test_p03_dexycb_slots_join_the_codebook_by_joint_name():
+    """Independent oracle = the labelling codebook's COCO-WB indices (closing review U12)."""
+    handsets = importlib.import_module("pose_estimation.bench.handsets")
+    labels = importlib.import_module("pose_estimation.bench.labels")
+    table = handsets.DEXYCB_TO_COCO_WB
+    for name, slot in labels.HAND_JOINTS.items():
+        toolkit = "index_mcp" if name == "index_mcp" else name
+        assert handsets.DEXYCB_JOINTS[table[slot]] == toolkit
+
+
+def test_a03_bench_arms_are_runtime_registry_entries():
+    """One checkpoint, one name: bench arm = registry key, its calibration file `<key>.json`."""
+    arms = importlib.import_module("pose_estimation.bench.arms")
+    run = importlib.import_module("pose_estimation.run")
+    for key, arm in arms.POSE_ARMS.items():
+        entry = run.MODEL_REGISTRY[key]
+        size = entry["pose_input_size"]
+        assert (arm.url, arm.input_size) == (entry["pose"], tuple(size))  # ty: ignore[invalid-argument-type]
+        assert entry["calibration"] in (None, f"{key}.json")

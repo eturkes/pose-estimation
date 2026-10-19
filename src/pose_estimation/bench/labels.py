@@ -12,6 +12,8 @@ from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 TASK_STATES = ("task", "setup", "?")
 HAND_STATES = ("vis", "part", "occ", "oof", "?")
 JOINT_STATES = ("vis", "occ", "oof", "?")
@@ -173,3 +175,29 @@ def load(path: Path) -> Iterator[dict[str, Any]]:
 
 def write(path: Path, records: Iterable[dict[str, Any]]) -> None:
     path.write_text("".join(dumps(r) + "\n" for r in records), encoding="utf-8")
+
+
+def consensus(first: dict, second: dict) -> dict:
+    """Two labellers' records → agreed states, mean points; disagreements become `?`."""
+    out: dict[str, Any] = {"patient": None, "sides": {}}
+    if first["patient"] and second["patient"]:
+        out["patient"] = list(np.mean([first["patient"], second["patient"]], axis=0))
+    for side in SIDES:
+        s1, s2 = first["sides"][side], second["sides"][side]
+        hand = s1["hand"] if s1["hand"] == s2["hand"] else "?"
+        joints = {}
+        for part, names in (("joints", HAND_JOINTS), ("body", BODY_JOINTS)):
+            for name in names:
+                j1, j2 = s1[part].get(name, {}), s2[part].get(name, {})
+                state = j1.get("state") if j1.get("state") == j2.get("state") else "?"
+                entry = {"state": state}
+                if state == "vis":
+                    entry["xy"] = list(np.mean([j1["xy"], j2["xy"]], axis=0))
+                joints[f"{part}.{name}"] = entry
+        ext = [e for e in (s1.get("extent"), s2.get("extent")) if e]
+        out["sides"][side] = {
+            "hand": hand,
+            "joints": joints,
+            "extent": list(np.mean(ext, axis=0)) if ext else None,
+        }
+    return out

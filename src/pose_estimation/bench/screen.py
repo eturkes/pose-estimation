@@ -7,10 +7,12 @@ image — every interval here is a paired bootstrap over the same draws.
 from __future__ import annotations
 
 import itertools
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 
 import numpy as np
 
+from .. import score_calibration
 from .labels import HAND_JOINTS
 from .public import GtPerson
 
@@ -159,3 +161,44 @@ def finalists(
                 )
         out[arm] = reasons
     return out
+
+
+#: Correct = normalised error under the group's tolerance (M4.3a): body/foot of the person-box
+#: diagonal, face likewise but tighter, hand of the hand-box diagonal.
+CAL_TOLERANCE = {"body": 0.05, "foot": 0.05, "face": 0.02, "hand": 0.1}
+
+
+def calibration_targets(persons, kps, scores) -> tuple[dict, dict]:
+    """Per keypoint group: raw scores + whether each prediction is correct (CAL_TOLERANCE)."""
+    raw: dict[str, list[np.ndarray]] = defaultdict(list)
+    correct: dict[str, list[np.ndarray]] = defaultdict(list)
+    for p, k, sc in zip(persons, kps, scores, strict=True):
+        diag = float(np.hypot(p.box[2], p.box[3]))
+        for group, (lo, hi) in score_calibration.GROUPS.items():
+            if group == "hand":
+                sides = {h.side for h in p.hands}
+                for h in p.hands:
+                    first = 91 if h.side == "L" else 112
+                    err = np.hypot(*(k[first : first + 21] - h.kpts[:, :2]).T) / h.diagonal
+                    raw[group].append(sc[first : first + 21])
+                    correct[group].append((h.kpts[:, 2] > 0) & (err < CAL_TOLERANCE["hand"]))
+                for side, first in (("L", 91), ("R", 112)):
+                    if side not in sides:  # unannotated hand: no prediction there is correct
+                        raw[group].append(sc[first : first + 21])
+                        correct[group].append(np.zeros(21, bool))
+                continue
+            gt = gt_part(p, group)
+            err = np.hypot(*(k[lo:hi] - gt[:, :2]).T) / diag
+            raw[group].append(sc[lo:hi])
+            correct[group].append((gt[:, 2] > 0) & (err < CAL_TOLERANCE[group]))
+    return (
+        {g: np.concatenate(v) for g, v in raw.items()},
+        {g: np.concatenate(v) for g, v in correct.items()},
+    )
+
+
+def gt_part(person, group: str) -> np.ndarray:
+    """The person's GT rows for a non-hand group, from the raw COCO-WholeBody annotation."""
+    if group == "body":
+        return person.body
+    return person.extra[group]

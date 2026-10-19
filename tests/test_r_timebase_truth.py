@@ -1307,6 +1307,13 @@ def test_c8_08(tmp_path):
     xfailed = run(True)
     assert xfailed.returncode != 0
     assert "1 xfailed" in xfailed.stdout
+    # A module skipped at collection never reaches runtest and drops out of `collected` too.
+    (cases / "test_skip.py").write_text(
+        "import pytest\n\npytest.skip('x', allow_module_level=True)\n"
+    )
+    module_skip = run(True)
+    assert module_skip.returncode != 0, module_skip.stdout
+    assert "A32 FAIL" in module_skip.stdout
 
 
 # ---------------------------------------------------------------------------

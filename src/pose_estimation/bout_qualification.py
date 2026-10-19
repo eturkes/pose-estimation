@@ -395,6 +395,8 @@ def noise_proxy(t: np.ndarray, x: np.ndarray, y: np.ndarray, rate: float) -> flo
     d = np.arange(-3, 4) / 28.0
     speed = np.hypot(wx @ d, wy @ d) * rate
     slow = speed <= np.quantile(speed, SLOW_SHARE)
+    if slow.sum() < MIN_CENTRES:  # the floor counts the centres the residual reads
+        return None
     rx, ry = (gx[centre] - sx)[slow], (gy[centre] - sy)[slow]
 
     def mad(v: np.ndarray) -> float:
@@ -417,3 +419,32 @@ def proxy_response(rate: float, seed: int, sd: float = 1e-3, n: int = 2000) -> f
 def summarise(values: Iterable[float]) -> dict[str, float]:
     v = np.asarray(list(values), float)
     return {"n": len(v), "median": float(np.median(v)), "p90": float(np.quantile(v, 0.9))}
+
+
+def finite_cell(cell: str | None) -> float:
+    """R's reading of a CSV cell: blank, `NA`, NaN and both infinities are non-finite."""
+    try:
+        value = float(cell) if cell not in (None, "", "NA") else math.nan
+    except ValueError:
+        return math.nan
+    return value if math.isfinite(value) else math.nan
+
+
+def read_wrist(rows: list[dict[str, str]], side: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Timestamps + wrist as the R stage reads them: `adapt_2d_confidence` masks a non-finite or
+    non-positive `_vis`, `stabilize_camera` applies the row's similarity only when all four
+    `cam_*` cells are finite (`tests/test_m4u5a_bouts.py` compares this with the R functions)."""
+    t, x, y = [], [], []
+    for r in rows:
+        vis = finite_cell(r.get(f"body_{side}_wrist_vis"))
+        ok = math.isfinite(vis) and vis > 0
+        px = finite_cell(r.get(f"body_{side}_wrist_x")) if ok else math.nan
+        py = finite_cell(r.get(f"body_{side}_wrist_y")) if ok else math.nan
+        cam = [finite_cell(r.get(c)) for c in ("cam_a", "cam_b", "cam_tx", "cam_ty")]
+        if all(math.isfinite(v) for v in cam):
+            a, b, tx, ty = cam
+            px, py = a * px - b * py + tx, b * px + a * py + ty
+        t.append(float(r["timestamp_sec"]))
+        x.append(px)
+        y.append(py)
+    return np.asarray(t), np.asarray(x), np.asarray(y)

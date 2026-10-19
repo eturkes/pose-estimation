@@ -95,3 +95,41 @@ def row_at(csv_path: Path, frame: int) -> dict[str, str] | None:
             if int(row["frame_idx"]) == frame:
                 return row
     return None
+
+
+_META = {"video", "frame_idx", "timestamp_sec", "person_idx"}
+
+
+def landmark_cells(row: dict[str, str] | None) -> dict[str, str]:
+    if row is None:
+        return {}
+    return {k: v for k, v in row.items() if k not in _META and not k.startswith("cam_")}
+
+
+#: A replayed point "equals" the whole-clip run within this (frame-normalised, ~2 px at 1920):
+#: the smoother's state decays geometrically, so byte equality never arrives.
+PREROLL_TOLERANCE = 0.001
+
+
+def read_point_delta(want: dict[str, str], got: dict[str, str]) -> tuple[float, int]:
+    """Max |dx|, |dy| over points both rows expose to the R stage (vis / conf > 0), and the
+    count of points one row exposes and the other does not."""
+    worst, flips = 0.0, 0
+    for k in want.keys() | got.keys():
+        if not k.endswith("_x"):
+            continue
+        base = k[:-2]
+        conf = f"{base}_vis" if base.startswith(("body_", "arm_")) else f"{base}_conf"
+
+        def seen(row: dict[str, str], k=k, conf=conf) -> bool:
+            v = row.get(conf) or ""
+            return v not in ("", "NA") and float(v) > 0 and row.get(k, "") != ""
+
+        a_seen, b_seen = seen(want), seen(got)
+        if a_seen != b_seen:
+            flips += 1
+        elif a_seen:
+            y = f"{base}_y"
+            delta = max(abs(float(want[k]) - float(got[k])), abs(float(want[y]) - float(got[y])))
+            worst = max(worst, delta)
+    return worst, flips

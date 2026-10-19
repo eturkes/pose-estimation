@@ -167,8 +167,12 @@ REPORT_FIELDS = frozenset(
         "stored_rate_equals_its_derivation",
         "generation_digest_unmoved",
         "generation_marker_unmoved",
+        "clinical_method_uniform",
     )
 )
+#: Report value when complete events record different (or no) R producers: run
+#: `--analyse-only --refresh-clinical` to bring every event onto one.
+ANALYSIS_MIXED = "mixed"
 
 
 def _load_pilot() -> Any:
@@ -219,6 +223,7 @@ def redaction_allowlist(args: Any, placed_assets: Any, codes: Any) -> frozenset[
             args.drop_hips_camera,
             openvino_build(),
             analysis_digest(),
+            ANALYSIS_MIXED,
             args.det_device,
             args.pose_device,
             MARKER_COMPLETE,
@@ -301,9 +306,30 @@ def _attempt_event(event_id: str, args: argparse.Namespace, logs: Path) -> dict[
             "clinical_s": 0.0,
         }
 
+    status, clinical_seconds = _clinical_stage(event_out, event_id, logs, run_seconds)
+    return {
+        "status": status,
+        "stage": STAGE_CLINICAL,
+        "run_s": run_seconds,
+        "clinical_s": clinical_seconds,
+    }
+
+
+def _clinical_stage(
+    event_out: Path, event_id: str, logs: Path, run_seconds: float
+) -> tuple[str, float]:
+    """Run the R producer over one event and record which producer ran (`analysis_sha256`).
+
+    The marker turns failed BEFORE R starts, so an interrupted pass never leaves rewritten
+    clinical files under a complete marker; the digest is read before the run, so the marker
+    names the bytes R executed.
+    """
+    digest = analysis_digest()
+    write_marker(event_out, status=MARKER_FAILED, stage=STAGE_CLINICAL, exit_code=None,
+                 run_s=round(run_seconds, 3), clinical_s=0.0)  # fmt: skip
     environment = os.environ.copy()
     environment.update(LC_ALL="C", LANG="C", TZ="UTC")
-    code, clinical_seconds = _run_stage(
+    code, seconds = _run_stage(
         ["Rscript", str(CLINICAL_R), str(event_out)], logs / event_id / "clinical.log", environment
     )
     status = MARKER_COMPLETE if code == 0 else MARKER_FAILED
@@ -313,38 +339,21 @@ def _attempt_event(event_id: str, args: argparse.Namespace, logs: Path) -> dict[
         stage=STAGE_CLINICAL,
         exit_code=code,
         run_s=round(run_seconds, 3),
-        clinical_s=round(clinical_seconds, 3),
+        clinical_s=round(seconds, 3),
+        analysis_sha256=digest,
     )
-    return {
-        "status": status,
-        "stage": STAGE_CLINICAL,
-        "run_s": run_seconds,
-        "clinical_s": clinical_seconds,
-    }
+    return status, seconds
 
 
 def _refresh_clinical(event_id: str, args: argparse.Namespace, logs: Path) -> float:
     """Rerun the R stage over a complete event's landmarks under the current R producer.
 
     Landmarks and the pose stage stay untouched (fix upstream: same tracks, new features); a
-    failure turns the event's marker failed, exactly as a first clinical pass would.
+    failure or an interruption leaves the event failed, exactly as a first clinical pass would.
     """
-    event_out = args.out / event_id
-    marker = read_marker(event_out) or {}
-    environment = os.environ.copy()
-    environment.update(LC_ALL="C", LANG="C", TZ="UTC")
-    code, seconds = _run_stage(
-        ["Rscript", str(CLINICAL_R), str(event_out)], logs / event_id / "clinical.log", environment
-    )
-    write_marker(
-        event_out,
-        status=MARKER_COMPLETE if code == 0 else MARKER_FAILED,
-        stage=STAGE_CLINICAL,
-        exit_code=code,
-        run_s=marker.get("run_s", 0.0),
-        clinical_s=round(seconds, 3),
-    )
-    return seconds
+    marker = read_marker(args.out / event_id) or {}
+    run_seconds = float(marker.get("run_s") or 0.0)
+    return _clinical_stage(args.out / event_id, event_id, logs, run_seconds)[1]
 
 
 def _manifest_rows(canonical: list[str], placed: dict[str, Any], out: Path) -> list[dict[str, str]]:
@@ -685,6 +694,14 @@ def main() -> int:
             "than this invocation's; the report would misname their generation"
         )
 
+    recorded = {
+        (read_marker(args.out / event_id) or {}).get("analysis_sha256")
+        for event_id in event_ids
+        if is_complete(args.out / event_id)
+    }
+    analysis_identity = recorded.pop() if len(recorded) == 1 else ANALYSIS_MIXED
+    analysis_identity = analysis_identity or ANALYSIS_MIXED
+
     rows = _manifest_rows(canonical, placed, args.out)
     try:
         census = validate_manifest(rows, canonical)
@@ -724,6 +741,7 @@ def main() -> int:
         "stored_rate_equals_its_derivation": cfr["assets_rate_mismatch"] == 0,
         "generation_digest_unmoved": digest_before == digest_after,
         "generation_marker_unmoved": marker_before == marker_after,
+        "clinical_method_uniform": analysis_identity != ANALYSIS_MIXED,
     }
     payload: dict[str, Any] = {
         "generator": GENERATOR,
@@ -742,7 +760,9 @@ def main() -> int:
             "det_frequency": args.det_frequency,
             "single_subject": args.single_subject,
             "openvino_build": openvino_build(),
-            "analysis_sha256": analysis_digest(),
+            # The producer the complete events' markers record — never the file on disk now,
+            # which an --analyse-only report would otherwise stamp on untouched outputs.
+            "analysis_sha256": analysis_identity,
             # 2D landmark CSVs carry no identity tags, so two generations under
             # different normalisations are shaped identically and mean
             # different things.  The report is where they separate.
@@ -805,7 +825,8 @@ def main() -> int:
         },
         "verdicts": verdicts,
     }
-    pilot._assert_redacted(payload, redaction_allowlist(args, placed_assets, codes), REPORT_FIELDS)
+    allowed = redaction_allowlist(args, placed_assets, codes) | {analysis_identity}
+    pilot._assert_redacted(payload, allowed, REPORT_FIELDS)
 
     _assert_sinks_outside(args.sessions, report)
     report.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")

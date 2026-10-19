@@ -32,6 +32,14 @@ class Reconciler:
     def pytest_collection_finish(self, session):
         self.collected = len(session.items)
 
+    def pytest_collectreport(self, report):
+        # A module skipped or broken at collection (`importorskip`, `allow_module_level`) never
+        # reaches runtest: it drops out of `collected` too, so only this report shows it.
+        if report.skipped:
+            self.outcomes["skipped"] += 1
+        elif report.failed:
+            self.outcomes["error"] += 1
+
     def pytest_runtest_logreport(self, report):
         if getattr(report, "wasxfail", None) is not None:
             self.outcomes["xpassed" if report.passed else "xfailed"] += 1

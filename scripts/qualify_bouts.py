@@ -37,24 +37,6 @@ _SKIP = re.compile(
 )
 
 
-def _wrist(rows: list[dict[str, str]], side: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Timestamps + stabilized wrist, NaN where the R stage masks (vis <= 0 or blank)."""
-    t, x, y = [], [], []
-    for r in rows:
-        vis = r.get(f"body_{side}_wrist_vis") or ""
-        ok = vis not in ("", "NA") and float(vis) > 0 and r[f"body_{side}_wrist_x"] != ""
-        px = float(r[f"body_{side}_wrist_x"]) if ok else math.nan
-        py = float(r[f"body_{side}_wrist_y"]) if ok else math.nan
-        cam = [r.get(c) or "" for c in ("cam_a", "cam_b", "cam_tx", "cam_ty")]
-        if all(v not in ("", "NA") for v in cam):
-            a, b, tx, ty = map(float, cam)
-            px, py = a * px - b * py + tx, b * px + a * py + ty
-        t.append(float(r["timestamp_sec"]))
-        x.append(px)
-        y.append(py)
-    return np.asarray(t), np.asarray(x), np.asarray(y)
-
-
 def cmd_measure_noise(a: argparse.Namespace) -> int:
     paths = sorted(
         f
@@ -69,7 +51,7 @@ def cmd_measure_noise(a: argparse.Namespace) -> int:
         with path.open(newline="", encoding="utf-8") as stream:
             rows = [r for r in csv.DictReader(stream) if r.get("person_idx", "0") in ("0", "")]
         for side, found in values.items():
-            t, x, y = _wrist(rows, side)
+            t, x, y = bq.read_wrist(rows, side)
             rate = 1.0 / float(np.median(np.diff(t))) if len(t) > 1 else math.nan
             proxy = bq.noise_proxy(t, x, y, rate) if len(t) >= 7 and rate > 0 else None
             if proxy is None or not proxy > 0:

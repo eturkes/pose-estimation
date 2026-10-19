@@ -496,6 +496,18 @@ LEVEL_SUFFIXES: dict[str, str] = {
     "bout": "_clinical_bouts.csv",
 }
 BOUT_SIDES = {"left": "left_", "right": "right_"}
+#: contract-m4u5a `BOUT_SCHEMA` keys — required even on a header-only file (the producer's seam).
+BOUT_KEYS = (
+    "video",
+    "person_idx",
+    "side",
+    "bout_idx",
+    "start_frame",
+    "end_frame",
+    "start_sec",
+    "end_sec",
+    "censored",
+)
 
 
 @dataclass(frozen=True)
@@ -575,6 +587,8 @@ def _read_artifact(
             reader = csv.DictReader(stream)
             header = tuple(reader.fieldnames or ())
             _assert_unique_header(path.name, header)
+            if level == "bout" and (missing := [k for k in BOUT_KEYS if k not in header]):
+                raise CohortError(f"{path.name} lacks the bout keys {missing}.")
             columns = [name for name in header if name not in METADATA_COLUMNS]
             values: dict[str, list[float]] = {name: [] for name in columns}
             rows = 0
@@ -596,6 +610,16 @@ def _bout_columns(name: str, row: Mapping[str, str], columns: list[str]) -> list
     side = row.get("side")
     if side not in BOUT_SIDES or row.get("censored") not in ("0", "1"):
         raise CohortError(f"{name} carries a bout row with an invalid side or censored flag.")
+    start, end = _finite(row["start_sec"] or ""), _finite(row["end_sec"] or "")
+    frames = (row["start_frame"] or "", row["end_frame"] or "")
+    if (
+        start is None
+        or end is None
+        or start > end
+        or not all(f.isascii() and f.isdigit() for f in frames)
+        or int(frames[0]) > int(frames[1])
+    ):
+        raise CohortError(f"{name} carries a bout row with invalid bounds.")
     own = [c for c in columns if c.startswith(BOUT_SIDES[side])]
     if any(_finite(row[c] or "") is not None for c in columns if c not in own):
         raise CohortError(f"{name} carries a finite value on the other side's bout columns.")
@@ -752,7 +776,7 @@ def _aggregate(contributors: list[_Contributor], run_root: pathlib.Path) -> _Agg
         "cells": len(cell_rows),
         "events": sum(len(members[cell]["events"]) for cell in cells),
         "feature_rows": len(feature_rows),
-        "features": len(FEATURES),
+        "features": len({(f.level, f.column) for f in FEATURES} - set(reasons)),
         "frame_rows": sum(row_counts[cell]["frame"] for cell in cells),
         "subjects": len({contributor.subject for contributor in contributors}),
         "window_rows": sum(row_counts[cell]["window"] for cell in cells),

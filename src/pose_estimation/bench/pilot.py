@@ -99,7 +99,8 @@ def side_rows(
             scale,
             GROSS_ARM * _diagonal(patient) if patient else 0.0,
         )
-        if len(hands) == 2 and present[side]:
+        # Contract §2 G4: frames with both hands labelled present AND both exported.
+        if len(hands) == 2 and present["L"] and present["R"]:
             pts = [_point(row, f"{_WORD[side]}_hand_{i}", "conf") for i in range(21)]
             pts = [p * scale for p in pts if p is not None]
             other = "R" if side == "L" else "L"

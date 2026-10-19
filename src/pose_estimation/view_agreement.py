@@ -76,9 +76,15 @@ def resample_icc(
     index = {s: i for i, s in enumerate(subjects)}
     owner = np.array([index[subject_of[e]] for e in names])
     k = np.array([len(events[e]) for e in names], float)
-    mean = np.array([np.mean(events[e]) for e in names])
+    # Centred first: the ICC is translation-invariant, and the uncentred sums of squares below
+    # cancel catastrophically at a large common offset (review C09c: 26/50 draws wrong at 1e8).
+    centre = float(np.mean([np.mean(events[e]) for e in names]))
+    mean = np.array([np.mean(events[e]) for e in names]) - centre
     ssw_e = np.array(
-        [((np.asarray(events[e], float) - m) ** 2).sum() for e, m in zip(names, mean, strict=True)]
+        [
+            ((np.asarray(events[e], float) - centre - m) ** 2).sum()
+            for e, m in zip(names, mean, strict=True)
+        ]
     )
     rng = np.random.default_rng(seed)
     counts = np.stack(

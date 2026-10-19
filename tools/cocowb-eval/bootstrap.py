@@ -5,7 +5,7 @@ Usage: uv run --directory tools/cocowb-eval python bootstrap.py GT.json NAME=RES
 
 COCOeval matches detections to GT once per image, and resampling images never changes a match,
 so each arm-part pair runs `evaluate()` once and every resample re-runs only the accumulation over
-the drawn images (a drawn image's detections carry its draw count as a weight). `accumulate_ap`
+the drawn images (a drawn image's detections repeat as blocks, copies adjacent). `accumulate_ap`
 on the full image set must equal `COCOeval.stats[0]` — refused otherwise. Every arm sees the same
 draws, so `pairs` holds the paired difference of the parts' mean AP.
 """
@@ -57,36 +57,46 @@ def per_image(coco, det, part):
 
 def flatten(records):
     keep = [(i, r) for i, r in enumerate(records) if r is not None]
+    lengths = np.zeros(len(records), int)
+    for i, r in keep:
+        lengths[i] = len(r[0])
     return {
         "scores": np.concatenate([r[0] for _, r in keep]),
         "tp": np.concatenate([r[1] for _, r in keep], axis=1),
         "fp": np.concatenate([r[2] for _, r in keep], axis=1),
-        "image": np.concatenate([np.full(len(r[0]), i) for i, r in keep]),
+        "start": np.cumsum(lengths) - lengths,
+        "length": lengths,
         "npig": np.bincount([i for i, _ in keep], [r[3] for _, r in keep], len(records)),
     }
 
 
 def accumulate_ap(flat, rec_thrs, counts):
-    """COCOeval.accumulate + stats[0] over images drawn `counts` times (all ones = the full set)."""
-    w = counts[flat["image"]].astype(float)
+    """COCOeval.accumulate + stats[0] over images drawn `counts` times (all ones = the full set).
+
+    A drawn image's detections repeat as whole blocks, copies adjacent in image order — exactly
+    the concatenation COCOeval sees for a GT listing each image's copies consecutively — so the
+    stable score sort breaks ties as COCOeval does (per-detection weights would not).
+    """
     npig = float(np.dot(counts, flat["npig"]))
     if npig == 0:
         return -1.0
-    order = np.argsort(-flat["scores"], kind="mergesort")
-    keep = order[w[order] > 0]
-    w = w[keep]
+    images = np.repeat(np.arange(len(counts)), counts)
+    lengths = flat["length"][images]
+    offsets = np.cumsum(lengths) - lengths
+    idx = np.repeat(flat["start"][images] - offsets, lengths) + np.arange(lengths.sum())
+    order = idx[np.argsort(-flat["scores"][idx], kind="mergesort")]
     out = []
-    for tp, fp in zip(flat["tp"][:, keep], flat["fp"][:, keep], strict=True):
-        tp_sum = np.cumsum(w * tp)
-        fp_sum = np.cumsum(w * fp)
+    for tp, fp in zip(flat["tp"][:, order], flat["fp"][:, order], strict=True):
+        tp_sum = np.cumsum(tp, dtype=float)
+        fp_sum = np.cumsum(fp, dtype=float)
         rc = tp_sum / npig
         pr = np.maximum.accumulate((tp_sum / (fp_sum + tp_sum + np.spacing(1)))[::-1])[::-1]
-        idx = np.searchsorted(rc, rec_thrs, side="left")
+        q_idx = np.searchsorted(rc, rec_thrs, side="left")
         q = np.zeros(len(rec_thrs))
-        inside = idx < len(pr)
+        inside = q_idx < len(pr)
         # COCOeval fills q until the first threshold past the curve's end, then stops.
-        stop = len(idx) if inside.all() else int(np.argmin(inside))
-        q[:stop] = pr[idx[:stop]]
+        stop = len(q_idx) if inside.all() else int(np.argmin(inside))
+        q[:stop] = pr[q_idx[:stop]]
         out.append(q)
     return float(np.mean(out))
 

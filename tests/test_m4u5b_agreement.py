@@ -309,3 +309,75 @@ def test_p05_bout_descriptors_carry_labels_units_and_ranges():
     assert units["bout_duration"] == units["bout_dwell"] == "s"
     assert units["bout_speed_peaks"] == "count"
     assert {f.range for f in bout if "sparc" in f.column} == {(None, 0.0)}
+
+
+def _bout_csv(path: pathlib.Path, *, drop=(), update=None, empty=False) -> None:
+    golden = (
+        pathlib.Path(__file__).resolve().parent / "goldens/r_clinical/2d_idx_clinical_bouts.csv"
+    )
+    with golden.open(newline="") as stream:
+        header = next(csv.reader(stream))
+    row = dict.fromkeys(header, "NA") | {
+        "video": "synthetic", "person_idx": "0", "side": "left", "bout_idx": "1",
+        "start_frame": "30", "end_frame": "60", "start_sec": "1", "end_sec": "2", "censored": "0",
+        "left_bout_duration": "1",
+    } | (update or {})  # fmt: skip
+    header = [c for c in header if c not in drop]
+    with path.open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=header)
+        writer.writeheader()
+        if not empty:
+            writer.writerow({k: row[k] for k in header})
+
+
+@pytest.mark.parametrize("key", cohort.BOUT_KEYS)
+def test_p03_header_only_bout_file_still_needs_every_key(tmp_path, key):
+    path = tmp_path / "x_clinical_bouts.csv"
+    _bout_csv(path, empty=True)
+    assert cohort._read_artifact(path, "bout")[1] == 0
+    _bout_csv(path, drop=(key,), empty=True)
+    with pytest.raises(cohort.CohortError, match="lacks the bout keys"):
+        cohort._read_artifact(path, "bout")
+
+
+@pytest.mark.parametrize(
+    "update",
+    [
+        {"start_sec": "3", "end_sec": "2"},
+        {"start_frame": "70", "end_frame": "60"},
+        {"start_sec": "NaN"},
+        {"end_sec": "Inf"},
+        {"start_frame": "1.5"},
+    ],
+)
+def test_p03_bout_bounds_are_validated(tmp_path, update):
+    path = tmp_path / "x_clinical_bouts.csv"
+    _bout_csv(path)
+    assert cohort._read_artifact(path, "bout")[2]["left_bout_duration"] == [1.0]
+    _bout_csv(path, update=update)
+    with pytest.raises(cohort.CohortError, match="invalid bounds"):
+        cohort._read_artifact(path, "bout")
+
+
+def test_p03_population_features_counts_published_features(tmp_path):
+    inputs = _inputs(tmp_path)
+    for path in _bout_files(inputs):
+        _rewrite(path, lambda header, rows: (header, []))
+    out = tmp_path / "cohort"
+    _publish(cohort, inputs, out)
+    marker = _marker(out)
+    assert marker["population"]["features"] == len(cohort.FEATURES) - 14 == 74
+    assert marker["population"]["feature_rows"] == 74 * 12
+
+
+def test_p02_resampling_is_exact_at_a_large_common_offset():
+    rng = np.random.default_rng(7)
+    events = {f"e{i}": (1e8 + i + rng.normal(size=2)).tolist() for i in range(5)}
+    owners = {e: e for e in events}
+    shifted = va.resample_icc(events, owners, seed=7, n=50)
+    centred = va.resample_icc({e: [v - 1e8 for v in vs] for e, vs in events.items()}, owners, 7, 50)
+    assert len(shifted) == len(centred)
+    for a, b in zip(shifted, centred, strict=True):
+        assert (a is None) == (b is None)
+        if a is not None:
+            assert a == pytest.approx(b, abs=1e-6)

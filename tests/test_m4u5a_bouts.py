@@ -431,3 +431,128 @@ def test_p09_refresh_clinical_reruns_r_over_complete_events(tmp_path, monkeypatc
     assert marker["status"] == corpus_run.MARKER_COMPLETE
     assert marker["stage"] == corpus_run.STAGE_CLINICAL
     assert len(generated) == 1  # the pose stage ran once, in the original generation
+
+
+def test_c07_sparse_clean_motion_is_still_a_bout():
+    """Rest filling > 95 % of a noise-free series zeroes the quantile + floor; the series maximum
+    keeps the movement (closing review C07)."""
+    short, sparse, still = _detect(
+        _series(total=4.0), _series(total=60.0), _series(total=60.0, parts=())
+    )
+    assert len(short["start"]) == 1
+    assert len(sparse["start"]) == 1
+    assert len(still["start"]) == 0
+
+
+def test_c08_noise_proxy_floor_counts_the_selected_centres():
+    bq = _bq()
+    rng = np.random.default_rng(24)
+    t = np.arange(40) / 30.0
+    x, y = 0.5 + rng.normal(0, 0.001, (2, 40))  # 34 full stencils, 7 in the slowest 20 %
+    assert bq.noise_proxy(t, x, y, 30.0) is None
+    t = np.arange(400) / 30.0
+    x, y = 0.5 + rng.normal(0, 0.001, (2, 400))
+    assert bq.noise_proxy(t, x, y, 30.0) is not None
+
+
+def test_a08_wrist_reader_matches_the_r_observation_mask():
+    """`read_wrist` = R's `adapt_2d_confidence` + `stabilize_camera` on non-finite cells."""
+    bq = _bq()
+    expected = _r(
+        """
+        df <- data.frame(body_left_wrist_x = c(0.2, 0.2, 0.2), body_left_wrist_y = c(0.3, 0.3, 0.3),
+                         body_left_wrist_vis = c(Inf, 1, 0.5), cam_a = c(1, Inf, 2),
+                         cam_b = c(0, 0, 0), cam_tx = c(0, 0, 0.1), cam_ty = c(0, 0, 0))
+        df <- stabilize_camera(adapt_2d_confidence(df))
+        result <- list(x = as.list(df$body_left_wrist_x), y = as.list(df$body_left_wrist_y))
+        """,
+        {},
+    )
+    rows = [
+        {"timestamp_sec": str(i / 30), "body_left_wrist_x": "0.2", "body_left_wrist_y": "0.3",
+         "body_left_wrist_vis": vis, "cam_a": a, "cam_b": "0", "cam_tx": tx, "cam_ty": "0"}
+        for i, (vis, a, tx) in enumerate((("Inf", "1", "0"), ("1", "Inf", "0"), ("0.5", "2", "0.1")))
+    ]  # fmt: skip
+    _, x, y = bq.read_wrist(rows, "left")
+    want = [[math.nan if v is None else v for v in expected[k]] for k in ("x", "y")]
+    np.testing.assert_allclose([x, y], want, equal_nan=True)
+
+
+def test_p08_development_lookup_fails_admissibility():
+    """A detector that memorises the development bank's truths fails on the noise-free bank,
+    which is drawn from its own seed (contract-m4u5a P08)."""
+    bq = _bq()
+    dev = bq.make_bank(11, 1, 3e-4)
+    free = bq.make_bank(12, 1, 0.0, scales=(0.0,), artifacts_on=False)
+    by_slot = {(d.kind, d.rate, d.sid.rsplit("-", 1)[1]): d for d in dev if d.noise_scale == 1.0}
+    lookup = {
+        f.sid: [
+            {"start_sec": b.start, "end_sec": b.end, "censored": False}
+            for b in by_slot[(f.kind, f.rate, f.sid.rsplit("-", 1)[1])].truth
+        ]
+        for f in free
+    }
+    assert any(lookup.values())  # the lookup answers every series with the memorised truths
+    assert not bq.exact_on_supported(free, lookup)
+
+
+def _driver_generation(tmp_path, monkeypatch, producer):
+    import test_m2u101_hand_gate as helpers
+
+    corpus_run = importlib.import_module("pose_estimation.corpus_run")
+    monkeypatch.setattr(corpus_run, "ANALYSIS_R", producer)
+    original = helpers._driver
+
+    def driver_with(name):
+        driver = original(name)
+        driver["CLINICAL_R"] = producer
+        return driver
+
+    monkeypatch.setattr(helpers, "_driver", driver_with)
+    return helpers._generation("corpus_run_2d.py", tmp_path, monkeypatch, enabled=True)
+
+
+def test_c10_analyse_only_reports_the_producer_the_events_ran(tmp_path, monkeypatch):
+    producer = tmp_path / "synthetic_clinical.R"
+    producer.write_text("# first producer\n")
+    driver, args, _, _ = _driver_generation(tmp_path, monkeypatch, producer)
+    old = hashlib.sha256(producer.read_bytes()).hexdigest()
+    assert json.loads(args.report.read_text())["configuration"]["analysis_sha256"] == old
+    producer.write_text("# changed producer, never run over the event\n")
+    args.analyse_only, args.refresh_clinical = True, False
+    assert driver["main"]() == 0
+    report = json.loads(args.report.read_text())
+    assert report["configuration"]["analysis_sha256"] == old
+    assert report["verdicts"]["clinical_method_uniform"] is True
+    args.refresh_clinical = True
+    assert driver["main"]() == 0
+    new = hashlib.sha256(producer.read_bytes()).hexdigest()
+    assert json.loads(args.report.read_text())["configuration"]["analysis_sha256"] == new
+
+
+def test_c10_interrupted_refresh_leaves_the_event_failed(tmp_path, monkeypatch):
+    producer = tmp_path / "synthetic_clinical.R"
+    producer.write_text("# producer\n")
+    driver, args, _, event_out = _driver_generation(tmp_path, monkeypatch, producer)
+    corpus_run = importlib.import_module("pose_estimation.corpus_run")
+
+    def interrupted(command, **_kwargs):
+        (event_out / "partial_clinical.csv").write_text("half")
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(driver["subprocess"], "call", interrupted)
+    args.analyse_only, args.refresh_clinical = True, True
+    with pytest.raises(KeyboardInterrupt):
+        driver["main"]()
+    assert (corpus_run.read_marker(event_out) or {})["status"] == corpus_run.MARKER_FAILED
+
+
+@pytest.mark.parametrize("name", ["corpus_run_2d.py", "pilot_corpus_run.py"])
+def test_a12_each_driver_report_records_the_running_build(tmp_path, monkeypatch, name):
+    import openvino
+
+    from test_m2u101_hand_gate import _generation
+
+    _, args, _, _ = _generation(name, tmp_path, monkeypatch, enabled=True)
+    report = json.loads(args.report.read_text(encoding="utf-8"))
+    assert report["configuration"]["openvino_build"] == openvino.get_version()

@@ -94,3 +94,37 @@ registry; `rtmlib-runtime.md` still said the build is not in the config → upda
 "byte-identical CSV + diagnostics" → CSV bytes stay pinned by the existing M2.10.1 baseline-bytes
 case, diagnostics differ only by M4.6's two census fields (and latency, which never repeats) —
 contract A02; M4.6 P07 (stage attribution on real data) = MAIN-owned, open until its replay runs.
+
+## IMPLEMENT closing review (301bd38..56b30c4 + 0bc4094)
+
+Lenses fixed at seed: `reviewer-11` correctness C01-C12, `reviewer-12` cleanup U01-U12,
+`reviewer-13` altitude A01-A12 (reports `.scratch/agents/reviewer-1{1,2,3}.md`, grader rc 0;
+red batteries `.scratch/reviewer-1{1,2,3}/`); MAIN security lens S01. 36 rows + S01 → 15
+pass rows, 21 fail rows; duplicates merged below. Verdict = first pass → re-review of each
+accepted fix against its acceptance check.
+
+| ID | finding | rows | ruling | fix |
+| --- | --- | --- | --- | --- |
+| F01 | repeated-image bootstrap broke tied scores unlike COCOeval | C04 | accepted | detections repeat as blocks, copies adjacent; check.py + 2 tied rows (old code: 2 FAIL) |
+| F02 | confirm E1 capped observed errors at the miss value | C05a | accepted | cap removed; test |
+| F03 | confirm E3 pooled sides instead of frame → subject | C05b, C12 | accepted | per-frame share then subject mean; test expectation 2/3 → 3/4 |
+| F04 | pilot G4 admitted frames with one exported hand | C05c | accepted | both hands exported; test |
+| F05 | confirm consumed the label iterator on the first arm | C06a, A06.3, U-R01 | accepted | `list(labels.load)`; CLI tests |
+| F06 | `--from-run` presence / pilot-eval wrote into missing dirs | C06b, A06.3 | accepted | mkdir; CLI test |
+| F07 | stdout + reports carried run-tree paths | C06c, U06, A06.2 | accepted | arm names only; CLI test |
+| F08 | judgment logic (consensus, calibration targets, pre-roll equivalence) lived in the driver | A06.1 | accepted | moved to `bench.labels.consensus`, `bench.screen.calibration_targets`, `bench.replay.read_point_delta` |
+| F09 | zero quantile + floor dropped clean sparse motion | C07 | accepted | level falls back to threshold × series max; test; qualification rerun |
+| F10 | noise-proxy floor counted pre-selection stencils | C08 | accepted | floor counts selected centres; test; measure rerun (unchanged) |
+| F11 | noise reader diverged from R masking on non-finite cells | A08 | accepted | `bout_qualification.read_wrist` (src) + R differential test |
+| F12 | cohort bout reader: no key / bounds check | C09a/b, A09 | accepted | `BOUT_KEYS` required; finite ordered bounds; 14 tests |
+| F13 | vectorised ICC resamples cancelled catastrophically at large offsets | C09c, U-R02 | accepted | sums centred; offset test |
+| F14 | report stamped the on-disk R digest on untouched outputs | C10a, A10 | accepted | marker records `analysis_sha256` per event; report = the recorded one or `mixed`; verdict `clinical_method_uniform`; test |
+| F15 | an interrupted refresh left rewritten files under a complete marker | C10b | accepted | marker failed before R; test |
+| F16 | A32 missed collection-time skips | C11 | accepted | `pytest_collectreport`; C8.08 case (old plugin: red) |
+| F17 | bench + runtime named RTMW-X twice; calibrate wrote an unused file | A03, U03 | accepted | bench arms derive from `run.MODEL_REGISTRY`; caches renamed; test |
+| F18 | `population.features` counted declared, not published | U09 | accepted | published count; test |
+| F19 | clinical stage duplicated in attempt + refresh | U10 | accepted | one `_clinical_stage` |
+| F20 | DexYCB joint test used its own table as oracle | U12 | accepted | named join to the codebook; test |
+| F21 | driver-report build test exercised the helper only | A12 | accepted | both drivers' reports asserted |
+| F22 | development-lookup control absent from P08 | A-R02 | accepted | lookup detector fails admissibility; test |
+| S01 | review UI stored a non-finite click as a visible point | S01 | accepted | stored `?` (0bc4094) |

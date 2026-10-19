@@ -58,10 +58,12 @@ def bootstrap_matches(gt, results, counts):
     """(accumulate_ap at `counts`, COCOeval AP on the set those counts describe) per hand part."""
     images = sorted(img["id"] for img in gt["images"])
     drawn = {"images": [], "annotations": [], "categories": gt["categories"]}
-    drawn_results, next_id = [], 1000
+    drawn_results = []
     for image_id, count in zip(images, counts, strict=True):
         for copy in range(count):
-            new_id = image_id if copy == 0 else next_id + image_id
+            # Copies adjacent in id order: COCOeval concatenates images by sorted id, which is
+            # the block order `accumulate_ap` reproduces (ties break the same way).
+            new_id = image_id * 100 + copy
             drawn["images"].append({"id": new_id, "file_name": f"{new_id}.jpg", "width": 640,
                                     "height": 480})  # fmt: skip
             for ann in gt["annotations"]:
@@ -115,9 +117,16 @@ def main():
     mixed = [
         result(a, shift=25.0 * (i % 3)) | {"score": 0.5 + 0.07 * i} for i, a in enumerate(anns)
     ]
+    tied = [result(a, shift=25.0 * (i % 2)) for i, a in enumerate(anns)]  # every score 0.9
     agree = {
-        label: bootstrap_matches(gt, mixed, counts)
-        for label, counts in (("full", [1, 1, 1]), ("dropped", [1, 0, 1]), ("doubled", [1, 1, 2]))
+        label: bootstrap_matches(gt, rows, counts)
+        for label, rows, counts in (
+            ("full", mixed, [1, 1, 1]),
+            ("dropped", mixed, [1, 0, 1]),
+            ("doubled", mixed, [1, 1, 2]),
+            ("tied doubled", tied, [2, 1, 1]),
+            ("tied tripled", tied, [1, 3, 0]),
+        )
     }
     checks = {
         "perfect = 1.0 on every part": all(abs(v - 1.0) < 1e-9 for v in perfect.values()),
