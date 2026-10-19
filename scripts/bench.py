@@ -22,6 +22,8 @@
                  PCK@0.05 slack → the finalist set
   presence       M4.3b: whole-clip production replay per pilot clip → exported hand presence vs the
                  labellers' agreed hand states, F1 with a subject bootstrap
+  confirm        M4.4: the user's frames vs candidate + baseline corpus-run rows → E1-E4,
+                 subject bootstrap, decision table, adoption (refuses without contract A01)
   pilot-eval     M4.3: arm + baseline replayed over the pilot → presence F1, gross hand + arm,
                  side swaps; paired subject intervals → pass / refit / fail
   hand-eval      one arm over a hand set (DexYCB, HInt) with the shipped detector's person box:
@@ -844,8 +846,30 @@ def cmd_corpus_gross(a: argparse.Namespace) -> int:
     return 0
 
 
+def _run_trees(specs: list[str] | None) -> dict[str, Path]:
+    """`ARM=DIR` pairs → arm → corpus run tree (`corpus_run_2d.py --model ARM --out DIR`)."""
+    out = {}
+    for spec in specs or []:
+        arm, _, tree = spec.partition("=")
+        if not tree:
+            raise SystemExit(f"--from-run takes ARM=DIR, got {spec!r}")
+        out[arm] = Path(tree)
+    return out
+
+
+def _tree_row(tree: Path, event_id: str, camera: str, frame: int) -> dict[str, str] | None:
+    """The exported subject row at `frame` of a whole-clip corpus run (frame_idx = source)."""
+    from pose_estimation.bench import replay
+
+    path = tree / event_id / f"{camera}.csv"
+    return replay.row_at(path, frame) if path.is_file() else None
+
+
 def _pilot_replays(a: argparse.Namespace, arm: str):
     """Per agreed pilot frame: `(key, sample meta, consensus, exported row, max dim, wall s)`.
+
+    With `--from-run ARM=DIR` the rows come from that full corpus run (the same whole-clip
+    production state, wall None); otherwise each clip is replayed here.
 
     Each pilot clip is replayed whole, frame 0 to its last decoded frame — the corpus run of
     that clip under `arm`. M4.1 D05(e) measured no finite pre-roll reaching that state: hands
@@ -866,6 +890,14 @@ def _pilot_replays(a: argparse.Namespace, arm: str):
         for f in json.loads(a.sample.read_text(encoding="utf-8"))
     }
     keys = sorted(set(first) & set(second))
+    tree = _run_trees(a.from_run).get(arm)
+    if tree is not None:
+        for key in keys:
+            m = meta[key]
+            row = _tree_row(tree, m["event_id"], m["camera_name"], m["frame"])
+            size = max(first[key]["frame"]["width"], first[key]["frame"]["height"])
+            yield key, m, _consensus(first[key], second[key]), row, size, None
+        return
     by_clip: dict[str, list[str]] = defaultdict(list)
     for key in keys:
         by_clip[key.split("#", 1)[0]].append(key)
@@ -894,7 +926,7 @@ def cmd_presence(a: argparse.Namespace) -> int:
     for _, m, c, row, _, _ in _pilot_replays(a, a.arm):
         states = {side: c["sides"][side]["hand"] for side in labels.SIDES}
         rows.extend(qualify.presence_rows(m["subject"], states, qualify.exported_hands(row)))
-    summary = {"arm": a.arm, "replay": "whole clip"}
+    summary = {"arm": a.arm, "rows_from": str(_run_trees(a.from_run).get(a.arm, "replay"))}
     summary |= qualify.presence_summary(rows, BOOT_SEED_PRESENCE)
     (a.out / a.arm / "presence.json").write_text(
         json.dumps({"summary": summary, "rows": rows}, indent=1)
@@ -915,10 +947,19 @@ def cmd_pilot_eval(a: argparse.Namespace) -> int:
             if wall is not None:
                 walls[arm].append(wall)
     intervals = pilot.paired_intervals(rows[a.arm], rows[a.baseline], a.n, BOOT_SEED_PILOT)
+    # M4.1 D05(d): per-subject presence F1 difference → its SD over subjects (M4.4 power input).
+    f1 = {
+        arm: {
+            s: qualify.presence_f1([r for r in rs if r["subject"] == s and "present" in r])
+            for s in {r["subject"] for r in rs}
+        }
+        for arm, rs in rows.items()
+    }
+    diffs = {s: [f1[a.arm][s] - f1[a.baseline][s]] for s in f1[a.arm] if s in f1[a.baseline]}
+    sd, n_sd = qualify.paired_subject_sd(diffs) if len(diffs) >= 2 else (None, len(diffs))
     report = {
         "arm": a.arm,
         "baseline": a.baseline,
-        "replay": "whole clip",
         "endpoints": {arm: pilot.endpoints(r) for arm, r in rows.items()},
         "intervals": {
             g: dict(zip(("point", "lo", "hi"), v, strict=True)) for g, v in intervals.items()
@@ -927,6 +968,8 @@ def cmd_pilot_eval(a: argparse.Namespace) -> int:
         "wall_s_per_replay": {arm: float(np.median(w)) if w else None for arm, w in walls.items()},
         "subjects": len({r["subject"] for r in rows[a.baseline]}),
         "sides": {arm: len(r) for arm, r in rows.items()},
+        "presence_f1_paired_subject_sd": {"sd": sd, "subjects": n_sd},
+        "rows_from": {arm: str(t) for arm, t in _run_trees(a.from_run).items()} or "replay",
     }
     out = a.out / a.arm / "pilot_eval.json"
     out.write_text(json.dumps(report | {"rows": rows}, indent=1), encoding="utf-8")
@@ -935,6 +978,55 @@ def cmd_pilot_eval(a: argparse.Namespace) -> int:
 
 
 BOOT_SEED_PILOT = 20261023
+
+
+def cmd_confirm(a: argparse.Namespace) -> int:
+    """M4.4: the user's frames vs each candidate's and the baseline's corpus-run rows."""
+    from pose_estimation.bench import confirm
+
+    try:
+        candidates = confirm.frozen_candidates(a.contract)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    trees = _run_trees(a.from_run)
+    missing = sorted((set(candidates) | {a.baseline}) - set(trees))
+    if missing:
+        raise SystemExit(f"no --from-run tree for {missing}")
+    jobs = {
+        f"{j['event_id']}/{j['camera_name']}#{j['frame']}": j
+        for j in json.loads(a.jobs.read_text(encoding="utf-8"))
+    }
+    records = labels.load(a.labels)
+    scores = {}
+    for arm in (*candidates, a.baseline):
+        frames = []
+        for record in records:
+            job = jobs[record["frame"]["key"]]
+            row = _tree_row(trees[arm], job["event_id"], job["camera_name"], job["frame"])
+            frames.append(confirm.score_frame(record, row, str(job["subject"])))
+        scores[arm] = confirm.subject_means(frames)
+    states, intervals = {}, {}
+    for arm in candidates:
+        intervals[arm] = {
+            e: confirm.bootstrap(scores[arm], scores[a.baseline], e)
+            for e in ("E1", "E2", "E3", "E4")
+        }
+        states[arm] = confirm.decide(intervals[arm])
+    adopted = confirm.adopt(states, a.public_rank, a.baseline)
+    report = {
+        "candidates": candidates,
+        "baseline": a.baseline,
+        "frames": len(records),
+        "subjects": len(scores[a.baseline]),
+        "intervals": intervals,
+        "states": states,
+        "adopted": adopted,
+    }
+    a.out.write_text(json.dumps(report, indent=1), encoding="utf-8")
+    print(json.dumps(report))
+    return 0
+
+
 BOOT_SEED_PRESENCE = 20261022
 
 
@@ -1139,13 +1231,23 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--out", type=Path, required=True)
     s = sub.add_parser("presence")
     s.add_argument("--labels", type=Path, nargs=2, required=True)
+    s.add_argument("--from-run", action="append", metavar="ARM=DIR", help="read a corpus run")
     s.add_argument("--sample", type=Path, required=True)
     s.add_argument("--run", type=Path, default=Path("output/corpus-2d"))
     s.add_argument("--sessions", type=Path, default=Path("sessions"))
     s.add_argument("--arm", required=True, help="run.MODEL_REGISTRY key")
     s.add_argument("--out", type=Path, required=True)
+    s = sub.add_parser("confirm")
+    s.add_argument("--labels", type=Path, required=True, help="the user's /label records")
+    s.add_argument("--jobs", type=Path, required=True, help="user-sample jobs.json")
+    s.add_argument("--contract", type=Path, default=Path(".agent/archive/contract-m4u4.md"))
+    s.add_argument("--from-run", action="append", required=True, metavar="ARM=DIR")
+    s.add_argument("--baseline", default="rtmw-m-256")
+    s.add_argument("--public-rank", nargs="+", required=True, help="candidates, M4.2 order")
+    s.add_argument("--out", type=Path, required=True)
     s = sub.add_parser("pilot-eval")
     s.add_argument("--labels", type=Path, nargs=2, required=True)
+    s.add_argument("--from-run", action="append", metavar="ARM=DIR", help="read a corpus run")
     s.add_argument("--sample", type=Path, required=True)
     s.add_argument("--run", type=Path, default=Path("output/corpus-2d"))
     s.add_argument("--sessions", type=Path, default=Path("sessions"))
@@ -1199,6 +1301,7 @@ def main(argv: list[str] | None = None) -> int:
         "presence": cmd_presence,
         "screen": cmd_screen,
         "pilot-eval": cmd_pilot_eval,
+        "confirm": cmd_confirm,
         "corpus-gross": cmd_corpus_gross,
         "calibrate": cmd_calibrate,
         "public-eval": cmd_public_eval,
