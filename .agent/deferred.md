@@ -136,11 +136,12 @@ rows before sizing any unit that touches their surfaces.
   `.scratch/ratchet_qa.mjs`; → `review-ui.md`) → committed checks under `tools/review-ui/tools/`:
   drift 22/22 with a stacked `1fr` column reding exactly the 4 stacked injection rows; ratchet
   60/60 across scales 1/1.1/1.25/1.5 with stacked `auto auto` rows reding only stacked rows.
-- **Marksman reports 3 links to existing docs as non-existent** (`docs/calibration_finding.md:9`,
-  `docs/technical/entrypoints.md:181,216` → `technical/{calibration_qc,qualification}.md`; git
-  ignores neither target). Suspected cause, unconfirmed: its index reads the `.gitignore`
-  directory patterns `qualification.*/` + `calibration_qc.*/` as matching the `.md` files →
-  Marksman diagnostics over `docs/` report 0 non-existent-document warnings, and
+- **Marksman reports 4 links to existing docs as non-existent** (`docs/calibration_finding.md:9`,
+  `docs/technical/entrypoints.md:188,223` → `technical/{calibration_qc,qualification}.md`,
+  `README.md:52` → `docs/technical/cohort.md`; git ignores none of the targets). Suspected cause,
+  unconfirmed: its index reads the `.gitignore` directory patterns `qualification.*/` +
+  `calibration_qc.*/` + `cohort.*/` as matching the `.md` files →
+  Marksman diagnostics over `docs/` + `README.md` report 0 non-existent-document warnings, and
   `git check-ignore` still ignores a `qualification.x/` staging directory.
 - **`.scratch/ovupgrade/` build-change instruments are scratch-local** (`pilot.sh`, `compare.py`,
   `det_qual.py` → `pose-instruments.md`) → committed under `scripts/` with a test that seeds a one-cell CSV

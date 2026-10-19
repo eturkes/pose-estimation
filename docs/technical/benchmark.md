@@ -162,6 +162,22 @@ Sapiens2-0.4B (OpenVINO GPU f16, flip TTA; 500-person subset, seed 20261019, pai
 Dropped by user ruling: no hand gain for ~5 GPU-days per corpus run. Sapiens v1 stayed gated
 (no checkpoint access). ARCTIC, Ego-Exo4D and UBody are unrun (no registration).
 
+## Cross-view residual per arm (3D-negative ruling)
+
+The 3D ruling rests on RTMW-m keypoints: per-keypoint signed epipolar residuals at 15-20 px
+systematic (`.claude/rules/geometry.md`). `scripts/probe_crossview_arm.py collect` recollects
+M2.6's observability cache with the pose model swapped for an arm — same synchronised frames, CPU
+detector, cache layout, the probe imported unchanged — and maps scores through the arm's
+`score_calibrations/` file, so the probe's 0.5 validity cut keeps one meaning. `compare` runs
+`probe_calibration_bias.pair_structure` per (event, camera pair).
+
+Rule, committed before any arm result: over the units every arm scores, ratio = median
+`median_abs_px` arm / RTMW-m; material drop = ratio <= 0.75 with an event-clustered bootstrap 95 %
+upper bound < 1 → the 3D ruling returns to the user. 0.75 takes the ~17 px residual below its
+15-20 px band.
+
+Result: pending.
+
 ## Public data provenance
 
 COCO val2017 + annotations: `images.cocodataset.org` (HTTPS verified). COCO-WholeBody v1.0 val:
