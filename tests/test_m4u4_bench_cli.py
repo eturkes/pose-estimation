@@ -278,3 +278,65 @@ def test_f07_replay_commands_keep_runner_output_out_of_stdout(
     assert "PRIVATE_REPLAY_SOURCE_CANARY" not in emitted, (
         "replay source banner escaped aggregate summary"
     )
+
+
+@pytest.mark.parametrize("command", ["presence", "pilot-eval", "confirm"])
+def test_from_run_tree_missing_a_requested_clip_refuses(tmp_path, command):
+    """A clip absent from a run tree is no export to score: a failed or unfinished event would
+    read as the arm missing every point — a silent penalty, on one-use labels for `confirm`."""
+    label_path, job_path, _, _, trees = _fixture(tmp_path)
+    contract = tmp_path / "contract.md"
+    contract.write_text("## 8. Amendments\n\n- **A01 (candidates).** `rtmw-l-384`.\n")
+    runs = [x for arm, tree in trees.items() for x in ("--from-run", f"{arm}={tree}")]
+    pair = ["--labels", str(label_path), str(label_path), "--sample", str(job_path)]
+    arm = ["--arm", "rtmw-l-384"]
+
+    def argv(out: Path) -> list[str]:
+        return {
+            "presence": ["presence", *pair, *arm, "--out", str(out)],
+            "pilot-eval": ["pilot-eval", *pair, *arm, "--n", "10", "--out", str(out)],
+            "confirm": ["confirm", "--contract", str(contract), "--labels", str(label_path),
+                        "--jobs", str(job_path), "--public-rank", "rtmw-l-384",
+                        "--out", str(out / "confirm.json")],
+        }[command] + runs  # fmt: skip
+
+    main = runpy.run_path(str(ROOT / "scripts/bench.py"))["main"]
+    assert main(argv(tmp_path / "complete")) == 0  # positive control: complete trees score
+    (trees["rtmw-l-384"] / "synthetic-event-1" / "left.csv").unlink()
+    out = tmp_path / "incomplete"
+    with pytest.raises(SystemExit) as refused:
+        main(argv(out))
+    message = str(refused.value)
+    assert "rtmw-l-384" in message
+    assert "1 of 2" in message
+    assert "PRIVATE_SOURCE_LOCATION" not in message
+    assert "synthetic-event" not in message
+    assert not out.exists()
+
+
+def test_replay_that_writes_no_landmark_csv_refuses(tmp_path, monkeypatch):
+    """A crashed replay leaves no CSV; scoring its frames as empty exports penalises the arm."""
+    from pose_estimation.bench import replay
+
+    label_path, job_path, _, _, _ = _fixture(tmp_path)
+    run_root = tmp_path / "run"
+    for job in json.loads(job_path.read_text()):
+        diag = run_root / job["event_id"] / "left_diag.csv"
+        diag.parent.mkdir(parents=True)
+        diag.write_text("n_frames_decoded\n1\n")
+    cli = runpy.run_path(str(ROOT / "scripts/bench.py"))
+    monkeypatch.setitem(cli["main"].__globals__, "_media", lambda *_: tmp_path / "clip.mp4")
+    # A crashed runner: its window directory exists, its landmark CSV does not.
+    monkeypatch.setattr(
+        replay,
+        "replay_window",
+        lambda media, start, stop, out_dir, extra=(): out_dir.mkdir(parents=True),
+    )
+    out = tmp_path / "results"
+    with pytest.raises(SystemExit) as refused:
+        cli["main"](
+            ["presence", "--labels", str(label_path), str(label_path), "--sample", str(job_path),
+             "--arm", "rtmw-l-384", "--run", str(run_root), "--out", str(out)]
+        )  # fmt: skip
+    assert "rtmw-l-384" in str(refused.value)
+    assert not (out / "rtmw-l-384" / "presence.json").exists()

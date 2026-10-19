@@ -755,12 +755,26 @@ def _run_trees(specs: list[str] | None) -> dict[str, Path]:
     return out
 
 
+def _require_clips(trees: dict[str, Path], clips: set[tuple[str, str]]) -> None:
+    """Refuse unless every run tree holds each requested `(event_id, camera)` landmark CSV.
+
+    A missing CSV is a failed or unfinished event, not an empty export: scored, it reads as the
+    arm missing every point. The message names arm + count alone (paths and event ids stay out).
+    """
+    for arm, tree in sorted(trees.items()):
+        missing = sum(not (tree / event / f"{camera}.csv").is_file() for event, camera in clips)
+        if missing:
+            raise SystemExit(
+                f"--from-run {arm}: {missing} of {len(clips)} requested clips have no landmark CSV"
+                " (failed or unfinished events)"
+            )
+
+
 def _tree_row(tree: Path, event_id: str, camera: str, frame: int) -> dict[str, str] | None:
     """The exported subject row at `frame` of a whole-clip corpus run (frame_idx = source)."""
     from pose_estimation.bench import replay
 
-    path = tree / event_id / f"{camera}.csv"
-    return replay.row_at(path, frame) if path.is_file() else None
+    return replay.row_at(tree / event_id / f"{camera}.csv", frame)
 
 
 def _pilot_replays(a: argparse.Namespace, arm: str):
@@ -790,6 +804,7 @@ def _pilot_replays(a: argparse.Namespace, arm: str):
     keys = sorted(set(first) & set(second))
     tree = _run_trees(a.from_run).get(arm)
     if tree is not None:
+        _require_clips({arm: tree}, {(meta[k]["event_id"], meta[k]["camera_name"]) for k in keys})
         for key in keys:
             m = meta[key]
             row = _tree_row(tree, m["event_id"], m["camera_name"], m["frame"])
@@ -811,10 +826,14 @@ def _pilot_replays(a: argparse.Namespace, arm: str):
             t0 = time.perf_counter()
             replay.replay_window(media, 0, n - 1, window, extra=("--model", arm))
             wall_file.write_text(json.dumps({"seconds": time.perf_counter() - t0}))
+        if not done.is_file():
+            raise SystemExit(
+                f"{arm}: a pilot clip replay wrote no landmark CSV (see its replay.log)"
+            )
         wall = json.loads(wall_file.read_text())["seconds"] / len(clip_keys)
         for key in clip_keys:
             m = meta[key]
-            row = replay.row_at(done, m["frame"]) if done.is_file() else None
+            row = replay.row_at(done, m["frame"])
             size = max(first[key]["frame"]["width"], first[key]["frame"]["height"])
             yield key, m, labels.consensus(first[key], second[key]), row, size, wall
 
@@ -898,6 +917,13 @@ def cmd_confirm(a: argparse.Namespace) -> int:
         for j in json.loads(a.jobs.read_text(encoding="utf-8"))
     }
     records = list(labels.load(a.labels))  # every arm scores the same records
+    _require_clips(
+        {arm: trees[arm] for arm in (*candidates, a.baseline)},
+        {
+            (jobs[r["frame"]["key"]]["event_id"], jobs[r["frame"]["key"]]["camera_name"])
+            for r in records
+        },
+    )
     scores = {}
     for arm in (*candidates, a.baseline):
         frames = []
