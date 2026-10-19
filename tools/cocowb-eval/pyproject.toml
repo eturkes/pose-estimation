@@ -1,0 +1,13 @@
+[project]
+name = "cocowb-eval"
+version = "0.1.0"
+description = "COCO-WholeBody v1.0 keypoint AP via xtcocotools, mmpose's six-pass protocol"
+requires-python = "==3.12.*"
+license = "Apache-2.0 WITH LLVM-exception"
+dependencies = ["xtcocotools==1.14.3", "numpy>=2"]
+
+[tool.uv]
+package = false
+# xtcocotools ships no wheels and its setup.py imports numpy + Cython at build time; on 3.13 its
+# exec-into-locals() version read breaks (PEP 667), hence the 3.12 pin.
+extra-build-dependencies = { xtcocotools = ["numpy", "cython", "setuptools"] }

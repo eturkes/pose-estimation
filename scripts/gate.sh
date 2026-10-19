@@ -45,6 +45,7 @@ audit() {
 	local rc=0
 	uv audit --locked --preview-features audit-command -q || rc=1
 	uv audit --locked --preview-features audit-command -q --directory prototype/review-ui || rc=1
+	uv audit --locked --preview-features audit-command -q --directory tools/cocowb-eval || rc=1
 	"$tools/osv-scanner" scan source -L renv.lock >/dev/null || rc=1
 	return "$rc"
 }
@@ -63,6 +64,11 @@ scanners() {
 	step scanner-seeds scripts/scanner_seeds.sh
 }
 
+# The benchmark's COCO-WholeBody scorer runs in its own Python 3.12 project (xtcocotools).
+benchtools() {
+	step cocowb-eval uv run --quiet --directory tools/cocowb-eval python check.py
+}
+
 case ${1-} in
 --fast)
 	shift
@@ -74,6 +80,7 @@ case ${1-} in
 '')
 	static
 	scanners
+	benchtools
 	step pytest prefixed pytest -q --durations=15
 	;;
 *)

@@ -1,0 +1,98 @@
+"""Instrument qualification statistics (contract M4.1 D05-D06)."""
+
+from __future__ import annotations
+
+import math
+from collections.abc import Sequence
+from itertools import pairwise
+
+import numpy as np
+
+NON_DECISIVE = frozenset({"both-ok", "both-wrong", "?"})
+
+
+def wilson(k: int, n: int, z: float = 1.959963984540054) -> tuple[float, float]:
+    """Wilson score interval for k successes in n trials."""
+    if n <= 0:
+        raise ValueError("Wilson interval over an empty population")
+    p = k / n
+    denom = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / denom
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+    return centre - half, centre + half
+
+
+def quantiles(values: Sequence[float], qs: Sequence[float] = (0.5, 0.9)) -> list[float]:
+    if len(values) == 0:
+        raise ValueError("quantiles of an empty population")
+    return [float(v) for v in np.quantile(np.asarray(values, dtype=float), qs)]
+
+
+def normalized_errors(pred: np.ndarray, gt: np.ndarray, norm: np.ndarray) -> np.ndarray:
+    """Per-point Euclidean error divided by its normaliser (hand / person box diagonal)."""
+    pred, gt, norm = (np.asarray(a, dtype=float) for a in (pred, gt, norm))
+    if pred.size == 0:
+        raise ValueError("errors over an empty population")
+    if np.any(norm <= 0):
+        raise ValueError("non-positive normaliser")
+    return np.hypot(*(pred - gt).T) / norm
+
+
+def agreement(a: Sequence[str], b: Sequence[str]) -> tuple[int, int]:
+    """(agreeing, compared) over paired categorical labels, `?` on either side excluded."""
+    if len(a) != len(b):
+        raise ValueError("label sequences differ in length")
+    pairs = [(x, y) for x, y in zip(a, b, strict=True) if x != "?" and y != "?"]
+    if not pairs:
+        raise ValueError("no decided pair to compare")
+    return sum(x == y for x, y in pairs), len(pairs)
+
+
+def box_iou(a: Sequence[float], b: Sequence[float]) -> float:
+    """IoU of two `[x0, y0, x1, y1]` boxes."""
+    if len(a) != 4 or len(b) != 4:
+        raise ValueError("box_iou needs two [x0, y0, x1, y1] boxes")
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
+    return inter / union if union > 0 else 0.0
+
+
+def judge_bins(
+    margins: Sequence[float], truths: Sequence[str], outcomes: Sequence[str], bins: Sequence[float]
+) -> list[dict[str, float | int]]:
+    """Per margin bin: decisive answers, correct decisive answers, abstentions, Wilson bounds.
+
+    `truths` = the arm with the smaller GT error; `outcomes` = decoded answers (an arm name or a
+    non-decisive class). A decisive answer is correct when it names the truth.
+    """
+    if not (len(margins) == len(truths) == len(outcomes)):
+        raise ValueError("margins, truths and outcomes differ in length")
+    if not margins:
+        raise ValueError("judge bins over an empty population")
+    rows = []
+    for lo, hi in pairwise(bins):
+        idx = [i for i, m in enumerate(margins) if lo <= m < hi]
+        decisive = [i for i in idx if outcomes[i] not in NON_DECISIVE]
+        correct = sum(outcomes[i] == truths[i] for i in decisive)
+        row: dict[str, float | int] = {
+            "lo": lo,
+            "hi": hi,
+            "shown": len(idx),
+            "decisive": len(decisive),
+            "correct": correct,
+            "abstain": len(idx) - len(decisive),
+        }
+        if decisive:
+            row["acc_lo"], row["acc_hi"] = wilson(correct, len(decisive))
+        rows.append(row)
+    return rows
+
+
+def paired_subject_sd(diffs_by_subject: dict[int, Sequence[float]]) -> tuple[float, int]:
+    """SD over subjects of each subject's mean paired difference, and the subject count."""
+    means = [float(np.mean(v)) for v in diffs_by_subject.values() if len(v)]
+    if len(means) < 2:
+        raise ValueError("paired-subject SD needs two subjects")
+    return float(np.std(means, ddof=1)), len(means)

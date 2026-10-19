@@ -167,8 +167,9 @@ No `src/` module outside `bench/` changes; no published tree is written; `tests/
 
 | ID | verdict | evidence |
 | --- | --- | --- |
-| P01-P06 | open | |
-| P07-P08 | open | |
+| P01-P06b | pass | `tests/test_m4u1_{bench,sheets,statistics}.py` — tester-5's diff-blind suite (`archive/m4u1-test-5` = `fc0a8d1`, 184 cases red at import on `95a2eab`), 37 reds on first restore ruled in A03, + MAIN's patient-null ingest regression (red on real data: 4 defective records per labeller) = 185 green |
+| P07 | partial | D05(a)(b)(c) measured → `docs/technical/benchmark.md` § Measured resolutions; (d) paired-subject SD + (e) pre-roll pending the GPU queue (pre-roll crashed at 10/20 on a shared-iGPU `CL_OUT_OF_RESOURCES`, resumable) |
+| P08 | partial | verdicts: agent coordinates = gross-error GT only; pairwise judge unqualified in every bin; categorical states qualified (Wilson lower bounds 0.885-0.963) |
 
 ## 8. Amendments
 
@@ -194,3 +195,13 @@ No `src/` module outside `bench/` changes; no published tree is written; `tests/
   `GtPerson.box` = native COCO `[x, y, w, h]`. (6) Every "raises on an empty population" =
   `ValueError`; `paired_subject_sd` = sample SD (ddof 1); `corpus_sample` draws frames per stratum
   by hashed rank (repeats a clip only when the stratum holds fewer clips than `per_view`).
+- **A03 (tester-5 restore, 37 of 184 red → rulings).** Implementation changed, test kept: sheet
+  canvases pad `PAD` on all four sides with tick labels on each (the left/top-only form clipped
+  the right-edge label; 9 P02 reds); `corpus_sample` draws distinct frames — a colliding draw
+  probes the clip's hashed order, capacity below the quota raises `ValueError` (NC3; 8 P03 reds;
+  the pilot sample regenerates byte-identical, being collision-free); `note` must be a string (1
+  P01 red); `Pair.side` = the joint's anatomical side `"L" | "R"`, crop edge = new optional
+  `Pair.crop` (default 4 × separation, >= 64 px; the frozen field name collided with the bench's
+  L/R vocabulary; 15 P04 reds); an orphan crop answer in `ingest` raises `ValueError` (3 P06b
+  reds); `normalized_errors` + `judge_bins` raise `ValueError` on an empty population and
+  `box_iou` on a malformed box (3 P06 reds). Suite tip `archive/m4u1-test-5` = `fc0a8d1`.
