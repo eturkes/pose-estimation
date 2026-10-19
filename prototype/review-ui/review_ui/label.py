@@ -10,6 +10,7 @@ the review UI writes, and it writes only there.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -86,7 +87,12 @@ def _joint(point: dict[str, Any] | None) -> dict[str, Any]:
     if not point or point.get("state") not in JOINT_STATES:
         return {"state": "?"}
     if point["state"] == "vis":
-        return {"state": "vis", "xy": [round(float(point["x"]), 1), round(float(point["y"]), 1)]}
+        x, y = float(point["x"]), float(point["y"])
+        # A non-finite click (a crafted "nan"/"1e309") would land in the confirmation set as a
+        # point every distance treats as infinitely wrong or undefined: store it unsure instead.
+        if not (math.isfinite(x) and math.isfinite(y)):
+            return {"state": "?"}
+        return {"state": "vis", "xy": [round(x, 1), round(y, 1)]}
     return {"state": point["state"]}
 
 
