@@ -171,3 +171,26 @@ No `src/` module outside `bench/` changes; no published tree is written; `tests/
 | P07-P08 | open | |
 
 ## 8. Amendments
+
+- **A02 (serialized shapes, tester-5 request; documentation of §1, no behaviour change).**
+  (1) v2 record = `{"frame": {"key": str (non-empty), "index": int >= 0, "width": int > 0,
+  "height": int > 0}, "labeller": str (non-empty), "task", "patient": box | null, "others": [box]
+  (optional, default []), "sides": {"L": side, "R": side}, "note": str (optional)}`; side =
+  `{"hand", "extent": box | null (may be absent when not vis/part), "joints": {name: joint},
+  "body": {name: joint}}`; joint = `{"state", "xy": [x, y] iff state == "vis", "own" (optional)}`;
+  box = `[x0, y0, x1, y1]` frame pixels inside `[0, width] × [0, height]`; points inside
+  `[0, width) × [0, height)`. (2) `make_sheets` returns jobs `[{"sheet": "<token>.png", "joint":
+  <pair.joint>}]` in a seeded order; key JSONL rows `{"token", "pair_id", "swap": 0 | 1, "yellow":
+  <arm>, "blue": <arm>}`; `decode(key_rows, {sheet file name: response})` → rows `{"pair_id",
+  "swap": "0" | "1", "outcome": <arm> | "both-ok" | "both-wrong" | "?"}`. D03's A/B = the two arms;
+  the judge answers in `RESPONSES` (colours). (3) `judge_bins` rows = `{"lo", "hi", "shown",
+  "decisive", "correct", "abstain"}` + `"acc_lo", "acc_hi"` (Wilson) when `decisive > 0`; `truths`
+  = arm names, `outcomes` = decoded outcomes; `quantiles` → `list[float]` in `qs` order. (4)
+  `SheetEntry.key` = `"<event_id>/<camera_name>#<index>"` (corpus) | `"coco/<image_id>/<ann_id>"`
+  (public); `SheetEntry.map` = the `SheetMap` fields as a dict; `ingest(sheet_dir, answers,
+  labeller)`: `answers` = list of dicts, each `{"sheet": "<token>.png", …}` with the per-kind
+  fields of `docs/technical/benchmark.md` § Sheets + answers (grid units: frame = percent, crop =
+  cells); returns one record per frame key that has a frame answer. (5) `GtHand.box` +
+  `GtPerson.box` = native COCO `[x, y, w, h]`. (6) Every "raises on an empty population" =
+  `ValueError`; `paired_subject_sd` = sample SD (ddof 1); `corpus_sample` draws frames per stratum
+  by hashed rank (repeats a clip only when the stratum holds fewer clips than `per_view`).
