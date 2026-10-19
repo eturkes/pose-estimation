@@ -14,6 +14,7 @@ contract is a stale number waiting to happen, so nothing restates it.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
@@ -65,6 +66,8 @@ POSE_CONFIG_FIELDS: tuple[str, ...] = (
     "pose_device",
     "det_frequency",
     "single_subject",
+    "openvino_build",
+    "calibration",
 )
 
 
@@ -88,9 +91,38 @@ def read_marker(event_out: Path) -> dict[str, str] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def openvino_build() -> str:
+    """The OpenVINO build this process loads — the pose subprocess inherits the same environment.
+
+    A build swap moves landmarks (≤ 4.1e-5) and features (≤ 4.1e-4 of column max), so a resumed
+    run must not mix builds.
+    """
+    import openvino
+
+    return openvino.get_version()
+
+
+def calibration_digest(model: str) -> str:
+    """sha256 of the model's score calibration file, `identity` for raw scores (M4.3a)."""
+    from .run import MODEL_REGISTRY  # deferred: run imports the inference stack
+    from .score_calibration import CALIBRATION_DIR
+
+    name = MODEL_REGISTRY.get(model, {}).get("calibration")
+    if not isinstance(name, str):
+        return "identity"
+    return hashlib.sha256((CALIBRATION_DIR / name).read_bytes()).hexdigest()
+
+
 def pose_config(args: object) -> dict[str, object]:
-    """The generation identity of a pose run, read off its argument namespace."""
-    return {name: getattr(args, name) for name in POSE_CONFIG_FIELDS}
+    """The generation identity of a pose run: its arguments, the loaded build, the calibration."""
+    derived = {
+        "openvino_build": openvino_build,
+        "calibration": lambda: calibration_digest(str(getattr(args, "model", ""))),
+    }
+    return {
+        name: derived[name]() if name in derived else getattr(args, name)
+        for name in POSE_CONFIG_FIELDS
+    }
 
 
 def write_pose_config(event_out: Path, config: Mapping[str, object]) -> None:

@@ -235,6 +235,9 @@ _SOURCE_DIAGNOSTIC_FIELDS = (
     # M2.10.1 D06: the hand gate's firing counters.
     "hand_frames_present",
     "hand_frames_gated",
+    # M4.6 D02-D03: duplicate-hand firings + export-hygiene zeroings.
+    "duplicate_hand_fired",
+    "exported_out_of_frame_zeroed",
     # M2.10.2 D10: the camera survey's span + motion summary.
     "task_start_frame",
     "task_end_frame",

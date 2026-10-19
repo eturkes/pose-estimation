@@ -69,3 +69,28 @@ hard-coded value reads as one (`reviewer-9`, S01-S10, `.scratch/agents/reviewer-
 Red witness = reviewer-9's capture-free script against `0a876d8` (red, rc 1) → fixed tree: target
 rows green; its reason-note positive control reads 2, the S04 note being the second.
 
+
+## M4.6 + M4.3a + calibration_qc relabel (uncommitted diff vs `487f790`)
+
+Check set R01-R10 fixed at seed; `reviewer-10` (report `.scratch/agents/reviewer-10.md`, red tests
+`.scratch/agents/reviewer-10/`). Verdict = first pass → MAIN's rerun of the reviewer's reds on the
+fixed tree.
+
+| ID | check | reviewer-10 | ruling |
+| --- | --- | --- | --- |
+| R01 | M4.6 D01 exported-stream gate | fail → pass | fixed — a malformed decoded frame now resets the subject stream like any unexported frame (`run.py` skip branch); reviewer red green |
+| R02 | M4.6 D02 export hygiene + counter | pass | pass |
+| R03 | M4.6 D03 duplicate census | pass | pass |
+| R04 | build + calibration in the generation; resume; report allowlist | pass | pass |
+| R05 | registry names, alias, devices | pass | pass |
+| R06 | Curve / PAV / apply | fail → pass | fixed — non-finite knots refused; ±inf scores clamp to the curve ends, NaN stays NaN; new test |
+| R07 | `--pose-device` default resolution | fail → pass | fixed — MediaPipe delegation defaults NPU before the registry branch; reviewer red green + new test |
+| R08 | tests pin predicates through shipped symbols | fail → pass | fixed — `fit` itself now graded against brute-force isotonic regression at every distinct score; kills the reviewer's constant-curve mutant |
+| R09 | calibration_qc relabel text-only | pass | pass |
+| R10 | data + claim boundary | pass | pass |
+
+Register, ruled: `bench/replay.py` forced `--pose-device=NPU` → removed, device follows the
+registry; `rtmlib-runtime.md` still said the build is not in the config → updated; M4.3a P04
+"byte-identical CSV + diagnostics" → CSV bytes stay pinned by the existing M2.10.1 baseline-bytes
+case, diagnostics differ only by M4.6's two census fields (and latency, which never repeats) —
+contract A02; M4.6 P07 (stage attribution on real data) = MAIN-owned, open until its replay runs.

@@ -576,7 +576,9 @@ def test_p06_run_main_constructs_only_on_flag_and_forwards_through_dispatch(
     assert all(call.get("hand_gate") is (built[0] if enabled else None) for call in calls)
 
 
-def test_p05_gate_follows_bones_and_precedes_subject_selection(tmp_path, monkeypatch):
+def test_p05_gate_follows_bones_and_subject_selection(tmp_path, monkeypatch):
+    """M4.6 D01 supersedes "precedes subject selection": single-subject export gates the selected
+    row under one stream key (the old order reds here: [..., "gate", "select"])."""
     run = importlib.import_module("pose_estimation.run")
     events = []
 
@@ -633,8 +635,9 @@ def test_p05_gate_follows_bones_and_precedes_subject_selection(tmp_path, monkeyp
         single_subject=True,
     )
     assert len(rows) == 1
-    assert events == ["smooth", "bone", "bone", "gate", "select"]
-    assert tuple(int(diag[field]) for field in _COUNTERS) == (4, 2)
+    assert events == ["smooth", "bone", "bone", "select", "gate"]
+    # One exported row gated: 2 hands present, 1 gated (the selected row's left hand at 0.6).
+    assert tuple(int(diag[field]) for field in _COUNTERS) == (2, 1)
 
 
 def _driver(name):

@@ -47,12 +47,13 @@ paths:
   but sit at alternation 0.556-0.612, so 1 is the only arm meeting the ruling.
 - **A generation names itself per event**: `pose_config.json` (`corpus_run.POSE_CONFIG_FIELDS`)
   beside the landmarks. Resume re-runs a complete event that records another configuration;
-  `--analyse-only` and `--reuse-run` refuse to publish over one. **The OpenVINO build is not in
-  that config**, and a build change moves output: 2026.4.0 → 2026.4.1 on the det_frequency sample
-  changed 593 of 1.27 M landmark cells — 576 coordinates by 1e-6 to 4.1e-5 (6-dp quantum), 17
-  confidences by 1e-4 (4-dp quantum) — and every feature column by
-  ≤ 4.1e-4 of its own max, where the same build reruns byte-identical. Finish a corpus run on the
-  build it started on (→ `.agent/deferred.md`).
+  `--analyse-only` and `--reuse-run` refuse to publish over one. **The config records the
+  loaded OpenVINO build** (`openvino_build`, M4.6) and the score-calibration digest (`calibration`,
+  M4.3a), both read from the process + registry, never from an argument: a build change moves
+  output — 2026.4.0 → 2026.4.1 on the det_frequency sample changed 593 of 1.27 M landmark cells
+  (576 coordinates by 1e-6 to 4.1e-5, 17 confidences by 1e-4) and every feature column by ≤ 4.1e-4
+  of its own max, where the same build reruns byte-identical — so a resume under another build
+  re-runs the event.
 
 ## Score hygiene — before the smoother, always (`keypoint_hygiene.py`)
 

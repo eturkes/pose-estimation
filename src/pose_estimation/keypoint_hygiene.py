@@ -47,13 +47,13 @@ def _extent(points):
     return float(np.hypot(span[0], span[1]))
 
 
-def suppress_duplicate_hand(keypoints, scores):
+def suppress_duplicate_hand(keypoints, scores, *, fired=None):
     """Scores with the weaker hand zeroed wherever it duplicates the stronger one.
 
     Present = finite and score > 0.  Fires when >= 10 indices are present in both
     hands, the median distance between them is under 0.3 of the larger hand
     extent, and the weaker hand's mean score is under 0.5 and under 0.6 of the
-    stronger's.
+    stronger's.  *fired* (a list) receives each firing person's row index.
     """
     xy = np.asarray(keypoints, dtype=np.float64)[..., :2]
     out = np.array(scores, dtype=np.float64, copy=True)
@@ -81,6 +81,8 @@ def suppress_duplicate_hand(keypoints, scores):
             and weaker < DUPLICATE_RELATIVE * stronger
         ):
             out[person, LEFT_HAND if left_mean < right_mean else RIGHT_HAND] = 0.0
+            if fired is not None:
+                fired.append(person)
     return out
 
 
@@ -95,11 +97,18 @@ def drop_body_parts(scores, *, lower_body=False, hips=False):
     return out
 
 
-def apply_hygiene(keypoints, scores, width, height, *, drop_lower_body=False, drop_hips=False):
-    """Out-of-frame zeroing, the requested body-part drops, then duplicate-hand suppression."""
+def apply_hygiene(
+    keypoints, scores, width, height, *, drop_lower_body=False, drop_hips=False, fired=None
+):
+    """Out-of-frame zeroing, the requested body-part drops, then duplicate-hand suppression.
+
+    *fired* (a list) collects each person whose duplicate hand was zeroed.
+    """
     out = zero_out_of_frame(keypoints, scores, width, height)
     out = drop_body_parts(out, lower_body=drop_lower_body, hips=drop_hips)
-    return suppress_duplicate_hand(keypoints, out)
+    if fired is None:
+        return suppress_duplicate_hand(keypoints, out)
+    return suppress_duplicate_hand(keypoints, out, fired=fired)
 
 
 def _finite_mean(values):

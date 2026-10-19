@@ -37,13 +37,19 @@ from typing import Any
 
 from pose_estimation import inventory as inventory_module
 from pose_estimation import qualify as qualify_module
-from pose_estimation.corpus_run import pose_config, read_pose_config, write_pose_config
+from pose_estimation.corpus_run import (
+    openvino_build,
+    pose_config,
+    read_pose_config,
+    write_pose_config,
+)
 from pose_estimation.multicam import (
     SessionError,
     discover_session,
     process_session,
     published_overlap,
 )
+from pose_estimation.run import MODEL_REGISTRY
 from pose_estimation.sessions import tree_digest, validate_generation
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,6 +100,7 @@ REPORT_FIELDS = frozenset(
         "hand_gate",
         "camera_survey",
         "task_gap_s",
+        "openvino_build",
         "task_span",
         "frames_outside_task",
         "assets_trimmed",
@@ -629,7 +636,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--camera-survey", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--task-gap-s", type=float, default=2.5)
     parser.add_argument("--det-device", default="GPU")
-    parser.add_argument("--pose-device", default="NPU")
+    # Default = the model's own device (run.MODEL_REGISTRY): NPU for rtmw-m-256, GPU for L/X.
+    parser.add_argument("--pose-device", default=None)
     parser.add_argument("--det-frequency", type=int, default=1)
     parser.add_argument("--single-subject", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--max-frames", type=int, default=0)
@@ -638,7 +646,10 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Analyse an existing --out tree instead of decoding again.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.pose_device is None:
+        args.pose_device = MODEL_REGISTRY[args.model]["pose_device"]
+    return args
 
 
 def _assert_sinks_outside(sessions: Path, *sinks: Path) -> None:
@@ -738,6 +749,7 @@ def main() -> int:
             "pose_device": args.pose_device,
             "det_frequency": args.det_frequency,
             "single_subject": args.single_subject,
+            "openvino_build": openvino_build(),
             "max_frames": args.max_frames,
             "seed": args.seed,
             "min_assets": args.min_assets,
@@ -809,6 +821,7 @@ def main() -> int:
                 args.tracking,
                 args.tracker,
                 args.drop_hips_camera,
+                openvino_build(),
                 args.det_device,
                 args.pose_device,
             }

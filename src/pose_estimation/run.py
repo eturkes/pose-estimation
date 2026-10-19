@@ -28,11 +28,12 @@ import time
 import cv2
 import numpy as np
 
+from . import score_calibration
 from .calibration import CalibrationError
 from .camera_survey import TASK_GAP_S, survey_source
 from .constraints import BoneLengthSmoother
 from .export import camera_values, frame_to_rows, open_csv_writer
-from .keypoint_hygiene import HandPresenceGate, apply_hygiene
+from .keypoint_hygiene import HandPresenceGate, apply_hygiene, zero_out_of_frame
 from .mapping import coco_hand_confidences, coco_hand_handedness, coco_to_mediapipe
 from .multicam import (
     SessionError,
@@ -67,42 +68,79 @@ _DET_URL = (
 )
 _DET_INPUT_SIZE = (640, 640)
 
+_RTMW = "https://download.openmmlab.com/mmpose/v1/projects/rtmw/onnx_sdk/"
+_RTMPOSE = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/"
+
+# Keys follow mmpose's RTMW table, never the checkpoint's distillation prefix: `rtmw-dw-l-m` is
+# RTMW-m, `rtmw-dw-x-l` is RTMW-L. `pose_device` = where the model compiles (the L/X checkpoints
+# fail NPU compile); `calibration` = the score map under `calibration/` (None = raw scores).
 MODEL_REGISTRY = {
-    # Key predates the correction: checkpoint rtmw-dw-l-m = RTMW-m in mmpose's RTMW table, and
-    # every recorded pose_config.json names this key.
-    "rtmw-l": {
-        "pose": (
-            "https://download.openmmlab.com/mmpose/v1/projects/rtmw/onnx_sdk/"
-            "rtmw-dw-l-m_simcc-cocktail14_270e-256x192_20231122.zip"
-        ),
+    "rtmw-m-256": {
+        "pose": _RTMW + "rtmw-dw-l-m_simcc-cocktail14_270e-256x192_20231122.zip",
         "pose_input_size": (192, 256),
         "pose_class": "RTMPose",
         "n_kps": 133,
+        "pose_device": "NPU",
+        "calibration": None,
         "label": "Wholebody 133 kps (RTMW-m, 256x192)",
     },
-    "dwpose-m": {
-        "pose": (
-            "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/"
-            "onnx_sdk/rtmpose-m_simcc-ucoco_dw-ucoco_270e-256x192"
-            "-c8b76419_20230728.zip"
-        ),
+    "rtmw-l-256": {
+        "pose": _RTMW + "rtmw-dw-x-l_simcc-cocktail14_270e-256x192_20231122.zip",
         "pose_input_size": (192, 256),
         "pose_class": "RTMPose",
         "n_kps": 133,
+        "pose_device": "GPU",
+        "calibration": None,
+        "label": "Wholebody 133 kps (RTMW-L, 256x192)",
+    },
+    "rtmw-l-384": {
+        "pose": _RTMW + "rtmw-dw-x-l_simcc-cocktail14_270e-384x288_20231122.zip",
+        "pose_input_size": (288, 384),
+        "pose_class": "RTMPose",
+        "n_kps": 133,
+        "pose_device": "GPU",
+        "calibration": None,
+        "label": "Wholebody 133 kps (RTMW-L, 384x288)",
+    },
+    "rtmw-x-384": {
+        "pose": _RTMW + "rtmw-x_simcc-cocktail13_pt-ucoco_270e-384x288-0949e3a9_20230925.zip",
+        "pose_input_size": (288, 384),
+        "pose_class": "RTMPose",
+        "n_kps": 133,
+        "pose_device": "GPU",
+        "calibration": None,
+        "label": "Wholebody 133 kps (RTMW-X cocktail13, 384x288)",
+    },
+    "dwpose-l-384": {
+        "pose": _RTMPOSE + "rtmpose-l_simcc-ucoco_dw-ucoco_270e-384x288-2438fd99_20230728.zip",
+        "pose_input_size": (288, 384),
+        "pose_class": "RTMPose",
+        "n_kps": 133,
+        "pose_device": "GPU",
+        "calibration": None,
+        "label": "Wholebody 133 kps (DWPose-L, 384x288)",
+    },
+    "dwpose-m": {
+        "pose": _RTMPOSE + "rtmpose-m_simcc-ucoco_dw-ucoco_270e-256x192-c8b76419_20230728.zip",
+        "pose_input_size": (192, 256),
+        "pose_class": "RTMPose",
+        "n_kps": 133,
+        "pose_device": "NPU",
+        "calibration": None,
         "label": "Wholebody 133 kps (DWPose-M, 256x192)",
     },
     "rtmpose-m": {
-        "pose": (
-            "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/"
-            "onnx_sdk/rtmpose-m_simcc-body7_pt-body7_420e-256x192"
-            "-e48f03d0_20230504.zip"
-        ),
+        "pose": _RTMPOSE + "rtmpose-m_simcc-body7_pt-body7_420e-256x192-e48f03d0_20230504.zip",
         "pose_input_size": (192, 256),
         "pose_class": "RTMPose",
         "n_kps": 17,
+        "pose_device": "NPU",
+        "calibration": None,
         "label": "Body 17 kps (RTMPose-M, 256x192)",
     },
 }
+# Every recorded pose_config.json through M2.10 names `rtmw-l`; it stays the same entry.
+MODEL_REGISTRY["rtmw-l"] = MODEL_REGISTRY["rtmw-m-256"]
 
 DEFAULT_MODEL = "rtmw-l"
 
@@ -172,6 +210,7 @@ class SplitDeviceSolution:
         mode=None,
         to_openpose=False,
         device=None,
+        calibration=None,
     ):
         # ``mode`` and ``device`` arrive from PoseTracker and are deliberately
         # unused: explicit registry URLs make ``mode`` moot, and device placement
@@ -189,8 +228,25 @@ class SplitDeviceSolution:
             backend=backend,
             device=pose_device,
         )
+        if calibration is not None:
+            self.pose_model = CalibratedPose(self.pose_model, score_calibration.load(calibration))
         self.det_categories = None
         self.one_stage = False
+
+
+class CalibratedPose:
+    """A pose model whose scores leave through the arm's calibration (M4.3a D01).
+
+    Calibrated before the tracker, so hygiene, the smoother, the hand gate and the export all read
+    one score scale; coordinates pass through untouched.
+    """
+
+    def __init__(self, model, calibration):
+        self.model, self.calibration = model, calibration
+
+    def __call__(self, image, bboxes=()):
+        keypoints, scores = self.model(image, bboxes=list(bboxes))
+        return keypoints, self.calibration.apply(scores)
 
 
 def _parse_rest_cutoff(env_var, default):
@@ -312,8 +368,11 @@ def parse_args(argv=None):
     )
     p.add_argument(
         "--pose-device",
-        default="NPU",
-        help="Select the pose-model device: NPU, CPU, or GPU (default: NPU).",
+        default=None,
+        help=(
+            "Select the pose-model device: NPU, CPU, or GPU "
+            "(default: the model's own device — NPU for rtmw-m-256, GPU for the L/X models)."
+        ),
     )
     p.add_argument(
         "--mode",
@@ -525,6 +584,7 @@ def process_source(
     processing_times = collections.deque(maxlen=60)
     frame_idx = 0
     source_frame_idx = 0
+    census = dict.fromkeys(CENSUS_FIELDS, 0)
     try:
         while cap.isOpened():
             if use_pygame:
@@ -544,6 +604,8 @@ def process_source(
             timestamp = source_clock.timestamp(decoded_frame_idx)
             if frame is None or frame.size == 0:
                 print(f"WARNING: The pipeline skips malformed source frame {decoded_frame_idx}.")
+                if hand_gate is not None and args.single_subject:
+                    hand_gate.prune([])  # an unexported frame breaks the subject stream (M4.6 D01)
                 continue
             frame_idx += 1
             if args.max_frames and frame_idx > args.max_frames:
@@ -557,6 +619,7 @@ def process_source(
             latencies.append(dt * 1000)
             if keypoints is not None and len(keypoints):
                 # Before the smoother, so a zeroed point is held, never smoothed toward.
+                fired: list[int] = []
                 scores = apply_hygiene(
                     keypoints,
                     scores,
@@ -564,7 +627,9 @@ def process_source(
                     frame.shape[0],
                     drop_lower_body=drop_lower_body,
                     drop_hips=drop_hips,
+                    fired=fired,
                 )
+                census["duplicate_hand_fired"] += len(fired)
 
             if smoother is not None:
                 track_ids = getattr(pose_tracker, "last_track_ids", None)
@@ -600,7 +665,9 @@ def process_source(
                     # the temporal constraint.
                     bone_smoother.prune([])
 
-            if hand_gate is not None:
+            # Single-subject export gates the selected row under one key (below), so the
+            # hysteresis follows the exported stream, whichever track supplies it (M4.6 D01).
+            if hand_gate is not None and not args.single_subject:
                 rows = scores is not None and scores.ndim == 2 and scores.shape[0] > 0
                 if smoother is not None:
                     gate_keys = list(smoother.output_track_keys()) if rows else []
@@ -622,6 +689,20 @@ def process_source(
 
             if args.single_subject:
                 keypoints, scores = filter_single_subject(keypoints, scores)
+                if hand_gate is not None:
+                    exported = scores is not None and scores.ndim == 2 and scores.shape[0] > 0
+                    # A frame with no exported row breaks the stream: its state resets.
+                    hand_gate.prune([SUBJECT_KEY] if exported else [])
+                    if exported:
+                        scores = hand_gate(scores, [SUBJECT_KEY])
+
+            # Every stage after the first hygiene pass can move a point (filter extrapolation,
+            # carried predictions, bone-length projection); an out-of-frame point is never an
+            # observation, wherever it moved (M4.6 D02).
+            if keypoints is not None and keypoints.ndim == 3 and keypoints.shape[0] > 0:
+                before = np.asarray(scores, dtype=np.float64) > 0.0
+                scores = zero_out_of_frame(keypoints, scores, frame.shape[1], frame.shape[0])
+                census["exported_out_of_frame_zeroed"] += int((before & ~(scores > 0.0)).sum())
 
             n_persons = (
                 keypoints.shape[0] if keypoints is not None and len(keypoints.shape) == 3 else 0
@@ -733,10 +814,17 @@ def process_source(
                 latencies=latencies,
                 hand_gate=hand_gate,
                 survey=survey,
+                census=census,
             )
 
     return latencies
 
+
+#: Per-source hygiene census (M4.6 D02-D03): duplicate-hand firings (person-frames) and points
+#: the export pass zeroed for lying outside the frame.
+CENSUS_FIELDS: tuple[str, ...] = ("duplicate_hand_fired", "exported_out_of_frame_zeroed")
+#: The hand gate's one key under --single-subject: the exported subject stream.
+SUBJECT_KEY = "subject"
 
 SOURCE_DIAGNOSTIC_FIELDS: tuple[str, ...] = (
     "video",
@@ -750,6 +838,8 @@ SOURCE_DIAGNOSTIC_FIELDS: tuple[str, ...] = (
     "latency_ms_p95",
     "hand_frames_present",
     "hand_frames_gated",
+    "duplicate_hand_fired",
+    "exported_out_of_frame_zeroed",
     "task_start_frame",
     "task_end_frame",
     "frames_outside_task",
@@ -788,7 +878,7 @@ def _survey_diagnostics(survey, n_decoded):
 
 
 def write_source_diagnostics(
-    path, *, video, clock, fps_nominal, latencies, hand_gate=None, survey=None
+    path, *, video, clock, fps_nominal, latencies, hand_gate=None, survey=None, census=None
 ):
     """Write the one-row per-source diagnostics summary.
 
@@ -809,6 +899,7 @@ def write_source_diagnostics(
         "latency_ms_p95": f"{float(np.percentile(latencies, 95)):.3f}" if latencies else "",
         "hand_frames_present": hand_gate.hand_frames_present if hand_gate is not None else 0,
         "hand_frames_gated": hand_gate.hand_frames_gated if hand_gate is not None else 0,
+        **{field: (census or {}).get(field, 0) for field in CENSUS_FIELDS},
         **_survey_diagnostics(survey, clock.n_timestamps),
     }
     pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -951,6 +1042,8 @@ def main(argv=None):
 
     # ── MediaPipe delegates to main.py (forwards session flags too) ─
     if args.model == "mediapipe":
+        if args.pose_device is None:
+            args.pose_device = "NPU"  # MediaPipe's static graphs run both roles on the NPU
         sys.exit(_run_mediapipe(args))
 
     if args.calibration is not None and not (args.session_dir or args.sessions_dir):
@@ -965,6 +1058,8 @@ def main(argv=None):
         model_name = "rtmpose-m"
 
     model = MODEL_REGISTRY[model_name]
+    if args.pose_device is None:
+        args.pose_device = model["pose_device"]
 
     # --tracking hands/hands-arms needs wholebody (133 kps)
     if args.tracking != "body" and model["n_kps"] == 17:
@@ -996,6 +1091,7 @@ def main(argv=None):
         pose=model["pose"],
         pose_input_size=model["pose_input_size"],
         pose_device=args.pose_device,
+        calibration=model["calibration"],
     )
     print(f"Model:   {model['label']} [{model_name}]")
 

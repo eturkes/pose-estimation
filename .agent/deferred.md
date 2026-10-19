@@ -142,10 +142,6 @@ rows before sizing any unit that touches their surfaces.
   directory patterns `qualification.*/` + `calibration_qc.*/` as matching the `.md` files →
   Marksman diagnostics over `docs/` report 0 non-existent-document warnings, and
   `git check-ignore` still ignores a `qualification.x/` staging directory.
-- **`pose_config.json` omits the OpenVINO build** (`corpus_run.POSE_CONFIG_FIELDS`; a build swap
-  moves landmarks by ≤ 1e-4, features ≤ 4.1e-4 of column max → `rtmlib-runtime.md`) → the config
-  records `openvino.get_version()`; a resume under another build re-runs the event; a test seeds a
-  recorded config with a foreign build string and asserts the event is due.
 - **`.scratch/ovupgrade/` build-change instruments are scratch-local** (`pilot.sh`, `compare.py`,
   `det_qual.py` → `pose-instruments.md`) → committed under `scripts/` with a test that seeds a one-cell CSV
   drift and asserts `compare` reports it, and a same-tree run reports 0 drift.
