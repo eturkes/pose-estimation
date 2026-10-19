@@ -163,14 +163,29 @@ def test_p04_finalist_rule_dominance_body_slack_and_baseline():
     )
 
 
-def test_p03_dexycb_slots_join_the_codebook_by_joint_name():
-    """Independent oracle = the labelling codebook's COCO-WB indices (closing review U12)."""
+#: mmpose `coco_wholebody_hand` keypoint names in slot order (configs/_base_/datasets).
+_MMPOSE_HAND = (
+    "hand_root",
+    *(f"{finger}{k}" for finger in ("thumb", "forefinger", "middle_finger", "ring_finger",
+                                    "pinky_finger") for k in range(1, 5)),
+)  # fmt: skip
+_TO_TOOLKIT_FINGER = {"thumb": "thumb", "forefinger": "index", "middle_finger": "middle",
+                      "ring_finger": "ring", "pinky_finger": "little"}  # fmt: skip
+
+
+def test_p03_dexycb_slots_join_mmpose_hand_names():
+    """Every COCO-WB slot, named by mmpose, holds the same-named DexYCB joint (review U12/F20:
+    the oracle is mmpose's list, not the module's own order, so any exchange fails)."""
     handsets = importlib.import_module("pose_estimation.bench.handsets")
-    labels = importlib.import_module("pose_estimation.bench.labels")
     table = handsets.DEXYCB_TO_COCO_WB
-    for name, slot in labels.HAND_JOINTS.items():
-        toolkit = "index_mcp" if name == "index_mcp" else name
-        assert handsets.DEXYCB_JOINTS[table[slot]] == toolkit
+    assert len(table) == len(_MMPOSE_HAND) == 21
+    for slot, name in enumerate(_MMPOSE_HAND):
+        if name == "hand_root":
+            want = "wrist"
+        else:
+            finger, k = name[:-1], int(name[-1])
+            want = f"{_TO_TOOLKIT_FINGER[finger]}_{('mcp', 'pip', 'dip', 'tip')[k - 1]}"
+        assert handsets.DEXYCB_JOINTS[table[slot]] == want, slot
 
 
 def test_a03_bench_arms_are_runtime_registry_entries():

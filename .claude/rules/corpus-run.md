@@ -36,6 +36,9 @@ Run under the accelerator recipe, never the gate prefix (→ `gates.md`).
   `--refresh-clinical` alike) turns the marker failed before R starts and records
   `analysis_sha256` (the R file it ran) on completion; the report's
   `configuration.analysis_sha256` is the digest every complete event records, else `mixed`
-  with verdict `clinical_method_uniform` false. An edit to `analysis/clinical_features.R` makes
-  an existing tree `mixed` until `corpus_run_2d.py --model ARM --out DIR --analyse-only
-  --refresh-clinical` reruns R over every complete event (landmarks untouched; no device needed).
+  with verdict `clinical_method_uniform` false. An edit to `analysis/clinical_features.R` leaves
+  an existing tree reporting the producer its events ran (stale, not `mixed`); `mixed` = events
+  that ran different producers (an interrupted refresh, a resume across an edit, pre-digest
+  markers). `corpus_run_2d.py --model ARM --out DIR --analyse-only --refresh-clinical` reruns R
+  over every complete event (landmarks untouched; no device needed) and brings the tree onto the
+  current producer.

@@ -41,14 +41,20 @@ gap instead of shifting every later row relative to the other cameras.
 
 ## `run.py` — unified entry point (rtmlib + MediaPipe)
 
-`MODEL_REGISTRY` (in `run.py`):
+`MODEL_REGISTRY` (in `run.py`) — keys follow mmpose's model names; each entry carries its pose
+device and its score calibration (`src/pose_estimation/score_calibrations/<key>.json`, M4.3b):
 
-| Model key | Keypoints | Notes |
-|-----------|-----------|-------|
-| `rtmw-l` (default) | 133 | RTMW-m wholebody (checkpoint `rtmw-dw-l-m`; key predates the correction). |
-| `dwpose-m` | 133 | DWPose-M wholebody. |
-| `rtmpose-m` | 17 | RTMPose-M body-only. |
-| `mediapipe` | — | Delegates to `main.py`. |
+| Model key | Keypoints | Device | Notes |
+|-----------|-----------|--------|-------|
+| `rtmw-l` (default) | 133 | NPU | Alias of `rtmw-m-256`; the key predates the RTMW-m correction. |
+| `rtmw-m-256` | 133 | NPU | RTMW-m 256x192, raw scores (the calibration reference). |
+| `rtmw-l-256` | 133 | GPU | RTMW-L 256x192. |
+| `rtmw-l-384` | 133 | GPU | RTMW-L 384x288, calibrated scores. |
+| `rtmw-x-384` | 133 | GPU | RTMW-X cocktail13 384x288, calibrated scores. |
+| `dwpose-l-384` | 133 | GPU | DWPose-L 384x288. |
+| `dwpose-m` | 133 | NPU | DWPose-M wholebody. |
+| `rtmpose-m` | 17 | NPU | RTMPose-M body-only. |
+| `mediapipe` | — | — | Delegates to `main.py`. |
 
 ```bash
 python -m pose_estimation.run                                          # webcam 0, rtmw-l
@@ -254,7 +260,10 @@ Defaults: `--inventory inventory`, `--qualification qualification`, `--sessions 
 `--det-frequency 1`, `--single-subject`, `--retry-failed`.
 `--limit N` runs the first N **due** events, so a rerun with `--limit` processes the next
 events rather than the same ones. `--analyse-only` republishes the manifest and the
-report over an existing `--out` tree and decodes nothing. `--report` moves the report alone.
+report over an existing `--out` tree and decodes nothing. `--refresh-clinical` reruns the R stage
+over every complete event first (current `analysis/clinical_features.R`, landmarks untouched); each
+event's marker records the R digest it ran, and the report's `configuration.analysis_sha256` is
+that digest or `mixed`. `--report` moves the report alone.
 
 The defaults select the repaired generation: `--tracker subject` with the detector every frame
 on the GPU. `--tracking body` populates the trunk and posture columns, and coordinates are

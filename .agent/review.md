@@ -128,3 +128,16 @@ accepted fix against its acceptance check.
 | F21 | driver-report build test exercised the helper only | A12 | accepted | both drivers' reports asserted |
 | F22 | development-lookup control absent from P08 | A-R02 | accepted | lookup detector fails admissibility; test |
 | S01 | review UI stored a non-finite click as a visible point | S01 | accepted | stored `?` (0bc4094) |
+
+Re-review (`reviewer-14`, fresh context; `.scratch/agents/reviewer-14.md`, grader rc 0): 21 pass,
+2 fail → fixed again and closed on MAIN's rerun of the reviewer's own probes:
+F07 (major) — replay still printed the runner's source + output paths → `replay_window` sends
+the runner's stdout + stderr to the window's `replay.log`; the probe's two commands pass, ported
+to `tests/test_m4u4_bench_cli.py` with the F05 three-arm case. F20 (minor) — the name join
+covered 5 slots → the oracle is mmpose's `coco_wholebody_hand` list for all 21; all 210 pairwise
+exchanges fail it. Register: R01 unclosed diagnostics stream → `_diag_row` closes it; R02 the
+corpus-run rule said a source edit makes a tree `mixed` → corrected (stale ≠ mixed).
+Full gate on 71fe581: 2719 passed / 5 failed — four test fixtures predating `--refresh-clinical`
+and the per-event digest (namespaces + marker) and M2.9.4's SPARC label case pinned to the
+retired window column → fixtures given the new field; the label case now pins `*_bout_sparc`
+(old expectation fails on v2 code, the recorded firing).

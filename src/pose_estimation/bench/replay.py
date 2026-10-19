@@ -84,7 +84,14 @@ def replay_window(media: Path, start: int, stop: int, out_dir: Path, extra=()) -
     from pose_estimation import run
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    with _windowed(start, stop):
+    # The runner prints the source path and every written file; those lines name a recording,
+    # so they go to the window's own log, never to the command's stdout (data boundary).
+    with (
+        (out_dir / "replay.log").open("w", encoding="utf-8") as log,
+        contextlib.redirect_stdout(log),
+        contextlib.redirect_stderr(log),
+        _windowed(start, stop),
+    ):
         run.main(["--source", str(media), f"--output-dir={out_dir}", *CORPUS_ARGS, *extra])
     return out_dir / f"{media.stem}.csv"
 

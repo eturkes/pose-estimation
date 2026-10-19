@@ -209,6 +209,7 @@ def test_complete_resume_keeps_every_published_output_byte_identical(tmp_path, m
         single_subject=True,
         retry_failed=True,
         analyse_only=False,
+        refresh_clinical=False,
     )
     asset = driver.pilot.Asset(
         asset_id="asset-1",
@@ -262,6 +263,8 @@ def test_complete_resume_keeps_every_published_output_byte_identical(tmp_path, m
             exit_code=0,
             run_s=1.0,
             clinical_s=0.5,
+            # The clinical stage records the producer it ran (M4.5a D08, closing review F14).
+            analysis_sha256=driver.analysis_digest(),
         )
         return {
             "status": driver.MARKER_COMPLETE,
@@ -388,6 +391,7 @@ def test_driver_refuses_every_sink_overlapping_the_published_sessions(
         single_subject=True,
         retry_failed=True,
         analyse_only=True,
+        refresh_clinical=False,
     )
     monkeypatch.setattr(driver, "_parse_args", lambda: args)
     monkeypatch.setattr(driver.pilot, "_load_assets", lambda *_args: [])
@@ -501,6 +505,7 @@ def test_throughput_never_labels_mixed_frame_and_wall_populations_as_corpus(
         single_subject=True,
         retry_failed=False,
         analyse_only=True,
+        refresh_clinical=False,
     )
     # M2.9.1 A03: a complete event names the pose configuration it was produced under.
     for asset in assets:

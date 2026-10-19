@@ -476,6 +476,7 @@ def test_p08_report_payload_carries_the_normalisation_identity(tmp_path, monkeyp
         single_subject=True,
         retry_failed=True,
         analyse_only=True,
+        refresh_clinical=False,
     )
     monkeypatch.setattr(driver, "_parse_args", lambda: args)
     monkeypatch.setattr(driver.pilot, "_load_assets", lambda *_args: [])

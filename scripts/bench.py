@@ -417,6 +417,11 @@ def cmd_progress(a: argparse.Namespace) -> int:
     return 0 if done == len(wanted) and not malformed and not unknown else 1
 
 
+def _diag_row(path: Path) -> dict[str, str]:
+    with path.open(newline="", encoding="utf-8") as stream:
+        return next(csv.DictReader(stream))
+
+
 def cmd_preroll(a: argparse.Namespace) -> int:
     from pose_estimation.bench import replay
 
@@ -424,7 +429,7 @@ def cmd_preroll(a: argparse.Namespace) -> int:
     chosen = []
     for f in frames:
         diag = a.run / f["event_id"] / f"{f['camera_name']}_diag.csv"
-        row = next(csv.DictReader(diag.open(newline="", encoding="utf-8")))
+        row = _diag_row(diag)
         fps, n = float(row["fps_nominal"]), int(row["n_frames_decoded"])
         untrimmed = int(row["task_start_frame"]) == 0 and int(row["task_end_frame"]) == n
         if untrimmed and f["frame"] >= round(max(a.seconds) * fps):
@@ -797,7 +802,7 @@ def _pilot_replays(a: argparse.Namespace, arm: str):
     for clip, clip_keys in sorted(by_clip.items()):
         m0 = meta[clip_keys[0]]
         diag = a.run / m0["event_id"] / f"{m0['camera_name']}_diag.csv"
-        n = int(next(csv.DictReader(diag.open(newline="", encoding="utf-8")))["n_frames_decoded"])
+        n = int(_diag_row(diag)["n_frames_decoded"])
         window = a.out / arm / "whole" / hashlib.sha256(clip.encode()).hexdigest()[:16]
         media = _media(a.sessions, m0["event_id"], m0["camera_name"])
         done = window / f"{media.stem}.csv"

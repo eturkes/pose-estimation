@@ -6,6 +6,9 @@ import json
 import runpy
 from pathlib import Path
 
+import numpy as np
+import pytest
+
 from pose_estimation.bench import confirm, labels
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -167,3 +170,111 @@ def test_a06_from_run_presence_creates_its_output_directory(tmp_path):
         == 0
     )
     assert (out / "rtmw-l-384" / "presence.json").is_file()
+
+
+def test_f05_two_candidates_and_baseline_reuse_all_records(tmp_path, monkeypatch):
+    from pose_estimation.bench import confirm
+
+    label_path, jobs, _, _, trees = _fixture(tmp_path)
+    trees["rtmw-x-384"] = trees["rtmw-l-384"]
+    contract = tmp_path / "contract.md"
+    contract.write_text(
+        "## 8. Amendments\n- **A01 (candidates).** `rtmw-l-384` and `rtmw-x-384`.\n"
+    )
+    cli = runpy.run_path(str(ROOT / "scripts/bench.py"))["main"]
+    calls = []
+    original = confirm.score_frame
+
+    def score(record, row, subject):
+        calls.append((record["frame"]["key"], subject))
+        return original(record, row, subject)
+
+    monkeypatch.setattr(confirm, "score_frame", score)
+    out = tmp_path / "new-parent" / "confirm.json"
+    assert (
+        cli(
+            [
+                "confirm",
+                "--contract",
+                str(contract),
+                "--labels",
+                str(label_path),
+                "--jobs",
+                str(jobs),
+                "--public-rank",
+                "rtmw-l-384",
+                "rtmw-x-384",
+                "--out",
+                str(out),
+                *[x for arm, tree in trees.items() for x in ("--from-run", f"{arm}={tree}")],
+            ]
+        )
+        == 0
+    )
+    report = json.loads(out.read_text())
+    assert report["states"] == {"rtmw-l-384": "non-inferior", "rtmw-x-384": "non-inferior"}
+    assert report["frames"] == report["subjects"] == 2
+    assert len(calls) == 6
+    assert calls[:2] == calls[2:4] == calls[4:]
+
+
+@pytest.mark.parametrize("command", ["presence", "pilot-eval"])
+def test_f07_replay_commands_keep_runner_output_out_of_stdout(
+    tmp_path, monkeypatch, capsys, command
+):
+    from pose_estimation import run, subject_tracker
+    from test_m2u92_keypoint_hygiene import _Capture
+
+    label_path, jobs_path, _, _, _ = _fixture(tmp_path)
+    jobs = json.loads(jobs_path.read_text())
+    run_root = tmp_path / "run"
+    for job in jobs:
+        diag = run_root / job["event_id"] / "left_diag.csv"
+        diag.parent.mkdir(parents=True)
+        diag.write_text("n_frames_decoded\n1\n")
+    cli = runpy.run_path(str(ROOT / "scripts/bench.py"))["main"].__globals__
+    media = tmp_path / "PRIVATE_REPLAY_SOURCE_CANARY.avi"
+    media.touch()
+    monkeypatch.setitem(cli, "_media", lambda *args: media)
+    monkeypatch.setattr(run, "open_capture", lambda *args, **kwargs: _Capture([(48, 64)]))
+    # Device boundary only: keep the real CLI, replay wrapper, process_source, CSV writer,
+    # source banner and final summary. One decoded synthetic frame with no detections.
+    monkeypatch.setattr(run, "_patch_rtmlib_openvino", lambda: None)
+
+    class Tracker:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def reset(self):
+            pass
+
+        def __call__(self, frame):
+            return np.empty((0, 133, 2)), np.empty((0, 133))
+
+    monkeypatch.setattr(subject_tracker, "SubjectTracker", Tracker)
+    assert (
+        cli["main"](
+            [
+                command,
+                "--labels",
+                str(label_path),
+                str(label_path),
+                "--sample",
+                str(jobs_path),
+                "--run",
+                str(run_root),
+                "--sessions",
+                str(tmp_path / "unused-sessions"),
+                "--arm",
+                "rtmw-l-384",
+                "--out",
+                str(tmp_path / "results"),
+            ]
+        )
+        == 0
+    )
+    emitted = capsys.readouterr().out
+    assert '"subjects": 2' in emitted
+    assert "PRIVATE_REPLAY_SOURCE_CANARY" not in emitted, (
+        "replay source banner escaped aggregate summary"
+    )

@@ -1,280 +1,155 @@
 # Pose Estimation
 
-Real-time human pose estimation for movement analysis. It tracks the hands, the arms,
-or the whole body from a webcam or a video file, and it exports per-frame landmark CSV
-files. With a multi-camera calibration, it fuses the synchronized views into metric 3D.
-The output feeds a clinical/rehabilitation kinematics pipeline (the R scripts under
-`analysis/`).
+This project measures movement in the hospital's three-camera recordings of spinal cord injury
+(SCI) rehabilitation tasks. It tracks each patient's body and hands in 2D, computes kinematic
+features for every clip, and publishes cohort statistics that the `../rehab` clinical dashboard
+reads.
 
-Two inference paths share one pipeline:
+The input is `videos/3-cam/`: 382 hand-held clips of 16 subjects. Each subject does 6 tasks
+(cap, coin, glass, key, nut, peg) with each hand. Two or three cameras film each recording, with
+no fixed rig and no calibration.
 
-- **MediaPipe** hand/pose TFLite models, converted to OpenVINO IR at runtime.
-- **rtmlib** models (RTMW, DWPose, RTMPose) via ONNX Runtime or OpenVINO.
+The output contains no patient identifier. The cohort export holds aggregates per task and side,
+never a subject row.
 
-Both apply temporal smoothing, biomechanical constraints, and a skeleton overlay.
+> **Working on this with an AI coding agent?** Start at [`CLAUDE.md`](CLAUDE.md). The live
+> project state is in [`.agent/spec.md`](.agent/spec.md). Technical references are in
+> [`docs/technical/`](docs/technical/).
 
-> **Working on this with an AI coding agent?** Start at [`CLAUDE.md`](CLAUDE.md).
-> Task-specific internals live under [`docs/technical/`](docs/technical/). Active
-> long-horizon state lives in [`.agent/spec.md`](.agent/spec.md). The deferred-work queue
-> lives in [`.agent/deferred.md`](.agent/deferred.md).
+## What the pipeline produces
+
+| Output | Contents |
+|--------|----------|
+| `output/corpus-2d/` | One landmark CSV per clip (body, arms, both hands), its diagnostics, and the clinical features at three levels: per frame, per 1 s window, and per wrist-motion bout. `run_report.json` records the model and every setting the run used. |
+| `cohort/` | The `../rehab` export: `cohort_cells.csv` (population per task and side), `cohort_features.csv` (median, quartiles, mean, SD and cross-view agreement per feature), `descriptors.yaml` (Japanese and English labels, units, ranges) and `cohort.json` (census, estimand, digests). |
+
+Each per-clip step runs in this order:
+
+1. A YOLOX detector finds people on every frame. A subject tracker keeps the patient.
+2. An RTMW whole-body model places 133 keypoints. `run_report.json` names the model.
+3. Smoothing, a hand-presence gate, and out-of-frame zeroing clean the keypoints.
+4. The R stage (`analysis/clinical_features.R`) computes angles, distances, speeds, trunk
+   posture, and per-bout smoothness (SPARC) and timing.
+
+## Measurement limits
+
+Read every published number under these limits:
+
+- **Angles are image-plane angles.** Each value comes from uncalibrated 2D keypoints. It is not
+  an anatomical joint angle.
+- **No metric scale.** Distances and speeds use frame-normalized units, not metres. The tool
+  publishes `scale_unmeasured` on every clip.
+- **No 3D.** No method can calibrate these cameras after the recording, so the tool does not
+  fuse the views.
+- **A bout is a span of detected wrist motion.** It is not a recovered reach or grasp. A pause
+  can divide one action into two bouts.
+- **Cross-view agreement is descriptive.** It shows how much the camera views of one recording
+  disagree. It is not a reliability coefficient or a confidence interval.
+- **The sample is small.** A cell holds 6 to 16 subjects. The export holds no minimum, no
+  maximum, and no subject row.
+
+[`docs/calibration_finding.md`](docs/calibration_finding.md) states the 3D and scale findings.
+[`docs/technical/cohort.md`](docs/technical/cohort.md) states the estimand.
 
 ## Requirements
 
-- **Python 3.10+.** The tests cover 3.10 to 3.13.
-- **[`uv`](https://docs.astral.sh/uv/)** for dependency and virtualenv management.
-- An **OpenVINO device.** The NPU is the default, and it is optional. CPU and GPU also
-  work (`--det-device CPU --pose-device CPU`), so you can contribute without special
-  hardware.
-- **R + [`renv`](https://rstudio.github.io/renv/)** for the `analysis/` scripts only.
+- **Python 3.10 to 3.13** and **[`uv`](https://docs.astral.sh/uv/)**.
+- **R** with **[`renv`](https://rstudio.github.io/renv/)** for the clinical features.
+- An **OpenVINO** device for the corpus run. The GPU runs the detector and the large pose
+  models, and the NPU runs the small ones. The CPU also works, but it is several times slower.
 
-## Quick start
+## Install
 
 ```bash
-uv sync                                          # runtime + dev tooling (tests, lint, types)
-uv run python -m pose_estimation.run                # live webcam overlay; ESC or close window to quit
+uv sync
+Rscript -e 'renv::restore()'
 ```
 
-The first run downloads the models to `model/`. Git ignores the `videos/`, `output/`
-and `model/` directories. They hold input recordings and derived data, which stay out
-of commits.
+## Run the corpus pipeline
 
-## Entry points
+Run each step from the repository root. Each step publishes one directory that the next step
+reads. A step refuses to write over a directory that it did not publish.
 
-`pyproject.toml` defines eight console scripts (`[project.scripts]`). You can also run
-each one as `python -m pose_estimation.<module>`.
+1. Register the clips and their task, side and view:
 
-| Script | Module | Purpose |
-|--------|--------|---------|
-| `pose-estimation` | `pose_estimation.main` | MediaPipe pipeline (default). |
-| `pose-estimation-run` | `pose_estimation.run` | Multi-backend: rtmlib (RTMW, DWPose, RTMPose) + MediaPipe. |
-| `pose-estimation-benchmark` | `pose_estimation.benchmark` | Parameter sweep harness. |
-| `pose-estimation-postprocess` | `pose_estimation.postprocess` | Savitzky-Golay smoothing for existing CSV files. |
-| `pose-estimation-calibrate` | `pose_estimation.calibration_cli` | Multi-camera calibration (ChArUco). |
-| `pose-estimation-inventory` | `pose_estimation.inventory` | Task-side family registry and aggregate corpus census. |
-| `pose-estimation-sessions` | `pose_estimation.sessions` | Recording-event tree that multi-camera discovery reads. |
-| `pose-estimation-validate` | `pose_estimation.validation` | Capture QA + end-to-end validation reports. |
+   ```bash
+   pose-estimation-inventory --corpus videos/3-cam --out inventory
+   ```
 
-### MediaPipe pipeline (`main`)
+2. Group the cameras of each recording into one event:
+
+   ```bash
+   pose-estimation-sessions --inventory inventory --corpus videos/3-cam --out sessions
+   ```
+
+3. Measure the capture properties (frame rate, rotation, synchronization):
+
+   ```bash
+   pose-estimation-qualify --inventory inventory --sessions sessions --corpus videos/3-cam --out qualification
+   ```
+
+4. Run pose estimation and the clinical features over every event. Load the accelerator
+   environment first, or inference runs on the CPU:
+
+   ```bash
+   source /var/home/eturkes/.local/app/intel-accel/env.sh
+   PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/corpus_run_2d.py --out output/corpus-2d
+   ```
+
+   The run resumes at the first unfinished event. To recompute only the clinical features
+   after a change to the R stage, add `--analyse-only --refresh-clinical`.
+
+5. Publish the cohort export:
+
+   ```bash
+   pose-estimation-cohort --inventory inventory --sessions sessions --run output/corpus-2d --out cohort
+   ```
+
+[`docs/technical/entrypoints.md`](docs/technical/entrypoints.md) lists every flag.
+
+## Review the results
+
+The review tool shows the clip player, the corpus census and the cohort statistics in a local
+web page, in Japanese or English:
 
 ```bash
-python -m pose_estimation.main                            # webcam 0, NPU, hands-arms
-python -m pose_estimation.main --source video.mp4
-python -m pose_estimation.main --source 1                 # camera index
-python -m pose_estimation.main --batch-dir videos/        # process every video in a dir
-python -m pose_estimation.main --batch-dir videos/ --single-subject --postprocess
-python -m pose_estimation.main --pose-device CPU --no-flip  # CPU landmarks; rear camera (no mirror)
-python -m pose_estimation.main --headless                 # no window; writes *_metrics.csv
+uv run --directory tools/review-ui python -m review_ui
 ```
 
-`--headless` skips the pygame window and emits a `*_metrics.csv` (jitter, confidence,
-smoothing deltas, constraint corrections). Add `--metrics-detail` for a large per-keypoint
-`*_kp_detail.csv`.
+Then open `http://127.0.0.1:8791/`. [`tools/review-ui/README.md`](tools/review-ui/README.md)
+describes each view.
 
-### Multi-backend (`run`)
+## How the model was chosen
+
+The benchmark compared five pose models on public ground truth (COCO-WholeBody, DexYCB, HInt).
+It then checked the leading model inside the full pipeline on labelled corpus frames, and it
+confirmed the choice on corpus frames labelled by hand. The results and the decision rules are
+in [`docs/technical/benchmark.md`](docs/technical/benchmark.md).
+
+## Other uses
+
+The same package also runs on a webcam or a single video file:
 
 ```bash
-python -m pose_estimation.run                                  # webcam 0, rtmw-l
-python -m pose_estimation.run --model dwpose-m                 # DWPose wholebody
-python -m pose_estimation.run --model rtmpose-m               # body-only (17 kp)
-python -m pose_estimation.run --model mediapipe               # delegates to main
-python -m pose_estimation.run --source video.mp4 --det-device CPU --pose-device NPU
-python -m pose_estimation.run --headless
+uv run python -m pose_estimation.run --source video.mp4
 ```
 
-| Model | Keypoints | Notes |
-|-------|-----------|-------|
-| `rtmw-l` (default) | 133 | RTMW-m wholebody (body + hands + face + feet). The key name predates the correction. |
-| `dwpose-m` | 133 | DWPose-M wholebody. |
-| `rtmpose-m` | 17 | RTMPose-M body-only. |
-| `mediapipe` | n/a | Delegates to `pose_estimation.main`. |
-
-rtmlib models use [rtmlib](https://github.com/Tau-J/rtmlib) for lightweight ONNX/OpenVINO
-inference without `mmcv`/`mmpose`.
-
-### Multi-camera & calibration
-
-A *session* is one recording from N synchronized cameras
-(`videos/<session_id>/cam*.mp4`). If a camera calibration exists, the pipeline
-triangulates the per-camera 2D keypoints into one fused 3D track (`world3d.csv`, in
-metres).
-
-```bash
-# Calibrate a rig (ChArUco): print board → capture → solve → verify
-pose-estimation-calibrate board   --output board.png
-pose-estimation-calibrate capture --session-dir videos/calib/ --devices 0,1,2
-pose-estimation-calibrate solve   --session-dir videos/calib/ --output calib.json
-pose-estimation-calibrate verify  --calibration calib.json
-
-# Process a session (both backends accept the session flags)
-python -m pose_estimation.main --session-dir  videos/session_a/ --calibration calib.json
-python -m pose_estimation.run  --sessions-dir videos/           --calibration calib.json
-```
-
-`--session-dir`, `--sessions-dir`, and `--calibration` are mutually exclusive with
-`--source`/`--batch-dir`. [`docs/technical/multicam.md`](docs/technical/multicam.md) and
-[`docs/technical/calibration.md`](docs/technical/calibration.md) document the session
-layout, the manifest schema and the 3D-fusion model.
-
-### Benchmarking & post-processing
-
-```bash
-# Parameter sweep (spawns headless subprocesses with POSE_BENCH_* overrides)
-python -m pose_estimation.benchmark --source video.mp4 --sweep body_min_cutoff 0.1 0.3 0.5
-python -m pose_estimation.benchmark --source video.mp4 --config sweep_default.yaml
-
-# Savitzky-Golay smoothing of an existing CSV (also available as main's --postprocess)
-python -m pose_estimation.postprocess output/video1.csv --window 15 --polyorder 3
-```
-
-Sweep parameters and YAML config format: [`docs/technical/optimization.md`](docs/technical/optimization.md).
-
-## Tracking modes
-
-`--tracking {hands|hands-arms|body}` selects the tracked body parts.
-
-| Mode | Body keypoints | Hand keypoints | Pose detection |
-|------|----------------|----------------|----------------|
-| `hands` | 0 | 2 × 21 | Skipped (no arm-guided ROI fallback). |
-| `hands-arms` (default) | 12 (shoulders → finger bases) | 2 × 21 | Yes. |
-| `body` | 33 (face, torso, arms, legs) | 2 × 21 | Yes. |
-
-In `hands` mode, confident model handedness assigns the anatomical left and right sides.
-The wrist x-coordinate is the ambiguity fallback. In `hands-arms` and `body` modes, a
-Hungarian (optimal) assignment matches the hands to the arms, with a distality reject.
-
-Single-subject mode (`--single-subject`) tracks one subject through three fallback
-layers:
-
-1. It keeps the largest detected body in each frame.
-2. If detection drops, it carries the last body forward for approximately 0.5 s.
-3. When the carry-forward expires, it falls back to the hands alone. Model handedness
-   assigns the sides, with the x-coordinate as the ambiguity fallback.
-
-## CSV output
-
-One row per person per frame; normalised (0-1) landmark coordinates.
-
-| Mode | Body columns | Hand columns | Metadata | Total |
-|------|--------------|--------------|----------|-------|
-| `hands` | 0 | 2 × 21 × 4 = 168 | 4 | 172 |
-| `hands-arms` | 12 × 4 = 48 | 168 | 4 | 220 |
-| `body` | 33 × 4 = 132 | 168 | 4 | 304 |
-
-Body columns use the prefix `arm_` in hands-arms mode, and `body_` in body mode. Each
-body keypoint exports `x, y, z, visibility`, and each hand keypoint exports `x, y, z,
-confidence`. Missing hand coordinates stay blank, with confidence zero. Under
-`--single-subject`, the body columns stay blank on hand-only fallback frames.
-The multi-camera path also writes `world3d.csv` (metric 3D + per-keypoint
-fusion diagnostics). Legacy three-column hand CSV files stay readable, with
-coordinate-presence confidence.
-
-## Analysis (R)
-
-The R scripts in `analysis/` read the CSV files, and produce diagnostics and clinical
-kinematic features. The most common entry points follow:
-
-```bash
-Rscript analysis/summary.R output/                          # text report + JSON
-Rscript analysis/timeseries.R output/                       # temporal diagnostic plots
-Rscript analysis/clinical_features.R output/                # kinematic feature extraction
-Rscript analysis/longitudinal.R output/ sessions.csv        # recovery tracking
-```
-
-The full script-by-script reference is [`docs/technical/analysis.md`](docs/technical/analysis.md).
-The bundled report `analysis/analysis_summary.Rmd` renders to `analysis_summary.html`.
-
-## Project layout
-
-Source lives in `src/pose_estimation/`. The single-camera 2D pipeline:
-
-| Module | Role |
-|--------|------|
-| `main.py` | MediaPipe entry point; CLI, capture loop, pygame display. |
-| `run.py` | Unified entry point with rtmlib backends. |
-| `models.py` | Downloads MediaPipe TFLite, converts to OpenVINO IR, compiles. |
-| `detection.py` | SSD anchor generation, NMS, detection decoding. |
-| `processing.py` | Preprocessing, crop, landmark inference, hand↔arm matching. |
-| `mapping.py` | COCO-WholeBody (rtmlib 133/17-kp) → MediaPipe keypoint translation. |
-| `smoothing.py` | One Euro Filter, confidence-weighted temporal smoothing (MediaPipe). |
-| `rtmlib_smoothing.py` | `KeypointSmoother`: smoothing + carry-forward + person matching (rtmlib). |
-| `rtmlib_openvino.py` | Monkeypatch making rtmlib run on the OpenVINO backend. |
-| `constraints.py` | Bone-length consistency and joint-angle limits. |
-| `drawing.py` | Catmull-Rom splines, skeleton rendering, overlay blending. |
-| `export.py` | CSV schema, per-frame landmark row conversion. |
-| `metrics.py` | Per-frame quality metrics collection. |
-| `postprocess.py` | Savitzky-Golay offline smoothing. |
-| `benchmark.py` | Parameter sweep harness (headless). |
-| `video_io.py` | Capture open, FPS clamp, frame→pygame surface, file discovery. |
-| `_types.py` | TypedDicts documenting dict-passed pipeline state. |
-
-The multi-camera 3D subsystem:
-
-| Module | Role |
-|--------|------|
-| `multicam.py` | `Session` discovery/sync, `process_session` orchestration, output fusion. |
-| `calibration.py` | Camera/session calibration IO + validation (cv2-free). |
-| `charuco.py` | ChArUco board construction/rendering and the `solve_charuco` solver. |
-| `triangulation.py` | DLT helpers and `fuse_session_frame` (weighted DLT + outlier rejection). |
-| `calibration_cli.py` | `pose-estimation-calibrate` console script. |
-
-Non-pipeline directories: `analysis/` (R scripts), `scripts/benchmarks/` (hot-path
-micro-benchmarks), `tests/` (pytest suite).
+[`docs/technical/entrypoints.md`](docs/technical/entrypoints.md) and
+[`docs/technical/tracking-modes.md`](docs/technical/tracking-modes.md) describe these modes.
 
 ## Development
 
-`uv sync` installs the full dev toolchain (the default `dev` group bundles tests, lint,
-and types) alongside the runtime dependencies.
+The gate runs every check: lint, format, types, the dependency audit, the secret scan, and the
+test suite.
 
-| Task | Command |
-|------|---------|
-| Run tests | `uv run pytest` |
-| Tests + coverage | `uv run pytest --cov=pose_estimation` |
-| Lint (autofix) | `uv run ruff check --fix` |
-| Format | `uv run ruff format` |
-| Type-check | `uv run ty check` |
+```bash
+scripts/gate.sh                       # full gate
+scripts/gate.sh --fast tests/test_x.py   # static checks and the named tests
+```
 
-If a host OpenVINO build is on your `PYTHONPATH`, use the gate prefix in
-[`docs/technical/conventions.md`](docs/technical/conventions.md). Bare `uv run pytest` then
-fails at import.
-
-Learn these conventions before you open a pull request:
-
-- **Strict tests.** Warnings are errors (`filterwarnings = ["error", …]`). For new
-  behaviour, write the failing test first (red-green-refactor).
-- **Public API guard.** The package surface is whatever `src/pose_estimation/__init__.py`
-  re-exports. If that surface drifts, `tests/test_public_api.py` fails, so update both
-  files together.
-- **Commit style.** Follow the commit convention in
-  [`docs/technical/conventions.md`](docs/technical/conventions.md).
-
-Deeper technical reference (architecture, tracking modes, multicam, calibration, analysis,
-optimization, tests, environment) lives under [`docs/technical/`](docs/technical/).
-
-## Technical notes
-
-- **Display:** `pygame-ce` (SDL2), because the Qt backend bundled with OpenCV does not
-  render on Wayland. Image processing uses `opencv-python-headless`.
-- **Inference:** OpenVINO (NPU, CPU, GPU). `main` converts MediaPipe TFLite to IR. The
-  rtmlib path (`run`) supports ONNX Runtime or OpenVINO through `--backend`.
-- **Detector and pose model take separate devices** (`--det-device` / `--pose-device`),
-  because their device compatibility differs. The YOLOX detector in rtmlib exports NMS
-  into the graph, so its output shape is dynamic. A static-shape-only device such as the
-  NPU returns a fixed-size buffer, and the unused rows hold uninitialised scores. Every
-  frame then saturates at the padded row count, with scores outside `[0, 1]`. Therefore
-  `run` defaults to `--det-device CPU --pose-device NPU`. The pose models are
-  static-shaped. They agree with CPU to approximately 0.5 px median, and they run
-  approximately 19× faster on the NPU. MediaPipe decodes the anchors and runs NMS in
-  Python, so both of its roles default to the NPU.
-- **Single cv2 wheel:** `[tool.uv] override-dependencies` excludes the
-  `opencv-python`/`opencv-contrib-python` requirements of rtmlib, so the environment
-  holds `opencv-python-headless` alone. All cv2 wheels unpack the same tree, and they
-  would otherwise file-stomp.
-- **Frame pipeline:** capture (BGR) → flip → resize → detect → arm-guided hand ROI
-  fallback → landmark → smooth → bone-length → joint-angle → match → optional
-  single-subject filter → draw → RGB → pygame surface.
-
-`pyproject.toml` declares the core dependencies. `uv.lock` (Python) and `renv.lock` (R)
-pin the exact versions.
+If a host OpenVINO build is on your `PYTHONPATH`, run commands through `scripts/gate.sh <cmd>`.
+A bare `uv run pytest` then fails at import. [`docs/technical/conventions.md`](docs/technical/conventions.md)
+explains the gate and the commit style.
 
 ## License
 

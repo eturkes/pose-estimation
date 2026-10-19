@@ -358,30 +358,30 @@ def test_p05_method_constant_is_v3() -> None:
 
 @pytest.mark.parametrize("language", ["ja", "en"])
 def test_p05_cohort_wrist_sal_labels_name_sparc(language: str) -> None:
+    """The exported SPARC feature names SPARC in both languages. Since M4.5b it is the per-bout
+    column (`*_bout_sparc`); the window `*_wrist_sal` leaves the export `construct_invalid`."""
     from pose_estimation import cohort
 
     assert pathlib.Path(cohort.__file__).resolve().is_relative_to(_ROOT)
     expected = {
         "ja": {
-            "left": "左手関節スペクトルアーク長(SPARC)",
-            "right": "右手関節スペクトルアーク長(SPARC)",
+            "left": "左手関節運動区間のスペクトルアーク長(SPARC)",
+            "right": "右手関節運動区間のスペクトルアーク長(SPARC)",
         },
         "en": {
-            "left": "Left wrist spectral arc length (SPARC)",
-            "right": "Right wrist spectral arc length (SPARC)",
+            "left": "Left wrist bout spectral arc length (SPARC)",
+            "right": "Right wrist bout spectral arc length (SPARC)",
         },
     }
     actual = {
         side: getattr(feature, language)
         for side in ("left", "right")
         for feature in cohort.FEATURES
-        if feature.column == f"{side}_wrist_sal" and feature.level == "window"
+        if feature.column == f"{side}_bout_sparc" and feature.level == "bout"
     }
     assert actual == expected[language]
-    family = [item for item in cohort.FEATURES if "wrist_sal" in item.column]
-    assert family, "SPARC label family is empty"
-    base = {"ja": "手関節スペクトルアーク長(SPARC)", "en": "Wrist spectral arc length (SPARC)"}
-    assert all(base[language].casefold() in getattr(item, language).casefold() for item in family)
+    assert ("window", "left_wrist_sal") in cohort.CONSTRUCT_INVALID
+    assert not [item for item in cohort.FEATURES if "wrist_sal" in item.column]
 
 
 @pytest.fixture(scope="module")
