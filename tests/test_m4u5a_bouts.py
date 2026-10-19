@@ -406,3 +406,28 @@ def test_p09_run_report_names_the_r_producer(tmp_path, monkeypatch):
     report = json.loads(args.report.read_text(encoding="utf-8"))
     expected = hashlib.sha256(_CLINICAL_R.read_bytes()).hexdigest()
     assert report["configuration"]["analysis_sha256"] == expected
+
+
+def test_p09_refresh_clinical_reruns_r_over_complete_events(tmp_path, monkeypatch):
+    from test_m2u101_hand_gate import _generation
+
+    driver, args, generated, event_out = _generation(
+        "corpus_run_2d.py", tmp_path, monkeypatch, enabled=True
+    )
+    calls = []
+    original = driver["subprocess"].call
+
+    def counting(command, **kwargs):
+        calls.append(command[0])
+        return original(command, **kwargs)
+
+    monkeypatch.setattr(driver["subprocess"], "call", counting)
+    args.analyse_only = True
+    args.refresh_clinical = True
+    assert driver["main"]() == 0
+    assert calls == ["Rscript"]  # one complete event → one R pass, no pose stage
+    corpus_run = importlib.import_module("pose_estimation.corpus_run")
+    marker = corpus_run.read_marker(event_out) or {}
+    assert marker["status"] == corpus_run.MARKER_COMPLETE
+    assert marker["stage"] == corpus_run.STAGE_CLINICAL
+    assert len(generated) == 1  # the pose stage ran once, in the original generation

@@ -323,6 +323,30 @@ def _attempt_event(event_id: str, args: argparse.Namespace, logs: Path) -> dict[
     }
 
 
+def _refresh_clinical(event_id: str, args: argparse.Namespace, logs: Path) -> float:
+    """Rerun the R stage over a complete event's landmarks under the current R producer.
+
+    Landmarks and the pose stage stay untouched (fix upstream: same tracks, new features); a
+    failure turns the event's marker failed, exactly as a first clinical pass would.
+    """
+    event_out = args.out / event_id
+    marker = read_marker(event_out) or {}
+    environment = os.environ.copy()
+    environment.update(LC_ALL="C", LANG="C", TZ="UTC")
+    code, seconds = _run_stage(
+        ["Rscript", str(CLINICAL_R), str(event_out)], logs / event_id / "clinical.log", environment
+    )
+    write_marker(
+        event_out,
+        status=MARKER_COMPLETE if code == 0 else MARKER_FAILED,
+        stage=STAGE_CLINICAL,
+        exit_code=code,
+        run_s=marker.get("run_s", 0.0),
+        clinical_s=round(seconds, 3),
+    )
+    return seconds
+
+
 def _manifest_rows(canonical: list[str], placed: dict[str, Any], out: Path) -> list[dict[str, str]]:
     """Every canonical asset reaches exactly one disposition (D06)."""
     rows = []
@@ -554,6 +578,12 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Publish the manifest and report over an existing --out tree without decoding.",
     )
+    parser.add_argument(
+        "--refresh-clinical",
+        action="store_true",
+        help="Rerun the R stage over every complete event (current analysis/clinical_features.R) "
+        "before the report; pair with --analyse-only to skip decoding.",
+    )
     args = parser.parse_args()
     if args.pose_device is None:
         args.pose_device = MODEL_REGISTRY[args.model]["pose_device"]
@@ -631,6 +661,12 @@ def main() -> int:
                 f"elapsed={run_seconds + clinical_seconds:.0f}s",
                 flush=True,
             )
+
+    if args.refresh_clinical:
+        complete = [e for e in event_ids if is_complete(args.out / e)]
+        for index, event_id in enumerate(complete, 1):
+            clinical_seconds += _refresh_clinical(event_id, args, logs)
+            print(f"[refresh {index}/{len(complete)}] clinical", flush=True)
 
     validate_generation(args.sessions, inventory_dir=args.inventory)
     digest_after = tree_digest(args.sessions)
