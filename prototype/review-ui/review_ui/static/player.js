@@ -594,20 +594,20 @@ function stagePane() {
   const facts = el(
     "div",
     { class: "factline" },
-    fact(t("player.geometry"), `${clip.width}×${clip.height} · ${(clip.fps || 0).toFixed(3)} fps`),
+    fact(t("player.geometry"), `${clip.width}×${clip.height} · ${clip.fps ? `${clip.fps.toFixed(3)} fps` : "— fps"}`),
     // `f` rather than the frame word: the clip list already counts frames that
     // way, and it reads as one unit in both languages.
     fact(t("player.duration"), `${num(clip.duration_s, 2)} s · ${num(clip.frames)} f`),
-    fact(t("player.rotation"), `${clip.rotation_deg ?? 0}° · ${clip.codec || "—"}`),
+    fact(t("player.rotation"), `${clip.rotation_deg == null ? "—" : `${clip.rotation_deg}°`} · ${clip.codec || "—"}`),
     fact(t("player.disposition"), token(clip.disposition || "—")),
   );
 
-  // The banner carries the decode failure alone, so it takes no room until one
-  // happens; the clip's identity is the selected row in the list beside it.
+  // The banner carries a missing or undecodable video alone, so it takes no room
+  // otherwise; the clip's identity is the selected row in the list beside it.
   return el(
     "section",
     { class: "panel stage-panel" },
-    el("div", { class: "banner", id: "decode-note", hidden: true }),
+    el("div", { class: "banner", id: "decode-note", hidden: clip.has_video }, t("player.no_video")),
     el("div", { class: "stage-wrap" }, stage),
     el(
       "div",
@@ -674,6 +674,12 @@ export async function renderPlayer(root) {
   if (!topology) topology = await json("/static/topology.json");
   const data = await json("/api/clips");
   view.clips = data.clips;
+  // An empty list reads as an empty corpus unless it names the trees it lacks.
+  const missing = view.clips.length
+    ? []
+    : Object.entries((await json("/api/status")).available)
+        .filter(([name, present]) => !present && ["inventory", "sessions", "run"].includes(name))
+        .map(([name]) => name);
   const distinct = (key) => [...new Set(view.clips.map((clip) => clip[key]).filter(Boolean))].sort();
 
   const clipsPanel = panel(
@@ -705,6 +711,7 @@ export async function renderPlayer(root) {
       t("player.with_landmarks"),
     ),
     el("p", { class: "note" }, t("player.family_note")),
+    missing.length ? el("div", { class: "banner" }, `${t("common.absent")}: ${missing.join(", ")}`) : "",
     el("div", { id: "clip-list-host" }),
   );
   clipsPanel.classList.add("clips-panel");

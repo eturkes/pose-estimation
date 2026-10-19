@@ -412,8 +412,8 @@
     "en": "Angles are image-plane angles. They are not anatomical joint angles."
   },
   "cohort.boundary.projection": {
-    "ja": "単眼投影のため、距離と速度は下限値です。",
-    "en": "Single-camera projection makes every distance and velocity a lower bound."
+    "ja": "距離と速度は単眼の画像平面上の値です。投影により、実際の動きより小さくも大きくもなります。",
+    "en": "Distances and velocities are single-camera image-plane values. Projection can make them smaller or larger than the true movement."
   },
   "cohort.boundary.scale": {
     "ja": "メートル尺は測定していません。全379クリップが scale_unmeasured です。",

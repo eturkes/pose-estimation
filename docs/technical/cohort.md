@@ -79,7 +79,7 @@ The unit token `deg_image_plane` states this in the data itself.
 **Projection geometry limits every value.**
 One camera measures a 3D movement through a 2D projection.
 A movement toward the camera shortens in the image. A movement out of plane loses magnitude.
-Reported distances and velocities are therefore lower bounds, not true magnitudes.
+Reported distances and velocities are image-plane magnitudes, not true magnitudes; projection can shrink or enlarge them.
 
 **The estimand is directional per-limb, not clinical.**
 Each cell reports one limb performing one task in one direction.

@@ -3,16 +3,13 @@
 Teammate fits + mechanics = `CLAUDE.md` `Teammates`; each role's standing rules =
 `.claude/agents/<role>.md`. These are the project's own rulings + measured corrections.
 
-- **Spine rows = MAINTAIN requests on the shipped spine, whatever phase the review UI holds** (user
-  ruling on `CLAUDE.md` `Session flow` Teammates + Advisor, which key teammate cost, dispatch bar,
-  advisor bar + phase fits on phase while `Phase` scopes the review UI alone). A spine row in the
-  same `Tasks` runs MAINTAIN law, depth per unit: a unit over pipeline, publisher or analysis code
-  is `kernel` (`.agent/spec.md` `Decisions`), so deep — dispatch wherever a teammate adds assurance
-  MAIN's own pass would miss (a close call → dispatch), `consultant` on its contract before code,
-  the advisor at the low bar, the closing-diff `reviewer` where needed (one covering every lens).
-  Review-UI rows follow the phase `Phase` names. Role fits (`tester` on a committed kernel contract,
+- **Phase scopes the spine; review-UI rows run PROTOTYPE law** (user ruling: IMPLEMENT = the video
+  analysis, the review UI kept as its review instrument). Spine work follows the phase `Phase` names,
+  depth per unit: pipeline, publisher or analysis code is `kernel` (`.agent/spec.md` `Decisions`), so
+  deep. A review-UI row (`prototype/review-ui/`) is instrument upkeep under PROTOTYPE law, outside the
+  gates, whatever phase the spine holds. Role fits (`tester` on a committed kernel contract,
   `reviewer` on a kernel-unit diff, `scientist` on an after-table or a cohort republication) hold
-  in every phase, scope-free.
+  in every phase.
 - **A review PASS terminates on rows adjudicated; a review WAVE closes on fixes applied** (ruling on
   `CLAUDE.md` `Engineering` review termination, which quantifies over the pass and is kept whole —
   check set fixed before the diff is read, every row adjudicated, an all-`pass` table complete, no

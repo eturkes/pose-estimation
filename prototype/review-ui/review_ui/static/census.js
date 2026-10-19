@@ -240,7 +240,8 @@ function rulingPanel(data) {
 
 function verdictPanel(data) {
   const verdicts = Object.entries(data.run_verdicts || {});
-  const manifest = Object.entries(data.run_manifest_census || {}).filter(([, count]) => count);
+  const dispositions = Object.entries(data.run_manifest_census || {});
+  const manifest = dispositions.filter(([, count]) => count);
   return panel(
     t("census.verdicts"),
     el(
@@ -256,6 +257,7 @@ function verdictPanel(data) {
       manifest.map(([code, count]) => [token(code), num(count)]),
       ["", "num"],
     ),
+    el("p", { class: "note" }, `${t("census.zero_hidden")} — ${dispositions.length - manifest.length} / ${dispositions.length}`),
     el(
       "dl",
       { class: "kv", style: { marginTop: "12px" } },

@@ -39,8 +39,9 @@ Options:
 ## The three views
 
 **Clip player** draws the exported landmarks on a canvas over the video. The
-skeleton and the palette come from `pose_estimation.drawing`, so the overlay draws
-what the pipeline draws. Each list row names one camera artifact. The `#nnn`
+skeleton topology and the base colour of each limb group come from
+`pose_estimation.drawing`. The pipeline darkens its limb lines to 60 % and draws
+curved hand chains. This UI draws the base colours opaque, with straight lines. Each list row names one camera artifact. The `#nnn`
 prefix is a recording event. Rows with the same number are the other views of that
 event. The stage fills the space that the window leaves. It keeps the shape of
 the clip, so the whole frame stays on screen with the controls under it. The
@@ -56,8 +57,8 @@ transport shows the mean body visibility per frame, so a tracking dropout is
 visible for the whole clip at once. A frame without a row shows as a gap. The overlay palette does not change with the
 theme, because the overlay draws over video and not over a page surface. The stage
 turns dark when you dim or hide the video, which keeps the overlay readable. The
-dot colours show the confidence band. The pipeline colours a dot by body group, so
-those three colours belong to this UI alone.
+dot colours show the confidence band. The pipeline draws every body dot in yellow,
+so those three colours belong to this UI alone.
 
 **Corpus census** shows what the recordings are. It reads `inventory/census.json`,
 `qualification/qualification.json`, `calibration_qc/calibration_qc.json`,
@@ -117,8 +118,8 @@ uv run --directory prototype/review-ui python tools/check_glyphs.py
   clock.
 - The theme needs the CSS `light-dark()` function and the `:has()` selector.
   Chrome 123, Firefox 121 and Safari 17.5 support both.
-- The prototype carries no test suite and no gate. It is a behavioural reference for
-  the IMPLEMENT phase, not its code base. Two headless checks run against a live
+- The prototype carries no test suite and no gate. It is a review
+  instrument for the analysis output, not a product. Two headless checks run against a live
   server. Each check routes the API to synthetic clips, so it loads no recording.
   `tools/overlay_map_qa.mjs` measures where each landmark dot lands on the stage.
   `tools/decode_banner_qa.mjs` encodes an HEVC clip and an H.264 clip and checks the

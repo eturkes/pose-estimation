@@ -76,7 +76,10 @@ rows before sizing any unit that touches their surfaces.
   `run_inventory_mutations.py` kills every mutant with >=1 committed test, replaying from clean.
 - **Review UI theme control proven by a scratch script alone** (`.scratch/theme_qa.mjs` → regen path
   in `.claude/rules/review-ui.md`) → a committed check drives the cycle, the pre-paint rehydration and
-  the `:has()` stage backdrop, 13/13 green, failing under the two recorded seeds.
+  the `:has()` stage backdrop, 13/13 green, failing under the two recorded seeds. The scratch
+  rehydration row (`stored dark is applied at document commit`) read red 2 of 6 runs under a
+  concurrent full gate with `index.html` + `app.js` unchanged → the port reads it 10/10 green under
+  the same load.
 - **Review UI player fit proven by a scratch script alone** (`.scratch/player_layout_qa.mjs` → regen
   path in `.claude/rules/review-ui.md`) → a committed check reports the stage fitting its room, filling
   an axis and holding its ratio over five viewports plus the stacked breakpoint, every control row
@@ -236,3 +239,11 @@ rows before sizing any unit that touches their surfaces.
   unsimulated, marks >= 3:1 against the surface) runs in the
   gate over every committed palette, passes or names each failing pair, and reds on a planted
   near-duplicate pair recorded in a `paths:` rule on the check's files.
+- **Census Synchronisation legend repeats hues across categories** (ITERATE close capture,
+  `#census`: Visual only + Solved share one red, Corroborated + Unconnected one blue;
+  `static/census.js` `syncPanel`) → every legend entry in one panel carries a distinct hue
+  (OKLab ΔE×100 >= 15 between any two), or categories of different axes split into separate
+  legends; the palette-safety row's check covers the panel.
+- **Cohort Cell composition table clips its last column** (`#cohort` at 1280 px: `Window rows`
+  header cut, no horizontal scroll; `?lang=ja` also wraps each task name onto two lines) → at 1280 px and 1600 px every header + cell of the table is
+  fully on screen or its container scrolls horizontally with the overflow visible.

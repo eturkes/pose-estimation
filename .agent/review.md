@@ -46,3 +46,26 @@ Verdict = first pass → re-review of the accepted fix against its acceptance ch
 | R12 | commit bodies consistent; subject format | pass | pass |
 Register, ruled: N01 blink row gains a per-clip hand-presence floor (all-absent candidate fails);
 N02 drift/ratchet preamble names the mechanism, ratio-1 rows kept as controls.
+
+## ITERATE close — review UI (`17e8c1e..HEAD`)
+
+Lenses fixed before reading: R01 every `Artifacts` prototype entry runs by its recorded command ·
+R02 `Decisions` hold every UI ruling, readable without the prototype · R03 each stub, shortcut +
+hard-coded value reads as one (`reviewer-9`, S01-S10, `.scratch/agents/reviewer-9.md`) · R04
+`spec.md` matches what shipped + passes `.agent/spec-lint`.
+
+| ID | check | verdict | ruling |
+| --- | --- | --- | --- |
+| R01 | `:8791` + `:8792` comparison run; 2/2 committed + 7 scratch QA suites, glyph check | pass | pass |
+| R02 | ITERATE UI rulings in `Decisions` | fail | fixed — `Review UI shape` bullet (6 rulings from commit bodies) |
+| R04 | `spec.md` current + lint | fail | fixed — Intent, Artifacts, Decisions, Tasks cleared, Phase set; lint rc 0 |
+| S01 S03 S05 S07 S10 | clip list, census, cohort figures, copy, prototype badge | pass | pass |
+| S02 | null fps / rotation shown as `0.000 fps` / `0°` | fail | fixed — `—`; red witness green |
+| S04 | manifest census hides zero dispositions unstated | fail | fixed — zero-hidden note; red witness green |
+| S06 | "every distance and velocity a lower bound" — false under perspective | fail | fixed — UI ja/en + `docs/technical/cohort.md:82` |
+| S08 | README overlay parity + pipeline dot colour | fail | fixed — darkened limbs, splines, yellow dots stated |
+| S09 | player silent on absent trees + missing media | fail | fixed — absent-tree banner, `player.no_video`; red witness green |
+
+Red witness = reviewer-9's capture-free script against `0a876d8` (red, rc 1) → fixed tree: target
+rows green; its reason-note positive control reads 2, the S04 note being the second.
+

@@ -10,8 +10,8 @@ hospital SCI database.
   family has three views at best. The recordings have no fixed rig and no calibration.
 - The pipeline tracks 2D pose per clip, extracts clinical kinematic features, and aggregates to
   cohort level — no per-subject rows, no patient identifier, no join column leaving this repo.
-- The shareable review UI is itself an intended deliverable for collaborators, not only a
-  prototype step.
+- The review UI is the prototype: it confirms the shape of the deliverable. The deliverable is the
+  analysed videos — movement statistics ready for `../rehab`.
 - The eventual destination is a subject↔patient join into the hospital SCI database. That mapping
   does not exist yet.
 
@@ -19,7 +19,8 @@ hospital SCI database.
 
 `P` = the gate prefix; `P` + the mutually-exclusive accelerator recipe → `.claude/rules/gates.md`.
 
-- `prototype/review-ui/` — **the prototype, the inspectable artifact.** One local web UI,
+- `prototype/review-ui/` — **the prototype, kept as the review instrument** (user ruling): inspects
+  each corpus generation through IMPLEMENT, PROTOTYPE law, outside the gates. One local web UI,
   bilingual ja/en (`?lang=en`), themed auto|light|dark (`?theme=`, auto = `light-dark()` + the
   OS), three views, clip player (the landing view) · corpus census · cohort explorer.
   FastAPI + vanilla JS canvas + vendored Plotly/IBM Plex, own uv project, read-only over the
@@ -36,8 +37,8 @@ hospital SCI database.
   337 090 frames, 8.197 h measured, all 11 `run_report.json` verdicts true, `task_span` published.
   `.scratch/rerun_m210.sh` = `python scripts/corpus_run_2d.py` under the accelerator recipe;
   resumes per event marker. Before/after vs M2.9 → `docs/technical/pose-weak-points.md`
-  § M2.10 corpus. Superseded generations kept for the user's before/after review (user: keep
-  both; delete on the user's word): M2.9 at `output/corpus-2d-superseded-m29/` + cohort
+  § M2.10 corpus. Superseded generations kept by user ruling (M2.10 videos reviewed; delete on
+  the user's word): M2.9 at `output/corpus-2d-superseded-m29/` + cohort
   `.scratch/compare-m29/cohort/`; rtmlib-f7 at `output/corpus-2d-superseded-rtmlib-f7/` +
   `.scratch/compare-root/cohort/`. Comparison UI = `uv run --directory prototype/review-ui python
   -m review_ui --port 8792 --repo "$PWD/.scratch/compare-m29"` (`compare-root` for rtmlib-f7;
@@ -51,11 +52,19 @@ hospital SCI database.
 ## Decisions
 
 - **Repo scope = `videos/3-cam/`** — retired data + siblings → `.claude/rules/data-boundary.md`.
-- **`src/` + `tests/` + `analysis/` + six publishers = production spine**, gates + verification
-  integrity binding; the prototype (`prototype/review-ui/`, → `Artifacts`) sits outside under
-  PROTOTYPE law, `testpaths = ["tests"]` keeping it out of collection. Spine rows in `Tasks` =
-  MAINTAIN requests on it, under MAINTAIN law, never PROTOTYPE or ITERATE law (→
+- **`src/` + `tests/` + `analysis/` + six publishers = production spine** = the IMPLEMENT scope,
+  gates + verification integrity binding; the prototype (`prototype/review-ui/`, → `Artifacts`)
+  sits outside under PROTOTYPE law, `testpaths = ["tests"]` keeping it out of collection (→
   `.claude/rules/delegation.md`).
+- **IMPLEMENT optimises the video analysis itself** (user ruling) — parameter optimisation + model
+  selection across 2D pose, features + the cohort export, benchmarked. Every model + parameter
+  ruling below (detector, pose + hand model, tracker, filters, hand gate, span trim, smoothness
+  feature) is open to a measured benchmark from the start; a replacement lands as a new ruling.
+  Data-boundary, claim-boundary, 3D-negative + metric-scale rulings stay binding.
+- **Review UI shape** (user rulings, ITERATE) — Japanese default, English by switch; theme
+  auto|light|dark, auto = the OS; the clip player = first tab + the view a bare URL opens; the whole
+  frame + transport visible with no page scroll (list beside stage >= 761 px, fitted stack below);
+  no committed media, no demo clip, no stored proof.
 - **Claim boundary.** Retrospective 3D feasibility may be claimed from internal geometric + QC
   evidence alone; clinical validity, absolute metric accuracy and marker-based equivalence may not.
   Crossing it needs the prospective calibrated capture in `docs/prospective_capture.md`.
@@ -119,24 +128,8 @@ hospital SCI database.
 
 ## Tasks
 
-- [x] 397cc8a **Review UI overlay time map (C01)**
-- [x] b8ccd71 **Review UI stacked layout drifted right + shrank at ratio 1.1 (user report)**
-- [x] aed1e7d **Review UI player needed page scroll to show the stage (user request)** — side by
-  side down to 761 px, fitted 2:5 stack below; user-approved ("much better and stable").
-- [x] ecd0d86 **M2.10 messy-footage compensation, run prep (user request)** — M2.10.1 hand gate
-  `4c471ab`, M2.10.2 camera survey `ecd0d86`; wrong-person residue + 3D angles → `.agent/deferred.md`.
-- [x] 08d0594 **M2.10 corpus run** — 193/193 events, 379/379 `ok`, 11/11 verdicts, `task_span`
-  published; cohort republished; after-table → `pose-weak-points.md` § M2.10 corpus.
-- [ ] **User reviews the M2.10 videos** — player at `:8791` (M2.10) beside `:8792 --repo
-  "$PWD/.scratch/compare-m29"` (M2.9); the user's word also decides the superseded trees' deletion.
-- [x] 677e56b **Review UI JP subset builds from gitignored `cohort/descriptors.yaml`** — builder
-  refuses absent; `tools/check_glyphs.py` 0 missing (→ `review-ui.md` firing).
-- [x] 57a891d **Overlay landmark->pixel map proven** — `tools/overlay_map_qa.mjs`, max 0.089 px after
-  the contain-matched transform (was 0.871 px).
-- [x] 57a891d **HEVC decode banner exercised** — `tools/decode_banner_qa.mjs`, synthetic hvc1.
-
 Evidence → `.agent/archive/{polish,review-m2}.md`; regen → each check's `paths:` rule in `.claude/rules/`; queue → `.agent/deferred.md`.
 
 ## Phase
 
-ITERATE — review UI (`prototype/review-ui/`, the one prototype in `Artifacts`)
+IMPLEMENT — video analysis (2D pose, features, cohort export to `../rehab`)
