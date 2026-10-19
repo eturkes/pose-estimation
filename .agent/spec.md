@@ -122,9 +122,8 @@ hospital SCI database.
   second-stage bar (jitter <= 0.006, wall <= +15 %) retires with it; its "RTMW-X" arm was RTMW-L
   384x288 whose ONNX export emits unnormalised scores (600 COCO crops: median 4.2, max 8.4), so its
   rejection measured the export, not the model.
-- **Acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`** — 9 files under
-  `scripts/ src/ tests/` break if it moves, one a generated data field no gate resolves;
-  re-derive → `.claude/rules/retention.md`.
+- **Acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`** — the files a move
+  breaks (one a generated data field no gate resolves) re-derive by `.claude/rules/retention.md`.
 - **External AI-judgment services stay out of this repo** — surveyed and declined by the user.
   The three defects the survey measured live on as `.agent/deferred.md` rows with mechanism left
   open; the survey itself is not repeated.

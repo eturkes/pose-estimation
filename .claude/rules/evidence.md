@@ -2,33 +2,99 @@
 
 Cross-cutting law. Every number, predicate and gate in this repo answers to it.
 
-- **Name the population beside the count, always.** This project hit the same trap four times: two closure statistics over different event sets, two "families connected" figures, a contract's `329` vs the true `355`, and a window gauge recorded `at high-water` from a mid-window sample (231K/96% against a true peak of 240K/100%). A bare count is the shape of defect that survives review.
-- **A population count carries the instrument setting that produced it.** Rigidity's eligible 298 is not a corpus property: holding the gate at 20 px and sweeping RANSAC 4→48 px moves eligibility 298→311. Quote a denominator with its threshold or not at all.
-- **A gate constant must never double as an instrument parameter.** The tell is a near-constant statistic sitting inside its own gate; the test is a threshold sweep. Sweep any statistic before gating on it, ratios included.
-- **A contract's stated census can be derived under a rule a later predicate replaced.** Re-derive every census at implementation time rather than trusting the frozen text; whenever one predicate changes which rows exist, grep the contract for every number quantifying over rows and recompute each one.
-- **Freeze the schema, measure the data.** The line is ownership, not distaste for literals. A field-name set, a JSON sub-schema, a reason-code enumeration, a unit vocabulary = contract-owned → freezing is legitimate and often required, since a membership predicate that never fixes its set cannot fire. A count of data rows, a column census, an exclusion list = input-owned → the next run changes it. Both applied in one contract: M2.8.3 A10 froze the field names while A02 refused to freeze the 17 all-NA columns, and both are right. That same A10/A02 split decides `CLAUDE.md` `Engineering`'s expected-output test: an A10-shaped field-name set is a legitimate fixture, an A02-shaped row or column census hard-coded into the implementation is the defect it names.
-- **A projection carried forward as a budget is a frozen number of the same class, and worse** — nothing in the text marks it as derived. A 6.5 h corpus-run estimate extrapolated from per-call micro-benchmarks reached the roadmap as sizing, was re-quoted through planning and two unit windows, and measured 4-5× low the first time anything ran end to end; the 49-minute pilot that refuted it moved the plan to 26-31 h. **Record a number's provenance beside it — measured / projected / assumed — and refuse to size work on a projection whose measurement is affordable.**
-- **Size on the measured actual/estimate ratio, and record both figures.** Multiply the bottom-up figure by that multiplier and split the work where the calibrated figure exceeds the budget; corrections belong in the multiplier, never in a re-argued bottom-up. The repo's own ratios: M2.8.3 ran 3 windows against 2, M2.8.4 ran 4 against 1-2, M2.8.5 ran 2 against 2-3. **A multiplier cannot absorb a structural miss** — M2.8.3's three consecutive overruns were one id wearing two units, and the split at its `FEATURES` seam is what fixed the sizing, not a bigger number.
-- **Calibrate the instrument against known ground truth BEFORE interpreting any result from it.** Two windows went to narrowing hypotheses against an uncalibrated instrument. The synthetic positive control — known extrinsics driven through the real cache's own validity masks, sizes, models and event population, so only the geometry becomes known — cost one script, returned cycle closure median 0.000 deg, exonerated the estimator, priced the error budget in px and supplied the reference distributions that made the real statistic readable at all. A null is not interpretable until the instrument's response to a known input is known.
-- **A statistic that discriminates needs calibrated references, not a suggestive value.** "Bias is the only surviving hypothesis" and "bias at r = 0.703 against 0.010 noise / 0.997 bias references" are different epistemic objects; only the second refuses a repair route or gets published. Run a new diagnostic on synthetic data spanning both mechanisms across the magnitude range bracketing the real value, and check the confound explicitly.
-- **A null bounds the route it ran, never the route it skipped.** State the unrun arm explicitly beside every negative.
-- **Test a repair's premise before building the repair.** A repair route names a premise; find it and measure that. One re-split of an existing statistic refuted M2.6b's premise in one window and no estimator was written.
-- **Held-out reprojection on a solve's own keypoints is self-consistency, never accuracy.** Pätzold et al., GCPR 2022 measured a keypoint-recovered calibration beating the reference on human reprojection (4.01 vs 4.57 px) while losing on independent AprilTags by 3.05 px. Same discipline as M2.3's acoustic closure: an in-family statistic certifies consistency and cannot certify correctness.
-- **A validation function is never a byte witness.** Semantic validators canonicalize their input, so a reindent, a key reorder or any same-semantics rewrite passes `validate_generation` unchanged — "validation holds before and after" cannot support a byte-unmoved claim. A read-only-over-upstream claim needs a **recursive non-following pre/post snapshot** — relative path, entry kind, symlink target text, content digest for regular files — with validity checked as a *separate* predicate. Non-following is load-bearing: `videos`, `inventory` and `renv/library` are symlinks in a teammate worktree.
-- **A keyless digest detects, it does not authenticate.** No artifact here carries a signing key, so anyone who edits a claim and recomputes the digest produces a document every check accepts. What is ruled out is corruption and every edit that stops at the claim. Never let a passing check restate it as tamper-proofing; both `qualify.py` and `docs/technical/qualification.md` state the bound, and it stays stated.
-- **Committed evidence binds to source digests, never to a head SHA.** A regeneration run always precedes the commit carrying its output, so a recorded `git rev-parse HEAD` names the parent state and can never be checked — regenerating to fix it just re-lags. `source_sha256` over a declared `SOURCE_FILES` tuple is the real dependency and refuses regeneration on mismatch.
-- **Regeneration is a fixpoint, so it is the last action before the commit.** Where a test file sits in `SOURCE_FILES` *and* holds the case comparing every recorded `source_sha256` against current bytes, adding one test after regenerating re-breaks the evidence the regeneration just produced. Land every source and test edit first, regenerate once, commit.
-- **A green predicate whose detail line reports zero items is a failing predicate.** Every set-quantified predicate needs a non-empty floor, and every quantified predicate carries an explicit `nonvacuous` clause — five M2.8.2 predicates went green over an empty set (no landmark CSV, an empty tree, zero recorded frames, a report with no strings, an unsized unit). The row-wise check over a zero-row CSV is the same defect; a golden built only from well-formed input pins nothing about the failure path it exists for. **Read a validator's detail line, never its rc alone.**
-- **A repo-root sweep never reads the two directories that hold every live law surface.** `rg` and `ugrep` both skip hidden directories by default, so `rg <pattern> .` from the root misses `.claude/rules/` and `.agent/` entirely and a stale-law sweep returns rc=1 meaning nothing. Measured: a retired-phrasing sweep over `.` read clean while `.claude/rules/data-boundary.md` still carried the retired pointer, and the same sweep under `--hidden --glob '!.git/'` found it. Sweep law with `--hidden --glob '!.git/'` or by naming each dot-dir, and pick the positive control from bytes known present **in that same search space** — a control aimed at a non-hidden path certifies nothing about a hidden one.
-- **A case that grades a stand-in grades nothing.** Two suite defects of one kind: a discovery regex over `[A-Z_]*DISPOSITION[A-Z_]*\s*=` could not match the repo's own annotated `ASSET_DISPOSITIONS: tuple[str, ...] = (`, so it reported an absent constant that was present; and a local `_manifest_verdict` re-implementation passed while the shipped `validate_manifest` was broken. **Encode a predicate over shipped behaviour against the shipped symbol.** Finding a *name* is only a spelling test — a comment passes it.
-- **Re-derive, never transcribe.** Parse reason codes, schema headers, directory filters, markers, key patterns, stratum axes, allowlist call sites and superseded figures from source at check time, so a rename moves the case instead of silently passing it. Adopt this and the `nonvacuous` clause by default in every suite.
-- **A rule's prescription survives a wrong stated mechanism, and the mechanism is what a repair reads.** `gates.md` called both halves of the gate prefix load-bearing; the 4-way measurement (→ `gates.md`) says `PYTHONPATH="$PWD/src"` alone collects at rc=0 while `env -u LD_LIBRARY_PATH` alone still fails at rc=4, because the *inherited `PYTHONPATH`* reaches the host OpenVINO build and the loader path only supplies its libraries. Reading the stated mechanism as evidence produced a defect report against a worktree recipe that measures green. **Measure the mechanism before editing anything derived from it** — this repo's own law is a transcription like any other.
-- **A negative-control seed is itself a claim, and needs a predicate that can actually see it.** Two of M2.8.3's 13 controls fired nothing: moving a column between census halves preserved union, disjointness and every reason code; sorting descriptors by label is deterministic across every swept environment and stable on republication. **Grade the seed against the predicate text when the contract is written** — idempotence in particular can never detect a stable wrong order.
-- **A frozen predicate is the artifact most likely to be wrong, and a diff-blind suite is what proves it.** `test-m2u82-2` graded a contract against the shipped surface with no sight of MAIN's diff: **11 findings, 11 contract defects, 0 driver defects** — a scope term never defined, a witness set blind to a file it quantifies over, `never stored` asserted over a schema already published, a shape test called an allowlist, a budget figure carried unlabelled. Cost of the ruling is one amendment each; cost of trusting the text is a green gate over a false claim. Budget a diff-blind grading pass per `kernel` unit and expect its findings to land in the contract.
-- **Two amendments can each be right and jointly inconsistent — every rule over a partitioned artifact must state the grain it quantifies over.** Run-level presence decides *publication*, cell-level emptiness decides *statistics*; saying so dissolved a live contradiction with no rule change.
-- **Count the guards, not the columns.** Predicting a restored column set from one guard being lifted overcounts by exactly the columns a *second* guard suppresses (predicted 17/92, measured 14/89). A partition ruled **measured** rather than declared absorbs a wrong prediction with zero predicate edits.
-- **A defect inferred from a derived artifact needs one measurement of the mechanism before it is funded.** M2.8.3 read non-upright decoding out of feature values and detection rates and never compared a decode against its own container; one pixel comparison refuses it. The observations were real — what they measured was something else.
-- **Before funding a measurement, re-read the logs the last measurement already wrote.** The ~40× per-asset bimodality was answered by re-reading M2.8.1's own committed per-frame latency logs at the detector cadence.
-- **A seam that is one immutable value is a unit boundary; find that shape before sizing.** M2.8.3 overran a `2 est` by three windows because it was two units wearing one id — a schema half and a compute half communicating through exactly one frozen tuple and nothing else, each window re-paying the same entry cost. The tell is available at PLANNING time with no code written: name the single value the halves share and you have found the boundary.
-- **A context reading is a time series, so name which reading you mean** — last turn or high-water. High-water = the max over assistant turns of `input + cache_creation + cache_read + output` in the session transcript, read from the last executor pass wherever `usage.iterations` lists the passes (an advisor or compaction turn sums every pass into top-level usage). The harness sheds MAIN's content silently, so a >50K single-turn drop is ordinary shedding and the plain max is the answer; an auto-compaction's drop splits the window into two regimes → report its pre-compaction peak. **Size against token counts, never a percentage**: this repo's recorded gauges straddle 240K, 273K and 1M denominators, and live contexts differ — each reads against its own compaction trigger. An `84% 202K/240K` record says 202K tokens, not a unit at its reserve.
-- **The harness manages MAIN's window, so a checkpoint claim outlives its evidence with no visible boundary.** Shedding leaves no marker where the source went. Re-derive from the file, the gate or the commit before acting on any claim whose supporting read happened earlier in the session.
+## Counts + populations
+
+- **Name the population beside the count, always.** A bare count is the defect shape that survives
+  review here: two closure statistics over different event sets, a contract's `329` vs the true
+  `355`, a gauge sampled mid-window recorded as high-water.
+- **A population count carries the instrument setting that produced it.** Rigidity's eligible 298
+  moves to 311 when RANSAC sweeps 4→48 px at a fixed 20 px gate → quote a denominator with its
+  threshold or not at all.
+- **A gate constant never doubles as an instrument parameter.** Tell = a near-constant statistic
+  inside its own gate; test = a threshold sweep before gating on any statistic, ratios included.
+- **Re-derive every contract census at implementation time.** A frozen census can predate the
+  predicate that changed which rows exist → grep the contract for every number quantifying over
+  rows and recompute each.
+- **Freeze the schema, measure the data.** Contract-owned = field-name sets, JSON sub-schemas,
+  reason-code enumerations, unit vocabularies → freezing is legitimate (a membership predicate
+  that never fixes its set cannot fire). Input-owned = row counts, column censuses, exclusion
+  lists → the next run changes them; hard-coding one is `CLAUDE.md` `Engineering`'s
+  expected-output defect.
+- **Count the guards, not the columns.** Predicting a restored set from one lifted guard
+  overcounts by what a second guard suppresses (predicted 17/92, measured 14/89); a partition
+  ruled **measured** absorbs that with zero predicate edits.
+- **Every rule over a partitioned artifact states its grain.** Run-level presence decides
+  publication, cell-level emptiness decides statistics; two amendments right alone can be jointly
+  inconsistent until the grain is named.
+
+## Sizing
+
+- **Record each number's provenance — measured / projected / assumed — and refuse to size on a
+  projection whose measurement is affordable.** A 6.5 h corpus estimate from per-call
+  micro-benchmarks measured 4-5× low end to end.
+- **Size on the measured actual/estimate ratio, record both figures**; corrections go into the
+  multiplier, never a re-argued bottom-up. A multiplier cannot absorb a structural miss: a unit
+  whose halves share exactly one immutable value is two units → split there, found at planning.
+
+## Instruments + mechanisms
+
+- **Calibrate the instrument against known ground truth before interpreting a result.** A
+  synthetic positive control driven through the real masks, sizes and population (known extrinsics
+  → cycle closure 0.000 deg) is what made the real statistic readable; a null is uninterpretable
+  until the response to a known input is known.
+- **A discriminating statistic needs calibrated references, not a suggestive value.** Run it on
+  synthetic data spanning every candidate mechanism across the magnitude range bracketing the real
+  value (r = 0.703 against 0.010 noise / 0.997 bias references), and check the confound.
+- **A null bounds the route it ran, never the route it skipped** → state the unrun arm beside
+  every negative.
+- **Test a repair's premise before building the repair**; a re-split of an existing statistic can
+  refute it with no estimator written.
+- **An in-family statistic certifies consistency, never correctness** (held-out reprojection on a
+  solve's own keypoints → `geometry.md`).
+- **A defect inferred from a derived artifact needs one measurement of its mechanism before it is
+  funded**, and **re-read the logs the last measurement wrote before funding a new one**.
+- **Measure a mechanism before editing anything derived from it** — this repo's law is a
+  transcription too: `gates.md` once called both prefix halves load-bearing, and a defect report
+  built on that wording targeted a recipe that measures green.
+
+## Validators + witnesses
+
+- **A validation function is never a byte witness.** Semantic validators canonicalize, so
+  same-semantics rewrites pass. A read-only-over-upstream claim needs a recursive non-following
+  pre/post snapshot (relative path, entry kind, symlink target text, regular-file digest) plus
+  validity as a separate predicate; non-following matters because `videos`, `inventory` and
+  `renv/library` are symlinks in teammate worktrees.
+- **A keyless digest detects, it does not authenticate.** Anyone can edit a claim and recompute
+  it → never let a passing check read as tamper-proofing; `qualify.py` +
+  `docs/technical/qualification.md` state the bound.
+- **Committed evidence binds to source digests, never a head SHA** (a regeneration always precedes
+  its commit, so a recorded HEAD names the parent). **Regeneration is a fixpoint → the last
+  action before the commit**: a test file inside `SOURCE_FILES` edited after regenerating
+  re-breaks it.
+- **A green predicate whose detail line reports zero items is failing.** Every quantified
+  predicate carries a `nonvacuous` floor; read a validator's detail line, never its rc alone.
+- **A case that grades a stand-in grades nothing.** Encode predicates over shipped behaviour
+  against the shipped symbol — a re-implemented verdict passed while the shipped validator was
+  broken, and a name match is a spelling test a comment passes.
+- **Re-derive, never transcribe**: parse reason codes, schema headers, filters, markers, key
+  patterns, strata, allowlist call sites and superseded figures from source at check time.
+- **A negative-control seed is a claim; grade it against the predicate text when the contract is
+  written.** Idempotence can never detect a stable wrong order.
+- **A frozen predicate is the artifact most likely to be wrong**: a diff-blind grading pass found
+  11 contract defects and 0 driver defects in one unit → budget one per `kernel` unit and expect
+  its findings to land in the contract.
+
+## Sweeps
+
+- **A repo-root sweep skips `.claude/rules/` + `.agent/`** (`rg`/`ugrep` skip hidden dirs) → sweep
+  law with `--hidden --glob '!.git/'` or name each dot-dir, positive control drawn from that same
+  search space.
+
+## Context records
+
+- **Name the reading — last turn or high-water — and size in tokens, never percent**: recorded
+  gauges here straddle 240K, 273K and 1M denominators. High-water = max assistant-turn
+  `input + cache_creation + cache_read + output`, last executor pass where `usage.iterations`
+  lists passes; an auto-compaction splits it into two regimes → report the pre-compaction peak.
+- **The harness sheds MAIN's content silently** → re-derive from the file, gate or commit before
+  acting on a claim whose supporting read happened earlier in the session.

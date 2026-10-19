@@ -3,31 +3,67 @@
 Teammate fits + mechanics = `CLAUDE.md` `Teammates`; each role's standing rules =
 `.claude/agents/<role>.md`. These are the project's own rulings + measured corrections.
 
-- **Phase scopes the spine; review-UI rows run PROTOTYPE law** (user ruling: IMPLEMENT = the video
-  analysis, the review UI kept as its review instrument). Spine work follows the phase `Phase` names,
-  depth per unit: pipeline, publisher or analysis code is `kernel` (`.agent/spec.md` `Decisions`), so
-  deep. A review-UI row (`tools/review-ui/`) is instrument upkeep under PROTOTYPE law, outside the
-  gates, whatever phase the spine holds. Role fits (`tester` on a committed kernel contract,
-  `reviewer` on a kernel-unit diff, `scientist` on an after-table or a cohort republication) hold
-  in every phase.
-- **A review PASS terminates on rows adjudicated; a review WAVE closes on fixes applied** (ruling on
-  `CLAUDE.md` `Engineering` review termination, which quantifies over the pass and is kept whole —
-  check set fixed before the diff is read, every row adjudicated, an all-`pass` table complete, no
-  open-ended re-review after it). Closure quantifies over the wave: an adjudicated row whose ruling
-  accepts a fix stays open until that fix closes on its own acceptance check under MAIN's rerun, so
-  a wave that rules every row and applies none has not closed and re-enters to apply them.
-  Measured: M2's wave 1 adjudicated 193 rows / 55 fails in one pass and needed three further
-  sessions to close 40 of its 43 accepted fixes. Reading the clause as an override instead of a
-  grain split takes its anti-flip-flop mechanism down as collateral (grain law → `evidence.md`).
+## Scope + review grain
 
-- **Poll a worktree teammate's report inside its worktree.** A teammate whose cwd is `.scratch/worktrees/<name>` writes `.scratch/agents/<name>.md` **there** — a different file from MAIN's `.scratch/agents/<name>.md`, which keeps the unfilled seed forever. A flush counter reading MAIN's copy reports `0/N` against an agent fully on pace; one such agent reached its supersession trigger at 5/6. Always poll `.scratch/worktrees/<name>/.scratch/agents/<name>.md`, and copy that file into MAIN's `.scratch/agents/` before removing the worktree — `.scratch/` is gitignored in main, so the report does not survive teardown otherwise.
-- **A worktree branch tip moves after the poll that read it.** Deleting a branch prints `was <sha>` for a commit the poll never saw. Check ancestry (`git log --oneline -3 <sha>`) before concluding work was lost — the later sha is normally a descendant carrying one more report edit.
-- **A superseded ruling in a shared file poisons every downstream artifact.** M2.2's rulings file kept A07 + A12 after two later rulings replaced them; the `tester` conformed to the file and its suite read as a regression against correct code. Amend a ruling **in place**, in the same turn as the code it rules — a "later rulings win" note at the bottom is not enough, because the table is what gets read.
-- **Keep a rejected design's worktree after picking the winner.** M2.2's rejected spike carried an independent 184-line generator; rerunning it against the shipped one made it a differential oracle — identical partition over 193 blocks and 379 assets, 0 `capture_id` disagreements, from code sharing no line with the winner. The bytes cost nothing and the evidence is unreproducible once the worktree is gone.
-- **A reviewer's worktree diff against `main` carries its own staleness.** `wt/rev-m2u2` showed a *revert* of a MAIN change that landed after its branch point. Read a reviewer's diff as findings, never as a patch to apply.
-- **A saturated reviewer's persistence is a context artifact, not evidence.** `rev-m2u3` re-filed a strengthened red against one closed ruling twice while above 97%, each time reading the ruling as unresponsive rather than as decided. Weigh a finding by its argument; when the same row returns from an agent near its ceiling, restate the ruling once and stop, and prefer a fresh successor to another round. The inverse trap is real too (next bullet) → the discriminator is the reviewer's gauge, not its insistence.
-- **A reviewer's DONE marker is not the end of its yield.** M2.2's two reviewers sent nine more accepted defects after both phase-2 markers, four in the minutes before the close commit. While a reviewer has context left, keep it pointed at the surfaces MAIN just changed and take findings by message; ask for the report file **last**, since writing it costs the context that finds the next defect.
-- **Copy a reviewer's red suite into the primary tree and rerun it; the pass/fail split is the adjudication ledger.** M2.7.1 window 4 scored `rev-m2u71` + `rev3-m2u71` at 41 failed / 4 passed before fixes and 7 failed / 38 passed after, where the 7 are exactly the rows ruled rejected. The rerun is what caught the half-fixes: window 3 recorded C01/C11 closed after correcting a module docstring while the roadmap headline still carried the unscoped claim. Reds scoring against an older branch point separate into fixed / open-scope / live only under execution — a report's own tally cannot make that split.
-- **A restored red is evidence, not law.** Of 27 reds restored from M2's reviewer tips, 3 were themselves defective (the "a case that grades a stand-in grades nothing" class) — one contradicted its own ledger row with the *test* right. Read each red against the shipped contract **and** against its own ledger row before crediting it.
-**Reds from one reviewer are no more mutually consistent than reds from two**: `rev-m2u82`'s R20 byte-idempotence fixture omitted the `video` column its own R25 row demands be checked, so applying both fixes left R20 red on `artifacts_owned` rather than on idempotence. Restore a battery whole and run it as a set — a per-row restore hides the contradiction as a fix that "did not take".
-- **Review-wave sizing, measured on M2 wave 1: 5 reviewers × ~40 rows = 193 rows / 55 fails fits one MAIN window** — but only because harvest is mechanical: archive the report, script-extract the verdict table, read `fail` rows alone (~25K for 193 rows). Seeding + both-ways grading = `CLAUDE.md` `Teammates` (a seeded deliverable + its validator, graded both ways at seed); this project's grader is `scripts/check_review_report.py` (→ `checks.md`). It parses `| <ID> |` with `<ID>` matching `[A-Z]\d{2}` and requires the literal headings `## Verdict table`, `## Detail`, `## Register` — **write the brief in the grader's own row and section vocabulary**, since a brief naming one-digit ids or `## Findings` costs the agent a schema reconciliation before it can flush anything. Verdict spelling included (ruling on `.claude/agents/reviewer.md` Deliverable `pass` | `finding`): the grader reads `pass` | `fail` | `unknown`, so a brief maps the role's `finding` to `fail` — a role-spelled `finding` row grades `FAIL P02c`.
+- **Phase scopes the spine; review-UI rows run PROTOTYPE law** (user ruling: the review UI is the
+  analysis's review instrument). Spine work (pipeline, publisher, analysis = `kernel`, `.agent/spec.md`
+  `Decisions`) follows the phase `Phase` names, deep. A `tools/review-ui/` row is instrument upkeep
+  under PROTOTYPE law, outside the gates, in any phase. Role fits (`tester` on a committed kernel
+  contract, `reviewer` on a kernel-unit diff, `scientist` on an after-table or a cohort
+  republication) hold in every phase.
+- **A review PASS terminates on rows adjudicated; a review WAVE closes on fixes applied** (ruling on
+  `CLAUDE.md` `Engineering` review termination, kept whole for the pass: check set fixed before the
+  diff is read, every row adjudicated, an all-`pass` table complete, no open-ended re-review). An
+  adjudicated row accepting a fix stays open until that fix closes on its own acceptance check
+  under MAIN's rerun → a wave that rules every row and applies none re-enters to apply them (M2's
+  first wave: 193 rows / 55 fails in one pass, three more sessions to close 40 of 43 fixes).
+  Reading this as an override rather than a grain split drops the anti-flip-flop mechanism.
+
+## Worktree teammates
+
+- **Poll a worktree teammate's report inside its worktree**:
+  `.scratch/worktrees/<name>/.scratch/agents/<name>.md`. MAIN's `.scratch/agents/<name>.md` keeps
+  the unfilled seed forever, so a counter reading it reports `0/N` against an agent on pace. Copy
+  the worktree file into MAIN's `.scratch/agents/` before removing the worktree (`.scratch/` is
+  gitignored → teardown deletes it).
+- **A worktree branch tip moves after the poll that read it** → a deletion's `was <sha>` names a
+  commit the poll never saw; check ancestry (`git log --oneline -3 <sha>`) before concluding work
+  was lost.
+- **Keep a rejected design's worktree after picking the winner**: an independent implementation
+  sharing no line with the winner is a free differential oracle (a rejected 184-line generator
+  matched the shipped partition over 193 blocks + 379 assets), unreproducible once deleted.
+
+## Rulings + reviewer output
+
+- **Amend a superseded ruling in place, in the same turn as the code it rules.** A "later rulings
+  win" note does not hold: the table is what gets read, and a `tester` conforming to a stale row
+  produced a suite that read as a regression against correct code.
+- **A reviewer's worktree diff against `main` carries its own staleness** (it can show a revert of
+  a MAIN change landed after its branch point) → read it as findings, never as a patch.
+- **A saturated reviewer's persistence is a context artifact, not evidence.** When the same row
+  returns from an agent near its ceiling (> ~97 %), restate the ruling once and stop; prefer a
+  fresh successor. Weigh a finding by its argument; the discriminator is the reviewer's gauge, not
+  its insistence.
+- **A reviewer's DONE marker is not the end of its yield** (nine accepted defects once arrived
+  after both markers) → while it has context, point it at surfaces MAIN just changed and take
+  findings by message; ask for the report file last.
+- **Copy a reviewer's red suite into the primary tree and rerun it; the pass/fail split is the
+  adjudication ledger.** Reds against an older branch point separate into fixed / open-scope / live
+  only under execution, and the rerun catches half-fixes a report's tally cannot.
+- **A restored red is evidence, not law**: 3 of 27 restored reds were defective (one contradicted
+  its own ledger row with the test right) → read each against the shipped contract and its own
+  ledger row before crediting it.
+- **Reds from one reviewer are no more mutually consistent than reds from two** → restore a
+  battery whole and run it as a set; a per-row restore hides a contradiction as a fix that "did
+  not take".
+
+## Review-wave sizing + grader vocabulary
+
+- **5 reviewers × ~40 rows (193 rows / 55 fails) fit one MAIN window** because harvest is
+  mechanical: archive the report, script-extract the verdict table, read `fail` rows alone (~25K
+  tokens for 193 rows). Seeding + both-ways grading = `CLAUDE.md` `Teammates`.
+- **Write the brief in the grader's own vocabulary** (`scripts/check_review_report.py` →
+  `checks.md`): rows `| <ID> |` with `<ID>` = `[A-Z]\d{2}`; literal headings `## Verdict table`,
+  `## Detail`, `## Register`; verdicts `pass` | `fail` | `unknown` — map the role's `finding`
+  (ruling on `.claude/agents/reviewer.md` Deliverable) to `fail`, since a `finding` row grades
+  `FAIL P02c`.
