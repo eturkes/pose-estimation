@@ -159,7 +159,7 @@ bout method it ran.
 | P05 | pass | producer run: `BOUT_SCHEMA` header, wide NA, gapless idx, ranges, dispositions, header-only rerun clears stale rows, directory mode skips both artifacts; goldens: 8 new files, the 20 existing byte-identical |
 | P06 | pass | ×3 + shift → identical bounds, features to 1e-9 |
 | P07 | pass | 25 / 30 / 60 Hz: duration within 1/25 s, share + SPARC within 0.05 |
-| P08 | partial | banks seed-determined; all-miss + over-fragmenter fail admissibility, F1 1.0 / < 0.5; one-to-one matching + tolerance; the rerun from committed state is pending |
+| P08 | pass | banks seed-determined; all-miss + over-fragmenter fail admissibility, F1 1.0 / < 0.5; one-to-one matching + tolerance; rerun from committed state (2d0270f) byte-identical: results.json, qualification.json, dev request, qual response (`cmp`) |
 | P09 | pass | driver report `configuration.analysis_sha256` = sha256 of the R file (redaction allowlist carries it) |
 
 ## 8. Amendments

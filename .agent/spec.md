@@ -141,8 +141,13 @@ hospital SCI database.
   Removing the noise at source is what makes filtering unnecessary; a 6 Hz cutoff on top would
   destroy tremor-band energy the source no longer carries as noise, and SPARC is cutoff-sensitive
   so it would move the smoothness feature too.
-- **SPARC is the primary smoothness feature, `normalized_jerk` secondary** — `*_wrist_sal`
-  computes SPARC (adaptive cutoff, method v3); it publishes with the M2.9 corpus rerun.
+- **SPARC is the primary smoothness feature, `normalized_jerk` secondary — per wrist-motion
+  bout** (M4.5a) — SPARC (adaptive cutoff, method v3) and NJ are defined on one movement, so the
+  export carries `*_bout_sparc` / `*_bout_normalized_jerk` and lists the window forms
+  `construct_invalid`; detector parameters = a synthetic qualification's cell
+  (`contract-m4u5a.md` A01).
+- **Cross-view agreement is descriptive** (M4.5b) — `view_abs_diff` primary, unclipped one-way
+  `view_icc` + subject-resample range, never a reliability or a confidence interval.
 - **Hallucinated hands are gated by their exported score** (user ruling) — hysteresis on 0.65 /
   off 0.5 per track after the smoother; held out: 90 % of hallucinated hands removed, 3.7 % of real
   hands lost (one subject 12 %) → `docs/technical/pose-weak-points.md` § M2.10.
@@ -158,28 +163,29 @@ hospital SCI database.
 - [x] 13fc4dd **RTMW-m label + phase rulings** — live surfaces name the shipped checkpoint; rulings above.
 - [x] 622317e **Security scanners + update automation** — `uv audit` over both uv lockfiles, secret scan,
   security lint, each with a planted firing; Dependabot `uv` × 2; urllib3 2.7.0 → 2.8.0 (6 advisories).
-- [ ] **M4.1 instrument qualification** (`2ef508e`; pre-roll + paired-subject SD open) (`kernel`, `.agent/archive/contract-m4u1.md`; design review
+- [ ] **M4.1 instrument qualification** (`2ef508e`; pre-roll measured `48078b4` — no finite pre-roll matches the whole clip; paired-subject SD open, from the M4 corpus runs) (`kernel`, `.agent/archive/contract-m4u1.md`; design review
   `consultant-2`: qualify before any selection protocol freezes) — codebook v2 on raw frames,
   labeller error vs public GT + inter-labeller agreement, pairwise judge on real model-error pairs,
   pre-roll for stateful replay, paired-subject variance → qualified resolutions. Corpus frame
   viewing authorized this session for MAIN + labelling teammates (user).
-- [ ] **M4.2 public screening** — COCO-WholeBody official evaluator (GT boxes; body + hand parts),
+- [ ] **M4.2 public screening** (`36e525b` `8bc1b81`: 5 arms, finalists RTMW-L 384 + baseline; Sapiens2-0.4B f16 hand AP −0.024 [−0.063, 0.018] vs L 384 on 500 persons at ~17× the cost → user ruling) — COCO-WholeBody official evaluator (GT boxes; body + hand parts),
   one qualified manipulation set (ARCTIC / Ego-Exo4D / DexYCB), HInt visibility; every candidate
   (RTMW m/L/X, DWPose, Sapiens, SDPose, hand models, detectors) → a diverse finalist set.
 - [ ] **On-path defects** (`73927ef` M4.6; P07 stage replay open) (before any calibration) — P08 gate keying, P09 out-of-frame residue, D02
   counter, OpenVINO build in `pose_config.json`, raw-score decode before the smoother's clip.
 - [x] 73927ef **M4.3a arm plumbing** — mmpose-named registry, per-model device, score-calibration hook.
-- [ ] **M4.3b calibration + gate rule** (`contract-m4u3b.md`) — reference-equivalent Platt maps, gate refit only on pilot F1 loss.
-- [ ] **M4.3 complete-pipeline finalists** — pose × hand × detector/identity (incl. a wrong-person
+- [x] bf7728a **M4.3b calibration + gate rule** — reference-equivalent Platt maps, per-model hand gate, presence instrument; refit rule applies in M4.3.
+- [ ] **M4.3 complete-pipeline finalists** (instrument `b88b0e9`; scored from the M4 corpus runs) — pose × hand × detector/identity (incl. a wrong-person
   arm), each recalibrated on development data, dynamic + feature controls, production replay.
 - [ ] **M4.4 locked confirmation** (table frozen `2ef508e`; user labelling `/label` in progress) — decision table (superiority / non-inferiority / inconclusive)
   frozen with margins before a one-use corpus subset is scored; gates vs the shipped baseline.
-- [ ] **M4.5 features** — per-movement SPARC, timing features, per-feature cross-view agreement in
-  the cohort export (own contract: construct definitions + known-dynamics controls).
+- [x] 2d0270f 8fe4e2b 48ef1fd **M4.5 features** — qualified wrist-motion bouts (SPARC, NJ, timing,
+  peaks, path ratio, dwell), cohort v2 (bout level, construct-invalid exclusions, descriptive
+  agreement), `--refresh-clinical` for runs made before the bout stage.
 - [x] 3410a90 **`calibration_qc` claims name RTMW-m** — published claim text + fixtures + determinism campaigns.
 - [ ] **Monocular 3D angles pilot** (SAM 3D Body, >= 40 events) → user adoption ruling.
 - [x] fc58765 **Gate speed** — A32 reconciled in-session (`tests/a32_gate.py`), `test_c8_08` = plugin firing; pytest 2465 s vs 5634 s (44 %).
-- [ ] **Corpus rerun** — sized by a paired pilot; cohort republished; after-table vs M2.10; `scientist`.
+- [ ] **Corpus rerun** (running: `output/corpus-2d-m4-rtmw-l-384` then `-rtmw-m-256`, ~7.5 frames/s, code pinned at `48078b4` → `--refresh-clinical` after) — cohort republished; after-table vs M2.10; `scientist`.
 - [ ] **Closing review** — one `reviewer` per lens + MAIN's security lens → `.agent/review.md`.
 - [ ] **Close** — README, review UI → `tools/review-ui/`, `Phase: MAINTAIN`.
 
