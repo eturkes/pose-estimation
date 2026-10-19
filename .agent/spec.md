@@ -143,22 +143,25 @@ hospital SCI database.
 
 ## Tasks
 
-- [ ] **RTMW-m label + phase rulings** — live surfaces name the shipped checkpoint; rulings above.
-- [ ] **Security scanners + update automation** — `uv audit` over both uv lockfiles, secret scan,
+- [x] 13fc4dd **RTMW-m label + phase rulings** — live surfaces name the shipped checkpoint; rulings above.
+- [x] 622317e **Security scanners + update automation** — `uv audit` over both uv lockfiles, secret scan,
   security lint, each with a planted firing; Dependabot `uv` × 2; urllib3 2.7.0 → 2.8.0 (6 advisories).
-- [ ] **Benchmark contract** (`kernel`, `consultant` before code) — protocol, GT sets, label
-  codebook, metrics, subject-split tune/confirm sample, selection rule; prior exposure disclosed
-  (COCO body-17 probe of 4 RTMW arms).
-- [ ] **In-domain label set** — corpus frame viewing authorized this session for MAIN + labelling
-  teammates (user); model-agnostic codebook: per-side hand visibility, patient box, coarse keypoints.
-- [ ] **Benchmark instrument** — committed scripts + tests; public GT fetched (registrations by user).
-- [ ] **Model arms** — RTMW m/L/X on GPU (score normalisation), heavy arm (Sapiens / SDPose port),
-  second-stage hands, detector arms, wrong-person arm (promptable tracker / mask-conditioned pose);
-  per-arm gate recalibration; selection by the frozen rule.
-- [ ] **Parameters + features** — filters, gate, tracker, survey, SPARC per movement, timing
-  features, per-feature cross-view reliability in the cohort export.
-- [ ] **On-path defects** — P08 gate keying, P09 out-of-frame residue, D02 counter, OpenVINO build in
-  `pose_config.json`, slow-asset latency.
+- [ ] **M4.1 instrument qualification** (`kernel`, `.agent/archive/contract-m4u1.md`; design review
+  `consultant-2`: qualify before any selection protocol freezes) — codebook v2 on raw frames,
+  labeller error vs public GT + inter-labeller agreement, pairwise judge on real model-error pairs,
+  pre-roll for stateful replay, paired-subject variance → qualified resolutions. Corpus frame
+  viewing authorized this session for MAIN + labelling teammates (user).
+- [ ] **M4.2 public screening** — COCO-WholeBody official evaluator (GT boxes; body + hand parts),
+  one qualified manipulation set (ARCTIC / Ego-Exo4D / DexYCB), HInt visibility; every candidate
+  (RTMW m/L/X, DWPose, Sapiens, SDPose, hand models, detectors) → a diverse finalist set.
+- [ ] **On-path defects** (before any calibration) — P08 gate keying, P09 out-of-frame residue, D02
+  counter, OpenVINO build in `pose_config.json`, raw-score decode before the smoother's clip.
+- [ ] **M4.3 complete-pipeline finalists** — pose × hand × detector/identity (incl. a wrong-person
+  arm), each recalibrated on development data, dynamic + feature controls, production replay.
+- [ ] **M4.4 locked confirmation** — decision table (superiority / non-inferiority / inconclusive)
+  frozen with margins before a one-use corpus subset is scored; gates vs the shipped baseline.
+- [ ] **M4.5 features** — per-movement SPARC, timing features, per-feature cross-view agreement in
+  the cohort export (own contract: construct definitions + known-dynamics controls).
 - [ ] **`calibration_qc` claims name RTMW-m** — published claim text + fixtures + determinism campaigns.
 - [ ] **Monocular 3D angles pilot** (SAM 3D Body, >= 40 events) → user adoption ruling.
 - [ ] **Corpus rerun** — sized by a paired pilot; cohort republished; after-table vs M2.10; `scientist`.
