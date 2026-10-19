@@ -16,6 +16,9 @@ Patient recordings + every derivative = sensitive. Binds MAIN + every teammate.
   values (geometry, fps, duration, frames, rotation, codec, disposition) each describe the one clip
   on the stage, so the values go and the labels stay. What
   survives is the clip list (positional ordinals, task/side/view) and the corpus counts.
+- **The labelling page (`/label`) shows raw corpus frames** to the user who labels them; every
+  capture of it against the real repo is a patient image. Its QA (`tools/label_click_qa.mjs`) runs
+  against a synthetic repo alone.
 - **The player is the landing view, so the bare URL is the stage.** `http://127.0.0.1:<port>/` with
   no fragment opens the player and autoloads a real recording. Every capture command carries its
   view fragment — `#census`, `#cohort` — and a fragment-less `webcap`/`--png` of the server is a

@@ -75,6 +75,22 @@ cells. The bar is the interquartile range, the rule is the median and the dot is
 the mean. The export publishes no extremes, so the chart draws no whisker. The
 boundary panel states what the numbers mean and what they do not mean.
 
+## Label points
+
+`http://127.0.0.1:8791/label` opens a separate labelling page in English. It shows the
+benchmark's confirmation frames one at a time. The frames have no model overlay.
+
+1. Create the frames from the repository root:
+   `scripts/gate.sh python scripts/bench.py user-sample --watch .scratch/messy/watch_order.json --exclude .scratch/bench/pilot/sample.json --seed 20261020 --out .scratch/bench/user/jobs.json`.
+2. Start the UI and open `/label`.
+3. For each prompted joint, click near the joint. Then click the exact spot in the 3x zoom.
+   Press `o` for a hidden joint, `f` for a joint outside the frame and `u` if you are unsure.
+4. Press `Enter` to save the frame and move to the next unsaved frame.
+
+One wrist click serves both the hand and the arm. Left and right are the patient's own sides.
+The page writes `.scratch/bench/user/labels.jsonl` (git-ignored), one record per frame. This is the
+only file the UI writes. The browser receives job numbers, never an event identifier.
+
 ## Data
 
 `.gitignore` excludes every published tree. A clone therefore carries none of

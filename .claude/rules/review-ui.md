@@ -12,6 +12,12 @@ paths:
 
 ## Check firing evidence
 
+- **`prototype/review-ui/tools/label_click_qa.mjs` — labelling page click map, measured.** Serve a
+  repo whose `.scratch/bench/user/` holds synthetic jobs + a 1920x1080 synthetic frame as job 0
+  (`python -m review_ui --repo <dir>`), then `node tools/label_click_qa.mjs http://127.0.0.1:<port>`:
+  14 points through the two-step zoom, worst 0.22 source px, wrist shared by hand + arm → rc 0
+  (bar 0.5 px). Seed = loupe mapping dividing by `clientWidth + 4` (the border-inclusive bug the
+  first draft had) → worst 0.71 px, rc 1. Capture-free: never point it at real frames.
 - **`prototype/review-ui/tools/check_glyphs.py` firing, measured** (prototype, outside the 16):
   live tree = 436 code points, 0 missing per weight, rc=0; `--extra 鬱` (the shipped firing input)
   = 1 missing per weight, `FAIL 2 missing`, rc=1. Absent `cohort/descriptors.yaml` → `charset()`

@@ -1,7 +1,9 @@
-"""FastAPI application: three read-only views over the published trees.
+"""FastAPI application: three read-only views over the published trees + a labelling page.
 
-Nothing here writes.  Every path a request can reach comes out of the clip index
-built from the published tables, so a request supplies a key and never a path.
+The views write nothing.  Every path a request can reach comes out of the clip index
+built from the published tables, so a request supplies a key and never a path.  The
+labelling page (`/label`, `label.py`) writes one file: the user's labels under
+`.scratch/bench/user/`, addressed by job number.
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import census, clips, cohort
+from . import census, clips, cohort, label
 from .config import STATIC_DIR, Paths
 
 RANGE_PATTERN = re.compile(r"bytes=(\d*)-(\d*)")
@@ -129,6 +131,34 @@ def create_app(paths: Paths | None = None) -> FastAPI:
     @app.get("/")
     def index() -> FileResponse:
         return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/label")
+    def label_page() -> FileResponse:
+        return FileResponse(STATIC_DIR / "label.html")
+
+    @app.get("/api/label")
+    def label_summary() -> JSONResponse:
+        return JSONResponse(label.summary(resolved))
+
+    @app.get("/api/label/{job}/frame")
+    def label_frame(job: int) -> FileResponse:
+        path = label.frame_path(resolved, job)
+        if path is None:
+            raise HTTPException(status_code=404, detail="no frame for this job")
+        return FileResponse(path, media_type="image/jpeg")
+
+    @app.get("/api/label/{job}/answer")
+    def label_answer(job: int) -> JSONResponse:
+        return JSONResponse(label.answer(resolved, job))
+
+    @app.post("/api/label/{job}/answer")
+    async def label_save(job: int, request: Request) -> JSONResponse:
+        payload = await request.json()
+        try:
+            label.save(resolved, job, payload, int(payload["width"]), int(payload["height"]))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail="malformed answer") from exc
+        return JSONResponse(label.summary(resolved))
 
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     return app

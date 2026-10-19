@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Label points — pose benchmark</title>
+<style>
+  :root { --ink: #1d2327; --muted: #5b6770; --line: #c9d1d6; --mark: #d1235f; --bg: #f6f7f8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+  header { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center;
+           padding: 0.6rem 1rem; border-bottom: 1px solid var(--line); background: #fff; }
+  header h1 { font-size: 1rem; margin: 0; }
+  #prompt { font-weight: 600; }
+  #prompt .side { color: var(--mark); }
+  #status, #help { color: var(--muted); }
+  main { padding: 0.75rem 1rem; }
+  #stage { position: relative; display: inline-block; }
+  #frame { display: block; max-width: 100%; cursor: crosshair; border: 1px solid var(--line); }
+  #loupe { position: absolute; display: none; width: 360px; height: 360px; cursor: crosshair;
+           border: 2px solid var(--ink); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35); }
+  button { font: inherit; padding: 0.3rem 0.75rem; border: 1px solid var(--line); background: #fff;
+           border-radius: 4px; cursor: pointer; }
+  button:focus-visible, #frame:focus-visible { outline: 3px solid #1f6feb; outline-offset: 2px; }
+  ol#steps { columns: 2; font-size: 0.85rem; color: var(--muted); padding-left: 1.4rem; }
+  ol#steps li.now { color: var(--ink); font-weight: 600; }
+  kbd { font: inherit; border: 1px solid var(--line); border-radius: 3px; padding: 0 0.25rem; background: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Label points</h1>
+  <span id="status">Loading…</span>
+  <span id="prompt"></span>
+  <label><input type="checkbox" id="setup"> Setup footage (camera handled, not the task)</label>
+  <button id="prev" type="button">Previous frame</button>
+  <button id="save" type="button">Save and next</button>
+</header>
+<main>
+  <p id="help">Click near the joint, then click the exact spot in the zoom. Keys:
+    <kbd>o</kbd> hidden · <kbd>f</kbd> outside the frame · <kbd>u</kbd> unsure ·
+    <kbd>Backspace</kbd> back one step · <kbd>Esc</kbd> close the zoom · <kbd>Enter</kbd> save and next.
+    Left/right = the patient's own sides. Wrist = centre of the wrist crease; index knuckle = the
+    index finger's base joint; tips = the end of the finger, nail side.</p>
+  <div id="stage">
+    <canvas id="frame" tabindex="0" aria-label="Video frame; click to place the current point"></canvas>
+    <canvas id="loupe" width="360" height="360" aria-label="Zoomed view; click the exact point"></canvas>
+  </div>
+  <ol id="steps"></ol>
+</main>
+<script src="/static/label.js"></script>
+</body>
+</html>
