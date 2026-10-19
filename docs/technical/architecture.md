@@ -5,7 +5,7 @@
 | File | Role |
 |------|------|
 | `main.py` | MediaPipe pipeline entry point; CLI, capture loop, pygame display, CSV export. |
-| `run.py` | Unified entry point with rtmlib backends (RTMW-L, DWPose-M, RTMPose-M) + MediaPipe delegate. Holds `MODEL_REGISTRY`, CLI, capture loop. Smoother → `rtmlib_smoothing.py`; OpenVINO patch → `rtmlib_openvino.py` (both re-imported). |
+| `run.py` | Unified entry point with rtmlib backends (RTMW-m under key `rtmw-l`, DWPose-M, RTMPose-M) + MediaPipe delegate. Holds `MODEL_REGISTRY`, CLI, capture loop. Smoother → `rtmlib_smoothing.py`; OpenVINO patch → `rtmlib_openvino.py` (both re-imported). |
 | `models.py` | Downloads MediaPipe TFLite, converts to OpenVINO IR, compiles. Checksum-validated. |
 | `detection.py` | SSD anchor generation and decoding, including MediaPipe-style score-weighted NMS for overlapping boxes and crop keypoints. |
 | `processing.py` | Detector letterboxing/de-letterboxing, graph-compatible pose/palm crops, landmark-output decoding, hands→arms matching, `process_frame`, `tracking_pose_indices()`, `select_primary_body`. |

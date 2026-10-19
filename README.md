@@ -83,7 +83,7 @@ python -m pose_estimation.run --headless
 
 | Model | Keypoints | Notes |
 |-------|-----------|-------|
-| `rtmw-l` (default) | 133 | RTMW-L wholebody (body + hands + face + feet). |
+| `rtmw-l` (default) | 133 | RTMW-m wholebody (body + hands + face + feet). The key name predates the correction. |
 | `dwpose-m` | 133 | DWPose-M wholebody. |
 | `rtmpose-m` | 17 | RTMPose-M body-only. |
 | `mediapipe` | n/a | Delegates to `pose_estimation.main`. |

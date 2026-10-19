@@ -56,22 +56,36 @@ hospital SCI database.
   gates + verification integrity binding; the prototype (`prototype/review-ui/`, → `Artifacts`)
   sits outside under PROTOTYPE law, `testpaths = ["tests"]` keeping it out of collection (→
   `.claude/rules/delegation.md`).
-- **IMPLEMENT optimises the video analysis itself** (user ruling) — parameter optimisation + model
-  selection across 2D pose, features + the cohort export, benchmarked. Every model + parameter
-  ruling below (detector, pose + hand model, tracker, filters, hand gate, span trim, smoothness
-  feature) is open to a measured benchmark from the start; a replacement lands as a new ruling.
+- **IMPLEMENT optimises the video analysis itself** (user rulings) — model selection + parameter
+  optimisation across detector, pose + hand model, tracker, filters, hand gate, span trim and
+  features, benchmarked; every model + parameter ruling below is open, a replacement lands as a new
+  ruling. Accuracy wins above all: no wall or cost bar on any arm; any licence class; any
+  candidate family; features may change definition (per-movement SPARC, timing features, a
+  published per-feature reliability) or join + leave the export. Ground truth = public 2D GT run
+  through the deployment (COCO-WholeBody, ARCTIC, Ego-Exo4D, UBody, DexYCB, HInt) + in-domain
+  keypoints + per-side hand visibility placed by agents on corpus frames + GT-free proxies;
+  selection = a rule frozen before candidate results. Any `.agent/deferred.md` row may join.
   Data-boundary, claim-boundary, 3D-negative + metric-scale rulings stay binding.
+- **Shipped pose model = RTMW-m 256x192** — registry key `rtmw-l` names checkpoint
+  `rtmw-dw-l-m` = RTMW-m in mmpose's own table (COCO-WholeBody hand AP 0.491, whole 0.582; true
+  RTMW-L `rtmw-dw-x-l` 0.598 / 0.660, at 384x288 0.663 / 0.701); every generation through M2.10 ran
+  it. True RTMW-L + RTMW-X fail NPU compile (CMX scheduler) and run on GPU f32. The key stays
+  until the benchmark's registry unit, since every recorded `pose_config.json` carries it.
 - **Review UI shape** (user rulings, ITERATE) — Japanese default, English by switch; theme
   auto|light|dark, auto = the OS; the clip player = first tab + the view a bare URL opens; the whole
   frame + transport visible with no page scroll (list beside stage >= 761 px, fitted stack below);
   no committed media, no demo clip, no stored proof.
+- **Phase-close dispositions** (user rulings) — the review UI moves to `tools/review-ui/` (tag
+  `prototype-review-ui`), still outside the gates; scanners run in the local gate alone, the remote
+  gets Dependabot config only; every superseded corpus generation stays until the user's word.
 - **Claim boundary.** Retrospective 3D feasibility may be claimed from internal geometric + QC
   evidence alone; clinical validity, absolute metric accuracy and marker-based equivalence may not.
   Crossing it needs the prospective calibrated capture in `docs/prospective_capture.md`.
 - **3D is closed negative.** Extrinsic recovery is unachievable here — 15-20 px systematic
   cross-view keypoint bias, refused by the shipped estimator and by independent bundle adjustment,
   not transferring across events, so no repair route survives. Publishes through `calibration_qc/`;
-  reopens on prospective calibrated capture.
+  reopens on prospective calibrated capture. Measured on RTMW-m keypoints → the benchmark reports
+  each arm's cross-view residual; a material drop returns the ruling to the user.
 - **Metric scale is unavailable.** Over a stratified 52/379 sample exact dimensional identity
   resolved 0/52, best conditional route floors at ±17.7 %. Angles, angular velocities, timing +
   dimensionless shape survive; metre-valued distance, velocity + jerk do not. Publishes
@@ -92,9 +106,10 @@ hospital SCI database.
 - **Seated subjects drop what the camera cannot see** (user ruling) — knees, ankles and feet score
   0 on every camera, hips score 0 under the overhead camera; trunk lean and rotation come from
   side views (posture symmetry reads the shoulders alone and keeps every view).
-- **The hand model stays RTMW-L's own hands** — a second-stage hand model is adopted only at
-  fingertip jitter <= 0.006 on the watch set, wall <= +15 %, collapse unchanged per clip (user
-  bar); RTMW-X and both hand-crop refinements missed it.
+- **Hand model = whichever arm the benchmark selects** (user ruling: no cost bar) — the earlier
+  second-stage bar (jitter <= 0.006, wall <= +15 %) retires with it; its "RTMW-X" arm was RTMW-L
+  384x288 whose ONNX export emits unnormalised scores (600 COCO crops: median 4.2, max 8.4), so its
+  rejection measured the export, not the model.
 - **Acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`** — 9 files under
   `scripts/ src/ tests/` break if it moves, one a generated data field no gate resolves;
   re-derive → `.claude/rules/retention.md`.
@@ -127,6 +142,28 @@ hospital SCI database.
   the single source of truth and no post-hoc filter bolts onto published tracks.
 
 ## Tasks
+
+- [ ] **RTMW-m label + phase rulings** — live surfaces name the shipped checkpoint; rulings above.
+- [ ] **Security scanners + update automation** — `uv audit` over both uv lockfiles, secret scan,
+  security lint, each with a planted firing; Dependabot `uv` × 2; urllib3 2.7.0 → 2.8.0 (6 advisories).
+- [ ] **Benchmark contract** (`kernel`, `consultant` before code) — protocol, GT sets, label
+  codebook, metrics, subject-split tune/confirm sample, selection rule; prior exposure disclosed
+  (COCO body-17 probe of 4 RTMW arms).
+- [ ] **In-domain label set** — corpus frame viewing authorized this session for MAIN + labelling
+  teammates (user); model-agnostic codebook: per-side hand visibility, patient box, coarse keypoints.
+- [ ] **Benchmark instrument** — committed scripts + tests; public GT fetched (registrations by user).
+- [ ] **Model arms** — RTMW m/L/X on GPU (score normalisation), heavy arm (Sapiens / SDPose port),
+  second-stage hands, detector arms, wrong-person arm (promptable tracker / mask-conditioned pose);
+  per-arm gate recalibration; selection by the frozen rule.
+- [ ] **Parameters + features** — filters, gate, tracker, survey, SPARC per movement, timing
+  features, per-feature cross-view reliability in the cohort export.
+- [ ] **On-path defects** — P08 gate keying, P09 out-of-frame residue, D02 counter, OpenVINO build in
+  `pose_config.json`, slow-asset latency.
+- [ ] **`calibration_qc` claims name RTMW-m** — published claim text + fixtures + determinism campaigns.
+- [ ] **Monocular 3D angles pilot** (SAM 3D Body, >= 40 events) → user adoption ruling.
+- [ ] **Corpus rerun** — sized by a paired pilot; cohort republished; after-table vs M2.10; `scientist`.
+- [ ] **Closing review** — one `reviewer` per lens + MAIN's security lens → `.agent/review.md`.
+- [ ] **Close** — README, review UI → `tools/review-ui/`, `Phase: MAINTAIN`.
 
 Evidence → `.agent/archive/{polish,review-m2}.md`; regen → each check's `paths:` rule in `.claude/rules/`; queue → `.agent/deferred.md`.
 

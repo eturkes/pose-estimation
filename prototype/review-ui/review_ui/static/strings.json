@@ -564,8 +564,8 @@
     "en": "Whole corpus"
   },
   "token.rtmw_l": {
-    "ja": "RTMW-L キーポイント",
-    "en": "RTMW-L keypoints"
+    "ja": "RTMW-m キーポイント",
+    "en": "RTMW-m keypoints"
   },
   "token.per_model_prior": {
     "ja": "機種別の事前内部パラメータ",

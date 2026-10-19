@@ -1,7 +1,7 @@
 # 2D pose weak points — catalog + repair map
 
 Population = the superseded rtmlib-f7 generation (rtmlib `PoseTracker`, `tracking=False`,
-CPU detector every 7 frames, RTMW-L on NPU, `--single-subject`, `--tracking body`): 379 clips /
+CPU detector every 7 frames, RTMW-m on NPU, `--single-subject`, `--tracking body`): 379 clips /
 193 recording families. The M2.9 generation that replaced it → *M2.9 corpus, measured* below.
 Two instruments:
 
@@ -65,15 +65,18 @@ frames; `collapse` = present hand frames with extent < 0.25 × forearm.
 
 | arm | pose model | jitter | alt | hand conf | collapse (worst clip) | wall, 9 events |
 | --- | --- | --- | --- | --- | --- | --- |
-| v0 shipped chain | RTMW-L 256×192 NPU | 0.0198 | 1.376 | 0.57 | 3.3 % | 733 s |
-| v1 `SubjectTracker` | RTMW-L 256×192 NPU | 0.0102 | 0.572 | 0.60 | 11.4 % | 523-666 s |
-| v2x | RTMW-X 384×288 GPU f32 | 0.0177 | 1.186 | 1.00 | 22.6 % | 847 s |
+| v0 shipped chain | RTMW-m 256×192 NPU | 0.0198 | 1.376 | 0.57 | 3.3 % | 733 s |
+| v1 `SubjectTracker` | RTMW-m 256×192 NPU | 0.0102 | 0.572 | 0.60 | 11.4 % | 523-666 s |
+| v2x | RTMW-L 384×288 GPU f32 (labelled RTMW-X then) | 0.0177 | 1.186 | 1.00 | 22.6 % | 847 s |
 | v3h | v1 + RTMPose-m hand 256×256 on hand crops | 0.0050 | 0.405 | 0.43 | 47.7 % | 737 s |
 
-- RTMW-X: scores run on another scale — 92.9 % of body and 96.7 % of hand observations clip to
-  1.0 — which disarms every confidence gate downstream (smoother, hygiene, R). Rejected.
+- v2x (checkpoint `rtmw-dw-x-l` 384×288 = RTMW-L, read as RTMW-X then): 92.9 % of body and 96.7 %
+  of hand observations clip to 1.0, which disarms every confidence gate downstream (smoother,
+  hygiene, R). Rejected then. The export emits unnormalised scores (600 COCO crops: median 4.2,
+  max 8.4), so the rejection measured the export, not the model; true RTMW-X 384 scores on the
+  normal scale (median 0.75, max 0.97).
 - Hand-crop refinement: halves visible-hand jitter, but its confidence scale is lower (0.60 →
-  0.43, moving every threshold calibrated on RTMW-L), and on occluded hands the crop holds no
+  0.43, moving every threshold calibrated on RTMW-m), and on occluded hands the crop holds no
   hand, so the output collapses (47.7 / 35.1 / 33.1 % of hand frames in the three worst clips).
   Not adopted this pass → `.agent/deferred.md`.
 - Gated refinement (second attempt, user-requested): refine only hands the whole-body model
@@ -91,7 +94,7 @@ frames; `collapse` = present hand frames with extent < 0.25 × forearm.
 ## M2.9 corpus, measured
 
 Population = the M2.9 generation, now `output/corpus-2d-superseded-m29/` (`SubjectTracker`, GPU f32 detector every frame,
-RTMW-L on NPU, hygiene, seated drops, SPARC v3), 379 clips; before = the rtmlib-f7 generation,
+RTMW-m on NPU, hygiene, seated drops, SPARC v3), 379 clips; before = the rtmlib-f7 generation,
 same 379 clips paired by label. Same triage instrument; it reproduces the catalog's own before
 figures exactly except `flick > 5` (144 against the catalog's 143). `flick` = max of the two hands.
 

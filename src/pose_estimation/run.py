@@ -68,6 +68,8 @@ _DET_URL = (
 _DET_INPUT_SIZE = (640, 640)
 
 MODEL_REGISTRY = {
+    # Key predates the correction: checkpoint rtmw-dw-l-m = RTMW-m in mmpose's RTMW table, and
+    # every recorded pose_config.json names this key.
     "rtmw-l": {
         "pose": (
             "https://download.openmmlab.com/mmpose/v1/projects/rtmw/onnx_sdk/"
@@ -76,7 +78,7 @@ MODEL_REGISTRY = {
         "pose_input_size": (192, 256),
         "pose_class": "RTMPose",
         "n_kps": 133,
-        "label": "Wholebody 133 kps (RTMW-L, 256x192)",
+        "label": "Wholebody 133 kps (RTMW-m, 256x192)",
     },
     "dwpose-m": {
         "pose": (

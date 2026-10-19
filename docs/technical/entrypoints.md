@@ -45,7 +45,7 @@ gap instead of shifting every later row relative to the other cameras.
 
 | Model key | Keypoints | Notes |
 |-----------|-----------|-------|
-| `rtmw-l` (default) | 133 | RTMW-L wholebody (body + hands + face + feet). |
+| `rtmw-l` (default) | 133 | RTMW-m wholebody (checkpoint `rtmw-dw-l-m`; key predates the correction). |
 | `dwpose-m` | 133 | DWPose-M wholebody. |
 | `rtmpose-m` | 17 | RTMPose-M body-only. |
 | `mediapipe` | — | Delegates to `main.py`. |
