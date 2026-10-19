@@ -205,3 +205,8 @@ No `src/` module outside `bench/` changes; no published tree is written; `tests/
   L/R vocabulary; 15 P04 reds); an orphan crop answer in `ingest` raises `ValueError` (3 P06b
   reds); `normalized_errors` + `judge_bins` raise `ValueError` on an empty population and
   `box_iou` on a malformed box (3 P06 reds). Suite tip `archive/m4u1-test-5` = `fc0a8d1`.
+- **A04 (D05(e) reference).** The whole-clip run D05(e) compares against = `bench.replay` from
+  frame 0 to the sampled frame under the current code (`<scratch>/w<n>_whole/`), never the
+  published M2.10 rows: M4.6 changed gate keying + export hygiene after that generation, so an
+  equality test against published rows measures the code change at every pre-roll. Windows from
+  the crashed earlier attempt were deleted (their code revision is unrecorded).

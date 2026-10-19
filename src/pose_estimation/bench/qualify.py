@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from itertools import pairwise
 
 import numpy as np
@@ -102,7 +102,7 @@ def paired_subject_sd(diffs_by_subject: dict[int, Sequence[float]]) -> tuple[flo
 PRESENT = {"vis": True, "part": True, "occ": False, "oof": False}
 
 
-def exported_hands(row: dict[str, str] | None) -> dict[str, bool]:
+def exported_hands(row: Mapping[str, str] | None) -> dict[str, bool]:
     """Per side: the exported landmark row carries >= 1 hand point with a positive confidence."""
     return {
         side: bool(row)

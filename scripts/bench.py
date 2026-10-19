@@ -22,6 +22,8 @@
                  PCK@0.05 slack → the finalist set
   presence       M4.3b: production replay per pilot frame (pre-roll) → exported hand presence vs the
                  labellers' agreed hand states, F1 with a subject bootstrap
+  pilot-eval     M4.3: arm + baseline replayed over the pilot → presence F1, gross hand + arm,
+                 side swaps; paired subject intervals → pass / refit / fail
   hand-eval      one arm over a hand set (DexYCB, HInt) with the shipped detector's person box:
                  hand PCK by visibility, coverage, score-occlusion AUROC
   preroll        replay the shipped pipeline over windows ending at sampled frames; compare each
@@ -37,6 +39,7 @@ import csv
 import hashlib
 import json
 import sys
+import time
 from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
@@ -415,12 +418,6 @@ def cmd_progress(a: argparse.Namespace) -> int:
 _META = {"video", "frame_idx", "timestamp_sec", "person_idx"}
 
 
-def replay_row(path: Path, frame: int) -> dict[str, str] | None:
-    from pose_estimation.bench.replay import row_at
-
-    return row_at(path, frame)
-
-
 def _landmark_cells(row: dict[str, str] | None) -> dict[str, str]:
     if row is None:
         return {}
@@ -444,9 +441,15 @@ def cmd_preroll(a: argparse.Namespace) -> int:
         raise SystemExit("preroll: no eligible sampled frame")
     table: dict[float, list[tuple[bool, float, bool]]] = defaultdict(list)
     for n_done, (f, fps) in enumerate(chosen, 1):
-        published = replay_row(a.run / f["event_id"] / f"{f['camera_name']}.csv", f["frame"])
-        want = _landmark_cells(published)
         media = _media(a.sessions, f["event_id"], f["camera_name"])
+        # Reference = the whole clip up to the frame under THIS code: the published rows came from
+        # an earlier pipeline (M4.6 changed gate keying + export hygiene), so equality against them
+        # would measure the code change, not the pre-roll.
+        ref_out = a.scratch / f"w{n_done}_whole"
+        ref_csv = ref_out / f"{media.stem}.csv"
+        if not (ref_csv.is_file() and replay.row_at(ref_csv, f["frame"]) is not None):
+            ref_csv = replay.replay_window(media, 0, f["frame"], ref_out)
+        want = _landmark_cells(replay.row_at(ref_csv, f["frame"]))
         for seconds in a.seconds:
             start = f["frame"] - round(seconds * fps)
             out = a.scratch / f"w{n_done}_{seconds}"
@@ -821,42 +824,91 @@ def cmd_corpus_gross(a: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_presence(a: argparse.Namespace) -> int:
-    from pose_estimation.bench import replay
+def _pilot_replays(a: argparse.Namespace, arm: str):
+    """Per agreed pilot frame: `(key, sample meta, consensus, exported row, max dim, wall s)`.
 
+    Windows are keyed by frame + pre-roll (`<out>/<arm>/preroll<s>/<sha256(key)[:16]>/`), so a
+    window replayed for another start is never reused; a finished one is (resumable).
+    """
+    from pose_estimation.bench import pilot, replay
+
+    try:
+        pilot.check_request(arm, a.preroll)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     first = {r["frame"]["key"]: r for r in labels.load(a.labels[0])}
     second = {r["frame"]["key"]: r for r in labels.load(a.labels[1])}
     meta = {
         f"{f['event_id']}/{f['camera_name']}#{f['frame']}": f
         for f in json.loads(a.sample.read_text(encoding="utf-8"))
     }
-    out_dir = a.out / a.arm
-    rows: list[dict] = []
     for key in sorted(set(first) & set(second)):
         c, m = _consensus(first[key], second[key]), meta[key]
         diag = a.run / m["event_id"] / f"{m['camera_name']}_diag.csv"
         fps = float(next(csv.DictReader(diag.open(newline="", encoding="utf-8")))["fps_nominal"])
         start = max(0, m["frame"] - round(a.preroll * fps))
-        # Keyed by frame + pre-roll: a window replayed for another start must never be reused.
-        window = out_dir / f"preroll{a.preroll:g}" / hashlib.sha256(key.encode()).hexdigest()[:16]
+        window = (
+            a.out / arm / f"preroll{a.preroll:g}" / hashlib.sha256(key.encode()).hexdigest()[:16]
+        )
         media = _media(a.sessions, m["event_id"], m["camera_name"])
         done = window / f"{media.stem}.csv"
+        wall_file = window / "wall.json"
         if not (done.is_file() and replay.row_at(done, m["frame"] - start) is not None):
-            replay.replay_window(media, start, m["frame"], window, extra=("--model", a.arm))
-        exported = qualify.exported_hands(
-            replay.row_at(done, m["frame"] - start) if done.is_file() else None
-        )
+            t0 = time.perf_counter()
+            replay.replay_window(media, start, m["frame"], window, extra=("--model", arm))
+            wall_file.write_text(json.dumps({"seconds": time.perf_counter() - t0}))
+        row = replay.row_at(done, m["frame"] - start) if done.is_file() else None
+        wall = json.loads(wall_file.read_text())["seconds"] if wall_file.is_file() else None
+        size = max(first[key]["frame"]["width"], first[key]["frame"]["height"])
+        yield key, m, c, row, size, wall
+
+
+def cmd_presence(a: argparse.Namespace) -> int:
+    rows: list[dict] = []
+    for _, m, c, row, _, _ in _pilot_replays(a, a.arm):
         states = {side: c["sides"][side]["hand"] for side in labels.SIDES}
-        rows.extend(qualify.presence_rows(m["subject"], states, exported))
+        rows.extend(qualify.presence_rows(m["subject"], states, qualify.exported_hands(row)))
     summary = {"arm": a.arm, "preroll_s": a.preroll}
     summary |= qualify.presence_summary(rows, BOOT_SEED_PRESENCE)
-    (out_dir / f"presence_preroll{a.preroll:g}.json").write_text(
+    (a.out / a.arm / f"presence_preroll{a.preroll:g}.json").write_text(
         json.dumps({"summary": summary, "rows": rows}, indent=1)
     )
     print(json.dumps(summary))
     return 0
 
 
+def cmd_pilot_eval(a: argparse.Namespace) -> int:
+    """M4.3: the arm and the baseline replayed over the pilot → G1-G4, paired intervals, state."""
+    from pose_estimation.bench import pilot
+
+    rows, walls = {}, {}
+    for arm in (a.arm, a.baseline):
+        rows[arm], walls[arm] = [], []
+        for _, m, c, row, size, wall in _pilot_replays(a, arm):
+            rows[arm] += pilot.side_rows(m["subject"], c, row, size)
+            if wall is not None:
+                walls[arm].append(wall)
+    intervals = pilot.paired_intervals(rows[a.arm], rows[a.baseline], a.n, BOOT_SEED_PILOT)
+    report = {
+        "arm": a.arm,
+        "baseline": a.baseline,
+        "preroll_s": a.preroll,
+        "endpoints": {arm: pilot.endpoints(r) for arm, r in rows.items()},
+        "intervals": {
+            g: dict(zip(("point", "lo", "hi"), v, strict=True)) for g, v in intervals.items()
+        },
+        "state": pilot.decide(intervals),
+        "wall_s_per_replay": {arm: float(np.median(w)) if w else None for arm, w in walls.items()},
+        "subjects": len({r["subject"] for r in rows[a.baseline]}),
+        "sides": {arm: len(r) for arm, r in rows.items()},
+    }
+    out = a.out / a.arm / f"pilot_eval_preroll{a.preroll:g}.json"
+    out.write_text(json.dumps(report | {"rows": rows}, indent=1), encoding="utf-8")
+    print(json.dumps(report))
+    return 0
+
+
+BOOT_SEED_PILOT = 20261023
 BOOT_SEED_PRESENCE = 20261022
 
 
@@ -1067,6 +1119,16 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--arm", required=True, help="run.MODEL_REGISTRY key")
     s.add_argument("--preroll", type=float, required=True, help="seconds (M4.1 D05(e))")
     s.add_argument("--out", type=Path, required=True)
+    s = sub.add_parser("pilot-eval")
+    s.add_argument("--labels", type=Path, nargs=2, required=True)
+    s.add_argument("--sample", type=Path, required=True)
+    s.add_argument("--run", type=Path, default=Path("output/corpus-2d"))
+    s.add_argument("--sessions", type=Path, default=Path("sessions"))
+    s.add_argument("--arm", required=True, help="run.MODEL_REGISTRY key")
+    s.add_argument("--baseline", default="rtmw-m-256")
+    s.add_argument("--preroll", type=float, required=True, help="seconds (M4.1 D05(e))")
+    s.add_argument("--n", type=int, default=2000)
+    s.add_argument("--out", type=Path, required=True)
     s = sub.add_parser("agree")
     s.add_argument("--labels", type=Path, nargs=2, required=True)
     s = sub.add_parser("hand-eval")
@@ -1112,6 +1174,7 @@ def main(argv: list[str] | None = None) -> int:
         "agree": cmd_agree,
         "presence": cmd_presence,
         "screen": cmd_screen,
+        "pilot-eval": cmd_pilot_eval,
         "corpus-gross": cmd_corpus_gross,
         "calibrate": cmd_calibrate,
         "public-eval": cmd_public_eval,
