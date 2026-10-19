@@ -56,6 +56,14 @@ $P python scripts/bench.py sample --watch .scratch/messy/watch_order.json --seed
   --out .scratch/bench/pilot/sample.json
 $P python scripts/bench.py frame-sheets --sample .scratch/bench/pilot/sample.json --seed 20261019 \
   --out .scratch/bench/pilot/sheets
+# M4.2 — inference under the accelerator recipe (`.claude/rules/gates.md`), scoring under $P:
+bench.py public-eval --coco-wb .scratch/data/cocowb/coco_wholebody_val_v1.0.json \
+  --images .scratch/data/coco/val2017 --arm <arm> --out .scratch/bench/public
+bench.py hand-eval --set dexycb --root .scratch/data/dexycb/20200709-subject-01 --arm <arm> \
+  --out .scratch/bench/handsets   # likewise --set hint --root …/TEST_newdays_img
+$P python scripts/bench.py screen --coco-wb .scratch/data/cocowb/coco_wholebody_val_v1.0.json \
+  --public .scratch/bench/public --dexycb .scratch/data/dexycb/20200709-subject-01 \
+  --handsets .scratch/bench/handsets --arms <arm…> --out .scratch/bench/screen.json
 ```
 
 COCO val2017 images + `person_keypoints_val2017.json` come from `images.cocodataset.org`; the
@@ -113,6 +121,27 @@ hands hold objects. Coordinate disagreement between the labellers, p50 / p90: ha
 not truth. **Verdict:** categorical states qualify (every Wilson lower bound >= 0.8); consensus
 coordinates (agreed state, mean point) qualify for gross localisation only — hand joints at 0.3 of
 the extent diagonal, arm joints at 0.1 of the patient diagonal (above both labellers' p90).
+
+## Public screening (M4.2)
+
+Pose-only protocol: GT person boxes on COCO-WholeBody v1.0 val (10 777 non-crowd persons,
+82 749 annotated hand joints, 24 476 visible arm joints); the shipped detector's box on DexYCB
+subject 01 (4 034 of 4 433 hands covered, 84 714 joints, every 12th frame) and HInt NewDays
+(1 548 of 1 754 hands covered; 19 910 visible + 11 313 occluded joints). Intervals = paired
+image-bootstrap percentiles, 1 000 resamples shared by every arm (`bench.py screen`, contract
+`contract-m4u2.md` A02); GPU f32 for every arm.
+
+| arm | whole-body AP | hand AP (mean L+R) | DexYCB PCK@0.1 | HInt PCK@0.1 vis / occ | occl. AUROC | arm PCK@0.05 | D03 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| RTMW-m 256 (shipped) | 0.634 | 0.534 [0.520, 0.548] | 0.691 [0.684, 0.699] | 0.782 / 0.524 | 0.646 | 0.909 | baseline |
+| RTMW-L 256 | 0.669 | 0.577 [0.563, 0.593] | 0.723 [0.716, 0.730] | 0.824 / 0.587 | 0.668 | 0.922 | dominated (L 384, X 384) |
+| RTMW-L 384 | 0.714 | 0.648 [0.635, 0.664] | 0.740 [0.733, 0.747] | 0.888 / 0.674 | 0.706 | 0.931 | **finalist** |
+| RTMW-X 384 (cocktail13) | 0.708 | 0.640 [0.626, 0.655] | 0.733 [0.726, 0.740] | 0.862 / 0.634 | 0.674 | 0.934 | dominated (L 384) |
+| DWPose-L 384 | 0.620 | 0.516 [0.501, 0.532] | 0.676 [0.668, 0.684] | 0.690 / 0.479 | 0.617 | 0.888 | dominated (all RTMW) |
+
+Paired RTMW-L 384 − RTMW-X 384: hand AP +0.009 [0.003, 0.016], DexYCB +0.007 [0.004, 0.011] —
+the larger checkpoint loses on hands at equal input size. Sapiens / Sapiens2 rows follow when
+their arm runs (`contract-m4u2.md` D01).
 
 ## Public data provenance
 

@@ -72,7 +72,7 @@ with populations (persons, hands, joints) beside every number.
 | P02 | pass | `tests/test_m4u2_screen.py` P02 ×3 (`bench.screen`); refactored `public-eval` re-scored RTMW-m's cache byte-identical (summary + results) |
 | P03 | pass | `handsets.DEXYCB_TO_COCO_WB` (dex-ycb-toolkit `_MANO_JOINTS` order) + synthetic round trip, all -1 label dropped |
 | P04 | pass | `screen.finalists` + `screen.paired_pck_bootstrap` cases; red 6/6 at `bf7728a` |
-| P05 | open | all arms' DexYCB hand-eval + Sapiens2 arm pending the GPU queue |
+| P05 | partial | 5 RTMW/DWPose arms → `docs/technical/benchmark.md` § Public screening; finalists RTMW-L 384 + baseline RTMW-m; Sapiens2 arm pending (gp-7 port, GPU queue) |
 
 ## 8. Amendments
 
