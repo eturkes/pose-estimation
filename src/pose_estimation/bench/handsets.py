@@ -35,6 +35,11 @@ def _box_of(points: np.ndarray) -> tuple[float, float, float, float]:
     return float(lo[0]), float(lo[1]), float(hi[0]), float(hi[1])
 
 
+#: COCO-WholeBody hand slot → DexYCB joint index. dex-ycb-toolkit `dex_ycb.py` `_MANO_JOINTS` =
+#: wrist, then mcp/pip/dip/tip for thumb, index, middle, ring, little — COCO-WB's own hand order.
+DEXYCB_TO_COCO_WB = tuple(range(21))
+
+
 def dexycb(root: Path, every: int = 12) -> Iterator[GtHandFrame]:
     """Every `every`-th labelled colour frame of each sequence + camera under `root` (one subject).
 
@@ -47,7 +52,7 @@ def dexycb(root: Path, every: int = 12) -> Iterator[GtHandFrame]:
         side = {"left": "L", "right": "R"}[meta["mano_sides"][0]]
         for camera in sorted(p for p in meta_path.parent.iterdir() if p.is_dir()):
             for label in sorted(camera.glob("labels_*.npz"))[::every]:
-                joints = np.load(label)["joint_2d"][0].astype(float)
+                joints = np.load(label)["joint_2d"][0].astype(float)[list(DEXYCB_TO_COCO_WB)]
                 valid = (joints >= 0).all(axis=1)
                 if valid.sum() < 21:
                     continue

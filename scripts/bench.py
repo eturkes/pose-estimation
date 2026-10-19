@@ -18,6 +18,8 @@
                  coordinate disagreement / labelled extent (hands) or patient-box diagonal (arms)
   corpus-gross   arms on the labelled pilot frames inside the consensus patient box: hand +
                  arm-joint gross localisation, side swaps, hand-presence AUROC, subject bootstrap
+  screen         M4.2 D03: paired image bootstraps of COCO-WB hand AP + DexYCB hand PCK@0.1, arm
+                 PCK@0.05 slack → the finalist set
   presence       M4.3b: production replay per pilot frame (pre-roll) → exported hand presence vs the
                  labellers' agreed hand states, F1 with a subject bootstrap
   hand-eval      one arm over a hand set (DexYCB, HInt) with the shipped detector's person box:
@@ -42,7 +44,17 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from pose_estimation.bench import arms, handsets, judge, labels, public, qualify, sample, sheets
+from pose_estimation.bench import (
+    arms,
+    handsets,
+    judge,
+    labels,
+    public,
+    qualify,
+    sample,
+    screen,
+    sheets,
+)
 from pose_estimation.bench.render import frame_sheet
 
 SIDE_WORDS = sheets.SIDE_WORDS
@@ -467,20 +479,6 @@ def cmd_preroll(a: argparse.Namespace) -> int:
     return 0
 
 
-def _auroc(pos: np.ndarray, neg: np.ndarray) -> float:
-    """P(score_pos > score_neg) + 0.5 P(tie) — the Mann-Whitney form of the ROC area."""
-    if len(pos) == 0 or len(neg) == 0:
-        raise ValueError("AUROC needs both classes")
-    allv = np.concatenate([pos, neg])
-    order = allv.argsort(kind="mergesort")
-    ranks = np.empty(len(allv))
-    ranks[order] = np.arange(1, len(allv) + 1)
-    for v in np.unique(allv):  # average ranks over ties
-        tie = allv == v
-        ranks[tie] = ranks[tie].mean()
-    return float((ranks[: len(pos)].sum() - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg)))
-
-
 def cmd_public_eval(a: argparse.Namespace) -> int:
     import subprocess
 
@@ -509,15 +507,7 @@ def cmd_public_eval(a: argparse.Namespace) -> int:
             if n % 500 == 0:
                 print(f"public-eval: {arm.name} {n}/{len(by_image)} images", flush=True)
         np.savez_compressed(cache, kps=kps, scores=scores)
-    results = []
-    cuts = np.cumsum([0, 17, 6, 68, 21, 21])
-    names = ("keypoints", "foot_kpts", "face_kpts", "lefthand_kpts", "righthand_kpts")
-    for p, k, sc in zip(persons, kps, scores, strict=True):
-        flat = np.concatenate([k, sc[:, None]], axis=1)
-        row = {"image_id": p.image_id, "category_id": 1, "score": float(sc.mean())}
-        for i, name in enumerate(names):
-            row[name] = flat[cuts[i] : cuts[i + 1]].ravel().round(3).tolist()
-        results.append(row)
+    results = screen.result_rows(persons, kps, scores)
     res_path = out / "coco_wb_results.json"
     res_path.write_text(json.dumps(results), encoding="utf-8")
     evaluator = Path(__file__).resolve().parents[1] / "tools" / "cocowb-eval"
@@ -528,37 +518,15 @@ def cmd_public_eval(a: argparse.Namespace) -> int:
             check=True, capture_output=True, text=True,
         ).stdout
     )  # fmt: skip
-    hand_err: dict[str, list[float]] = defaultdict(list)
-    for p, k in zip(persons, kps, strict=True):
-        for h in p.hands:
-            base = 91 if h.side == "L" else 112
-            ok = h.kpts[:, 2] > 0
-            err = np.hypot(*(k[base : base + 21] - h.kpts[:, :2]).T) / h.diagonal
-            hand_err["all21"] += err[ok].tolist()
-            sel = np.zeros(21, bool)
-            sel[list(labels.HAND_JOINTS.values())] = True
-            hand_err["feature5"] += err[ok & sel].tolist()
-    body_err, vis_scores, occ_scores = [], [], []
-    for p, k, sc in zip(persons, kps, scores, strict=True):
-        diag = float(np.hypot(p.box[2], p.box[3]))
-        for j in range(5, 11):
-            if p.body[j, 2] == 2:
-                body_err.append(float(np.hypot(*(k[j] - p.body[j, :2])) / diag))
-                vis_scores.append(sc[j])
-            elif p.body[j, 2] == 1:
-                occ_scores.append(sc[j])
+    hand_err = screen.hand_errors(persons, kps)
+    body_err, vis_scores, occ_scores = screen.arm_errors(persons, kps, scores)
     summary = {
         "arm": arm.name,
         "persons": len(persons),
         "official": stats,
-        "hand_pck": {
-            sel: {f"@{t}": float(np.mean(np.asarray(v) < t)) for t in (0.05, 0.1, 0.2)}
-            | {"n": len(v)}
-            for sel, v in hand_err.items()
-        },
-        "arm_pck": {f"@{t}": float(np.mean(np.asarray(body_err) < t)) for t in (0.02, 0.05, 0.1)}
-        | {"n": len(body_err)},
-        "arm_visibility_auroc": _auroc(np.asarray(vis_scores), np.asarray(occ_scores)),
+        "hand_pck": {sel: screen.pck(v, screen.PCK_HAND) for sel, v in hand_err.items()},
+        "arm_pck": screen.pck(body_err, screen.PCK_ARM),
+        "arm_visibility_auroc": screen.auroc(np.asarray(vis_scores), np.asarray(occ_scores)),
     }
     (out / "coco_wb_summary.json").write_text(json.dumps(summary, indent=1), encoding="utf-8")
     print(json.dumps(summary))
@@ -641,7 +609,7 @@ def cmd_hand_eval(a: argparse.Namespace) -> int:
             for part, v in errors.items()
         },
         "median_error": {part: float(np.median(v)) for part, v in errors.items()},
-        "occlusion_auroc": _auroc(np.asarray(vis_scores), np.asarray(occ_scores))
+        "occlusion_auroc": screen.auroc(np.asarray(vis_scores), np.asarray(occ_scores))
         if occ_scores
         else None,
     }
@@ -842,7 +810,7 @@ def cmd_corpus_gross(a: argparse.Namespace) -> int:
         "arm_within_0.05": frac(arm_errs, 0.05),
         "arm_within_0.1": frac(arm_errs, 0.1),
         "side_swaps": f"{sum(swaps)}/{len(swaps)}",
-        "presence_auroc": _auroc(np.asarray(pos), np.asarray(neg)) if pos and neg else None,
+        "presence_auroc": screen.auroc(np.asarray(pos), np.asarray(neg)) if pos and neg else None,
         "per_subject_hand_within_0.3": {
             str(s): frac([e for r in rows if r["subject"] == s for e in r.get("hand_err", [])], 0.3)
             for s in sorted({r["subject"] for r in rows})
@@ -890,6 +858,56 @@ def cmd_presence(a: argparse.Namespace) -> int:
 
 
 BOOT_SEED_PRESENCE = 20261022
+
+
+def cmd_screen(a: argparse.Namespace) -> int:
+    """M4.2 D03: paired bootstraps of COCO-WB hand AP + DexYCB hand PCK@0.1 → the finalist set."""
+    import subprocess
+
+    evaluator = Path(__file__).resolve().parents[1] / "tools" / "cocowb-eval"
+    specs = [f"{arm}={(a.public / arm / 'coco_wb_results.json').resolve()}" for arm in a.arms]
+    hand_ap = json.loads(
+        subprocess.run(
+            ["uv", "run", "--quiet", "--directory", str(evaluator), "python", "bootstrap.py",
+             str(a.coco_wb.resolve()), *specs, "--n", str(a.n), "--seed", str(a.seed)],
+            check=True, capture_output=True, text=True,
+        ).stdout
+    )  # fmt: skip
+    hands = list(handsets.dexycb(a.dexycb))
+    valid = np.stack([h.valid for h in hands])
+    correct = {}
+    for arm in a.arms:
+        z = np.load(a.handsets / "dexycb" / arm / f"pred_{len(hands)}_{a.hand_seed}.npz")
+        diag = np.array([h.diagonal for h in hands])
+        err = np.hypot(*(z["kps"] - np.stack([h.kpts for h in hands])).transpose(2, 0, 1))
+        correct[arm] = (err / diag[:, None] < 0.1) & z["covered"][:, None]
+        covered = z["covered"]
+    dexycb = screen.paired_pck_bootstrap(correct, valid & covered[:, None], a.n, a.seed)
+    arm_pck = {
+        arm: json.loads((a.public / arm / "coco_wb_summary.json").read_text(encoding="utf-8"))[
+            "arm_pck"
+        ]["@0.05"]
+        for arm in a.arms
+    }
+    verdicts = screen.finalists(arm_pck, [hand_ap["pairs"], dexycb["pairs"]], a.baseline)
+    report = {
+        "hand_ap": hand_ap,
+        "dexycb_pck_0.1": dexycb
+        | {"hands": int(covered.sum()), "joints": int(valid[covered].sum())},
+        "arm_pck_0.05": arm_pck,
+        "verdicts": verdicts,
+        "finalists": sorted(arm for arm, reasons in verdicts.items() if not reasons),
+    }
+    a.out.write_text(json.dumps(report, indent=1), encoding="utf-8")
+    for arm in a.arms:
+        ap_, dx = hand_ap["arms"][arm], dexycb["arms"][arm]
+        print(
+            f"screen: {arm:16s} handAP {ap_['mean']:.4f} [{ap_['interval'][0]:.4f}, "
+            f"{ap_['interval'][1]:.4f}]  DexYCB {dx['pck']:.4f} [{dx['interval'][0]:.4f}, "
+            f"{dx['interval'][1]:.4f}]  armPCK {arm_pck[arm]:.4f}  "
+            f"{'FINALIST' if not verdicts[arm] else '; '.join(verdicts[arm])}"
+        )
+    return 0
 
 
 def cmd_agree(a: argparse.Namespace) -> int:
@@ -1059,6 +1077,17 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--limit", type=int, default=0)
     s.add_argument("--seed", type=int, default=20261019)
     s.add_argument("--out", type=Path, required=True)
+    s = sub.add_parser("screen")
+    s.add_argument("--coco-wb", type=Path, required=True)
+    s.add_argument("--public", type=Path, required=True, help="public-eval --out")
+    s.add_argument("--dexycb", type=Path, required=True, help="hand-eval --root of the dexycb set")
+    s.add_argument("--handsets", type=Path, required=True, help="hand-eval --out")
+    s.add_argument("--hand-seed", type=int, default=20261019)
+    s.add_argument("--arms", nargs="+", required=True)
+    s.add_argument("--baseline", default="rtmw-m-256")
+    s.add_argument("--n", type=int, default=1000)
+    s.add_argument("--seed", type=int, default=20261019)
+    s.add_argument("--out", type=Path, required=True)
     s = sub.add_parser("preroll")
     s.add_argument("--sample", type=Path, required=True)
     s.add_argument("--run", type=Path, default=Path("output/corpus-2d"))
@@ -1082,6 +1111,7 @@ def main(argv: list[str] | None = None) -> int:
         "hand-eval": cmd_hand_eval,
         "agree": cmd_agree,
         "presence": cmd_presence,
+        "screen": cmd_screen,
         "corpus-gross": cmd_corpus_gross,
         "calibrate": cmd_calibrate,
         "public-eval": cmd_public_eval,

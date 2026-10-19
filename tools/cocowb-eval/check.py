@@ -2,7 +2,9 @@
 
 Fires when the scorer stops separating parts: a perfect result must score AP 1.0 on every part, a
 result with one shifted right hand must lose right-hand AP alone, and a left/right hand swap must
-lose hand AP. rc 0 = all three hold.
+lose hand AP. `bootstrap.accumulate_ap` must equal COCOeval on a mixed result over the full image
+set, with one image dropped (COCOeval on the reduced set) and with one image drawn twice (COCOeval
+on a set holding a renamed copy). rc 0 = all hold.
 """
 
 import contextlib
@@ -12,8 +14,10 @@ import sys
 import tempfile
 from pathlib import Path
 
+import bootstrap
 import numpy as np
 import score as scorer
+from xtcocotools.coco import COCO
 
 rng = np.random.default_rng(7)
 PARTS = {
@@ -50,6 +54,39 @@ def score(gt, results):
         return {part: s["AP"] for part, s in json.loads(out.getvalue()).items()}
 
 
+def bootstrap_matches(gt, results, counts):
+    """(accumulate_ap at `counts`, COCOeval AP on the set those counts describe) per hand part."""
+    images = sorted(img["id"] for img in gt["images"])
+    drawn = {"images": [], "annotations": [], "categories": gt["categories"]}
+    drawn_results, next_id = [], 1000
+    for image_id, count in zip(images, counts, strict=True):
+        for copy in range(count):
+            new_id = image_id if copy == 0 else next_id + image_id
+            drawn["images"].append({"id": new_id, "file_name": f"{new_id}.jpg", "width": 640,
+                                    "height": 480})  # fmt: skip
+            for ann in gt["annotations"]:
+                if ann["image_id"] == image_id:
+                    drawn["annotations"].append(
+                        ann | {"image_id": new_id, "id": ann["id"] + new_id * 100}
+                    )
+            drawn_results += [
+                r | {"image_id": new_id} for r in results if r["image_id"] == image_id
+            ]
+    out = {}
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        g, r = Path(tmp) / "gt.json", Path(tmp) / "res.json"
+        g.write_text(json.dumps(gt))
+        r.write_text(json.dumps(results))
+        coco = COCO(str(g))
+        det = coco.loadRes(str(r))
+        for part in ("lefthand", "righthand"):
+            records, _, rec_thrs = bootstrap.per_image(coco, det, part)
+            flat = bootstrap.flatten(records)
+            out[part] = [bootstrap.accumulate_ap(flat, rec_thrs, np.asarray(counts))]
+    reference = score(drawn, drawn_results)
+    return {part: (v[0], reference[part]) for part, v in out.items()}
+
+
 def main():
     anns = [person(i // 2 + 1, i + 1, 50 + 300 * (i % 2), 40) for i in range(6)]
     gt = {
@@ -75,13 +112,25 @@ def main():
     perfect = score(gt, [result(a) for a in anns])
     shifted = score(gt, [result(a, shift=25.0) for a in anns])
     swapped = score(gt, [result(a, swap=True) for a in anns])
+    mixed = [
+        result(a, shift=25.0 * (i % 3)) | {"score": 0.5 + 0.07 * i} for i, a in enumerate(anns)
+    ]
+    agree = {
+        label: bootstrap_matches(gt, mixed, counts)
+        for label, counts in (("full", [1, 1, 1]), ("dropped", [1, 0, 1]), ("doubled", [1, 1, 2]))
+    }
     checks = {
         "perfect = 1.0 on every part": all(abs(v - 1.0) < 1e-9 for v in perfect.values()),
         "shifted right hand loses righthand AP alone": shifted["righthand"] < 0.5
         and shifted["lefthand"] == 1.0
         and shifted["body"] == 1.0,
         "swapped hands lose hand AP": swapped["lefthand"] < 0.5 and swapped["righthand"] < 0.5,
+        "mixed result is not trivially perfect": agree["full"]["righthand"][1] < 1.0,
     }
+    for label, parts in agree.items():
+        checks[f"bootstrap accumulation = COCOeval ({label})"] = all(
+            abs(mine - ref) < 1e-12 for mine, ref in parts.values()
+        )
     for name, ok in checks.items():
         print(f"cocowb-eval check: {'PASS' if ok else 'FAIL'} {name}")
     return 0 if all(checks.values()) else 1

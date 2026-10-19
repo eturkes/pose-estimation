@@ -68,6 +68,22 @@ with populations (persons, hands, joints) beside every number.
 
 | ID | verdict | evidence |
 | --- | --- | --- |
-| P01-P05 | open | |
+| P01 | pass | gate step `cocowb-eval` (`tools/cocowb-eval/check.py`): perfect 1.0, shifted right hand loses right-hand AP alone, swap loses hand AP; A01 |
+| P02 | pass | `tests/test_m4u2_screen.py` P02 ×3 (`bench.screen`); refactored `public-eval` re-scored RTMW-m's cache byte-identical (summary + results) |
+| P03 | pass | `handsets.DEXYCB_TO_COCO_WB` (dex-ycb-toolkit `_MANO_JOINTS` order) + synthetic round trip, all -1 label dropped |
+| P04 | pass | `screen.finalists` + `screen.paired_pck_bootstrap` cases; red 6/6 at `bf7728a` |
+| P05 | open | all arms' DexYCB hand-eval + Sapiens2 arm pending the GPU queue |
 
 ## 8. Amendments
+
+- A01 — P01's golden = the gate step itself: `check.py` runs the real xtcocotools scorer on the
+  synthetic fixture and asserts each AP, since the main suite's venv carries no xtcocotools and a
+  subprocess from the suite would repeat the gate step. The step also asserts
+  `bootstrap.accumulate_ap` = COCOeval on a mixed result over the full set, with one image
+  dropped and one image drawn twice (planted mutants: npig ignoring draw counts → 2 FAIL rows;
+  no precision envelope → 3 FAIL rows; rc 1 each).
+- A02 — D03 "beats it by more than its 95 % bootstrap interval" = the paired percentile interval
+  of (other − arm), 1000 image resamples shared by every arm, lies above zero; COCO-WB hand AP =
+  mean of left + right AP per resample (`tools/cocowb-eval/bootstrap.py`, COCOeval matches per
+  image reused, accumulation weighted by draw count); DexYCB = one hand per image, PCK@0.1 over
+  annotated joints of detector-covered hands (`bench.py screen`).
