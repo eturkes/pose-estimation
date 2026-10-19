@@ -144,10 +144,8 @@ def test_p03_decision_table_states():
     assert p.decide(_intervals(g2=(0.0, -0.05, 0.0), g4=(0.0, 0.0, 0.05))) == "pass"  # bounds hold
 
 
-def test_p04_request_refuses_untested_preroll_and_unknown_arm():
+def test_p04_request_refuses_an_unknown_arm():
     p = _pilot()
-    p.check_request("rtmw-m-256", 2.0)
-    with pytest.raises(ValueError, match="tested set"):
-        p.check_request("rtmw-m-256", 3.0)
+    p.check_request("rtmw-m-256")
     with pytest.raises(ValueError, match="MODEL_REGISTRY"):
-        p.check_request("not-an-arm", 2.0)
+        p.check_request("not-an-arm")

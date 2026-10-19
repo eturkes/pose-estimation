@@ -168,7 +168,7 @@ No `src/` module outside `bench/` changes; no published tree is written; `tests/
 | ID | verdict | evidence |
 | --- | --- | --- |
 | P01-P06b | pass | `tests/test_m4u1_{bench,sheets,statistics}.py` — tester-5's diff-blind suite (`archive/m4u1-test-5` = `fc0a8d1`, 184 cases red at import on `95a2eab`), 37 reds on first restore ruled in A03, + MAIN's patient-null ingest regression (red on real data: 4 defective records per labeller) = 185 green |
-| P07 | partial | D05(a)(b)(c) measured → `docs/technical/benchmark.md` § Measured resolutions; (d) paired-subject SD + (e) pre-roll pending the GPU queue (pre-roll crashed at 10/20 on a shared-iGPU `CL_OUT_OF_RESOURCES`, resumable) |
+| P07 | partial | D05(a)(b)(c) measured → `docs/technical/benchmark.md` § Measured resolutions; (e) pre-roll measured: no tested pre-roll reaches whole-clip equivalence (8 s: 14/20; A05) → whole-clip replays; (d) paired-subject SD pending the M4.3 presence replays |
 | P08 | partial | verdicts: agent coordinates = gross-error GT only; pairwise judge unqualified in every bin; categorical states qualified (Wilson lower bounds 0.885-0.963) |
 
 ## 8. Amendments
@@ -210,3 +210,12 @@ No `src/` module outside `bench/` changes; no published tree is written; `tests/
   published M2.10 rows: M4.6 changed gate keying + export hygiene after that generation, so an
   equality test against published rows measures the code change at every pre-roll. Windows from
   the crashed earlier attempt were deleted (their code revision is unrecorded).
+- **A05 (D05(e) measured).** 20 untrimmed pilot frames, RTMW-m, reference = whole-clip replay
+  under the current code (A04); equivalence = every point the R stage reads (vis / conf > 0 in
+  both rows) within 0.001 frame-normalised and no visibility flip (`bench.py preroll`; byte
+  equality never arrives because the smoother's state decays geometrically): 0 s 0/20, 1 s 6/20,
+  2 s 8/20, 4 s 11/20, 8 s 14/20; visibility flips 6 / 4 / 4 / 2 / 0. Hands converge by 2-4 s
+  (|Δ| <= 1e-4); of the 6 frames still apart at 8 s, 4 carry 0.16-0.39 on face + shoulder
+  points (the sticky subject choice locked onto another person) and 2 differ by < 0.01. No tested pre-roll is a stand-in for the
+  whole clip, so every replay-scored evaluation (M4.3b presence, M4.3 pilot-eval, M4.4) replays
+  each clip whole, frame 0 to its last decoded frame.

@@ -67,3 +67,8 @@ a 100-px hand; 0.05 presence agreement ≈ 5 of 96 frames' sides; stated here be
 | P01-P04 | open | |
 
 ## 8. Amendments
+
+- **A00 (replay).** §1 Predictions: each configuration replays each confirmation clip whole,
+  frame 0 to its last decoded frame (`contract-m4u1.md` A05: no tested pre-roll stands in for the
+  whole clip — at 8 s, 4/20 frames still sit on a different subject choice). Endpoints, margins and the
+  adoption rule are unchanged; no statistic over the user's labels exists.

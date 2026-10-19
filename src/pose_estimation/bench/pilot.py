@@ -22,16 +22,12 @@ ENDPOINTS = ("G1", "G2", "G3", "G4")
 MARGIN = 0.05
 REFIT_POINT = -0.02  # M4.3b D02: a presence-F1 point loss beyond this refits the gate
 _WORD = {"L": "left", "R": "right"}
-#: M4.1 D05(e) tested pre-rolls; a replay from any other start is unmeasured state.
-PREROLL_SECONDS = (0.0, 1.0, 2.0, 4.0, 8.0)
 
 
-def check_request(arm: str, preroll: float) -> None:
-    """P04: refuse an untested pre-roll and an arm the pipeline cannot run."""
+def check_request(arm: str) -> None:
+    """P04: refuse an arm the pipeline cannot run."""
     from pose_estimation.run import MODEL_REGISTRY  # deferred: run imports the inference stack
 
-    if preroll not in PREROLL_SECONDS:
-        raise ValueError(f"pre-roll {preroll} s is outside M4.1's tested set {PREROLL_SECONDS}")
     if arm not in MODEL_REGISTRY:
         raise ValueError(f"{arm!r} is not a run.MODEL_REGISTRY key")
 

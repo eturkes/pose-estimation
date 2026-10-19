@@ -73,7 +73,14 @@ frames. Every `pass` arm (plus the baseline) becomes an M4.4 candidate, named + 
 | P01 | pass | `tests/test_m4u3_pilot.py` P01 ×2 (`bench.pilot.side_rows` + `endpoints`): not-exported = miss, `?` out, both normalisers, swap, FP presence |
 | P02 | pass | constant difference → `(0.5, 0.5, 0.5)`; subject-only loss reaches −1.0 and 0.0; seeded |
 | P03 | pass | `pilot.decide` pass / refit (interval + M4.3b point rule) / fail rows |
-| P04 | pass | `pilot.check_request` refuses 3 s + an unknown key; red 6/6 at `36e525b` |
+| P04 | pass | `pilot.check_request` refuses an unknown key (A01); red 6/6 at `36e525b` |
 | P05 | open | after the pre-roll (D05(e)) and the finalist set |
 
 ## 8. Amendments
+
+- **A01 (replay).** `contract-m4u1.md` A05 measured no finite pre-roll standing in for the
+  whole clip (8 s: 14/20 frames equivalent, 4 on a different subject choice), so
+  §1's replay = each pilot clip replayed whole, frame 0 to its last decoded frame (the corpus run
+  of that clip under the arm), rows read at the sampled frames; wall = clip seconds over its
+  sampled frames. P04 = refusal of an arm outside `run.MODEL_REGISTRY` (the pre-roll argument is
+  gone); `bench.pilot.check_request(arm)`.

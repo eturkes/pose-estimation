@@ -122,6 +122,20 @@ not truth. **Verdict:** categorical states qualify (every Wilson lower bound >= 
 coordinates (agreed state, mean point) qualify for gross localisation only — hand joints at 0.3 of
 the extent diagonal, arm joints at 0.1 of the patient diagonal (above both labellers' p90).
 
+Pre-roll (20 untrimmed pilot frames, RTMW-m; `bench.py preroll`): a replay window ending at the
+frame against the whole clip replayed under the same code, equivalent = every point the R stage
+reads within 0.001 frame-normalised with no visibility flip.
+
+| pre-roll | 0 s | 1 s | 2 s | 4 s | 8 s |
+| --- | --- | --- | --- | --- | --- |
+| equivalent frames | 0/20 | 6/20 | 8/20 | 11/20 | 14/20 |
+| frames with a visibility flip | 6 | 4 | 4 | 2 | 0 |
+
+Hands converge by 2-4 s; at 8 s, 4 frames still differ by 0.16-0.39 on face and shoulder points —
+the subject tracker's sticky choice locked onto another person. **Verdict:** no finite pre-roll
+stands in for the whole clip, so `presence`, `pilot-eval` and the M4.4 confirmation replay each
+clip whole.
+
 ## Public screening (M4.2)
 
 Pose-only protocol: GT person boxes on COCO-WholeBody v1.0 val (10 777 non-crowd persons,
