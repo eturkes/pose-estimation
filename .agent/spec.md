@@ -36,7 +36,9 @@ hospital SCI database.
   camera survey: task span, per-row camera similarity in R): 193/193 events, 379/379 `ok`,
   337 090 frames, 8.197 h measured, all 11 `run_report.json` verdicts true, `task_span` published.
   `.scratch/rerun_m210.sh` = `python scripts/corpus_run_2d.py` under the accelerator recipe;
-  resumes per event marker. Before/after vs M2.9 → `docs/technical/pose-weak-points.md`
+  resumes per event marker. Its `pose_config.json` files predate `openvino_build` + `calibration`
+  (M4.6, M4.3a), so today's drivers refuse `--analyse-only` / `--reuse-run` over it as another
+  configuration — by design; republish it only from its own code (`487f790`). Before/after vs M2.9 → `docs/technical/pose-weak-points.md`
   § M2.10 corpus. Superseded generations kept by user ruling (M2.10 videos reviewed; delete on
   the user's word): M2.9 at `output/corpus-2d-superseded-m29/` + cohort
   `.scratch/compare-m29/cohort/`; rtmlib-f7 at `output/corpus-2d-superseded-rtmlib-f7/` +
@@ -45,6 +47,10 @@ hospital SCI database.
   symlinks onto the primary trees + the superseded run).
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
   run; each `P pose-estimation-<name> … --out <dir>`; `--help` = args.
+- Benchmark — `scripts/bench.py <command>` under the gate prefix (sample, sheets, ingest, agree,
+  public-eval, hand-eval, corpus-gross, calibrate, judge-*, preroll, user-sample) →
+  `docs/technical/benchmark.md`; COCO-WholeBody AP via `tools/cocowb-eval/` (own Python 3.12 uv
+  project); user labelling page = review UI `/label` over `.scratch/bench/user/`.
 - Gate — `scripts/gate.sh` (full chain + per-step wall-clock; `--fast <tests>` iterates) →
   `.claude/rules/gates.md`. Its pytest step = the decisive gate: 2370 collected, 21:54 wall measured
   at `502affa` (host load moves it), run alone.
@@ -66,11 +72,17 @@ hospital SCI database.
   keypoints + per-side hand visibility placed by agents on corpus frames + GT-free proxies;
   selection = a rule frozen before candidate results. Any `.agent/deferred.md` row may join.
   Data-boundary, claim-boundary, 3D-negative + metric-scale rulings stay binding.
+- **In-domain accuracy evidence** (user ruling, after M4.1 measured agent hand points at ~0.10 of
+  hand size and the blinded pairwise judge near chance) — public GT decides fine accuracy now;
+  agent labels grade gross errors only; the user clicks wrist + fingertip points on ~100 sampled
+  corpus frames in a review-UI labelling page, and those frames are the confirmation set before
+  the final corpus run.
 - **Shipped pose model = RTMW-m 256x192** — registry key `rtmw-l` names checkpoint
   `rtmw-dw-l-m` = RTMW-m in mmpose's own table (COCO-WholeBody hand AP 0.491, whole 0.582; true
   RTMW-L `rtmw-dw-x-l` 0.598 / 0.660, at 384x288 0.663 / 0.701); every generation through M2.10 ran
-  it. True RTMW-L + RTMW-X fail NPU compile (CMX scheduler) and run on GPU f32. The key stays
-  until the benchmark's registry unit, since every recorded `pose_config.json` carries it.
+  it. True RTMW-L + RTMW-X fail NPU compile (CMX scheduler) and run on GPU f32. The registry keys
+  models by mmpose-table names (`rtmw-m-256`, `rtmw-l-256`, `rtmw-l-384`, `rtmw-x-384`,
+  `dwpose-l-384`, M4.3a); `rtmw-l` stays an alias of `rtmw-m-256` for recorded configurations.
 - **Review UI shape** (user rulings, ITERATE) — Japanese default, English by switch; theme
   auto|light|dark, auto = the OS; the clip player = first tab + the view a bare URL opens; the whole
   frame + transport visible with no page scroll (list beside stage >= 761 px, fitted stack below);
@@ -146,7 +158,7 @@ hospital SCI database.
 - [x] 13fc4dd **RTMW-m label + phase rulings** — live surfaces name the shipped checkpoint; rulings above.
 - [x] 622317e **Security scanners + update automation** — `uv audit` over both uv lockfiles, secret scan,
   security lint, each with a planted firing; Dependabot `uv` × 2; urllib3 2.7.0 → 2.8.0 (6 advisories).
-- [ ] **M4.1 instrument qualification** (`kernel`, `.agent/archive/contract-m4u1.md`; design review
+- [ ] **M4.1 instrument qualification** (`2ef508e`; pre-roll + paired-subject SD open) (`kernel`, `.agent/archive/contract-m4u1.md`; design review
   `consultant-2`: qualify before any selection protocol freezes) — codebook v2 on raw frames,
   labeller error vs public GT + inter-labeller agreement, pairwise judge on real model-error pairs,
   pre-roll for stateful replay, paired-subject variance → qualified resolutions. Corpus frame
@@ -154,16 +166,19 @@ hospital SCI database.
 - [ ] **M4.2 public screening** — COCO-WholeBody official evaluator (GT boxes; body + hand parts),
   one qualified manipulation set (ARCTIC / Ego-Exo4D / DexYCB), HInt visibility; every candidate
   (RTMW m/L/X, DWPose, Sapiens, SDPose, hand models, detectors) → a diverse finalist set.
-- [ ] **On-path defects** (before any calibration) — P08 gate keying, P09 out-of-frame residue, D02
+- [ ] **On-path defects** (`73927ef` M4.6; P07 stage replay open) (before any calibration) — P08 gate keying, P09 out-of-frame residue, D02
   counter, OpenVINO build in `pose_config.json`, raw-score decode before the smoother's clip.
+- [x] 73927ef **M4.3a arm plumbing** — mmpose-named registry, per-model device, score-calibration hook.
+- [ ] **M4.3b calibration + gate rule** (`contract-m4u3b.md`) — reference-equivalent Platt maps, gate refit only on pilot F1 loss.
 - [ ] **M4.3 complete-pipeline finalists** — pose × hand × detector/identity (incl. a wrong-person
   arm), each recalibrated on development data, dynamic + feature controls, production replay.
-- [ ] **M4.4 locked confirmation** — decision table (superiority / non-inferiority / inconclusive)
+- [ ] **M4.4 locked confirmation** (table frozen `2ef508e`; user labelling `/label` in progress) — decision table (superiority / non-inferiority / inconclusive)
   frozen with margins before a one-use corpus subset is scored; gates vs the shipped baseline.
 - [ ] **M4.5 features** — per-movement SPARC, timing features, per-feature cross-view agreement in
   the cohort export (own contract: construct definitions + known-dynamics controls).
-- [ ] **`calibration_qc` claims name RTMW-m** — published claim text + fixtures + determinism campaigns.
+- [x] 3410a90 **`calibration_qc` claims name RTMW-m** — published claim text + fixtures + determinism campaigns.
 - [ ] **Monocular 3D angles pilot** (SAM 3D Body, >= 40 events) → user adoption ruling.
+- [ ] **Gate speed** (deferred row: `test_c8_08` replays the suite; timed out at 2400 s under co-tenant load) — reconcile A32 in-session, pytest step <= 50 % wall.
 - [ ] **Corpus rerun** — sized by a paired pilot; cohort republished; after-table vs M2.10; `scientist`.
 - [ ] **Closing review** — one `reviewer` per lens + MAIN's security lens → `.agent/review.md`.
 - [ ] **Close** — README, review UI → `tools/review-ui/`, `Phase: MAINTAIN`.
