@@ -72,7 +72,7 @@ with populations (persons, hands, joints) beside every number.
 | P02 | pass | `tests/test_m4u2_screen.py` P02 ×3 (`bench.screen`); refactored `public-eval` re-scored RTMW-m's cache byte-identical (summary + results) |
 | P03 | pass | `handsets.DEXYCB_TO_COCO_WB` (dex-ycb-toolkit `_MANO_JOINTS` order) + synthetic round trip, all -1 label dropped |
 | P04 | pass | `screen.finalists` + `screen.paired_pck_bootstrap` cases; red 6/6 at `bf7728a` |
-| P05 | partial | 5 RTMW/DWPose arms → `docs/technical/benchmark.md` § Public screening; finalists RTMW-L 384 + baseline RTMW-m; Sapiens2 arm pending (gp-7 port, GPU queue) |
+| P05 | pass | `docs/technical/benchmark.md` § Public screening: 5 RTMW/DWPose arms full-set + Sapiens2-0.4B f16 on the 500-person subset; finalists RTMW-L 384 + baseline (A03) |
 
 ## 8. Amendments
 
@@ -87,3 +87,9 @@ with populations (persons, hands, joints) beside every number.
   mean of left + right AP per resample (`tools/cocowb-eval/bootstrap.py`, COCOeval matches per
   image reused, accumulation weighted by draw count); DexYCB = one hand per image, PCK@0.1 over
   annotated joints of detector-covered hands (`bench.py screen`).
+- A03 (user rulings) — Sapiens2-0.4B f16 + flip TTA (general-purpose-7 port; 500-person subset,
+  seed 20261019): hand AP mean 0.626 vs RTMW-L 384 0.650, paired −0.024 [−0.063, 0.018], body AP
+  0.792, arm PCK@0.05 0.941, ~1.37 s per person (~17× RTMW-L 384). D03 would keep it (not beaten
+  on both metrics; DexYCB unrun); the user dropped it — no hand-accuracy gain at ~5 GPU-days per
+  corpus run. ARCTIC / Ego-Exo4D / UBody stay unrun (registration absent); the user closed
+  screening on COCO-WholeBody + DexYCB + HInt. Finalists: RTMW-L 384 + the RTMW-m baseline.

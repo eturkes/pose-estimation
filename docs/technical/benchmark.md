@@ -154,8 +154,13 @@ image-bootstrap percentiles, 1 000 resamples shared by every arm (`bench.py scre
 | DWPose-L 384 | 0.620 | 0.516 [0.501, 0.532] | 0.676 [0.668, 0.684] | 0.690 / 0.479 | 0.617 | 0.888 | dominated (all RTMW) |
 
 Paired RTMW-L 384 − RTMW-X 384: hand AP +0.009 [0.003, 0.016], DexYCB +0.007 [0.004, 0.011] —
-the larger checkpoint loses on hands at equal input size. Sapiens / Sapiens2 rows follow when
-their arm runs (`contract-m4u2.md` D01).
+the larger checkpoint loses on hands at equal input size.
+
+Sapiens2-0.4B (OpenVINO GPU f16, flip TTA; 500-person subset, seed 20261019, paired over its
+436 images): hand AP mean 0.626 against RTMW-L 384's 0.650 on the same persons (paired −0.024
+[−0.063, 0.018]), body AP 0.792, arm PCK@0.05 0.941, at ~1.37 s per person (~17× RTMW-L 384).
+Dropped by user ruling: no hand gain for ~5 GPU-days per corpus run. Sapiens v1 stayed gated
+(no checkpoint access). ARCTIC, Ego-Exo4D and UBody are unrun (no registration).
 
 ## Public data provenance
 

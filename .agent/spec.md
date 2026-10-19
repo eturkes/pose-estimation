@@ -168,7 +168,7 @@ hospital SCI database.
   labeller error vs public GT + inter-labeller agreement, pairwise judge on real model-error pairs,
   pre-roll for stateful replay, paired-subject variance → qualified resolutions. Corpus frame
   viewing authorized this session for MAIN + labelling teammates (user).
-- [ ] **M4.2 public screening** (`36e525b` `8bc1b81`: 5 arms, finalists RTMW-L 384 + baseline; Sapiens2-0.4B f16 hand AP −0.024 [−0.063, 0.018] vs L 384 on 500 persons at ~17× the cost → user ruling) — COCO-WholeBody official evaluator (GT boxes; body + hand parts),
+- [x] 36e525b 8bc1b81 **M4.2 public screening** (finalists RTMW-L 384 + baseline; Sapiens2 dropped + gated sets unrun by user ruling, contract A03) — COCO-WholeBody official evaluator (GT boxes; body + hand parts),
   one qualified manipulation set (ARCTIC / Ego-Exo4D / DexYCB), HInt visibility; every candidate
   (RTMW m/L/X, DWPose, Sapiens, SDPose, hand models, detectors) → a diverse finalist set.
 - [ ] **On-path defects** (`73927ef` M4.6; P07 stage replay open) (before any calibration) — P08 gate keying, P09 out-of-frame residue, D02
