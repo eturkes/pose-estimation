@@ -205,14 +205,6 @@ rows before sizing any unit that touches their surfaces.
   default operators over the files one pinning test imports or calls, its scope, command and every
   survivor recorded, each survivor ruled against the contract by a non-author (missing test added,
   open behavior recorded, else an open row).
-- **The full gate's pytest step dominates** (static steps ~2 s against a 21:54 pytest step at `502affa`;
-  `test_c8_08` replays the whole suite inside it, so the suite runs twice per gate: its call =
-  905.8 s of a 1595 s pytest step, per `scripts/gate.sh`'s `--durations` on the template-refresh
-  gate run) → an
-  equal-strength speedup (parallel runner, a single suite pass feeding A32's reconciliation, …):
-  every collected case still runs, A32 still reconciles passed against collected at zero
-  skipped/xfailed, each planted firing in `checks.md` + `spec-lint.md` still reds, and
-  `scripts/gate.sh` reports the pytest step at <= 50 % of its wall on the same host.
 - **Review UI predates the `CLAUDE.md` `Execution` UI design + Charts + figures and `Authoring`
   UI-copy clauses** (known gap: the census rotation + sync panels, `static/census.js`
   `rotationPanel` + `syncPanel`, are interactive charts with no table view) → an audit table over

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # gate.sh — the gate command (.claude/rules/gates.md).
 #   gate.sh                    full gate: static steps, scanners, pytest
-#   gate.sh --fast [pytest…]   fast gate: static steps + the named tests, test_c8_08 deselected
+#   gate.sh --fast [pytest…]   fast gate: static steps + the named tests
 #   gate.sh <cmd…>             <cmd> under the gate prefix
 # Static = spec-lint, ruff check (security rules S included), ruff format --check, ty check, shell
 # lint, Dependabot schema. Scanners = dependency audit (both uv.lock via uv audit, renv.lock via osv-scanner), secret
@@ -73,15 +73,14 @@ case ${1-} in
 --fast)
 	shift
 	static
-	# test_c8_08 replays the whole suite in a subprocess, so it never belongs to a fast run.
-	(($#)) && step pytest prefixed pytest -q --durations=5 \
-		--deselect tests/test_r_timebase_truth.py::test_c8_08 "$@"
+	(($#)) && step pytest prefixed pytest -q --durations=5 "$@"
 	;;
 '')
 	static
 	scanners
 	benchtools
-	step pytest prefixed pytest -q --durations=15
+	# POSE_GATE_FULL arms tests/a32_gate.py: whole collection, every case passed, nothing skipped.
+	step pytest prefixed env POSE_GATE_FULL=1 pytest -q --durations=15
 	;;
 *)
 	prefixed "$@"

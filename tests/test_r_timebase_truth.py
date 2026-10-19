@@ -1237,49 +1237,68 @@ def test_c8_07():
 
 
 # kind: C8.08 = red
-def test_c8_08():
-    environment = os.environ.copy()
-    environment.pop("PYTEST_CURRENT_TEST", None)
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-q",
-            "--maxfail=1",
-            "-k",
-            "not test_c8_08",
-        ],
-        cwd=_PROJECT_ROOT,
-        env=environment,
-        capture_output=True,
-        text=True,
-        # ~3x the quiet inner wall, so co-tenant host load does not time it out.
-        timeout=2400,
-        check=False,
+def test_c8_08(tmp_path):
+    """C8.08 decisive gate = A32 reconciliation, now in the full run's own session.
+
+    `tests/a32_gate.py` (active under POSE_GATE_FULL=1, set by `scripts/gate.sh`) refuses a full
+    run unless every collected case passed with zero skipped / xfailed / xpassed / errors and no
+    case was deselected or path-narrowed. This case drives that plugin over synthetic sessions and
+    demands it fire on each failure shape and stay green on a clean one; the former body replayed
+    the whole suite in a subprocess, running every case twice.
+    """
+    (tmp_path / "pyproject.toml").write_text('[tool.pytest.ini_options]\ntestpaths = ["t"]\n')
+    cases = tmp_path / "t"
+    cases.mkdir()
+    (cases / "test_ok.py").write_text("def test_a():\n    pass\n\n\ndef test_b():\n    pass\n")
+
+    def run(env_on: bool, *args: str) -> subprocess.CompletedProcess:
+        environment = os.environ.copy()
+        environment.pop("PYTEST_CURRENT_TEST", None)
+        environment["PYTHONPATH"] = os.pathsep.join(
+            [str(_PROJECT_ROOT / "tests"), environment.get("PYTHONPATH", "")]
+        )
+        environment.pop("POSE_GATE_FULL", None)
+        if env_on:
+            environment["POSE_GATE_FULL"] = "1"
+        return subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "-p",
+                "a32_gate",
+                "-p",
+                "no:cacheprovider",
+                *args,
+            ],
+            cwd=tmp_path,
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+
+    clean = run(True)
+    assert clean.returncode == 0, clean.stdout
+    assert "A32 FAIL" not in clean.stdout
+    assert run(True, "-k", "test_a").returncode != 0  # deselection
+    assert "deselected" in run(True, "-k", "test_a").stdout
+    assert run(True, "t/test_ok.py").returncode != 0  # path-narrowed
+    (cases / "test_skip.py").write_text(
+        "import pytest\n\n\n@pytest.mark.skip(reason='x')\ndef test_s():\n    pass\n"
     )
-    assert result.returncode == 0, "decisive gate failed"
-    summary = result.stdout + result.stderr
-    # A32: a bare floor lets a case vanish silently, so the gate reconciles
-    # instead.  `-k` deselects this case alone, which is why the expected pass
-    # count is the collected total minus one.
-    collected = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "--collect-only"],
-        cwd=_PROJECT_ROOT,
-        env=environment,
-        capture_output=True,
-        text=True,
-        timeout=300,
-        check=False,
+    skipped = run(True)
+    assert skipped.returncode != 0
+    assert "1 skipped" in skipped.stdout
+    assert run(False).returncode == 0  # plugin inert outside the full gate
+    (cases / "test_skip.py").write_text(
+        "import pytest\n\n\n@pytest.mark.xfail(reason='x')\ndef test_x():\n    assert False\n"
     )
-    total = re.search(r"(\d+) tests? collected", collected.stdout)
-    assert total, "collection count unavailable"
-    passed = re.findall(r"(\d+) passed", summary)
-    assert passed
-    assert int(passed[-1]) == int(total.group(1)) - 1
-    assert re.search(r"\b1 deselected\b", summary)
-    for category in ("failed", "error", "errors", "skipped", "xfailed", "xpassed"):
-        assert not re.search(rf"\b\d+ {category}\b", summary), category
+    xfailed = run(True)
+    assert xfailed.returncode != 0
+    assert "1 xfailed" in xfailed.stdout
 
 
 # ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from a32_gate import pytest_configure  # noqa: F401 - A32 reconciliation hook (gate.sh full run)
 from pose_estimation.charuco import solve_charuco
 from synthetic_session import render_calibration_session
 
