@@ -87,3 +87,7 @@ corpus run cannot silently put an L/X arm on CPU.
   `test_m2u101_hand_gate.py::test_p05_ungated_baseline_bytes_and_zero_diagnostics` + the gated
   baseline cases) and `SplitDeviceSolution` leaving an uncalibrated pose model unwrapped; the
   diagnostics row changes only by M4.6's two census fields, latency never repeating.
+- **A03 (M4.3b).** Calibration files live in `src/pose_estimation/score_calibrations/` (a
+  `calibration/` directory beside the camera-calibration module `calibration.py` read as the same
+  import name); `run.hand_gate_for(entry, enabled=…)` builds the gate from the entry's optional
+  `hand_gate` (on, off), and `calibration_digest` covers that pair too.

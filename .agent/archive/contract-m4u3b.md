@@ -14,7 +14,7 @@ overfit by thresholds that are never fitted on them.
   the same probability of being correct. Affine in `raw` (σ cancels), clamped at 0, written as
   `Curve` knots spanning the arm's observed raw range (+ the zero crossing when it falls inside).
   Refuses a fit with a non-positive slope.
-- `scripts/bench.py calibrate --arm <name>` writes `src/pose_estimation/calibration/<arm>.json`
+- `scripts/bench.py calibrate --arm <name>` writes `src/pose_estimation/score_calibrations/<arm>.json`
   via `fit_reference` against `rtmw-m-256`'s cached COCO-WholeBody predictions (same persons,
   `CAL_TOLERANCE` correctness: body / foot 0.05, face 0.02 of the person-box diagonal, hand 0.1 of
   the hand-box diagonal); `run.MODEL_REGISTRY[<arm>]["calibration"]` names the file. RTMW-m keeps
@@ -54,6 +54,17 @@ pair maximising pilot F1 (ties → the pair nearest 0.65 / 0.5), recorded in the
 
 | ID | verdict | evidence |
 | --- | --- | --- |
-| P01-P04 | open | |
+| P01 | pass | `tests/test_m4u3b_calibration.py` P01 ×3 + reference map + refusal; red 9/9 at `eb268c1` |
+| P02 | pass | round trip `p_ref == p_arm` at 4 raw scores, abs 1e-9 |
+| P03 | pass | metrics exact, `?`/unlabelled sides out, subject-cluster interval `[0, 1]` where a side resample cannot reach either end |
+| P04 | pass | `run.hand_gate_for` → `HandPresenceGate(on, off)`; `corpus_run.calibration_digest` changes with the gate |
 
 ## 8. Amendments
+
+- A01 — `presence` keys each replay window by frame key + pre-roll
+  (`<out>/<arm>/preroll<s>/<sha256(key)[:16]>/`) and writes `presence_preroll<s>.json`: a window
+  replayed for another start would otherwise be reused at the wrong frame. The pure logic lives in
+  `bench.qualify` (`exported_hands`, `presence_rows`, `presence_summary`) so P03 grades the shipped
+  symbols.
+- A02 — P04's "pose config records it" = `calibration_digest` (in `pose_config`) hashes the
+  calibration file + `repr(hand_gate)`; the thresholds themselves stay in the registry entry.

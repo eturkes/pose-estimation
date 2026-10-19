@@ -103,14 +103,17 @@ def openvino_build() -> str:
 
 
 def calibration_digest(model: str) -> str:
-    """sha256 of the model's score calibration file, `identity` for raw scores (M4.3a)."""
+    """sha256 of the model's score calibration file + refit hand gate; `identity` for neither."""
     from .run import MODEL_REGISTRY  # deferred: run imports the inference stack
     from .score_calibration import CALIBRATION_DIR
 
-    name = MODEL_REGISTRY.get(model, {}).get("calibration")
-    if not isinstance(name, str):
+    entry = MODEL_REGISTRY.get(model, {})
+    name, gate = entry.get("calibration"), entry.get("hand_gate")
+    if not isinstance(name, str) and gate is None:
         return "identity"
-    return hashlib.sha256((CALIBRATION_DIR / name).read_bytes()).hexdigest()
+    digest = hashlib.sha256((CALIBRATION_DIR / name).read_bytes() if isinstance(name, str) else b"")
+    digest.update(repr(gate).encode())  # a refit hand gate (M4.3b) is part of the calibration
+    return digest.hexdigest()
 
 
 def pose_config(args: object) -> dict[str, object]:

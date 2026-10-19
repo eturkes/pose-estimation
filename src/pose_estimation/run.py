@@ -33,7 +33,13 @@ from .calibration import CalibrationError
 from .camera_survey import TASK_GAP_S, survey_source
 from .constraints import BoneLengthSmoother
 from .export import camera_values, frame_to_rows, open_csv_writer
-from .keypoint_hygiene import HandPresenceGate, apply_hygiene, zero_out_of_frame
+from .keypoint_hygiene import (
+    HAND_GATE_OFF,
+    HAND_GATE_ON,
+    HandPresenceGate,
+    apply_hygiene,
+    zero_out_of_frame,
+)
 from .mapping import coco_hand_confidences, coco_hand_handedness, coco_to_mediapipe
 from .multicam import (
     SessionError,
@@ -99,7 +105,7 @@ MODEL_REGISTRY = {
         "pose_class": "RTMPose",
         "n_kps": 133,
         "pose_device": "GPU",
-        "calibration": None,
+        "calibration": "rtmw-l-384.json",
         "label": "Wholebody 133 kps (RTMW-L, 384x288)",
     },
     "rtmw-x-384": {
@@ -108,7 +114,7 @@ MODEL_REGISTRY = {
         "pose_class": "RTMPose",
         "n_kps": 133,
         "pose_device": "GPU",
-        "calibration": None,
+        "calibration": "rtmw-x-384.json",
         "label": "Wholebody 133 kps (RTMW-X cocktail13, 384x288)",
     },
     "dwpose-l-384": {
@@ -232,6 +238,15 @@ class SplitDeviceSolution:
             self.pose_model = CalibratedPose(self.pose_model, score_calibration.load(calibration))
         self.det_categories = None
         self.one_stage = False
+
+
+def hand_gate_for(entry, *, enabled):
+    """The model's hand-presence gate: its registry `hand_gate` (on, off) when M4.3b refit one,
+    else the shipped thresholds; `None` when gating is off."""
+    if not enabled:
+        return None
+    on, off = entry.get("hand_gate", (HAND_GATE_ON, HAND_GATE_OFF))
+    return HandPresenceGate(on=on, off=off)
 
 
 class CalibratedPose:
@@ -1148,7 +1163,7 @@ def main(argv=None):
         segments = BONE_SEGMENTS_WB_BODY if args.tracking == "body" else BONE_SEGMENTS_WB
         bone_smoother = BoneLengthSmoother(segments=segments)
 
-    hand_gate = HandPresenceGate() if args.hand_gate else None
+    hand_gate = hand_gate_for(model, enabled=args.hand_gate)
 
     # ── Multi-camera session dispatch ─────────────────────────────
     if args.session_dir or args.sessions_dir:

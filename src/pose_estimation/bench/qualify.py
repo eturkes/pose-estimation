@@ -96,3 +96,62 @@ def paired_subject_sd(diffs_by_subject: dict[int, Sequence[float]]) -> tuple[flo
     if len(means) < 2:
         raise ValueError("paired-subject SD needs two subjects")
     return float(np.std(means, ddof=1)), len(means)
+
+
+#: Agreed labeller hand state → present; `?` (labellers disagree) + unlabelled states drop out.
+PRESENT = {"vis": True, "part": True, "occ": False, "oof": False}
+
+
+def exported_hands(row: dict[str, str] | None) -> dict[str, bool]:
+    """Per side: the exported landmark row carries >= 1 hand point with a positive confidence."""
+    return {
+        side: bool(row)
+        and any(
+            row.get(f"{word}_hand_{i}_x", "") != ""
+            and float(row.get(f"{word}_hand_{i}_conf") or 0) > 0
+            for i in range(21)
+        )
+        for side, word in (("L", "left"), ("R", "right"))
+    }
+
+
+def presence_rows(subject, states: dict[str, str], exported: dict[str, bool]) -> list[dict]:
+    return [
+        {"subject": subject, "side": side, "present": PRESENT[state], "exported": exported[side]}
+        for side, state in states.items()
+        if state in PRESENT
+    ]
+
+
+def _counts(rows: Sequence[dict]) -> tuple[int, int, int]:
+    tp = sum(r["exported"] and r["present"] for r in rows)
+    fp = sum(r["exported"] and not r["present"] for r in rows)
+    fn = sum(not r["exported"] and r["present"] for r in rows)
+    return tp, fp, fn
+
+
+def presence_f1(rows: Sequence[dict]) -> float:
+    tp, fp, fn = _counts(rows)
+    return 2 * tp / (2 * tp + fp + fn) if tp else 0.0
+
+
+def presence_summary(rows: Sequence[dict], seed: int, n_boot: int = 2000) -> dict:
+    """Precision, recall, F1 + a 95 % interval from resampling subjects (rows cluster by subject)."""
+    by_subject: dict = {}
+    for r in rows:
+        by_subject.setdefault(r["subject"], []).append(r)
+    subjects = sorted(by_subject)
+    rng = np.random.default_rng(seed)
+    boots = [
+        presence_f1([r for s in rng.choice(subjects, len(subjects)) for r in by_subject[s]])
+        for _ in range(n_boot)
+    ]
+    tp, fp, fn = _counts(rows)
+    return {
+        "sides": len(rows),
+        "subjects": len(subjects),
+        "f1": presence_f1(rows),
+        "f1_interval": [float(np.percentile(boots, 2.5)), float(np.percentile(boots, 97.5))],
+        "precision": tp / max(1, tp + fp),
+        "recall": tp / max(1, tp + fn),
+    }

@@ -13,11 +13,13 @@
   public-eval    one arm over every COCO-WholeBody val person (GT boxes): official AP via
                  tools/cocowb-eval + hand / body PCK + score-visibility AUROC
   calibrate      fit an arm's score calibration on its cached COCO-WholeBody predictions →
-                 src/pose_estimation/calibration/<arm>.json (contract M4.3a)
+                 src/pose_estimation/score_calibrations/<arm>.json (contract M4.3b)
   agree          two labellers' codebook-v2 records on the same frames: per-field agreement +
                  coordinate disagreement / labelled extent (hands) or patient-box diagonal (arms)
   corpus-gross   arms on the labelled pilot frames inside the consensus patient box: hand +
                  arm-joint gross localisation, side swaps, hand-presence AUROC, subject bootstrap
+  presence       M4.3b: production replay per pilot frame (pre-roll) → exported hand presence vs the
+                 labellers' agreed hand states, F1 with a subject bootstrap
   hand-eval      one arm over a hand set (DexYCB, HInt) with the shipped detector's person box:
                  hand PCK by visibility, coverage, score-occlusion AUROC
   preroll        replay the shipped pipeline over windows ending at sampled frames; compare each
@@ -30,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import sys
 from collections import defaultdict
@@ -652,26 +655,22 @@ def cmd_hand_eval(a: argparse.Namespace) -> int:
 CAL_TOLERANCE = {"body": 0.05, "foot": 0.05, "face": 0.02, "hand": 0.1}
 
 
-def cmd_calibrate(a: argparse.Namespace) -> int:
+def _correctness(persons, kps, scores) -> tuple[dict, dict]:
+    """Per keypoint group: raw scores + whether each prediction is correct (CAL_TOLERANCE)."""
     from pose_estimation import score_calibration
 
-    _, persons = public.load_coco_wholebody(a.coco_wb)
-    persons = [p for p in persons if p.box[2] > 1 and p.box[3] > 1]
-    z = np.load(a.out / a.arm / "coco_wb_pred.npz")
-    kps, scores = z["kps"], z["scores"]
     raw: dict[str, list[np.ndarray]] = defaultdict(list)
     correct: dict[str, list[np.ndarray]] = defaultdict(list)
     for p, k, sc in zip(persons, kps, scores, strict=True):
         diag = float(np.hypot(p.box[2], p.box[3]))
         for group, (lo, hi) in score_calibration.GROUPS.items():
             if group == "hand":
+                sides = {h.side for h in p.hands}
                 for h in p.hands:
                     first = 91 if h.side == "L" else 112
                     err = np.hypot(*(k[first : first + 21] - h.kpts[:, :2]).T) / h.diagonal
-                    ok = (h.kpts[:, 2] > 0) & (err < CAL_TOLERANCE["hand"])
                     raw[group].append(sc[first : first + 21])
-                    correct[group].append(ok)
-                sides = {h.side for h in p.hands}
+                    correct[group].append((h.kpts[:, 2] > 0) & (err < CAL_TOLERANCE["hand"]))
                 for side, first in (("L", 91), ("R", 112)):
                     if side not in sides:  # unannotated hand: no prediction there is correct
                         raw[group].append(sc[first : first + 21])
@@ -681,17 +680,33 @@ def cmd_calibrate(a: argparse.Namespace) -> int:
             err = np.hypot(*(k[lo:hi] - gt[:, :2]).T) / diag
             raw[group].append(sc[lo:hi])
             correct[group].append((gt[:, 2] > 0) & (err < CAL_TOLERANCE[group]))
+    return (
+        {g: np.concatenate(v) for g, v in raw.items()},
+        {g: np.concatenate(v) for g, v in correct.items()},
+    )
+
+
+def cmd_calibrate(a: argparse.Namespace) -> int:
+    """M4.3b: the arm's raw score → the reference arm's raw score of equal P(correct)."""
+    from pose_estimation import score_calibration
+
+    _, persons = public.load_coco_wholebody(a.coco_wb)
+    persons = [p for p in persons if p.box[2] > 1 and p.box[3] > 1]
+    arm_z = np.load(a.out / a.arm / "coco_wb_pred.npz")
+    ref_z = np.load(a.out / a.reference / "coco_wb_pred.npz")
+    raw, correct = _correctness(persons, arm_z["kps"], arm_z["scores"])
+    ref_raw, ref_correct = _correctness(persons, ref_z["kps"], ref_z["scores"])
     curves = {
-        g: score_calibration.fit(np.concatenate(raw[g]), np.concatenate(correct[g])) for g in raw
+        g: score_calibration.fit_reference(raw[g], correct[g], ref_raw[g], ref_correct[g])
+        for g in raw
     }
     out = score_calibration.CALIBRATION_DIR / f"{a.arm}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(score_calibration.ScoreCalibration(curves).to_json() + "\n", encoding="utf-8")
     for g, c in curves.items():
-        n = sum(len(v) for v in raw[g])
-        rate = float(np.mean(np.concatenate(correct[g])))
         print(
-            f"calibrate: {a.arm} {g:5s} n={n} correct={rate:.3f} knots={len(c.x)} raw[{c.x[0]:.3f}, {c.x[-1]:.3f}]"
+            f"calibrate: {a.arm} {g:5s} n={len(raw[g])} correct={correct[g].mean():.3f} "
+            f"knots={len(c.x)} raw {c.x[0]:.3f}..{c.x[-1]:.3f} -> {c.y[0]:.3f}..{c.y[-1]:.3f}"
         )
     return 0
 
@@ -838,6 +853,45 @@ def cmd_corpus_gross(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_presence(a: argparse.Namespace) -> int:
+    from pose_estimation.bench import replay
+
+    first = {r["frame"]["key"]: r for r in labels.load(a.labels[0])}
+    second = {r["frame"]["key"]: r for r in labels.load(a.labels[1])}
+    meta = {
+        f"{f['event_id']}/{f['camera_name']}#{f['frame']}": f
+        for f in json.loads(a.sample.read_text(encoding="utf-8"))
+    }
+    out_dir = a.out / a.arm
+    rows: list[dict] = []
+    for key in sorted(set(first) & set(second)):
+        c, m = _consensus(first[key], second[key]), meta[key]
+        diag = a.run / m["event_id"] / f"{m['camera_name']}_diag.csv"
+        fps = float(next(csv.DictReader(diag.open(newline="", encoding="utf-8")))["fps_nominal"])
+        start = max(0, m["frame"] - round(a.preroll * fps))
+        # Keyed by frame + pre-roll: a window replayed for another start must never be reused.
+        window = out_dir / f"preroll{a.preroll:g}" / hashlib.sha256(key.encode()).hexdigest()[:16]
+        media = _media(a.sessions, m["event_id"], m["camera_name"])
+        done = window / f"{media.stem}.csv"
+        if not (done.is_file() and replay.row_at(done, m["frame"] - start) is not None):
+            replay.replay_window(media, start, m["frame"], window, extra=("--model", a.arm))
+        exported = qualify.exported_hands(
+            replay.row_at(done, m["frame"] - start) if done.is_file() else None
+        )
+        states = {side: c["sides"][side]["hand"] for side in labels.SIDES}
+        rows.extend(qualify.presence_rows(m["subject"], states, exported))
+    summary = {"arm": a.arm, "preroll_s": a.preroll}
+    summary |= qualify.presence_summary(rows, BOOT_SEED_PRESENCE)
+    (out_dir / f"presence_preroll{a.preroll:g}.json").write_text(
+        json.dumps({"summary": summary, "rows": rows}, indent=1)
+    )
+    print(json.dumps(summary))
+    return 0
+
+
+BOOT_SEED_PRESENCE = 20261022
+
+
 def cmd_agree(a: argparse.Namespace) -> int:
     first = {r["frame"]["key"]: r for r in labels.load(a.labels[0])}
     second = {r["frame"]["key"]: r for r in labels.load(a.labels[1])}
@@ -978,6 +1032,7 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("calibrate")
     s.add_argument("--coco-wb", type=Path, required=True)
     s.add_argument("--arm", required=True, choices=sorted(arms.POSE_ARMS))
+    s.add_argument("--reference", default="rtmw-m-256", choices=sorted(arms.POSE_ARMS))
     s.add_argument("--out", type=Path, default=Path(".scratch/bench/public"))
     s = sub.add_parser("corpus-gross")
     s.add_argument("--labels", type=Path, nargs=2, required=True)
@@ -985,6 +1040,14 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--sessions", type=Path, default=Path("sessions"))
     s.add_argument("--arm", required=True, choices=sorted(arms.POSE_ARMS))
     s.add_argument("--device", default="GPU")
+    s.add_argument("--out", type=Path, required=True)
+    s = sub.add_parser("presence")
+    s.add_argument("--labels", type=Path, nargs=2, required=True)
+    s.add_argument("--sample", type=Path, required=True)
+    s.add_argument("--run", type=Path, default=Path("output/corpus-2d"))
+    s.add_argument("--sessions", type=Path, default=Path("sessions"))
+    s.add_argument("--arm", required=True, help="run.MODEL_REGISTRY key")
+    s.add_argument("--preroll", type=float, required=True, help="seconds (M4.1 D05(e))")
     s.add_argument("--out", type=Path, required=True)
     s = sub.add_parser("agree")
     s.add_argument("--labels", type=Path, nargs=2, required=True)
@@ -1018,6 +1081,7 @@ def main(argv: list[str] | None = None) -> int:
         "preroll": cmd_preroll,
         "hand-eval": cmd_hand_eval,
         "agree": cmd_agree,
+        "presence": cmd_presence,
         "corpus-gross": cmd_corpus_gross,
         "calibrate": cmd_calibrate,
         "public-eval": cmd_public_eval,

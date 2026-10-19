@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 
-CALIBRATION_DIR = Path(__file__).resolve().parent / "calibration"
+CALIBRATION_DIR = Path(__file__).resolve().parent / "score_calibrations"
 #: COCO-WholeBody keypoint index ranges per group.
 GROUPS = {"body": (0, 17), "foot": (17, 23), "face": (23, 91), "hand": (91, 133)}
 MAX_KNOTS = 64
@@ -112,3 +112,51 @@ def fit(raw: np.ndarray, correct: np.ndarray) -> Curve:
     x, y = ux[idx], np.clip(level[idx], 0.0, 1.0)
     y = np.maximum.accumulate(y)
     return Curve(tuple(float(v) for v in x), tuple(float(v) for v in y))
+
+
+def _logistic(raw: np.ndarray, correct: np.ndarray, iterations: int = 50) -> tuple[float, float]:
+    """Maximum-likelihood (a, b) of P(correct | raw) = sigmoid(a * raw + b), Newton-Raphson."""
+    x, y = np.asarray(raw, float), np.asarray(correct, float)
+    keep = np.isfinite(x)
+    x, y = x[keep], y[keep]
+    if len(x) < 2 or y.min() == y.max():
+        raise ValueError("a logistic fit needs both outcomes")
+    a, b = 0.0, float(np.log((y.mean() + 1e-9) / (1 - y.mean() + 1e-9)))
+    for _ in range(iterations):
+        p = 1.0 / (1.0 + np.exp(-(a * x + b)))
+        w = p * (1 - p) + 1e-12
+        grad = np.array([np.sum((y - p) * x), np.sum(y - p)])
+        hess = np.array([[np.sum(w * x * x), np.sum(w * x)], [np.sum(w * x), np.sum(w)]])
+        step = np.linalg.solve(hess, grad)
+        a, b = a + float(step[0]), b + float(step[1])
+        if np.abs(step).max() < 1e-10:
+            break
+    return a, b
+
+
+def fit_reference(
+    raw: np.ndarray, correct: np.ndarray, ref_raw: np.ndarray, ref_correct: np.ndarray
+) -> Curve:
+    """Map an arm's raw score onto the reference arm's raw score of equal P(correct) (M4.3b D01).
+
+    Both sides are logistic, so the map is affine: (a * raw + b - b_ref) / a_ref, clamped at 0.
+    Knots span the arm's observed raw range, plus the zero crossing when it falls inside.
+    """
+    a, b = _logistic(raw, correct)
+    a_ref, b_ref = _logistic(ref_raw, ref_correct)
+    if a <= 0 or a_ref <= 0:
+        raise ValueError("a score that does not rise with correctness cannot be calibrated")
+    finite = np.asarray(raw, float)[np.isfinite(np.asarray(raw, float))]
+    lo, hi = float(finite.min()), float(finite.max())
+    if hi <= lo:
+        hi = lo + 1.0
+
+    def mapped(r: float) -> float:
+        return (a * r + b - b_ref) / a_ref
+
+    xs = [lo, hi]
+    zero = (b_ref - b) / a  # raw where the map crosses 0
+    if lo < zero < hi:
+        xs.insert(1, zero)
+    ys = [max(0.0, mapped(x)) for x in xs]
+    return Curve(tuple(xs), tuple(np.maximum.accumulate(ys)))
