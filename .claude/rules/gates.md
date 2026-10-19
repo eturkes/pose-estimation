@@ -2,13 +2,16 @@
 
 ## The gate command — `scripts/gate.sh` (`CLAUDE.md` `Execution`)
 
-- **Full gate = `scripts/gate.sh`**: `.agent/spec-lint`, `ruff check`, `ruff format --check`,
-  `ty check`, `pytest --durations=15`, in that order, each under the prefix below and each printing
+- **Full gate = `scripts/gate.sh`**: static steps (`.agent/spec-lint`, `ruff check` incl. security
+  rules `S`, `ruff format --check`, `ty check`, `shellcheck`, Dependabot schema), scanners (`audit`,
+  `secrets`, `scanner-seeds` → `scanners.md`; network + one `scripts/install-tools.sh`), then
+  `pytest --durations=15`, in that order, each under the prefix below and each printing
   `gate: <step> rc=<rc> <wall> s`; pytest adds its 15 slowest tests. A failed step leaves the later
   ones running, so one run reports every failure; rc=1 + `gate: FAIL <steps>`, else `gate: PASS`.
-- **Fast gate (iteration) = `scripts/gate.sh --fast <tests…>`**: the four static steps + the named
+- **Fast gate (iteration) = `scripts/gate.sh --fast <tests…>`**: the static steps + the named
   tests, `test_c8_08` deselected (it replays the whole suite). Static steps run sequentially on
-  their own caches: ~2 s together, measured, so parallelism buys nothing.
+  their own caches: ~2 s together, measured, so parallelism buys nothing. Scanners (~12 s,
+  network) run in the full gate alone.
 - **`scripts/gate.sh <cmd…>` = `<cmd>` under the prefix**, from the repo root — the form a brief carries.
 - **pytest dominates the full gate** (static steps ~2 s against the suite's wall) → its
   equal-strength speedup is a `.agent/deferred.md` row.
@@ -45,8 +48,9 @@ The template puts security scanning + update automation "in gate + CI". **Here t
 replaces hosted CI.** The decisive gate reads `videos/` + `inventory/` — patient data that never
 leaves this machine — and `renv/library`; a runner without them fails or skips cases, and A32 fails
 any skipped case (above), so no hosted runner can close it green. Scanners — dependency audit, secret
-scan, static analysis — join the local gate command, and update automation joins the GitHub
-remote, at the next IMPLEMENT or MAINTAIN session (→ `.agent/deferred.md`).
+scan, static analysis — run in the local gate command (→ `scanners.md`); update automation =
+`.github/dependabot.yml` (uv, both lockfiles) on the GitHub remote. User ruling (IMPLEMENT
+video analysis): no hosted scanner workflow either; the remote carries Dependabot config alone.
 
 ## The accelerator run recipe — mutually exclusive with the gate prefix
 
@@ -83,4 +87,4 @@ scripts/gate.sh
 
 ## Check firing + scratch validators
 
-Firing records + scratch-validator regeneration paths live in `paths:` rules on the files they grade: `checks.md` (`scripts/check_*.py`, mutation campaigns, report grader), `review-ui.md`, `pose-instruments.md`, `text-register.md`, `capture-docs.md` (`nc_m2u74.py`), `spec-lint.md`.
+Firing records + scratch-validator regeneration paths live in `paths:` rules on the files they grade: `checks.md` (`scripts/check_*.py`, mutation campaigns, report grader), `review-ui.md`, `pose-instruments.md`, `text-register.md`, `capture-docs.md` (`nc_m2u74.py`), `spec-lint.md`, `scanners.md`.

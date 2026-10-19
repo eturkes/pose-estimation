@@ -145,3 +145,6 @@ CLAUDE.local.md
 # Prototype review UI: its own uv venv and its npm download cache.  The media
 # rule has no exception here — this tree commits no video at all.
 prototype/review-ui/.cache/
+
+# Gate scanner binaries (scripts/install-tools.sh)
+.tools/

@@ -142,11 +142,6 @@ rows before sizing any unit that touches their surfaces.
   directory patterns `qualification.*/` + `calibration_qc.*/` as matching the `.md` files →
   Marksman diagnostics over `docs/` report 0 non-existent-document warnings, and
   `git check-ignore` still ignores a `qualification.x/` staging directory.
-- **The gate runs no security scanner and the remote carries no update automation** (template
-  IMPLEMENT; hosted CI replaced by the local gate → `gates.md` *Hosted CI*) → the gate command
-  (`scripts/gate.sh`) runs a dependency audit over every committed uv lockfile, a secret scan and a security
-  static-analysis pass, each firing on a planted input recorded in a `paths:` rule on the check's files;
-  `.github/dependabot.yml` covers every committed uv lockfile.
 - **`pose_config.json` omits the OpenVINO build** (`corpus_run.POSE_CONFIG_FIELDS`; a build swap
   moves landmarks by ≤ 1e-4, features ≤ 4.1e-4 of column max → `rtmlib-runtime.md`) → the config
   records `openvino.get_version()`; a resume under another build re-runs the event; a test seeds a

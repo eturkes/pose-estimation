@@ -79,7 +79,9 @@ test = [
     "pytest-cov>=5.0",
 ]
 lint = [
+    "check-jsonschema>=0.33",
     "ruff>=0.15",
+    "shellcheck-py>=0.11",
 ]
 types = [
     "ty>=0.0.31",
@@ -139,17 +141,31 @@ select = [
     "NPY",  # numpy-specific
     "PD",   # pandas-vet
     "PERF", # perflint
+    "S",    # flake8-bandit (security; the gate's static-analysis scanner)
 ]
 ignore = [
     "E501",   # line-too-long (formatter handles it)
     "SIM108", # ternary is not always clearer
     "N803",   # argument naming — scientific convention (L/R side, M matrix)
     "N806",   # variable naming — scientific convention (L/R side, M matrix)
+    "S603",   # every subprocess here passes a list argv (no shell) built from trusted CLI input
+    "S607",   # Rscript, git, ffprobe, node resolve from PATH by design
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["N802", "N803", "N806"]  # test functions often use non-PEP8 names
-"scripts/**" = ["T201"]                 # scripts may print
+"tests/**" = [
+    "N802", "N803", "N806",  # test functions often use non-PEP8 names
+    "S101",                  # pytest asserts
+    "S105", "S106",          # fixture tokens, never credentials
+    "S102",                  # test_rev1_m2u101 recompiles a shipped function to plant a mutant
+]
+# Asserts in these modules state internal invariants (shapes, solver state); none guards input,
+# a path or access. Per-file so a new assert anywhere else still reds.
+"src/pose_estimation/{benchmark,qualify,rtmlib_openvino,run,smoothing}.py" = ["S101"]
+"scripts/**" = [
+    "T201",  # scripts may print
+    "S311",  # seeded sampling for determinism campaigns, never key material
+]
 "scripts/benchmarks/**" = [
     "T201",
     "PERF401",  # explicit for-append loops read more clearly in bench builders

@@ -1,0 +1,15 @@
+# Update automation (template IMPLEMENT; gates.md *Hosted CI*: the full gate stays local, so every
+# Dependabot PR is merged only after scripts/gate.sh passes on this machine). renv.lock has no
+# Dependabot ecosystem; the gate's osv-scanner step audits it instead.
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directories:
+      - "/"
+      - "/prototype/review-ui"
+    schedule:
+      interval: "weekly"
+    groups:
+      uv-minor-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 5
