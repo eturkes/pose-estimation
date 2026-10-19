@@ -96,8 +96,9 @@ hospital SCI database.
 - **3D is closed negative.** Extrinsic recovery is unachievable here — 15-20 px systematic
   cross-view keypoint bias, refused by the shipped estimator and by independent bundle adjustment,
   not transferring across events, so no repair route survives. Publishes through `calibration_qc/`;
-  reopens on prospective calibrated capture. Measured on RTMW-m keypoints → the benchmark reports
-  each arm's cross-view residual; a material drop returns the ruling to the user.
+  reopens on prospective calibrated capture. Each arm's cross-view residual is measured against
+  RTMW-m's (a material drop returns the ruling to the user): RTMW-L 384 rises, ratio 1.23 [1.02,
+  1.46] → the ruling stands (`docs/technical/benchmark.md`).
 - **Metric scale is unavailable.** Over a stratified 52/379 sample exact dimensional identity
   resolved 0/52, best conditional route floors at ±17.7 %. Angles, angular velocities, timing +
   dimensionless shape survive; metre-valued distance, velocity + jerk do not. Publishes

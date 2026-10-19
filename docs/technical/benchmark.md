@@ -64,6 +64,11 @@ bench.py hand-eval --set dexycb --root .scratch/data/dexycb/20200709-subject-01 
 $P python scripts/bench.py screen --coco-wb .scratch/data/cocowb/coco_wholebody_val_v1.0.json \
   --public .scratch/bench/public --dexycb .scratch/data/dexycb/20200709-subject-01 \
   --handsets .scratch/bench/handsets --arms <arm…> --out .scratch/bench/screen.json
+# Cross-view residual: collect under the accelerator recipe, compare under $P.
+probe_crossview_arm.py collect --arm <arm> --device CPU --cache .scratch/calib-obs-arm-<arm> \
+  --frames-per-event 32 --stratum-events 25
+$P python scripts/probe_crossview_arm.py compare --cache rtmw-m-256=.scratch/calib-obs-wide \
+  --cache <arm>=.scratch/calib-obs-arm-<arm> --baseline rtmw-m-256
 ```
 
 COCO val2017 images + `person_keypoints_val2017.json` come from `images.cocodataset.org`; the
@@ -176,7 +181,19 @@ Rule, committed before any arm result: over the units every arm scores, ratio = 
 upper bound < 1 → the 3D ruling returns to the user. 0.75 takes the ~17 px residual below its
 15-20 px band.
 
-Result: pending.
+Result (115 events, 32 synchronised frames each; L384 pose on CPU f32, the production arm's
+GPU f32 numerics; baseline = the M2.6b RTMW-m cache, which the wrapper reproduces byte-equal in
+points + boxes over the 22-event sample):
+
+| arm | pairs scored | paired median residual | split-half r (paired) | r > 0.5 |
+| --- | --- | --- | --- | --- |
+| RTMW-m 256 | 178 | 17.0 px | 0.814 | 129/178 |
+| RTMW-L 384 | 197 | 21.0 px | 0.817 | 143/178 |
+
+Ratio 1.234 [1.023, 1.463] over 178 paired units / 103 events → **no material drop; the 3D
+ruling stands.** The per-keypoint bias stays as reproducible as on RTMW-m. Confound checked: the
+calibrated 0.5 cut admits more points per pair for L384 (median 34 vs 24), yet on the 39 pairs
+where it admits no more, the ratio is 1.408 — the rise is not a population artifact.
 
 ## Public data provenance
 
