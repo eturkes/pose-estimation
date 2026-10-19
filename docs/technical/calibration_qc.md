@@ -1,7 +1,7 @@
 # Calibration ruling
 
 `pose-estimation-calibration-qc` publishes one corpus-level calibration ruling and the evidence set that supports it.
-The ruling covers extrinsic recovery from RTMW-L keypoints on this corpus at 1080p under per-model intrinsic priors.
+The ruling covers extrinsic recovery from RTMW-m keypoints on this corpus at 1080p under per-model intrinsic priors.
 
 The tool publishes beside `qualification/`. It never modifies that tree or converts the ruling into per-event geometry verdicts.
 It is the fifth artifact publisher, after `inventory`, `sessions`, `qualify`, and the `measure` sidecar.
@@ -129,7 +129,7 @@ The table contains exactly one row. The ruling is a module constant, so no argum
 | `recovery_status` | `unachievable` | Records the measured recovery verdict inside the stated bound. |
 | `reason` | `cross_view_keypoint_bias` | Names the measured mechanism behind the verdict. |
 | `transfer_status` | `absent` | Records the tested signed-bias transfer result. |
-| `keypoint_source` | `rtmw_l` | Binds the ruling to RTMW-L keypoints. |
+| `keypoint_source` | `rtmw_m` | Binds the ruling to RTMW-m keypoints. |
 | `image_height_px` | `1080` | Binds the ruling to the measured image height. |
 | `intrinsics_basis` | `per_model_prior` | Binds the ruling to per-model intrinsic priors. |
 | `unrun_arm` | `per_event_double_centered_bias_and_pose` | Names the remaining synthetic-control arm. |
@@ -255,10 +255,10 @@ The marker publishes these supported statements. Each one is quoted verbatim fro
 that constant, and a reworded copy sends an editor text the tool refuses.
 `scripts/check_claim_report.py` P02 pins this list.
 
-1. **C01.** Extrinsic recovery from RTMW-L keypoints on this corpus at 1080p under per-model intrinsic priors is measured unachievable.
-2. **C02.** Within-event cross-view RTMW-L correspondence carries a measured 15-20 px systematic component at 1080p.
+1. **C01.** Extrinsic recovery from RTMW-m keypoints on this corpus at 1080p under per-model intrinsic priors is measured unachievable.
+2. **C02.** Within-event cross-view RTMW-m correspondence carries a measured 15-20 px systematic component at 1080p.
 3. **C03.** The shipped estimator is exact on exact synthetic correspondence, and independent bundle adjustment worsens corpus closure.
-4. **C04.** No disjointly selected RTMW-L subset beats all 65 keypoints on the measured corpus folds.
+4. **C04.** No disjointly selected RTMW-m subset beats all 65 keypoints on the measured corpus folds.
 5. **C05.** Signed bias transfer is absent at the tested view-pair, device-model, task and subject groupings over the full eligible population.
 6. **C06.** The same keypoints share difficulty across events while the signed offset direction is redrawn every event, so that magnitude is not a correctable coordinate offset.
 7. **C07.** Held-out reprojection on the solve's own keypoint family is self-consistency.

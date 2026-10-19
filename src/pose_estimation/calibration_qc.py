@@ -5,7 +5,7 @@ and the ``measure`` sidecar, and it inherits their publication contract whole:
 whole-tree swap, per-file digests, a self-describing marker, and a
 ``validate_generation`` every consumer calls before reading a row.
 
-This tool computes no statistic.  Extrinsic recovery from RTMW-L keypoints was
+This tool computes no statistic.  Extrinsic recovery from RTMW-m keypoints was
 measured unachievable on this corpus at 1080p under per-model intrinsic priors,
 and the measurement lives in two committed probes; the ruling those probes
 support is what this tool publishes.  Those three qualifiers travel with every
@@ -91,7 +91,7 @@ RULING_GRAINS = frozenset({"corpus"})
 RECOVERY_STATUSES = frozenset({"unachievable"})
 RECOVERY_REASONS = frozenset({"cross_view_keypoint_bias"})
 TRANSFER_STATUSES = frozenset({"absent"})
-KEYPOINT_SOURCES = frozenset({"rtmw_l"})
+KEYPOINT_SOURCES = frozenset({"rtmw_m"})
 INTRINSICS_BASES = frozenset({"per_model_prior"})
 # `unrun` is the only spelling this cell accepts, and the exclusion is the
 # point: the per-event joint bias-and-pose control was never built, so
@@ -104,7 +104,7 @@ RULING: dict[str, str] = {
     "recovery_status": "unachievable",
     "reason": "cross_view_keypoint_bias",
     "transfer_status": "absent",
-    "keypoint_source": "rtmw_l",
+    "keypoint_source": "rtmw_m",
     "image_height_px": "1080",
     "intrinsics_basis": "per_model_prior",
     "unrun_arm": "per_event_double_centered_bias_and_pose",
@@ -198,13 +198,13 @@ REQUIRED_ARM_PREFIXES: tuple[str, ...] = (
 # consumer reads the bound from the artifact rather than from a document that
 # can drift away from it.
 CLAIMS: tuple[str, ...] = (
-    "Extrinsic recovery from RTMW-L keypoints on this corpus at 1080p under per-model "
+    "Extrinsic recovery from RTMW-m keypoints on this corpus at 1080p under per-model "
     "intrinsic priors is measured unachievable.",
-    "Within-event cross-view RTMW-L correspondence carries a measured 15-20 px systematic "
+    "Within-event cross-view RTMW-m correspondence carries a measured 15-20 px systematic "
     "component at 1080p.",
     "The shipped estimator is exact on exact synthetic correspondence, and independent bundle "
     "adjustment worsens corpus closure.",
-    "No disjointly selected RTMW-L subset beats all 65 keypoints on the measured corpus folds.",
+    "No disjointly selected RTMW-m subset beats all 65 keypoints on the measured corpus folds.",
     "Signed bias transfer is absent at the tested view-pair, device-model, task and subject "
     "groupings over the full eligible population.",
     "The same keypoints share difficulty across events while the signed offset direction is "

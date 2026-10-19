@@ -60,7 +60,7 @@ MODELS = {
         "rtmpose-m_simcc-ucoco_dw-ucoco_270e-256x192-c8b76419_20230728.zip",
         (1, 3, 256, 192),
     ),
-    "rtmw-m wholebody (256x192)": (
+    "rtmw-s wholebody (256x192)": (
         "https://download.openmmlab.com/mmpose/v1/projects/rtmw/onnx_sdk/"
         "rtmw-dw-m-s_simcc-cocktail14_270e-256x192_20231122.zip",
         (1, 3, 256, 192),

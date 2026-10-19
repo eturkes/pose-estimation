@@ -1,9 +1,9 @@
 {
   "claims": [
-    "Extrinsic recovery from RTMW-L keypoints on this corpus at 1080p under per-model intrinsic priors is measured unachievable.",
-    "Within-event cross-view RTMW-L correspondence carries a measured 15-20 px systematic component at 1080p.",
+    "Extrinsic recovery from RTMW-m keypoints on this corpus at 1080p under per-model intrinsic priors is measured unachievable.",
+    "Within-event cross-view RTMW-m correspondence carries a measured 15-20 px systematic component at 1080p.",
     "The shipped estimator is exact on exact synthetic correspondence, and independent bundle adjustment worsens corpus closure.",
-    "No disjointly selected RTMW-L subset beats all 65 keypoints on the measured corpus folds.",
+    "No disjointly selected RTMW-m subset beats all 65 keypoints on the measured corpus folds.",
     "Signed bias transfer is absent at the tested view-pair, device-model, task and subject groupings over the full eligible population.",
     "The same keypoints share difficulty across events while the signed offset direction is redrawn every event, so that magnitude is not a correctable coordinate offset.",
     "Held-out reprojection on the solve's own keypoint family is self-consistency.",
@@ -22,7 +22,7 @@
       "cited_probes": "bias_transfer|calibration_bias",
       "image_height_px": "1080",
       "intrinsics_basis": "per_model_prior",
-      "keypoint_source": "rtmw_l",
+      "keypoint_source": "rtmw_m",
       "reason": "cross_view_keypoint_bias",
       "recovery_status": "unachievable",
       "ruling_grain": "corpus",
@@ -45,8 +45,8 @@
     ]
   },
   "generation": {
-    "census": "4974280c056270c838828f877df42218908a67277b8bad075cfe45212bc09c69",
-    "corpus_qc.csv": "749f6122ab0321cbbfd5501555a6fa214fe5138d5aa7795ff302f642c6d77cc5",
+    "census": "ab4605398690f0bb38c71a6ee90865df2f0354d7c2f3bc893fc9c84e6590dadd",
+    "corpus_qc.csv": "810c65aeb7bcacb6f783c66628b301e7b3203eb6570cabbe2ac5ee003affe0da",
     "evidence_qc.csv": "6656c52defc4f7ac1d89efd559b21f080608e1f932073bc1d28d13d431d480ac",
     "generator_version": "v1",
     "probes": {
@@ -78,7 +78,7 @@
       },
       "tree": "a09e524666f186383207b31691176726b00b8321001847931186252c9a3b0104"
     },
-    "tree": "1e161c9e3f06e62cae32232e9777abec0ca2ce93a97a396c411eb8aab32e0f8b"
+    "tree": "e89e29a70fdea4c6678035adc9361a22563201d884eca18b951edb63a8018d5a"
   },
   "schema_version": "v1"
 }

@@ -19,12 +19,12 @@ The ruling is corpus-grained. It has one cause and one named unrun arm.
 | recovery status | unachievable |
 | cause | `cross_view_keypoint_bias` |
 | transfer status | absent |
-| keypoint source | RTMW-L |
+| keypoint source | RTMW-m |
 | image height | 1080 px |
 | intrinsics basis | per-model prior |
 | unrun arm | `per_event_double_centered_bias_and_pose` |
 
-Three qualifiers travel with the ruling, and they are load-bearing. The measurement covers RTMW-L
+Three qualifiers travel with the ruling, and they are load-bearing. The measurement covers RTMW-m
 keypoints, this corpus at 1080p, and per-model intrinsic priors. Change any one of the three and the
 result is unmeasured, not settled.
 
@@ -50,7 +50,7 @@ published bytes against the same text.
 
 ### C01 — extrinsic recovery
 
-> Extrinsic recovery from RTMW-L keypoints on this corpus at 1080p under per-model intrinsic priors is measured unachievable.
+> Extrinsic recovery from RTMW-m keypoints on this corpus at 1080p under per-model intrinsic priors is measured unachievable.
 
 **Evidence.** Three-camera rotation cycle closure, against a 10-degree bound declared before the
 run. The corpus closes 2 of 10 three-camera events, at a median of 39.0 to 47.4 degrees. The
@@ -64,7 +64,7 @@ covers one keypoint source on one corpus.
 
 ### C02 — the measured cause
 
-> Within-event cross-view RTMW-L correspondence carries a measured 15-20 px systematic component at 1080p.
+> Within-event cross-view RTMW-m correspondence carries a measured 15-20 px systematic component at 1080p.
 
 **Evidence.** One pooled pose per camera pair is fitted on a training block of frames. Per-keypoint
 mean signed epipolar residuals are then correlated across two disjoint held-out blocks. Over 39
@@ -91,7 +91,7 @@ with data. That is the signature of a biased estimator, not of a weak one.
 
 ### C04 — no keypoint subset rescues it
 
-> No disjointly selected RTMW-L subset beats all 65 keypoints on the measured corpus folds.
+> No disjointly selected RTMW-m subset beats all 65 keypoints on the measured corpus folds.
 
 **Evidence.** Keypoints were ranked on one event fold and scored on the disjoint fold, in both
 directions. On fold 1 the full 65 keypoints close at 47.42 degrees, the cleanest 40 at 41.87, and the
