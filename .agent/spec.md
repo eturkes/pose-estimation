@@ -178,7 +178,7 @@ hospital SCI database.
   the cohort export (own contract: construct definitions + known-dynamics controls).
 - [x] 3410a90 **`calibration_qc` claims name RTMW-m** — published claim text + fixtures + determinism campaigns.
 - [ ] **Monocular 3D angles pilot** (SAM 3D Body, >= 40 events) → user adoption ruling.
-- [ ] **Gate speed** — A32 reconciled in-session (`tests/a32_gate.py`), `test_c8_08` = plugin firing; pytest 2465 s vs 5634 s (44 %).
+- [x] fc58765 **Gate speed** — A32 reconciled in-session (`tests/a32_gate.py`), `test_c8_08` = plugin firing; pytest 2465 s vs 5634 s (44 %).
 - [ ] **Corpus rerun** — sized by a paired pilot; cohort republished; after-table vs M2.10; `scientist`.
 - [ ] **Closing review** — one `reviewer` per lens + MAIN's security lens → `.agent/review.md`.
 - [ ] **Close** — README, review UI → `tools/review-ui/`, `Phase: MAINTAIN`.
