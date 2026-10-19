@@ -9,7 +9,7 @@ charset renders tofu.
 
 Regenerate (prototype environment, dev group; needs network)::
 
-    uv run --directory prototype/review-ui python tools/build_assets.py
+    uv run --directory tools/review-ui python tools/build_assets.py
 """
 
 from __future__ import annotations

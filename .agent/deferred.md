@@ -66,7 +66,7 @@ rows before sizing any unit that touches their surfaces.
   <= 0.006 on the watch set at <= +15 % wall with collapse unchanged on every clip.
 - **2D weak-point triage lives in `.scratch/triage.py` alone** (→ `pose-instruments.md`; behind
   `docs/technical/pose-weak-points.md`) → a committed `scripts/` instrument with no
-  `prototype/` import reproduces the catalog's per-view counts over a run tree and flags a
+  `tools/review-ui` import reproduces the catalog's per-view counts over a run tree and flags a
   seeded whole-skeleton relocation in a synthetic landmark CSV.
 - **Detector scores outside `[0,1]` accepted silently** → score-range guard fires on NPU, silent on
   CPU + GPU, under the synthetic zeros probe.
@@ -128,12 +128,12 @@ rows before sizing any unit that touches their surfaces.
   fragment.
 - **Player clock rate + overlay time map are proven by scratch scripts**
   (`.scratch/player_clock_qa.mjs`, `.scratch/player_time_qa.mjs`; → `review-ui.md`) → port both to
-  committed checks under `prototype/review-ui/tools/`, run from the recorded commands: clock 10 rows
+  committed checks under `tools/review-ui/tools/`, run from the recorded commands: clock 10 rows
   green with the seeded `view.framePos`→`view.frame` regression reding exactly the 6 rate rows while
   both `layer=show` rows stay green; time map 7 rows green with the series-index seed reding the 5
   map rows and the seek-less `|▶` seed reding the step row alone.
 - **Review UI stacked-layout stability proven by scratch scripts** (`.scratch/drift_qa.mjs`,
-  `.scratch/ratchet_qa.mjs`; → `review-ui.md`) → committed checks under `prototype/review-ui/tools/`:
+  `.scratch/ratchet_qa.mjs`; → `review-ui.md`) → committed checks under `tools/review-ui/tools/`:
   drift 22/22 with a stacked `1fr` column reding exactly the 4 stacked injection rows; ratchet
   60/60 across scales 1/1.1/1.25/1.5 with stacked `auto auto` rows reding only stacked rows.
 - **Marksman reports 3 links to existing docs as non-existent** (`docs/calibration_finding.md:9`,
@@ -208,7 +208,7 @@ rows before sizing any unit that touches their surfaces.
 - **Review UI predates the `CLAUDE.md` `Execution` UI design + Charts + figures and `Authoring`
   UI-copy clauses** (known gap: the census rotation + sync panels, `static/census.js`
   `rotationPanel` + `syncPanel`, are interactive charts with no table view) → an audit table over
-  `prototype/review-ui/` names each generated-UI default the clause lists (` · `-joined meta
+  `tools/review-ui/` names each generated-UI default the clause lists (` · `-joined meta
   strings, monospace data labels, `→` on links, tracked ALL-CAPS eyebrows, numbered markers,
   identical shadowed cards, per-section fades), each chart rule (form by the data's job, one
   y-scale per plot, color by job, legend + direct labels, a table view per interactive chart) and

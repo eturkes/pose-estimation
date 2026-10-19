@@ -44,7 +44,7 @@ tools=$root/.tools/bin
 audit() {
 	local rc=0
 	uv audit --locked --preview-features audit-command -q || rc=1
-	uv audit --locked --preview-features audit-command -q --directory prototype/review-ui || rc=1
+	uv audit --locked --preview-features audit-command -q --directory tools/review-ui || rc=1
 	uv audit --locked --preview-features audit-command -q --directory tools/cocowb-eval || rc=1
 	"$tools/osv-scanner" scan source -L renv.lock >/dev/null || rc=1
 	return "$rc"

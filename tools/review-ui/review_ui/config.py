@@ -16,7 +16,7 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 PROTOTYPE_DIR = PACKAGE_DIR.parent
 STATIC_DIR = PACKAGE_DIR / "static"
 
-#: prototype/review-ui/review_ui/config.py -> repository root.
+#: tools/review-ui/review_ui/config.py -> repository root.
 DEFAULT_REPO = PROTOTYPE_DIR.parent.parent
 
 

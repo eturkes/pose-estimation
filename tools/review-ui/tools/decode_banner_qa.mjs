@@ -5,7 +5,7 @@
 // media is committed and no recording is loaded.
 //
 //   python -m review_ui --port <p> --repo <empty dir>   # any repo works; the API is routed
-//   node prototype/review-ui/tools/decode_banner_qa.mjs http://127.0.0.1:<p>
+//   node tools/review-ui/tools/decode_banner_qa.mjs http://127.0.0.1:<p>
 //
 // Grades the build it runs on: an HEVC row reports `decoder present` when this Chromium
 // decodes HEVC, since the banner half then has no failure to show.

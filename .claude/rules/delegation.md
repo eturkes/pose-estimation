@@ -6,7 +6,7 @@ Teammate fits + mechanics = `CLAUDE.md` `Teammates`; each role's standing rules 
 - **Phase scopes the spine; review-UI rows run PROTOTYPE law** (user ruling: IMPLEMENT = the video
   analysis, the review UI kept as its review instrument). Spine work follows the phase `Phase` names,
   depth per unit: pipeline, publisher or analysis code is `kernel` (`.agent/spec.md` `Decisions`), so
-  deep. A review-UI row (`prototype/review-ui/`) is instrument upkeep under PROTOTYPE law, outside the
+  deep. A review-UI row (`tools/review-ui/`) is instrument upkeep under PROTOTYPE law, outside the
   gates, whatever phase the spine holds. Role fits (`tester` on a committed kernel contract,
   `reviewer` on a kernel-unit diff, `scientist` on an after-table or a cohort republication) hold
   in every phase.

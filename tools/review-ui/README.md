@@ -18,7 +18,7 @@ link.
 ## Run
 
 ```sh
-uv run --directory prototype/review-ui python -m review_ui
+uv run --directory tools/review-ui python -m review_ui
 ```
 
 Open `http://127.0.0.1:8791/`. The server prints each published tree as `ok` or
@@ -110,10 +110,10 @@ Run each command from the directory it names.
 ```sh
 # Skeleton topology and palette, from pose_estimation.drawing. Repository root.
 env -u LD_LIBRARY_PATH PYTHONPATH="$PWD/src" uv run --no-sync \
-    python prototype/review-ui/tools/export_topology.py
+    python tools/review-ui/tools/export_topology.py
 
 # IBM Plex subsets and the Plotly cartesian bundle. Needs network.
-uv run --directory prototype/review-ui python tools/build_assets.py
+uv run --directory tools/review-ui python tools/build_assets.py
 ```
 
 `build_assets.py` subsets the Japanese faces to the characters this UI renders.
@@ -123,7 +123,7 @@ The file is gitignored, so you must publish the cohort first; the builder refuse
 `tools/check_glyphs.py` checks the result: every character the UI draws must have a glyph.
 
 ```sh
-uv run --directory prototype/review-ui python tools/check_glyphs.py
+uv run --directory tools/review-ui python tools/check_glyphs.py
 ```
 
 ## Limits
@@ -142,8 +142,8 @@ uv run --directory prototype/review-ui python tools/check_glyphs.py
   decode banner. Each check also replays seeded defects and must report them red.
 
   ```sh
-  node prototype/review-ui/tools/overlay_map_qa.mjs http://127.0.0.1:8791
-  node prototype/review-ui/tools/decode_banner_qa.mjs http://127.0.0.1:8791
+  node tools/review-ui/tools/overlay_map_qa.mjs http://127.0.0.1:8791
+  node tools/review-ui/tools/decode_banner_qa.mjs http://127.0.0.1:8791
   ```
 - The server trusts its caller. It binds the loopback address and serves
   read-only. Every request resolves through the built clip index, so a request

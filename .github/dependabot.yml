@@ -6,7 +6,7 @@ updates:
   - package-ecosystem: "uv"
     directories:
       - "/"
-      - "/prototype/review-ui"
+      - "/tools/review-ui"
       - "/tools/cocowb-eval"
     schedule:
       interval: "weekly"

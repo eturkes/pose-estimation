@@ -10,8 +10,8 @@ hospital SCI database.
   family has three views at best. The recordings have no fixed rig and no calibration.
 - The pipeline tracks 2D pose per clip, extracts clinical kinematic features, and aggregates to
   cohort level — no per-subject rows, no patient identifier, no join column leaving this repo.
-- The review UI is the prototype: it confirms the shape of the deliverable. The deliverable is the
-  analysed videos — movement statistics ready for `../rehab`.
+- The review UI confirmed the shape of the deliverable as the prototype and stays as the review
+  instrument. The deliverable is the analysed videos — movement statistics ready for `../rehab`.
 - The eventual destination is a subject↔patient join into the hospital SCI database. That mapping
   does not exist yet.
 
@@ -19,14 +19,14 @@ hospital SCI database.
 
 `P` = the gate prefix; `P` + the mutually-exclusive accelerator recipe → `.claude/rules/gates.md`.
 
-- `prototype/review-ui/` — **the prototype, kept as the review instrument** (user ruling): inspects
-  each corpus generation through IMPLEMENT, PROTOTYPE law, outside the gates. One local web UI,
+- `tools/review-ui/` — **the review instrument** (retired prototype, tag `prototype-review-ui`;
+  user ruling): inspects each corpus generation, PROTOTYPE law, outside the gates. One local web UI,
   bilingual ja/en (`?lang=en`), themed auto|light|dark (`?theme=`, auto = `light-dark()` + the
   OS), three views, clip player (the landing view) · corpus census · cohort explorer.
   FastAPI + vanilla JS canvas + vendored Plotly/IBM Plex, own uv project, read-only over the
   published trees, degrading per absent tree. Commits no media at all → the player needs the
   published trees and lists nothing without them; `README.md` = view guide + regeneration + limits.
-  `uv run --directory prototype/review-ui python -m review_ui` → `http://127.0.0.1:8791/`.
+  `uv run --directory tools/review-ui python -m review_ui` → `http://127.0.0.1:8791/`.
 - `cohort/` — the `../rehab` export, from the M2.10 generation. 12 `(task, side)` cells · 89
   features · 1068 rows; trunk features 6-16 subjects (side views alone), non-task-hand + bilateral
   hand features 6-16 (hand gate) → `cohort.md`; `descriptors.yaml` = ja/en labels, units, ranges.
@@ -42,7 +42,7 @@ hospital SCI database.
   § M2.10 corpus. Superseded generations kept by user ruling (M2.10 videos reviewed; delete on
   the user's word): M2.9 at `output/corpus-2d-superseded-m29/` + cohort
   `.scratch/compare-m29/cohort/`; rtmlib-f7 at `output/corpus-2d-superseded-rtmlib-f7/` +
-  `.scratch/compare-root/cohort/`. Comparison UI = `uv run --directory prototype/review-ui python
+  `.scratch/compare-root/cohort/`. Comparison UI = `uv run --directory tools/review-ui python
   -m review_ui --port 8792 --repo "$PWD/.scratch/compare-m29"` (`compare-root` for rtmlib-f7;
   symlinks onto the primary trees + the superseded run).
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
@@ -59,7 +59,7 @@ hospital SCI database.
 
 - **Repo scope = `videos/3-cam/`** — retired data + siblings → `.claude/rules/data-boundary.md`.
 - **`src/` + `tests/` + `analysis/` + six publishers = production spine** = the IMPLEMENT scope,
-  gates + verification integrity binding; the prototype (`prototype/review-ui/`, → `Artifacts`)
+  gates + verification integrity binding; the prototype (`tools/review-ui/`, → `Artifacts`)
   sits outside under PROTOTYPE law, `testpaths = ["tests"]` keeping it out of collection (→
   `.claude/rules/delegation.md`).
 - **IMPLEMENT optimises the video analysis itself** (user rulings) — model selection + parameter

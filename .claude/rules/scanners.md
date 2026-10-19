@@ -6,13 +6,13 @@ paths:
   - "pyproject.toml"
   - "uv.lock"
   - "renv.lock"
-  - "prototype/review-ui/uv.lock"
+  - "tools/review-ui/uv.lock"
   - ".github/dependabot.yml"
 ---
 
 # Security scanners — what runs, what it covers, how it fires
 
-- **Dependency audit** = `uv audit --locked` over both uv lockfiles (root + `prototype/review-ui/`;
+- **Dependency audit** = `uv audit --locked` over both uv lockfiles (root + `tools/review-ui/`;
   `--preview-features audit-command` silences the experimental banner) + `osv-scanner scan source
   -L renv.lock` (122 CRAN packages; Dependabot has no renv ecosystem, so this step is its only
   update signal). The vendored review-UI JS (Plotly, fonts) carries no lockfile and no audit.

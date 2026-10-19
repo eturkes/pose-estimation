@@ -5,7 +5,7 @@ Coverage per weight = the union of the `Plex Sans` + `Plex Sans JP` subsets, the
 `style.css --sans` resolves them in. Charset = `build_assets.charset()`, so the check reads
 the same inputs the subset was built from and refuses where the builder refuses.
 
-    uv run --directory prototype/review-ui python tools/check_glyphs.py [--extra TEXT]
+    uv run --directory tools/review-ui python tools/check_glyphs.py [--extra TEXT]
 
 `--extra` appends characters to the charset — the firing input (`--extra 鬱` → rc=1).
 """

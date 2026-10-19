@@ -8,7 +8,7 @@ JavaScript.  Colours there are BGR (OpenCV); the browser gets hex RGB.
 Regenerate from the repository root, which is where `pose_estimation` resolves::
 
     env -u LD_LIBRARY_PATH PYTHONPATH="$PWD/src" uv run --no-sync \
-        python prototype/review-ui/tools/export_topology.py
+        python tools/review-ui/tools/export_topology.py
 """
 
 from __future__ import annotations

@@ -36,7 +36,7 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
 - `.scratch/triage.py [<run-tree>] [--json <out>]` — per-clip 2D weak-point metrics behind
   `docs/technical/pose-weak-points.md` (`whole`, `iso`, `alt`, `flick`, `oof`, `gap`, `lowvis`,
   `swapH`; definitions in that file). `P python .scratch/triage.py output/corpus-2d --json <out>`;
-  labels clips by the review UI's positional ordinals (imports `prototype/review-ui`), prints
+  labels clips by the review UI's positional ordinals (imports `tools/review-ui`), prints
   numbers only. Baselines, 379 clips each: `.scratch/watch/triage_m210.json` (M2.10, shipped), `.scratch/watch/triage_m29.json` (M2.9, superseded) and
   `.scratch/watch/triage_f7.json` (superseded rtmlib-f7).
 - Corpus after-table instruments, numbers only, review-UI ordinals for labels:

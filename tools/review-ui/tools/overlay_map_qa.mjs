@@ -3,7 +3,7 @@
 // clips, so no recording is loaded, decoded or drawn and the run needs no published tree.
 //
 //   python -m review_ui --port <p> --repo <empty dir>   # any repo works; the API is routed
-//   node prototype/review-ui/tools/overlay_map_qa.mjs http://127.0.0.1:<p>
+//   node tools/review-ui/tools/overlay_map_qa.mjs http://127.0.0.1:<p>
 //
 // Expected position = clip pixel (u, v) where the video element draws it: `object-fit: contain`
 // (read from the computed style) inside the stage content box, k = min(w/W, h/H), centred —

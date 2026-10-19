@@ -1,4 +1,4 @@
-"""Entry point: `uv run --directory prototype/review-ui python -m review_ui`."""
+"""Entry point: `uv run --directory tools/review-ui python -m review_ui`."""
 
 from __future__ import annotations
 

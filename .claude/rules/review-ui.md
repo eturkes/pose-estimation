@@ -1,6 +1,6 @@
 ---
 paths:
-  - "prototype/review-ui/**"
+  - "tools/review-ui/**"
 ---
 
 # Review UI — check firing + scratch validators
@@ -12,17 +12,17 @@ paths:
 
 ## Check firing evidence
 
-- **`prototype/review-ui/tools/label_click_qa.mjs` — labelling page click map, measured.** Serve a
+- **`tools/review-ui/tools/label_click_qa.mjs` — labelling page click map, measured.** Serve a
   repo whose `.scratch/bench/user/` holds synthetic jobs + a 1920x1080 synthetic frame as job 0
   (`python -m review_ui --repo <dir>`), then `node tools/label_click_qa.mjs http://127.0.0.1:<port>`:
   14 points through the two-step zoom, worst 0.22 source px, wrist shared by hand + arm → rc 0
   (bar 0.5 px). Seed = loupe mapping dividing by `clientWidth + 4` (the border-inclusive bug the
   first draft had) → worst 0.71 px, rc 1. Capture-free: never point it at real frames.
-- **`prototype/review-ui/tools/check_glyphs.py` firing, measured** (prototype, outside the 16):
+- **`tools/review-ui/tools/check_glyphs.py` firing, measured** (prototype, outside the 16):
   live tree = 436 code points, 0 missing per weight, rc=0; `--extra 鬱` (the shipped firing input)
   = 1 missing per weight, `FAIL 2 missing`, rc=1. Absent `cohort/descriptors.yaml` → `charset()`
   refuses with a named cause, rc=1, in builder + check alike.
-- **`prototype/review-ui/tools/{overlay_map_qa,decode_banner_qa}.mjs` — self-seeding, measured.**
+- **`tools/review-ui/tools/{overlay_map_qa,decode_banner_qa}.mjs` — self-seeding, measured.**
   `node <tool> http://127.0.0.1:<port>` against any `python -m review_ui` (`--repo <empty dir>`
   works: `/api/clip*` routed to synthetic clips, no recording loaded → capture-free + inside
   `data-boundary.md`). Seeds = `player.js` served mutated through `page.route`, no file edited, so
@@ -62,7 +62,7 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
   change touched shared CSS. **38/38 green; 4 of 4
   seeds fire their own rows and nothing else**; with the four viewports added for the 2:5 stack
   it reads 48/48 after-only, the 4 seed rows among them, each still reding exactly its own rows. The second URL is a `git worktree` of the previous
-  commit served with `--repo <primary>` and `UV_PROJECT_ENVIRONMENT=<primary>/prototype/review-ui/.venv
+  commit served with `--repo <primary>` and `UV_PROJECT_ENVIRONMENT=<primary>/tools/review-ui/.venv
   uv run --no-sync`, which measured controls below the stage at 322 px → 156 px. Seed rules learned
   here: `.stage`'s own `max-width: 100%` absorbs a `width` seed, so a seed that must escape the room
   needs `min-width`; and a `goto` differing only in its fragment is a same-document navigation, so an
