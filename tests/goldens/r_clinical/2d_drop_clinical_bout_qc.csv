@@ -1,0 +1,7 @@
+video,person_idx,side,n_bouts,n_censored,disposition,n_expected_frames,n_valid_frames,n_expected_intervals,n_valid_intervals,valid_duration_sec,longest_gap_frames,n_gaps
+clinical_golden_2d.avi,0,left,0,0,no_bout,91,91,90,90,3,0,0
+clinical_golden_2d.avi,0,right,0,0,no_bout,91,91,90,90,3,0,0
+clinical_golden_2d.avi,1,left,0,0,no_usable_wrist,NA,NA,NA,NA,NA,NA,NA
+clinical_golden_2d.avi,1,right,0,0,no_usable_wrist,NA,NA,NA,NA,NA,NA,NA
+clinical_golden_2d.avi,2,left,0,0,no_bout,20,20,19,19,0.6333333333333333,0,0
+clinical_golden_2d.avi,2,right,0,0,no_bout,20,20,19,19,0.6333333333333333,0,0

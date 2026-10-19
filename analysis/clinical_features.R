@@ -1994,6 +1994,370 @@ segment_movements <- function(df, frame_features, tracking,
 }
 
 # ------------------------------------------------------------------
+# Wrist-motion bouts (M4.5a, contract .agent/archive/contract-m4u5a.md)
+# ------------------------------------------------------------------
+
+# Detection parameters = the D04 synthetic qualification's chosen cell
+# (scripts/qualify_bouts.py; contract-m4u5a A01), frozen before any corpus bout
+# was read.
+BOUT_THRESHOLD <- 0.05
+BOUT_NORMALISER_Q <- 0.95
+BOUT_MIN_SEC <- 0.3
+BOUT_MERGE_SEC <- 0.2
+BOUT_SPARC_SUPPORT <- "extended"
+# Bout bounds: where detection speed crosses the level ("level"), or extended
+# outward to the nearest local minimum of detection speed ("minimum").
+BOUT_BOUNDS <- "level"
+BOUT_PEAK_PROMINENCE <- 0.1
+# Noise floor: a relative threshold alone detects noise on a hand that never
+# moves, so the level is also at least BOUT_NOISE_K x the BOUT_NOISE_Q quantile
+# of detection speed (the series' own resting noise; 0 disables the floor).
+BOUT_NOISE_K <- 4
+BOUT_NOISE_Q <- 0.05
+# Fixed by the contract, not tuned: median width, the longest hole filled for
+# speed, and the 150 ms peak spacing of the SCI movement-unit literature.
+BOUT_MEDIAN_K <- 5L
+BOUT_MAX_FILL <- 2L
+BOUT_PEAK_SPACING_SEC <- 0.15
+
+BOUT_FEATURES <- c(
+  "bout_duration", "bout_sparc", "bout_normalized_jerk",
+  "bout_peak_time_share", "bout_speed_peaks", "bout_path_ratio", "bout_dwell"
+)
+BOUT_KEYS <- c(
+  "video", "person_idx", "side", "bout_idx", "start_frame", "end_frame",
+  "start_sec", "end_sec", "censored"
+)
+BOUT_SCHEMA <- c(
+  BOUT_KEYS,
+  paste0(rep(c("left", "right"), each = length(BOUT_FEATURES)), "_", BOUT_FEATURES)
+)
+BOUT_DISPOSITIONS <- c(
+  "bouts", "only_censored", "no_bout", "no_usable_wrist", "invalid_timebase"
+)
+BOUT_QC_SCHEMA <- c(
+  "video", "person_idx", "side", "n_bouts", "n_censored", "disposition",
+  names(GRID_EVIDENCE_FIELDS)
+)
+
+#' Zero-row bout table carrying the frozen schema (a header-only file proves the
+#' producer ran; it never claims "no movement").
+bout_schema <- function() {
+  cols <- lapply(BOUT_SCHEMA, function(name) {
+    if (name %in% c("video", "side")) character()
+    else if (name %in% c("person_idx", "bout_idx", "start_frame", "end_frame",
+                         "censored")) integer()
+    else double()
+  })
+  names(cols) <- BOUT_SCHEMA
+  as_tibble(cols)
+}
+
+bout_qc_schema <- function() {
+  as_tibble(c(
+    list(video = character(), person_idx = integer(), side = character(),
+         n_bouts = integer(), n_censored = integer(), disposition = character()),
+    lapply(GRID_EVIDENCE_FIELDS, function(v) v[0])
+  ))
+}
+
+#' Place one person's samples on the nominal grid; absent rows become NA slots.
+#'
+#' @return List of \code{t}, \code{x}, \code{y}, \code{frame} (per slot,
+#'   frames interpolated between observed rows) and \code{observed}, or
+#'   \code{NULL} when the timebase cannot be gridded.
+bout_grid <- function(t, x, y, frame, fs) {
+  keep <- is.finite(t)
+  t <- t[keep]; x <- x[keep]; y <- y[keep]; frame <- frame[keep]
+  status <- trajectory_grid_status(t, fs)
+  if (!is.null(status$fault)) return(NULL)
+  n <- status$n_grid
+  gx <- rep(NA_real_, n); gy <- rep(NA_real_, n)
+  gx[status$slot + 1L] <- x
+  gy[status$slot + 1L] <- y
+  slots <- seq_len(n) - 1L
+  list(
+    t = t[1] + slots / fs,
+    x = gx, y = gy,
+    frame = as.integer(round(approx(status$slot, frame, slots, rule = 2)$y)),
+    observed = is.finite(gx) & is.finite(gy)
+  )
+}
+
+#' Continuity segments: maximal slot ranges whose holes are <= max_fill slots.
+#' A segment starts and ends on an observed slot.
+bout_segments <- function(observed, max_fill = BOUT_MAX_FILL) {
+  idx <- which(observed)
+  if (length(idx) < 2) return(list())
+  breaks <- which(diff(idx) - 1L > max_fill)
+  starts <- idx[c(1L, breaks + 1L)]
+  ends <- idx[c(breaks, length(idx))]
+  keep <- ends > starts
+  Map(function(s, e) c(s, e), starts[keep], ends[keep])
+}
+
+#' Plateau-collapsed local maxima of v with topographic prominence.
+#'
+#' @return Data frame of \code{pos} (plateau midpoint, fractional index),
+#'   \code{height} and \code{prominence}, highest first.
+speed_maxima <- function(v) {
+  r <- rle(v)
+  vals <- r$values
+  m <- length(vals)
+  ends <- cumsum(r$lengths)
+  starts <- ends - r$lengths + 1L
+  is_peak <- vapply(seq_len(m), function(i) {
+    (i == 1L || vals[i] > vals[i - 1L]) && (i == m || vals[i] > vals[i + 1L])
+  }, logical(1))
+  peaks <- which(is_peak)
+  prom <- vapply(peaks, function(i) {
+    left <- if (i > 1L) {
+      higher <- which(vals[seq_len(i - 1L)] > vals[i])
+      lo <- if (length(higher)) max(higher) + 1L else 1L
+      min(vals[lo:(i - 1L)])
+    } else vals[i]
+    right <- if (i < m) {
+      higher <- which(vals[(i + 1L):m] > vals[i])
+      hi <- if (length(higher)) i + min(higher) - 1L else m
+      min(vals[(i + 1L):hi])
+    } else vals[i]
+    vals[i] - max(left, right)
+  }, numeric(1))
+  out <- data.frame(
+    pos = (starts[peaks] + ends[peaks]) / 2,
+    height = vals[peaks],
+    prominence = prom
+  )
+  out[order(-out$height, out$pos), , drop = FALSE]
+}
+
+#' Count prominent maxima, at least `spacing` intervals apart (greedy by height).
+#' The global maximum always counts, so a bout reports >= 1 peak.
+count_speed_peaks <- function(v, prominence_frac, spacing) {
+  maxima <- speed_maxima(v)
+  peak <- max(v)
+  maxima <- maxima[maxima$height == peak |
+                   maxima$prominence >= prominence_frac * peak, , drop = FALSE]
+  kept <- numeric(0)
+  for (p in maxima$pos) {
+    if (all(abs(p - kept) >= spacing)) kept <- c(kept, p)
+  }
+  length(kept)
+}
+
+#' Grid, continuity segments and per-interval speeds for one person x side.
+#'
+#' Interior holes <= max_fill slots are filled linearly for speed only; each
+#' segment is processed alone, so no filter crosses a split.  \code{speed} and
+#' \code{det} (running median) are indexed by interval: entry i = slot i -> i+1.
+#'
+#' @return The grid (NULL when the timebase cannot be gridded) with
+#'   \code{speed}, \code{det} and \code{segments}.
+bout_prepare <- function(t, x, y, frame, fs, median_k = BOUT_MEDIAN_K,
+                         max_fill = BOUT_MAX_FILL) {
+  grid <- bout_grid(t, x, y, frame, fs)
+  if (is.null(grid)) return(NULL)
+  grid$segments <- bout_segments(grid$observed, max_fill)
+  grid$speed <- grid$det <- rep(NA_real_, length(grid$x))
+  for (seg in grid$segments) {
+    obs <- seg[1]:seg[2]
+    known <- obs[grid$observed[obs]]
+    xi <- approx(known, grid$x[known], obs)$y
+    yi <- approx(known, grid$y[known], obs)$y
+    v <- sqrt(diff(xi)^2 + diff(yi)^2) * fs
+    grid$speed[seg[1]:(seg[2] - 1L)] <- v
+    grid$det[seg[1]:(seg[2] - 1L)] <- running_median(v, median_k)
+  }
+  grid
+}
+
+#' Bouts on a prepared grid (contract D02): active runs of detection speed above
+#' the level, merged across short gaps, short runs dropped; a run touching a
+#' segment boundary is censored.
+#'
+#' @return Data frame of slot bounds \code{start}, \code{end}, the
+#'   \code{segment} index and \code{censored}.
+bout_runs <- function(grid, fs,
+                      threshold = BOUT_THRESHOLD,
+                      normaliser_q = BOUT_NORMALISER_Q,
+                      min_sec = BOUT_MIN_SEC,
+                      merge_sec = BOUT_MERGE_SEC,
+                      noise_k = BOUT_NOISE_K,
+                      bounds = BOUT_BOUNDS) {
+  empty <- data.frame(start = integer(), end = integer(), segment = integer(),
+                      censored = logical())
+  det_all <- grid$det[is.finite(grid$det)]
+  if (!length(det_all)) return(empty)
+  level <- max(
+    threshold * as.numeric(quantile(det_all, normaliser_q, names = FALSE, type = 7)),
+    noise_k * as.numeric(quantile(det_all, BOUT_NOISE_Q, names = FALSE, type = 7))
+  )
+  if (!is.finite(level) || level <= 0) return(empty)
+  merge_n <- floor(merge_sec * fs + 1e-9)
+  rows <- list()
+  for (k in seq_along(grid$segments)) {
+    s <- grid$segments[[k]][1]; e <- grid$segments[[k]][2]
+    r <- rle(grid$det[s:(e - 1L)] > level)
+    ends <- cumsum(r$lengths); starts <- ends - r$lengths + 1L
+    runs <- cbind(starts[r$values], ends[r$values])
+    if (!nrow(runs)) next
+    merged <- runs[1, , drop = FALSE]
+    for (i in seq_len(nrow(runs))[-1]) {
+      if (runs[i, 1] - merged[nrow(merged), 2] - 1L <= merge_n) {
+        merged[nrow(merged), 2] <- runs[i, 2]
+      } else {
+        merged <- rbind(merged, runs[i, ])
+      }
+    }
+    n_int <- e - s
+    det <- grid$det[s:(e - 1L)]
+    for (i in seq_len(nrow(merged))) {
+      a <- merged[i, 1]; b <- merged[i, 2]          # intervals within the segment
+      if ((b + 1L - a) / fs < min_sec - 1e-9) next   # covers slots a .. b + 1
+      if (bounds == "minimum") {
+        while (a > 1L && det[a - 1L] < det[a]) a <- a - 1L
+        while (b < n_int && det[b + 1L] < det[b]) b <- b + 1L
+      }
+      rows[[length(rows) + 1L]] <- data.frame(
+        start = s + a - 1L, end = s + b, segment = k,
+        censored = a == 1L || b == n_int
+      )
+    }
+  }
+  if (length(rows)) do.call(rbind, rows) else empty
+}
+
+#' Detect wrist-motion bouts on one person x side (contract D01-D03).
+#'
+#' @return List of the prepared \code{grid} (NULL on an invalid timebase) and
+#'   its \code{bouts}.
+detect_bouts <- function(t, x, y, frame, fs, ...) {
+  grid <- bout_prepare(t, x, y, frame, fs)
+  if (is.null(grid)) return(list(grid = NULL, bouts = NULL))
+  list(grid = grid, bouts = bout_runs(grid, fs, ...))
+}
+
+#' SPARC support for one bout: its bounds, or extended outward to the nearest
+#' local minimum of detection speed inside the segment (contract D05).
+bout_sparc_support <- function(grid, s_seg, e_seg, start, end, support) {
+  a <- start; b <- end - 1L                     # intervals of the bout
+  if (support == "extended") {
+    while (a > s_seg && is.finite(grid$det[a - 1L]) && grid$det[a - 1L] < grid$det[a]) {
+      a <- a - 1L
+    }
+    while (b < e_seg - 1L && is.finite(grid$det[b + 1L]) && grid$det[b + 1L] < grid$det[b]) {
+      b <- b + 1L
+    }
+  }
+  a:b
+}
+
+#' Per-bout features (contract section 1) for one person x side.
+bout_features <- function(det, fs, sparc_support = BOUT_SPARC_SUPPORT,
+                          prominence = BOUT_PEAK_PROMINENCE,
+                          spacing_sec = BOUT_PEAK_SPACING_SEC) {
+  grid <- det$grid; bouts <- det$bouts
+  n <- nrow(bouts)
+  out <- data.frame(
+    bout_duration = rep(NA_real_, n), bout_sparc = NA_real_,
+    bout_normalized_jerk = NA_real_, bout_peak_time_share = NA_real_,
+    bout_speed_peaks = NA_real_, bout_path_ratio = NA_real_, bout_dwell = NA_real_
+  )
+  if (!n) return(out)
+  segs <- grid$segments
+  for (i in seq_len(n)) {
+    if (bouts$censored[i]) next
+    s <- bouts$start[i]; e <- bouts$end[i]
+    seg <- segs[[bouts$segment[i]]]
+    slots <- s:e
+    intervals <- s:(e - 1L)
+    duration <- grid$t[e] - grid$t[s]
+    v <- grid$det[intervals]
+    peak_runs <- rle(v == max(v))
+    run_end <- cumsum(peak_runs$lengths)
+    first <- which(peak_runs$values)[1]
+    mid <- (run_end[first] - peak_runs$lengths[first] + 1 + run_end[first]) / 2
+    t_peak <- (mid - 0.5) / fs                      # interval i spans slots i-1 .. i
+    complete <- all(grid$observed[slots])
+    out$bout_duration[i] <- duration
+    out$bout_sparc[i] <- spectral_arc_length(
+      grid$speed[bout_sparc_support(grid, seg[1], seg[2], s, e, sparc_support)], fs
+    )
+    out$bout_peak_time_share[i] <- min(1, max(0, t_peak / duration))
+    out$bout_speed_peaks[i] <- count_speed_peaks(v, prominence, spacing_sec * fs)
+    if (complete) {
+      z <- rep(0, length(slots))
+      out$bout_normalized_jerk[i] <- normalized_jerk(grid$x[slots], grid$y[slots], z, fs)
+      out$bout_path_ratio[i] <- movement_efficiency(grid$x[slots], grid$y[slots], z)
+    }
+    nxt <- i + 1L
+    if (nxt <= n && bouts$segment[nxt] == bouts$segment[i] && !bouts$censored[nxt]) {
+      out$bout_dwell[i] <- grid$t[bouts$start[nxt]] - grid$t[e]
+    }
+  }
+  out
+}
+
+#' Bout table + per person x side dispositions for one 2D landmark frame.
+compute_bouts <- function(df, tracking) {
+  bcol <- function(side, kp, coord) body_col(tracking, side, kp, coord)
+  rows <- list(); qc <- list()
+  groups <- unique(df[, c("video", "person_idx")])
+  for (g in seq_len(nrow(groups))) {
+    vid <- groups$video[g]; pid <- as.integer(groups$person_idx[g])
+    sub <- df[df$video == vid & as.integer(df$person_idx) == pid, ]
+    t <- as.numeric(sub$timestamp_sec)
+    fs <- nominal_fs(t[is.finite(t)], magnitude = TRUE)
+    for (side in c("left", "right")) {
+      x <- as.numeric(sub[[bcol(side, "wrist", "x")]])
+      y <- as.numeric(sub[[bcol(side, "wrist", "y")]])
+      usable <- sum(is.finite(x) & is.finite(y))
+      det <- if (usable >= 4 && is.finite(fs) && fs > 0) {
+        detect_bouts(t, x, y, as.integer(sub$frame_idx), fs)
+      } else NULL
+      if (is.null(det) || is.null(det$grid)) {
+        evidence <- GRID_EVIDENCE_FIELDS
+        disposition <- if (usable < 4) "no_usable_wrist" else "invalid_timebase"
+        n_b <- 0L; n_c <- 0L
+      } else {
+        evidence <- grid_evidence(det$grid$observed, fs)
+        n_b <- nrow(det$bouts); n_c <- sum(det$bouts$censored)
+        disposition <- if (!n_b) "no_bout" else if (n_c == n_b) "only_censored" else "bouts"
+        if (n_b) {
+          feats <- bout_features(det, fs)
+          names(feats) <- paste0(side, "_", names(feats))
+          other <- setNames(
+            as.data.frame(matrix(NA_real_, n_b, length(BOUT_FEATURES))),
+            paste0(setdiff(c("left", "right"), side), "_", BOUT_FEATURES)
+          )
+          b <- det$bouts
+          rows[[length(rows) + 1L]] <- cbind(
+            data.frame(
+              video = vid, person_idx = pid, side = side, bout_idx = seq_len(n_b),
+              start_frame = det$grid$frame[b$start], end_frame = det$grid$frame[b$end],
+              start_sec = round(det$grid$t[b$start], 4),
+              end_sec = round(det$grid$t[b$end], 4),
+              censored = as.integer(b$censored)
+            ),
+            feats, other
+          )[, BOUT_SCHEMA]
+        }
+      }
+      qc[[length(qc) + 1L]] <- as_tibble(c(
+        list(video = vid, person_idx = pid, side = side, n_bouts = as.integer(n_b),
+             n_censored = as.integer(n_c), disposition = disposition),
+        evidence
+      ))
+    }
+  }
+  bouts <- if (length(rows)) as_tibble(do.call(rbind, rows)) else bout_schema()
+  stopifnot(identical(names(bouts), BOUT_SCHEMA))
+  qc <- if (length(qc)) bind_rows(qc)[, BOUT_QC_SCHEMA] else bout_qc_schema()
+  stopifnot(all(qc$disposition %in% BOUT_DISPOSITIONS))
+  list(bouts = bouts, qc = qc)
+}
+
+# ------------------------------------------------------------------
 # Main
 # ------------------------------------------------------------------
 
@@ -2126,6 +2490,17 @@ for (f in files) {
                 basename(out_phases)))
   } else {
     cat("  The script detected no movements.\n")
+  }
+
+  # Wrist-motion bouts (M4.5a): 2D only, both artifacts always written, so a
+  # header-only bout file proves the step ran and a stale one cannot survive.
+  if (!is_3d) {
+    cat("  The script detects wrist-motion bouts.\n")
+    bout_out <- compute_bouts(df, tracking)
+    write_csv(bout_out$bouts, paste0(stem, "_clinical_bouts.csv"))
+    write_csv(bout_out$qc, paste0(stem, "_clinical_bout_qc.csv"))
+    cat(sprintf("  The script wrote %d bouts and %d bout dispositions.\n",
+                nrow(bout_out$bouts), nrow(bout_out$qc)))
   }
 
   cat("  The script finished.\n")

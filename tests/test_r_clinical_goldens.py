@@ -20,16 +20,22 @@ _DATASETS = {
         ("2d_idx_clinical.csv", "frame"),
         ("2d_idx_clinical_windows.csv", "window"),
         ("2d_idx_clinical_group_qc.csv", "group_qc"),
+        ("2d_idx_clinical_bouts.csv", "bouts"),
+        ("2d_idx_clinical_bout_qc.csv", "bout_qc"),
     ),
     "2d_cumsum": (
         ("2d_cumsum_clinical.csv", "frame"),
         ("2d_cumsum_clinical_windows.csv", "window"),
         ("2d_cumsum_clinical_group_qc.csv", "group_qc"),
+        ("2d_cumsum_clinical_bouts.csv", "bouts"),
+        ("2d_cumsum_clinical_bout_qc.csv", "bout_qc"),
     ),
     "2d_csv4dp": (
         ("2d_csv4dp_clinical.csv", "frame"),
         ("2d_csv4dp_clinical_windows.csv", "window"),
         ("2d_csv4dp_clinical_group_qc.csv", "group_qc"),
+        ("2d_csv4dp_clinical_bouts.csv", "bouts"),
+        ("2d_csv4dp_clinical_bout_qc.csv", "bout_qc"),
     ),
     # `2d_drop` is the only dataset whose input carries droppable groups, so it is the
     # only one whose disposition golden pins a reason code, a row order and the
@@ -38,6 +44,8 @@ _DATASETS = {
         ("2d_drop_clinical.csv", "frame"),
         ("2d_drop_clinical_windows.csv", "window"),
         ("2d_drop_clinical_group_qc.csv", "group_qc"),
+        ("2d_drop_clinical_bouts.csv", "bouts"),
+        ("2d_drop_clinical_bout_qc.csv", "bout_qc"),
     ),
     "world3d": (
         ("world3d_clinical_3d.csv", "frame"),
@@ -51,7 +59,14 @@ _OUTPUT_CASES = tuple(
     for dataset, entries in _DATASETS.items()
     for filename, kind in entries
 )
-_BASE_WIDTHS = {"frame": 54, "window": 46, "window_qc": 24, "group_qc": 5}
+_BASE_WIDTHS = {
+    "frame": 54,
+    "window": 46,
+    "window_qc": 24,
+    "group_qc": 5,
+    "bouts": 23,
+    "bout_qc": 13,
+}
 _GROUP_QC_FIELDS = ("video", "person_idx", "n_frames", "drop_reason", "qc_status")
 _TAG_COLUMNS = (
     "artifact_kind",
@@ -78,6 +93,15 @@ _METADATA_COLUMNS = {
     "qc_status",
     "qc_reason",
     "drop_reason",
+    # Bout keys + dispositions (M4.5a): identity and labels, never measurements.
+    "side",
+    "bout_idx",
+    "start_frame",
+    "end_frame",
+    "start_sec",
+    "end_sec",
+    "censored",
+    "disposition",
     *_TAG_COLUMNS,
 }
 _REQUIRED_WINDOW_METRICS = {
@@ -230,7 +254,10 @@ def test_clinical_golden_schema_exact(dataset, filename, kind, regenerated_outpu
         assert set(actual_fields) >= _REQUIRED_WINDOW_METRICS
     # A well-formed input drops nothing, so four of the five disposition goldens are
     # header-only by contract; test_group_qc_goldens_pin_real_drops carries the floor.
-    if kind != "group_qc":
+    # The golden reach moves for the whole series, so no rest exists for a bout to start from:
+    # the bout goldens pin the header (rows + values = tests/test_m4u5a_bouts.py) and the
+    # disposition goldens carry the rows.
+    if kind not in ("group_qc", "bouts"):
         assert expected_rows
 
 

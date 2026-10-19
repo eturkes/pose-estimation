@@ -230,3 +230,7 @@ rows before sizing any unit that touches their surfaces.
 - **Cohort Cell composition table clips its last column** (`#cohort` at 1280 px: `Window rows`
   header cut, no horizontal scroll; `?lang=ja` also wraps each task name onto two lines) → at 1280 px and 1600 px every header + cell of the table is
   fully on screen or its container scrolls horizontally with the overflow visible.
+- **Two wrist segmenters in `clinical_features.R`** — `segment_movements` (phases, 5 % of clip
+  max, NA speed as 0, unexported) beside the qualified `detect_bouts` (M4.5a) → phases read
+  `detect_bouts`' bouts, `*_movement_phases.csv` keeps its schema, and a hole inside motion no
+  longer reads as rest (the M4.5a NC2 fixture splits into censored bouts in both artifacts).

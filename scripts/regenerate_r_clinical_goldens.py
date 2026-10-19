@@ -342,6 +342,8 @@ def _expected_outputs(stem: str) -> tuple[str, ...]:
         f"{stem}_clinical.csv",
         f"{stem}_clinical_windows.csv",
         f"{stem}_clinical_group_qc.csv",
+        f"{stem}_clinical_bouts.csv",
+        f"{stem}_clinical_bout_qc.csv",
     )
 
 

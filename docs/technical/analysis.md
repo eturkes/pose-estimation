@@ -418,6 +418,42 @@ Phase metrics are **not** gap-qualified: they still drop or bridge tracking hole
 - **Static wrist** (peak speed < 1e-10) → no movements detected.
 - **Hands-only mode** → skipped (same as all other clinical features).
 
+## Wrist-motion bouts (M4.5a)
+
+`compute_bouts()` in `clinical_features.R` writes `<stem>_clinical_bouts.csv` and
+`<stem>_clinical_bout_qc.csv` for every 2D input, both always (a header-only bout file proves the
+step ran; it never claims "no movement"). Contract `.agent/archive/contract-m4u5a.md`. SPARC and
+normalized jerk are defined on one discrete movement, so this is where the cohort's smoothness and
+timing come from; the window `*_wrist_sal` / `*_normalized_jerk` stay for legacy consumers.
+
+Estimand: features of detected, uncensored, projected 2D wrist-motion bouts — algorithmic
+intervals, never recovered reaches or grasps (a pause can divide one action).
+
+1. **Grid first** (`bout_grid`): samples on the nominal grid; absent rows, non-finite or
+   confidence-masked points = missing slots. An invalid timebase yields no bout.
+2. **Segments** (`bout_segments`): split at holes longer than `BOUT_MAX_FILL` (2) slots; shorter
+   holes filled linearly for speed only.
+3. **Detection** (`bout_prepare` + `bout_runs`): first-difference speed, 5-slot running median;
+   level = max(`BOUT_THRESHOLD` 0.05 × the `BOUT_NORMALISER_Q` 0.95 quantile, `BOUT_NOISE_K` 4 ×
+   the 5 % quantile) — the second term keeps a still hand's noise out; runs merged across <= 0.2 s,
+   runs < 0.3 s dropped; a run touching a segment edge is censored (bounds kept, features NA).
+4. **Features** (`bout_features`): duration; SPARC on the unsmoothed speed from the nearest speed
+   minimum before to the nearest after (the whole movement unit); normalized jerk + path ratio
+   (NA when the path holds a missing slot); peak-time share (highest plateau's midpoint); speed
+   peaks (prominence >= 0.1 × the bout peak, >= 0.15 s apart); dwell to the next uncensored bout
+   in the same segment.
+
+Parameters come from a synthetic qualification (`scripts/qualify_bouts.py`; generator + scoring in
+`src/pose_estimation/bout_qualification.py`, detector run through `analysis/bout_qualification.R`):
+noise level measured on the corpus as a calibrated residual proxy (SD 2.69e-4 frame units), 648
+cells ranked on a development bank, the chosen cell reported on an untouched bank — F1 0.573 under
+a max(0.1 s, 10 %) boundary tolerance, SPARC |error| median 0.007, peak count exact 0.89, duration
+|error| mean 0.10 s, no bout on any still series. Onset below the noise floor is unobservable, so
+`bout_duration` reads the above-noise span.
+
+`bout_qc` dispositions per person × side: `bouts`, `only_censored`, `no_bout`, `no_usable_wrist`,
+`invalid_timebase`, with the `grid_evidence()` counts.
+
 ## Aggregation convention
 
 Per-video aggregation (used by correlation / longitudinal / dimreduce / compare): mean, median, SD, min, max for frame features; mean, SD for window features. Implemented once in `aggregate_per_video()` (`utils.R`); always reuse rather than duplicate.

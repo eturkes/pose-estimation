@@ -102,6 +102,15 @@ def openvino_build() -> str:
     return openvino.get_version()
 
 
+#: The R producer every event's clinical stage runs; its bout constants live in the file itself.
+ANALYSIS_R = Path(__file__).resolve().parents[2] / "analysis" / "clinical_features.R"
+
+
+def analysis_digest() -> str:
+    """sha256 of the R producer, so a generation names the feature + bout method it ran (M4.5a D08)."""
+    return hashlib.sha256(ANALYSIS_R.read_bytes()).hexdigest()
+
+
 def calibration_digest(model: str) -> str:
     """sha256 of the model's score calibration file + refit hand gate; `identity` for neither."""
     from .run import MODEL_REGISTRY  # deferred: run imports the inference stack

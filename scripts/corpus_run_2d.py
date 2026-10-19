@@ -47,6 +47,7 @@ from pose_estimation.corpus_run import (
     STAGE_CLINICAL,
     STAGE_RUN,
     ManifestError,
+    analysis_digest,
     asset_disposition,
     is_complete,
     openvino_build,
@@ -108,6 +109,7 @@ REPORT_FIELDS = frozenset(
         "camera_survey",
         "task_gap_s",
         "openvino_build",
+        "analysis_sha256",
         "task_span",
         "frames_outside_task",
         "assets_trimmed",
@@ -216,6 +218,7 @@ def redaction_allowlist(args: Any, placed_assets: Any, codes: Any) -> frozenset[
             args.tracker,
             args.drop_hips_camera,
             openvino_build(),
+            analysis_digest(),
             args.det_device,
             args.pose_device,
             MARKER_COMPLETE,
@@ -703,6 +706,7 @@ def main() -> int:
             "det_frequency": args.det_frequency,
             "single_subject": args.single_subject,
             "openvino_build": openvino_build(),
+            "analysis_sha256": analysis_digest(),
             # 2D landmark CSVs carry no identity tags, so two generations under
             # different normalisations are shaped identically and mean
             # different things.  The report is where they separate.

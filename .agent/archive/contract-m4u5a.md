@@ -152,7 +152,15 @@ bout method it ran.
 
 | ID | verdict | evidence |
 | --- | --- | --- |
-| P01-P09 | open | |
+| P01 | pass | `tests/test_m4u5a_bouts.py` P01 ×3 (single bout, perpendicular 40 % overlap → 2 peaks + lower SPARC, plateau midpoint); NC3 fires (1 failed) |
+| P02 | pass | author Gaussian → -1.41403 |
+| P03 | pass | long hole → censored, NA = omitted-row form; 2-slot hole → NJ + path ratio NA, SPARC + timing finite; dwell NA across a split; NC2 (2 failed) + NC4 (1 failed) fire |
+| P04 | pass | 6-frame glitch (~0.6 %) leaves the 6 genuine bouts at Q 0.95; Q 1.0 loses bouts (NC1) |
+| P05 | pass | producer run: `BOUT_SCHEMA` header, wide NA, gapless idx, ranges, dispositions, header-only rerun clears stale rows, directory mode skips both artifacts; goldens: 8 new files, the 20 existing byte-identical |
+| P06 | pass | ×3 + shift → identical bounds, features to 1e-9 |
+| P07 | pass | 25 / 30 / 60 Hz: duration within 1/25 s, share + SPARC within 0.05 |
+| P08 | partial | banks seed-determined; all-miss + over-fragmenter fail admissibility, F1 1.0 / < 0.5; one-to-one matching + tolerance; the rerun from committed state is pending |
+| P09 | pass | driver report `configuration.analysis_sha256` = sha256 of the R file (redaction allowlist carries it) |
 
 ## 8. Amendments
 
@@ -164,3 +172,25 @@ bout method it ran.
   (`.scratch/consultant-3/probe.log`): Gaussian oracle -1.414031; a 0.4 s minimum-jerk bout at
   30 Hz → first-argmax share 0.333, cropped SPARC error 0.135 — hence D05 and qualified
   tolerances.
+- **A01 (qualification, D04 + D06).** Method amendments made before the frozen run, each on a
+  probe (dev seed, 1 series per stratum) that exposed a generator or method defect: truth bouts
+  = rest-to-rest runs of the noise-free resultant speed bounded at 5 % of each run's own peak
+  (the per-episode truth duplicated runs and missed low-amplitude motion); peak speeds drawn
+  log-uniform over 0.05-0.5 frame/s (the corpus wrist p95 range); a noise floor joins D02 —
+  level = max(threshold × Q-quantile, `BOUT_NOISE_K` × the 5 % quantile of detection speed),
+  `BOUT_NOISE_K` ∈ {0, 4, 8} in the grid (a relative threshold alone turns a still hand's noise
+  into bouts); a bounds option ∈ {level crossing, nearest speed minimum} joined the grid. D06
+  measured (`qualify_bouts.py measure-noise`, M2.10 run): 758/758 asset-sides eligible, proxy
+  median 1.68e-4 (p90 3.55e-4) frame units, proxy response on known noise 0.624 → generator
+  noise SD 2.69e-4 (×0.5 / ×1 / ×2). Frozen run (`qualify_bouts.py qualify --per-stratum 4`;
+  648 cells, 48 admissible): chosen = threshold 0.05, Q 0.95, min 0.3 s, merge 0.2 s, noise
+  k 4, level bounds, extended SPARC support, peak prominence 0.1. Untouched qualification bank
+  (180 series, 924 truth bouts): F1 0.573 (P 0.603, R 0.547), fragmented 22, merged 1,
+  uncensored retention 0.996, SPARC |error| median 0.0069, peak count exact 0.89, duration
+  |error| mean 0.103 s; 0 detections on every stationary series. At the corpus noise level
+  (×1) detections track truths about one-to-one (30 Hz: 23/22, 33/32, 18/22, 30/30) and the F1
+  loss is boundary error beyond max(0.1 s, 10 % of duration) — onset below the noise floor is
+  unobservable, so `bout_duration` reads the above-noise span (the probe's matched bouts started
+  late and ended early: median +0.05 s / -0.08 s).
+  P01 + P07 tolerances (0.05 peak share, 0.02 SPARC on the noise-free fixture; 0.05 across
+  rates) hold on the chosen cell.
