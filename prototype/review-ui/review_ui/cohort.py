@@ -23,10 +23,24 @@ NUMERIC_FIELDS = (
     "n_assets",
     "n_values",
     "n_events_multiview",
+    "n_subjects_multiview",
     "n_frame_rows",
     "n_window_rows",
+    "n_bout_rows",
 )
-STATISTIC_FIELDS = ("median", "q25", "q75", "mean", "sd", "view_dispersion")
+# v2 agreement fields + v1's view_dispersion, so a retained v1 generation still renders.
+STATISTIC_FIELDS = (
+    "median",
+    "q25",
+    "q75",
+    "mean",
+    "sd",
+    "view_abs_diff",
+    "view_icc",
+    "view_icc_range_lo",
+    "view_icc_range_hi",
+    "view_dispersion",
+)
 
 
 def _typed(row: dict[str, str]) -> dict[str, Any]:

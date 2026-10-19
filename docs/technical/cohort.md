@@ -27,6 +27,7 @@ That call recomputes the digest over the published bytes. It refuses a set that 
 The tool aggregates in four stages. Each stage takes a median:
 
 1. **Asset median.** The median of the finite rows of one camera artifact.
+   For the bout level, the rows are the asset's uncensored wrist-motion bouts of that side.
 2. **Event median.** The median of the asset medians of one event.
 3. **Subject median.** The median of the event medians of one subject.
 4. **Cohort statistic.** The median, quartiles, mean, and standard deviation over the subject values.
@@ -35,35 +36,47 @@ The median at each stage keeps one long recording, one extra camera, or one repe
 Only finite values contribute. The tool discards `NA`, `NaN`, and both infinities before every stage.
 
 A cell publishes its counts always. A cell publishes its distribution only at five subjects or more.
-Below that floor, `median`, `q25`, `q75`, `mean`, `sd`, and `view_dispersion` are empty.
+Below that floor, `median`, `q25`, `q75`, `mean`, and `sd` are empty.
 A statistic over four subjects identifies its subjects. The counts do not.
 
-`view_dispersion` measures how much the two camera views of one event disagree.
-For each event with two or more finite asset values, the tool divides the population standard deviation by the absolute mean.
-The cell value is the median of those per-event ratios. `n_events_multiview` counts the events that qualified.
-An event with a zero mean has no scale, so it leaves both the statistic and the count.
+## Cross-view agreement
+
+Two or three cameras film each recording event. The agreement columns describe how much those views disagree on the same event.
+The statistic is descriptive. It includes projection, observed time span, bout segmentation, and tracking.
+It is not the reliability of a person's measurement, and it is not accuracy.
+
+- An event qualifies when two or more of its assets carry a finite asset median. `n_events_multiview` counts these events, and `n_subjects_multiview` counts their subjects.
+- `view_abs_diff` is the primary value. For each qualifying event, the tool takes the mean absolute difference over its view pairs. The cell value is the median over the events, in the feature's own unit.
+- `view_icc` is a one-way intraclass correlation, ICC(1,1), over the same asset medians. Each event is a target, and each view is a rating. The tool uses the unbalanced view count `k0` and does not clip a negative value. A sample with no variance has no ICC, so the cell is empty.
+- `view_icc_range_lo` and `view_icc_range_hi` are the 2.5th and 97.5th percentiles of the ICC over 1000 subject resamples. The range is descriptive. On simulated data with 6 to 16 subjects it held the true value 84 % to 92 % of the time, so it is not a 95 % confidence interval.
+
+Each agreement column publishes only when its qualifying events come from five subjects or more.
+`cohort.json` `agreement_reasons` counts the empty rows by reason: below the floor, no multi-view event, no variance, or too few finite resamples.
+The tool assigns no category such as "good" or "poor".
 
 ## The published column set
 
-The tool measures the published column set from the run itself.
+The tool reads three levels per asset: frames (`_clinical.csv`), 1 s windows (`_clinical_windows.csv`), and wrist-motion bouts (`_clinical_bouts.csv`).
 A column is published when the run carries at least one finite value for it.
-Every other source column is excluded with the reason `structurally_absent`.
+Every excluded source column carries one reason:
 
-The run excludes **3** columns: `trunk_lean_sagittal_deg`, `trunk_lean_sagittal_mean`, and `trunk_lean_sagittal_sd`.
-The upstream R code computes sagittal trunk lean from a depth difference.
-A single camera measures no depth, so these three columns hold no finite value anywhere in the corpus.
+- `construct_invalid`: the window SPARC and normalized jerk columns (`*_wrist_sal`, `*_wrist_normalized_jerk`, `*_fingertip_normalized_jerk`, with their bilateral forms; 15 columns). These measures are defined on one movement, and a fixed window mixes movement and rest. The bout level replaces them.
+- `structurally_absent`: **3** columns, `trunk_lean_sagittal_deg`, `trunk_lean_sagittal_mean`, and `trunk_lean_sagittal_sd`. The upstream R code computes sagittal trunk lean from a depth difference. A single camera measures no depth, so these columns hold no finite value anywhere in the corpus.
+- `no_eligible_bout_values`: a bout column with no finite value from an uncensored bout.
 
-The measured set and the `FEATURES` label table must agree by name.
-A disagreement in either direction is a refusal, and the tool publishes nothing.
+The `FEATURES` label table, the retired set, and the absent set name every source column.
+An unknown source column is a refusal, and the tool publishes nothing.
+A frame or window feature without a finite value is also a refusal.
 This makes a new upstream column a loud failure instead of a silent omission.
 
 ## Smoothness features
 
-SPARC (`*_wrist_sal`) is the primary smoothness feature.
-The normalized jerk columns (`*_wrist_normalized_jerk`, `*_fingertip_normalized_jerk`) are secondary.
+Bout SPARC (`*_bout_sparc`) is the primary smoothness feature.
+Bout normalized jerk (`*_bout_normalized_jerk`) is secondary.
 Noise distorts log dimensionless jerk even at a high signal-to-noise ratio, and SPARC stays stable at a much lower one.
 The descriptor schema has no rank field, so this section states the ranking.
-Definition and reference → `analysis.md` § *SPARC — the primary smoothness feature*.
+A bout is a detected interval of wrist motion, not a recovered reach or grasp.
+Definitions and the detector's qualification → `analysis.md` § *Wrist-motion bouts (M4.5a)*.
 
 ## Claim boundaries
 

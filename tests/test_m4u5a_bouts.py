@@ -10,6 +10,7 @@ import math
 import pathlib
 import subprocess
 import tempfile
+from typing import Any
 
 import numpy as np
 import pytest
@@ -27,7 +28,7 @@ _FEATURES = (
 )
 
 
-def _r(body: str, payload: dict) -> dict:
+def _r(body: str, payload: dict) -> Any:
     """Source the producer's functions (no landmark path → usage guard), run `body`, return JSON."""
     with tempfile.TemporaryDirectory(prefix="m4u5a-") as tmp:
         request = pathlib.Path(tmp) / "request.json"

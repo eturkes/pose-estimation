@@ -34,8 +34,8 @@ from test_cohort import _build_inputs, _published_bytes  # noqa: E402
 
 # Every source that shapes a published byte or the acceptance itself, so an edit anywhere
 # under the campaign invalidates a recorded PASS rather than letting it certify bytes it
-# never produced. The publisher reads four sibling modules and the fixture builds its
-# corpus from two committed goldens, so a digest over `cohort.py` alone would certify a
+# never produced. The publisher reads five sibling modules and the fixture builds its
+# corpus from three committed goldens, so a digest over `cohort.py` alone would certify a
 # tree it did not see; the campaign script is in the tuple because it defines the sweeps.
 SOURCES = (
     pathlib.Path(__file__).resolve(),
@@ -44,10 +44,12 @@ SOURCES = (
     ROOT / "src" / "pose_estimation" / "inventory.py",
     ROOT / "src" / "pose_estimation" / "qualify.py",
     ROOT / "src" / "pose_estimation" / "sessions.py",
+    ROOT / "src" / "pose_estimation" / "view_agreement.py",
     TESTS / "test_cohort.py",
     TESTS / "test_sessions.py",
     TESTS / "goldens" / "r_clinical" / "2d_idx_clinical.csv",
     TESTS / "goldens" / "r_clinical" / "2d_idx_clinical_windows.csv",
+    TESTS / "goldens" / "r_clinical" / "2d_idx_clinical_bouts.csv",
 )
 
 

@@ -40,6 +40,18 @@ _METADATA = {
     "person_idx",
     "window_start_sec",
     "window_end_sec",
+    "side",
+    "bout_idx",
+    "start_frame",
+    "end_frame",
+    "start_sec",
+    "end_sec",
+    "censored",
+}
+_LEVEL_SUFFIX = {
+    "frame": "_clinical.csv",
+    "window": "_clinical_windows.csv",
+    "bout": "_clinical_bouts.csv",
 }
 _UNIT_CONSTANTS = {
     "UNIT_DEG": "deg_image_plane",
@@ -49,6 +61,8 @@ _UNIT_CONSTANTS = {
     "UNIT_RATIO": "ratio",
     "UNIT_INDEX_SIGNED": "index_signed",
     "UNIT_DIMENSIONLESS": "dimensionless",
+    "UNIT_SECONDS": "s",
+    "UNIT_COUNT": "count",
 }
 _UNIT_VOCABULARY = frozenset(_UNIT_CONSTANTS.values())
 _ANGLE_BASES = frozenset({"elbow_angle_deg", "wrist_deviation_deg", "finger_spread_deg"})
@@ -78,7 +92,32 @@ _TRUNK_ANGLE_COLUMNS = frozenset(
         "trunk_rotation_sd",
     }
 )
-_DISTRIBUTION_FIELDS = ("median", "q25", "q75", "mean", "sd", "view_dispersion")
+_DISTRIBUTION_FIELDS = ("median", "q25", "q75", "mean", "sd")
+_AGREEMENT_FIELDS = ("view_abs_diff", "view_icc", "view_icc_range_lo", "view_icc_range_hi")
+# M4.5b: window SPARC + normalized jerk leave the export (one movement, never a window).
+_CONSTRUCT_INVALID = frozenset(
+    ("window", column)
+    for base in ("wrist_sal", "wrist_normalized_jerk", "fingertip_normalized_jerk")
+    for column in (
+        f"left_{base}",
+        f"right_{base}",
+        f"{base}_symmetry_ratio",
+        f"{base}_dominance_index",
+        f"{base}_abs_diff",
+    )
+)
+_EXCLUSION_REASONS = frozenset(
+    {"structurally_absent", "construct_invalid", "no_eligible_bout_values"}
+)
+_BOUT_BASES = {
+    "bout_duration": ("s", (0.0, None)),
+    "bout_sparc": ("dimensionless", (None, 0.0)),
+    "bout_normalized_jerk": ("dimensionless", (0.0, None)),
+    "bout_peak_time_share": ("ratio", (0.0, 1.0)),
+    "bout_speed_peaks": ("count", (1.0, None)),
+    "bout_path_ratio": ("ratio", (1.0, None)),
+    "bout_dwell": ("s", (0.0, None)),
+}
 _SUBJECT_FLOOR = 5
 _CELL_HEADER = (
     "task",
@@ -88,6 +127,7 @@ _CELL_HEADER = (
     "n_assets",
     "n_frame_rows",
     "n_window_rows",
+    "n_bout_rows",
 )
 _FEATURE_HEADER = (
     "task",
@@ -103,8 +143,12 @@ _FEATURE_HEADER = (
     "q75",
     "mean",
     "sd",
-    "view_dispersion",
+    "view_abs_diff",
+    "view_icc",
+    "view_icc_range_lo",
+    "view_icc_range_hi",
     "n_events_multiview",
+    "n_subjects_multiview",
 )
 _MARKER_KEYS = frozenset(
     {
@@ -112,7 +156,7 @@ _MARKER_KEYS = frozenset(
         "columns",
         "estimand",
         "rows_zero_values",
-        "rows_without_multiview",
+        "agreement_reasons",
         "rows_below_subject_floor",
         "descriptor_collision",
         "generation",
@@ -131,12 +175,23 @@ _POPULATION_KEYS = frozenset(
         "frame_rows",
         "subjects",
         "window_rows",
+        "bout_rows",
     }
 )
 _INPUT_DIGEST_KEYS = frozenset(
     {"inventory", "run_manifest", "sessions_generation", "sessions_tree"}
 )
-_ESTIMAND = "asset median -> event median -> subject median -> cohort statistic over subjects"
+_ESTIMAND_DISTRIBUTION = (
+    "asset median -> event median -> subject median -> cohort statistic over subjects"
+)
+_AGREEMENT_REASONS = frozenset(
+    {
+        "agreement_below_floor",
+        "agreement_no_multiview",
+        "agreement_zero_variance",
+        "agreement_insufficient_resamples",
+    }
+)
 _COLLISION_SOURCE = "../rehab/schema/columns.yaml"
 _DESCRIPTOR_KEYS = frozenset({"raw", "ja", "en", "group", "role", "dtype", "unit", "range"})
 _HEX = frozenset("0123456789abcdef")
@@ -177,10 +232,7 @@ def _read_csv(path: pathlib.Path) -> tuple[tuple[str, ...], list[dict[str, str]]
 
 
 def _artifact_headers() -> dict[str, tuple[str, ...]]:
-    names = {
-        "frame": "2d_idx_clinical.csv",
-        "window": "2d_idx_clinical_windows.csv",
-    }
+    names = {level: f"2d_idx{suffix}" for level, suffix in _LEVEL_SUFFIX.items()}
     headers: dict[str, tuple[str, ...]] = {}
     for level, name in names.items():
         header, _ = _read_csv(_GOLDEN / name)
@@ -233,6 +285,8 @@ def _unsided(column: str) -> str:
 
 
 def _expected_unit(column: str) -> str:
+    if _unsided(column) in _BOUT_BASES:
+        return _BOUT_BASES[_unsided(column)][0]
     if column.endswith("_symmetry_ratio"):
         return _UNIT_CONSTANTS["UNIT_RATIO"]
     if column.endswith("_dominance_index"):
@@ -260,6 +314,8 @@ def _expected_unit(column: str) -> str:
 
 
 def _expected_range(column: str) -> tuple[float | None, float | None]:
+    if _unsided(column) in _BOUT_BASES:
+        return _BOUT_BASES[_unsided(column)][1]
     if column.endswith("_symmetry_ratio"):
         return 0.0, 1.0
     if column.endswith("_dominance_index"):
@@ -351,6 +407,18 @@ def _write_artifact(
         writer = csv.DictWriter(stream, fieldnames=header)
         writer.writeheader()
         for index in range(repeats):
+            if level == "bout":
+                for side in ("left", "right"):
+                    row: dict[str, object] = dict.fromkeys(header, "NA")
+                    row |= {"video": asset.source_path, "person_idx": 0, "side": side,
+                            "bout_idx": index + 1, "start_frame": 10 * index,
+                            "end_frame": 10 * index + 9, "start_sec": index / 3,
+                            "end_sec": index / 3 + 0.3, "censored": 0}  # fmt: skip
+                    for column in header:
+                        if column.startswith(f"{side}_") and (level, column) in published:
+                            row[column] = _value(asset)
+                    writer.writerow(row)
+                continue
             row: dict[str, object] = {}
             for column in header:
                 if column == "video":
@@ -442,6 +510,14 @@ def _build_inputs(
             headers["window"],
             asset,
             level="window",
+            published=published | _CONSTRUCT_INVALID,
+            repeats=repeats,
+        )
+        _write_artifact(
+            event / f"{camera}_clinical_bouts.csv",
+            headers["bout"],
+            asset,
+            level="bout",
             published=published,
             repeats=repeats,
         )
@@ -468,7 +544,7 @@ def input_factory(tmp_path_factory: pytest.TempPathFactory) -> _InputFactory:
 def _rewrite_feature(
     inputs: _Inputs, level: str, feature: str, replacements: Mapping[int, str]
 ) -> None:
-    suffix = "_clinical.csv" if level == "frame" else "_clinical_windows.csv"
+    suffix = _LEVEL_SUFFIX[level]
     for file_index, path in enumerate(sorted(inputs.run.glob(f"*/*{suffix}"))):
         header, rows = _read_csv(path)
         token = replacements.get(file_index)
@@ -486,7 +562,7 @@ def _rewrite_asset_feature(
     inputs: _Inputs, level: str, feature: str, replacements: Mapping[str, str]
 ) -> None:
     _, placements = _read_csv(inputs.sessions / sessions.PLACEMENTS_FILENAME)
-    suffix = "_clinical.csv" if level == "frame" else "_clinical_windows.csv"
+    suffix = _LEVEL_SUFFIX[level]
     for placement in placements:
         token = replacements.get(placement["asset_id"])
         if token is None or placement["placement"] != sessions.PLACED:
@@ -504,7 +580,7 @@ def _rewrite_asset_feature(
 def _repeat_asset_rows(inputs: _Inputs, asset_id: str, factor: int) -> None:
     _, placements = _read_csv(inputs.sessions / sessions.PLACEMENTS_FILENAME)
     placement = next(row for row in placements if row["asset_id"] == asset_id)
-    for suffix in ("_clinical.csv", "_clinical_windows.csv"):
+    for suffix in _LEVEL_SUFFIX.values():
         path = inputs.run / placement["event_id"] / f"{placement['camera_name']}{suffix}"
         header, rows = _read_csv(path)
         with path.open("w", newline="", encoding="utf-8") as stream:
@@ -571,7 +647,7 @@ def _independent_cells(inputs: _Inputs) -> dict[tuple[str, str], dict[str, int]]
         lambda: {"subjects": set(), "events": set(), "assets": set()}
     )
     row_counts: dict[tuple[str, str], dict[str, int]] = defaultdict(
-        lambda: {"frame": 0, "window": 0}
+        lambda: dict.fromkeys(_LEVEL_SUFFIX, 0)
     )
     for manifest_row in good:
         asset_id = manifest_row["asset_id"]
@@ -581,10 +657,7 @@ def _independent_cells(inputs: _Inputs) -> dict[tuple[str, str], dict[str, int]]
         members[cell]["subjects"].add(asset["subject_ordinal"])
         members[cell]["events"].add(placement["event_id"])
         members[cell]["assets"].add(asset_id)
-        for level, suffix in (
-            ("frame", "_clinical.csv"),
-            ("window", "_clinical_windows.csv"),
-        ):
+        for level, suffix in _LEVEL_SUFFIX.items():
             path = inputs.run / placement["event_id"] / f"{placement['camera_name']}{suffix}"
             _, rows = _read_csv(path)
             row_counts[cell][level] += len(rows)
@@ -595,6 +668,7 @@ def _independent_cells(inputs: _Inputs) -> dict[tuple[str, str], dict[str, int]]
             "n_assets": len(populations["assets"]),
             "n_frame_rows": row_counts[cell]["frame"],
             "n_window_rows": row_counts[cell]["window"],
+            "n_bout_rows": row_counts[cell]["bout"],
         }
         for cell, populations in members.items()
     }
@@ -612,10 +686,7 @@ def _measured_partition(
         if manifest_row["disposition"] != corpus_run.DISPOSITION_OK:
             continue
         placement = placed[manifest_row["asset_id"]]
-        for level, suffix in (
-            ("frame", "_clinical.csv"),
-            ("window", "_clinical_windows.csv"),
-        ):
+        for level, suffix in _LEVEL_SUFFIX.items():
             path = inputs.run / placement["event_id"] / f"{placement['camera_name']}{suffix}"
             header, rows = _read_csv(path)
             for column in header:
@@ -625,6 +696,8 @@ def _measured_partition(
                 measured.add(key)
                 if any(_finite_value(row[column]) is not None for row in rows):
                     published.add(key)
+    # M4.5b: the retired window smoothness columns leave the export whatever their values.
+    published -= _CONSTRUCT_INVALID
     return frozenset(published), frozenset(measured - published)
 
 
@@ -662,9 +735,11 @@ def _independent_stats(
     for asset_id in good:
         asset = assets[asset_id]
         placement = placed[asset_id]
-        suffix = "_clinical.csv" if level == "frame" else "_clinical_windows.csv"
+        suffix = _LEVEL_SUFFIX[level]
         path = inputs.run / placement["event_id"] / f"{placement['camera_name']}{suffix}"
         _, rows = _read_csv(path)
+        if level == "bout":  # censored rows never contribute (contract-m4u5b §1)
+            rows = [row for row in rows if row["censored"] == "0"]
         values = [value for row in rows if (value := _finite_value(row[feature])) is not None]
         if not values:
             continue
@@ -677,17 +752,15 @@ def _independent_stats(
 
     subject_events: dict[tuple[str, str, str], list[float]] = defaultdict(list)
     event_counts: dict[tuple[str, str], int] = defaultdict(int)
-    view_cvs: dict[tuple[str, str], list[float]] = defaultdict(list)
-    multiview_counts: dict[tuple[str, str], int] = defaultdict(int)
+    multiview: dict[tuple[str, str], list[list[float]]] = defaultdict(list)
+    multiview_subjects: dict[tuple[str, str], set[str]] = defaultdict(set)
     for (task, side, subject, _event), values in event_assets.items():
         cell = (task, side)
         event_counts[cell] += 1
         subject_events[(task, side, subject)].append(statistics.median(values))
         if len(values) >= 2:
-            mean = statistics.fmean(values)
-            if mean != 0:
-                multiview_counts[cell] += 1
-                view_cvs[cell].append(statistics.pstdev(values) / abs(mean))
+            multiview[cell].append(values)
+            multiview_subjects[cell].add(subject)
 
     subjects: dict[tuple[str, str], list[float]] = defaultdict(list)
     for (task, side, _subject), values in subject_events.items():
@@ -705,11 +778,33 @@ def _independent_stats(
             "q75": _linear_quantile(values, 0.75),
             "mean": statistics.fmean(values),
             "sd": statistics.stdev(values) if len(values) >= 2 else None,
-            "view_dispersion": statistics.median(view_cvs[cell]) if view_cvs[cell] else None,
-            "n_events_multiview": multiview_counts[cell],
+            "n_events_multiview": len(multiview[cell]),
+            "n_subjects_multiview": len(multiview_subjects[cell]),
             "pooled_median": statistics.median(raw_values[cell]),
         }
+        enough = len(multiview_subjects[cell]) >= _SUBJECT_FLOOR
+        result[cell]["view_abs_diff"] = (
+            statistics.median(
+                statistics.fmean(abs(a - b) for i, a in enumerate(v) for b in v[i + 1 :])
+                for v in multiview[cell]
+            )
+            if enough
+            else None
+        )
+        result[cell]["view_icc"] = _oracle_icc(multiview[cell]) if enough else None
     return result
+
+
+def _oracle_icc(groups: list[list[float]]) -> float | None:
+    """ICC(1,1), unbalanced one-way ANOVA (Shrout-Fleiss with the k0 view count)."""
+    g = len(groups)
+    n = sum(len(v) for v in groups)
+    grand = sum(sum(v) for v in groups) / n
+    msb = sum(len(v) * (statistics.fmean(v) - grand) ** 2 for v in groups) / (g - 1)
+    msw = sum(sum((x - statistics.fmean(v)) ** 2 for x in v) for v in groups) / (n - g)
+    k0 = (n - sum(len(v) ** 2 for v in groups) / n) / (g - 1)
+    denominator = msb + (k0 - 1) * msw
+    return None if denominator <= 0 else (msb - msw) / denominator
 
 
 def _feature_output(out: pathlib.Path, key: tuple[str, str, str, str]) -> dict[str, str]:
@@ -764,10 +859,21 @@ def _assert_typed_publication(cohort: ModuleType, out: pathlib.Path) -> None:
         assert row["side"] in inventory.SIDES, "P11: feature side is outside the registry domain"
         key = row["level"], row["feature"]
         assert key in features, "P11: feature key is outside FEATURES"
-        for field in ("n_subjects", "n_events", "n_assets", "n_values", "n_events_multiview"):
+        for field in (
+            "n_subjects",
+            "n_events",
+            "n_assets",
+            "n_values",
+            "n_events_multiview",
+            "n_subjects_multiview",
+        ):
             _assert_ascii_uint(row[field], field)
-        for field in _DISTRIBUTION_FIELDS:
+        for field in (*_DISTRIBUTION_FIELDS, *_AGREEMENT_FIELDS):
             _assert_numeric_or_empty(row[field], field)
+        if int(row["n_subjects_multiview"]) < 5:
+            assert all(row[field] == "" for field in _AGREEMENT_FIELDS), (
+                "P11: a below-floor multi-view population exposed an agreement field"
+            )
         if int(row["n_subjects"]) < 5:
             assert all(row[field] == "" for field in _DISTRIBUTION_FIELDS), (
                 "P11: a below-floor subject population exposed a distribution"
@@ -802,9 +908,15 @@ def _assert_typed_publication(cohort: ModuleType, out: pathlib.Path) -> None:
     assert set(population) == _POPULATION_KEYS, "P11/A22: population field set drifted"
     for key, value in population.items():
         _assert_nonnegative_int(value, f"population.{key}")
-    assert marker["estimand"] == _ESTIMAND, "P11/A22: estimand text drifted"
-    for field in ("rows_zero_values", "rows_without_multiview", "rows_below_subject_floor"):
+    assert marker["estimand"]["distribution"] == _ESTIMAND_DISTRIBUTION, (
+        "P11/A22: estimand text drifted"
+    )
+    assert set(marker["estimand"]) == {"distribution", "agreement", "bout"}
+    for field in ("rows_zero_values", "rows_below_subject_floor"):
         _assert_nonnegative_int(marker[field], field)
+    assert set(marker["agreement_reasons"]) == _AGREEMENT_REASONS
+    for field, value in marker["agreement_reasons"].items():
+        _assert_nonnegative_int(value, field)
 
     columns = marker["columns"]
     assert isinstance(columns, dict), "P11: column census is not a mapping"
@@ -821,7 +933,7 @@ def _assert_typed_publication(cohort: ModuleType, out: pathlib.Path) -> None:
         assert (row["level"], row["column"]) in _source_columns(), (
             "P11: excluded census value is outside source headers"
         )
-        assert row["reason"] == "structurally_absent", (
+        assert row["reason"] in _EXCLUSION_REASONS, (
             "P11: exclusion reason is outside its frozen domain"
         )
 
@@ -942,9 +1054,17 @@ def test_p03_column_census_is_the_independent_header_partition(
     assert published == measured_published, "P03/N3: published is not exactly the finite set"
     assert excluded == measured_excluded, "P03: excluded is not exactly the zero-finite set"
     assert not published & excluded, "P03: census buckets overlap"
-    assert all(row["reason"] == "structurally_absent" for row in excluded_rows), (
-        "P03: excluded column lacks the frozen reason"
-    )
+    for row in excluded_rows:
+        key = row["level"], row["column"]
+        expected = (
+            "construct_invalid"
+            if key in _CONSTRUCT_INVALID
+            else "no_eligible_bout_values"
+            if row["level"] == "bout"
+            else "structurally_absent"
+        )
+        assert row["reason"] == expected, "P03: excluded column carries the wrong reason"
+    assert excluded >= _CONSTRUCT_INVALID, "P03/M4.5b: a retired window column was published"
     table_columns = {(row["level"], row["column"]) for row in _feature_rows(cohort)}
     assert table_columns == measured_published, (
         "P03: FEATURES and the measured published set disagree"
@@ -960,7 +1080,7 @@ def test_p03_zero_finite_column_with_lagging_features_fails_by_name(
     inputs = _build_inputs(root, cohort)
     feature = _feature_rows(cohort)[0]
     level, column = feature["level"], feature["column"]
-    suffix = "_clinical.csv" if level == "frame" else "_clinical_windows.csv"
+    suffix = _LEVEL_SUFFIX[level]
     files = sorted(inputs.run.glob(f"*/*{suffix}"))
     _rewrite_feature(inputs, level, column, dict.fromkeys(range(len(files)), "NA"))
     measured_published, measured_excluded = _measured_partition(inputs)
@@ -988,7 +1108,7 @@ def test_p03_finite_column_with_lagging_features_fails_by_name(
     candidates = sorted(_source_columns() - feature_keys)
     assert candidates, "P03: lagging-FEATURES seed needs one excluded source column"
     level, column = candidates[0]
-    suffix = "_clinical.csv" if level == "frame" else "_clinical_windows.csv"
+    suffix = _LEVEL_SUFFIX[level]
     files = sorted(inputs.run.glob(f"*/*{suffix}"))
     _rewrite_feature(inputs, level, column, dict.fromkeys(range(len(files)), "3.5"))
     measured_published, _ = _measured_partition(inputs)
@@ -1012,11 +1132,18 @@ def test_p04_four_stage_subject_estimand_matches_an_independent_oracle(
     cell = (inventory.TASKS[0], "l")
     expected = _independent_stats(cohort_inputs, "window", feature["column"])[cell]
     actual = _feature_output(out, (*cell, "window", feature["column"]))
-    for field in ("n_subjects", "n_events", "n_assets", "n_values", "n_events_multiview"):
+    for field in (
+        "n_subjects",
+        "n_events",
+        "n_assets",
+        "n_values",
+        "n_events_multiview",
+        "n_subjects_multiview",
+    ):
         assert actual[field] == _render_cell(expected[field]), (
             f"P04: {field} does not use the four-stage population"
         )
-    for field in ("median", "q25", "q75", "mean", "sd", "view_dispersion"):
+    for field in ("median", "q25", "q75", "mean", "sd", "view_abs_diff", "view_icc"):
         assert actual[field] == _render_cell(expected[field]), (
             f"P04: {field} differs byte-for-byte from the four-stage oracle"
         )
@@ -1083,7 +1210,7 @@ def test_p05_repeating_asset_rows_moves_counts_but_not_subject_estimates(
     left = {feature_key(row): row for row in base_rows}
     right = {feature_key(row): row for row in repeated_rows}
     assert set(left) == set(right), "P05: replication moved the feature population"
-    estimates = ("median", "q25", "q75", "mean", "sd", "view_dispersion")
+    estimates = ("median", "q25", "q75", "mean", "sd", *_AGREEMENT_FIELDS)
     assert all(left[item][field] == right[item][field] for item in left for field in estimates), (
         "P05/N5: source-row multiplicity moved a subject-weighted estimate"
     )
@@ -1167,37 +1294,46 @@ def test_p05_cloning_a_whole_subject_moves_every_population_count(
     ), "P05: whole-subject clone did not move every cell population count"
 
 
-def test_p06_view_dispersion_matches_the_multiview_event_population(
-    input_factory: _InputFactory, tmp_path: pathlib.Path
+def test_p06_view_agreement_matches_the_multiview_event_population(
+    tmp_path: pathlib.Path,
 ) -> None:
     cohort = _cohort("P06")
-    cohort_inputs = input_factory(cohort)
+    root = tmp_path / "all-multiview"
+    root.mkdir()
+    inputs = _build_inputs(root, cohort, all_multiview=True)
     out = tmp_path / "cohort"
-    _publish(cohort, cohort_inputs, out)
+    _publish(cohort, inputs, out)
     feature_rows = _feature_rows(cohort)
     representatives = [
-        next(row for row in feature_rows if row["level"] == level) for level in ("frame", "window")
+        next(row for row in feature_rows if row["level"] == level)
+        for level in ("frame", "window", "bout")
     ]
     for feature in representatives:
-        expected = _independent_stats(cohort_inputs, feature["level"], feature["column"])
-        assert any(row["n_events_multiview"] for row in expected.values()), (
-            f"P06: {feature['level']} CV oracle is vacuous"
-        )
+        expected = _independent_stats(inputs, feature["level"], feature["column"])
+        assert all(
+            int(row["n_subjects_multiview"] or 0) >= _SUBJECT_FLOOR for row in expected.values()
+        ), f"P06: {feature['level']} agreement oracle is below the floor (vacuous)"
         for cell, oracle in expected.items():
             actual = _feature_output(out, (*cell, feature["level"], feature["column"]))
-            assert actual["n_events_multiview"] == _render_cell(oracle["n_events_multiview"]), (
-                "P06: multiview population count differs from the finite-asset oracle"
-            )
-            assert actual["view_dispersion"] == _render_cell(oracle["view_dispersion"]), (
-                "P06: view dispersion is not the exact median event population CV"
+            for field in (
+                "n_events_multiview",
+                "n_subjects_multiview",
+                "view_abs_diff",
+                "view_icc",
+            ):
+                assert actual[field] == _render_cell(oracle[field]), (
+                    f"P06: {field} differs from the independent ANOVA oracle"
+                )
+            assert bool(actual["view_icc_range_lo"]) == bool(actual["view_icc"]), (
+                "P06: a range published without its point estimate (or the reverse)"
             )
     _, rows = _read_csv(out / "cohort_features.csv")
     assert all(0 <= int(row["n_events_multiview"]) <= int(row["n_events"]) for row in rows), (
         "P06: multiview population exceeds its finite-event population"
     )
     assert all(
-        bool(row["view_dispersion"]) == (int(row["n_events_multiview"]) > 0) for row in rows
-    ), "P06/N6: zero-multiview rows must be empty, never numeric zero"
+        int(row["n_subjects_multiview"]) <= int(row["n_events_multiview"]) for row in rows
+    ), "P06: multi-view subjects exceed multi-view events"
 
 
 def test_p06_multiview_eligibility_is_per_feature_finite_population(
@@ -1206,7 +1342,7 @@ def test_p06_multiview_eligibility_is_per_feature_finite_population(
     cohort = _cohort("P06")
     root = tmp_path / "feature-finite"
     root.mkdir()
-    inputs = _build_inputs(root, cohort)
+    inputs = _build_inputs(root, cohort, all_multiview=True)
     features = [row for row in _feature_rows(cohort) if row["level"] == "frame"][:2]
     assert len(features) == 2, "P06: finite-population seed needs two frame features"
     target = inventory.TASKS[0], "l"
@@ -1220,21 +1356,25 @@ def test_p06_multiview_eligibility_is_per_feature_finite_population(
     _publish(cohort, inputs, out)
     ineligible = _feature_output(out, (*target, "frame", features[0]["column"]))
     control = _feature_output(out, (*target, "frame", features[1]["column"]))
-    assert ineligible["n_events_multiview"] == "0", (
+    assert ineligible["n_events_multiview"] == "4", (
         "P06: event with only one finite asset value remained eligible"
     )
-    assert ineligible["view_dispersion"] == "", "P06: ineligible event published a dispersion"
-    assert int(control["n_events_multiview"]) == 1, (
+    assert ineligible["n_subjects_multiview"] == "4"
+    assert all(ineligible[field] == "" for field in _AGREEMENT_FIELDS), (
+        "P06/D03: four multi-view subjects published agreement below the floor"
+    )
+    assert control["n_subjects_multiview"] == "5", (
         "P06: eligibility was stored as a per-cell constant rather than per feature"
     )
-    assert control["view_dispersion"], "P06: eligible control event has no dispersion"
+    assert control["view_abs_diff"], "P06: eligible control row has no agreement"
 
 
-def test_p06_zero_mean_multiview_event_is_excluded(tmp_path: pathlib.Path) -> None:
+def test_p06_zero_mean_multiview_event_counts_toward_agreement(tmp_path: pathlib.Path) -> None:
+    """The v1 CV had no scale at mean zero (A06); |difference| and the ICC do (M4.5b D01)."""
     cohort = _cohort("P06")
     root = tmp_path / "zero-mean"
     root.mkdir()
-    inputs = _build_inputs(root, cohort)
+    inputs = _build_inputs(root, cohort, all_multiview=True)
     feature = next(row for row in _feature_rows(cohort) if row["column"] == "posture_symmetry")
     target = inventory.TASKS[0], "l"
     event_assets = [
@@ -1253,15 +1393,13 @@ def test_p06_zero_mean_multiview_event_is_excluded(tmp_path: pathlib.Path) -> No
     _publish(cohort, inputs, out)
     expected = _independent_stats(inputs, "frame", feature["column"])[target]
     actual = _feature_output(out, (*target, "frame", feature["column"]))
-    assert expected["n_events_multiview"] == 0, (
-        "P06: zero-mean oracle seed retained an eligible event"
-    )
-    assert expected["view_dispersion"] is None, "P06: zero-mean oracle seed retained a dispersion"
-    assert actual["n_events_multiview"] == "0", "P06: zero-mean event entered n_events_multiview"
-    assert actual["view_dispersion"] == "", "P06: zero-mean event published a dispersion"
+    assert expected["n_events_multiview"] == 5, "P06: zero-mean event left the oracle"
+    assert actual["n_events_multiview"] == "5", "P06: zero-mean event left n_events_multiview"
+    assert actual["view_abs_diff"] == _render_cell(expected["view_abs_diff"])
+    assert actual["view_icc"] == _render_cell(expected["view_icc"])
 
 
-def test_p06_all_single_view_events_publish_empty_dispersion(tmp_path: pathlib.Path) -> None:
+def test_p06_all_single_view_events_publish_empty_agreement(tmp_path: pathlib.Path) -> None:
     cohort = _cohort("P06")
     root = tmp_path / "single-view"
     root.mkdir()
@@ -1273,8 +1411,12 @@ def test_p06_all_single_view_events_publish_empty_dispersion(tmp_path: pathlib.P
     assert all(row["n_events_multiview"] == "0" for row in rows), (
         "P06: single-view event entered the multiview population"
     )
-    assert all(row["view_dispersion"] == "" for row in rows), (
-        "P06/N6: absent dispersion must serialize as an empty cell"
+    assert all(row[field] == "" for row in rows for field in _AGREEMENT_FIELDS), (
+        "P06/N6: absent agreement must serialize as an empty cell"
+    )
+    reasons = _marker(out)["agreement_reasons"]
+    assert reasons["agreement_no_multiview"] == len(rows), (
+        "P06: every single-view row must count as agreement_no_multiview"
     )
 
 
@@ -1302,9 +1444,13 @@ def test_p07_artifact_has_nonvacuous_cells_features_and_populations(
     assert marker.get("rows_zero_values") == sum(int(row["n_values"]) == 0 for row in rows), (
         "P07: rows_zero_values is not the measured feature-row census"
     )
-    assert marker.get("rows_without_multiview") == sum(
+    reasons = marker["agreement_reasons"]
+    assert reasons["agreement_no_multiview"] == sum(
         int(row["n_events_multiview"]) == 0 for row in rows
-    ), "P07: rows_without_multiview is not the measured feature-row census"
+    ), "P07: agreement_no_multiview is not the measured feature-row census"
+    assert reasons["agreement_below_floor"] == sum(
+        0 < int(row["n_subjects_multiview"]) < _SUBJECT_FLOOR for row in rows
+    ), "P07: agreement_below_floor is not the measured feature-row census"
 
 
 def test_p07_all_multiview_fixture_publishes_zero_empty_row_censuses(
@@ -1326,8 +1472,11 @@ def test_p07_all_multiview_fixture_publishes_zero_empty_row_censuses(
     )
     marker = _marker(out)
     assert marker.get("rows_zero_values") == 0, "P07: populated fixture has zero-value rows"
-    assert marker.get("rows_without_multiview") == 0, (
+    assert marker.get("agreement_reasons", {}).get("agreement_no_multiview") == 0, (
         "P07: all-multiview fixture has rows without an eligible event"
+    )
+    assert all(row["view_abs_diff"] for row in rows), (
+        "P07: a five-subject all-multiview row published no agreement"
     )
 
 
@@ -2100,7 +2249,9 @@ def test_p18_technical_document_states_all_four_claim_boundaries() -> None:
         "asset median",
         "event median",
         "subject median",
-        "view_dispersion",
+        "view_abs_diff",
+        "view_icc",
+        "construct_invalid",
         "projection geometry",
         "directional per-limb",
         "structurally_absent",
@@ -2110,7 +2261,7 @@ def test_p18_technical_document_states_all_four_claim_boundaries() -> None:
         "anatomical angle",
     ):
         assert phrase in lowered, f"P18/A17: cohort.md omits {phrase!r}"
-    excluded = sorted(_source_columns() - set(cohort.FEATURE_KEYS))
+    excluded = sorted(_source_columns() - set(cohort.FEATURE_KEYS) - _CONSTRUCT_INVALID)
     assert excluded, "P18/A02: derived exclusion census is empty"
     assert re.search(rf"(?<!\d){len(excluded)}(?!\d)", lowered), (
         "P18/A17: cohort.md omits the derived exclusion count"

@@ -28,17 +28,17 @@ from typing import Any
 
 import yaml
 
-from . import corpus_run, inventory, qualify, sessions
+from . import corpus_run, inventory, qualify, sessions, view_agreement
 
 GENERATOR = "pose-estimation-cohort"
-GENERATOR_VERSION = "v1"
+GENERATOR_VERSION = "v2"
 
 
 class CohortError(Exception):
     """Every publisher and consumer refusal (A16). P17 asserts this class, not a supertype."""
 
 
-# A09 + A20 + A25. Seven tokens, closed: P10 is a membership test, so growing the
+# A09 + A20 + A25, + M4.5b `s` and `count`. Closed: P10 is a membership test, so growing the
 # vocabulary weakens it. No token spells a bare `deg`: `export.COORD_NORMALIZATION` is a
 # similarity map, so the published value IS the true image-plane angle, and it is still
 # neither anatomical nor lens-distortion corrected.
@@ -49,6 +49,8 @@ UNIT_RATIO_SHOULDER_WIDTH = "ratio_shoulder_width"
 UNIT_RATIO = "ratio"
 UNIT_INDEX_SIGNED = "index_signed"
 UNIT_DIMENSIONLESS = "dimensionless"
+UNIT_SECONDS = "s"
+UNIT_COUNT = "count"
 
 UNIT_VOCABULARY = frozenset(
     {
@@ -59,11 +61,15 @@ UNIT_VOCABULARY = frozenset(
         UNIT_RATIO,
         UNIT_INDEX_SIGNED,
         UNIT_DIMENSIONLESS,
+        UNIT_SECONDS,
+        UNIT_COUNT,
     }
 )
 
-LEVELS = ("frame", "window")
-EXCLUSION_REASONS = frozenset({"structurally_absent"})
+LEVELS = ("frame", "window", "bout")
+EXCLUSION_REASONS = frozenset(
+    {"structurally_absent", "construct_invalid", "no_eligible_bout_values"}
+)
 
 # Bounds are the measurement's admissible domain read from `analysis/clinical_features.R`
 # (A21), never a corpus extreme: D05 refused min/max because at n=15-16 an extreme is one
@@ -164,6 +170,38 @@ _FAMILIES: dict[str, tuple[str, str, str, float | None, float | None]] = {
         -1.0,
         1.0,
     ),
+    # M4.5a bouts: ranges = contract-m4u5a §1 (finite values).
+    "bout_duration": ("手関節運動区間の持続時間", "Wrist bout duration", UNIT_SECONDS, 0.0, None),
+    "bout_sparc": (
+        "手関節運動区間のスペクトルアーク長(SPARC)",
+        "Wrist bout spectral arc length (SPARC)",
+        UNIT_DIMENSIONLESS,
+        None,
+        0.0,
+    ),
+    "bout_normalized_jerk": (
+        "手関節運動区間の正規化ジャーク",
+        "Wrist bout normalized jerk",
+        UNIT_DIMENSIONLESS,
+        0.0,
+        None,
+    ),
+    "bout_peak_time_share": (
+        "手関節運動区間の最大速度到達時間比",
+        "Wrist bout time-to-peak-speed share",
+        UNIT_RATIO,
+        0.0,
+        1.0,
+    ),
+    "bout_speed_peaks": (
+        "手関節運動区間の速度ピーク数",
+        "Wrist bout speed peak count",
+        UNIT_COUNT,
+        1.0,
+        None,
+    ),
+    "bout_path_ratio": ("手関節運動区間の経路比", "Wrist bout path ratio", UNIT_RATIO, 1.0, None),
+    "bout_dwell": ("手関節運動区間間の停止時間", "Wrist inter-bout dwell", UNIT_SECONDS, 0.0, None),
 }
 
 # The R source spells the three trunk angles with a `_deg` suffix at frame level and
@@ -268,12 +306,22 @@ _FRAME_BILATERAL = (
     "fingertip_displacement",
 )
 _WINDOW_BILATERAL = (
-    "wrist_sal",
     "wrist_velocity_mean",
     "wrist_velocity_peak",
-    "wrist_normalized_jerk",
     "wrist_movement_efficiency",
-    "fingertip_normalized_jerk",
+)
+# M4.5b: SPARC + normalized jerk are defined on one discrete movement, never on a 1 s window
+# mixing movement and rest (Balasubramanian 2015) — the R stage still emits them for legacy
+# consumers, the export lists them as excluded `construct_invalid` (bout level replaces them).
+_WINDOW_SMOOTHNESS = ("wrist_sal", "wrist_normalized_jerk", "fingertip_normalized_jerk")
+_BOUT_FEATURES = (
+    "bout_duration",
+    "bout_sparc",
+    "bout_normalized_jerk",
+    "bout_peak_time_share",
+    "bout_speed_peaks",
+    "bout_path_ratio",
+    "bout_dwell",
 )
 _BILATERAL_SUFFIXES = ("_symmetry_ratio", "_dominance_index", "_abs_diff")
 
@@ -304,9 +352,32 @@ WINDOW_COLUMNS: tuple[str, ...] = (
 # `clinical_features.R:1038` assigns NA_real_ on the 2D branch because sagittal lean is
 # out of plane, so they carry zero finite values over the whole corpus and A02 sends them
 # to `excluded`. They are not listed here, and P03 re-derives that partition from the run.
+BOUT_COLUMNS: tuple[str, ...] = tuple(
+    f"{side}{base}" for side in ("left_", "right_") for base in _BOUT_FEATURES
+)
+CONSTRUCT_INVALID: frozenset[tuple[str, str]] = frozenset(
+    ("window", column)
+    for column in (
+        *(f"{side}{base}" for side in ("left_", "right_") for base in _WINDOW_SMOOTHNESS),
+        *(f"{base}{suffix}" for base in _WINDOW_SMOOTHNESS for suffix in _BILATERAL_SUFFIXES),
+    )
+)
+#: Emitted with zero finite values on every 2D run (out-of-plane), excluded by name.
+STRUCTURALLY_ABSENT: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("frame", "trunk_lean_sagittal_deg"),
+        ("window", "trunk_lean_sagittal_mean"),
+        ("window", "trunk_lean_sagittal_sd"),
+    }
+)
+
 FEATURES: tuple[Feature, ...] = tuple(
     describe(level, column)
-    for level, columns in (("frame", FRAME_COLUMNS), ("window", WINDOW_COLUMNS))
+    for level, columns in (
+        ("frame", FRAME_COLUMNS),
+        ("window", WINDOW_COLUMNS),
+        ("bout", BOUT_COLUMNS),
+    )
     for column in sorted(columns)
 )
 
@@ -329,6 +400,7 @@ CELL_COLUMNS: tuple[str, ...] = (
     "n_assets",
     "n_frame_rows",
     "n_window_rows",
+    "n_bout_rows",
 )
 FEATURE_COLUMNS: tuple[str, ...] = (
     "task",
@@ -344,8 +416,12 @@ FEATURE_COLUMNS: tuple[str, ...] = (
     "q75",
     "mean",
     "sd",
-    "view_dispersion",
+    "view_abs_diff",
+    "view_icc",
+    "view_icc_range_lo",
+    "view_icc_range_hi",
     "n_events_multiview",
+    "n_subjects_multiview",
 )
 COUNT_FIELDS: tuple[str, ...] = (
     "n_subjects",
@@ -353,14 +429,21 @@ COUNT_FIELDS: tuple[str, ...] = (
     "n_assets",
     "n_values",
     "n_events_multiview",
+    "n_subjects_multiview",
 )
-DISTRIBUTION_FIELDS: tuple[str, ...] = ("median", "q25", "q75", "mean", "sd", "view_dispersion")
+DISTRIBUTION_FIELDS: tuple[str, ...] = ("median", "q25", "q75", "mean", "sd")
+AGREEMENT_FIELDS: tuple[str, ...] = (
+    "view_abs_diff",
+    "view_icc",
+    "view_icc_range_lo",
+    "view_icc_range_hi",
+)
 MARKER_KEYS: tuple[str, ...] = (
     "population",
     "columns",
     "estimand",
     "rows_zero_values",
-    "rows_without_multiview",
+    "agreement_reasons",
     "rows_below_subject_floor",
     "descriptor_collision",
     "generation",
@@ -377,7 +460,15 @@ GENERATION_KEYS: tuple[str, ...] = (
 # distribution cell stays empty (A10).
 SUBJECT_FLOOR = 5
 DECIMALS = 9
-ESTIMAND = "asset median -> event median -> subject median -> cohort statistic over subjects"
+ESTIMAND = {
+    "distribution": "asset median -> event median -> subject median -> cohort statistic over subjects",
+    "agreement": (
+        "descriptive agreement of same-event asset medians across views (view_abs_diff = median "
+        "over events of the mean pairwise |difference|; view_icc = one-way ICC(1,1), events as "
+        "targets; range = 2.5-97.5 percentile over 1000 subject resamples, coverage not claimed)"
+    ),
+    "bout": "asset value = median over the asset's uncensored bouts of that side",
+}
 EXTERNAL_DESCRIPTOR_SOURCE = "../rehab/schema/columns.yaml"
 
 # Producer keys, never features (`analysis/utils.R` treats every other numeric column as one).
@@ -389,9 +480,22 @@ METADATA_COLUMNS = frozenset(
         "person_idx",
         "window_start_sec",
         "window_end_sec",
+        # Bout keys (contract-m4u5a BOUT_SCHEMA).
+        "side",
+        "bout_idx",
+        "start_frame",
+        "end_frame",
+        "start_sec",
+        "end_sec",
+        "censored",
     }
 )
-LEVEL_SUFFIXES: dict[str, str] = {"frame": "_clinical.csv", "window": "_clinical_windows.csv"}
+LEVEL_SUFFIXES: dict[str, str] = {
+    "frame": "_clinical.csv",
+    "window": "_clinical_windows.csv",
+    "bout": "_clinical_bouts.csv",
+}
+BOUT_SIDES = {"left": "left_", "right": "right_"}
 
 
 @dataclass(frozen=True)
@@ -460,7 +564,12 @@ def _read_table(path: pathlib.Path, required: tuple[str, ...]) -> list[dict[str,
 def _read_artifact(
     path: pathlib.Path, level: str
 ) -> tuple[tuple[str, ...], int, dict[str, list[float]]]:
-    """Return one artifact's header, row count and finite values per feature column."""
+    """Return one artifact's header, row count and finite values per feature column.
+
+    Bout rows (contract-m4u5b §1): `side` + `censored` validated, a censored row contributes no
+    value, and a finite value on the other side's columns refuses — the writer leaves them NA,
+    so one is a producer defect the median would otherwise absorb.
+    """
     try:
         with path.open(newline="", encoding="utf-8") as stream:
             reader = csv.DictReader(stream)
@@ -471,13 +580,26 @@ def _read_artifact(
             rows = 0
             for row in reader:
                 rows += 1
-                for name in columns:
+                eligible = columns
+                if level == "bout":
+                    eligible = _bout_columns(path.name, row, columns)
+                for name in eligible:
                     finite = _finite(row[name] or "")
                     if finite is not None:
                         values[name].append(finite)
     except OSError as error:
         raise CohortError(f"The run tree does not carry a readable {level} artifact.") from error
     return header, rows, values
+
+
+def _bout_columns(name: str, row: Mapping[str, str], columns: list[str]) -> list[str]:
+    side = row.get("side")
+    if side not in BOUT_SIDES or row.get("censored") not in ("0", "1"):
+        raise CohortError(f"{name} carries a bout row with an invalid side or censored flag.")
+    own = [c for c in columns if c.startswith(BOUT_SIDES[side])]
+    if any(_finite(row[c] or "") is not None for c in columns if c not in own):
+        raise CohortError(f"{name} carries a finite value on the other side's bout columns.")
+    return [] if row["censored"] == "1" else own
 
 
 @dataclass(frozen=True)
@@ -488,8 +610,9 @@ class _Aggregate:
     excluded: list[tuple[str, str]]
     population: dict[str, int]
     rows_zero_values: int
-    rows_without_multiview: int
+    agreement_reasons: dict[str, int]
     rows_below_subject_floor: int
+    exclusion_reasons: dict[tuple[str, str], str]
 
 
 def _aggregate(contributors: list[_Contributor], run_root: pathlib.Path) -> _Aggregate:
@@ -497,7 +620,7 @@ def _aggregate(contributors: list[_Contributor], run_root: pathlib.Path) -> _Agg
     cells = [(task, side) for task in inventory.TASKS for side in inventory.SIDES]
     headers: dict[str, tuple[str, ...]] = {}
     row_counts: dict[tuple[str, str], dict[str, int]] = {
-        cell: {"frame": 0, "window": 0} for cell in cells
+        cell: dict.fromkeys(LEVELS, 0) for cell in cells
     }
     members: dict[tuple[str, str], dict[str, set[str]]] = {
         cell: {"subjects": set(), "events": set(), "assets": set()} for cell in cells
@@ -543,9 +666,9 @@ def _aggregate(contributors: list[_Contributor], run_root: pathlib.Path) -> _Agg
         for column in header
         if column not in METADATA_COLUMNS
     )
-    published = sorted(key for key in source_columns if medians.get(key))
-    excluded = sorted(key for key in source_columns if not medians.get(key))
-    _assert_feature_table_matches(frozenset(published))
+    reasons = _partition(source_columns, {key for key in source_columns if medians.get(key)})
+    published = sorted(key for key in source_columns if key not in reasons)
+    excluded = sorted(reasons)
 
     cell_rows = [
         {
@@ -556,31 +679,35 @@ def _aggregate(contributors: list[_Contributor], run_root: pathlib.Path) -> _Agg
             "n_assets": str(len(members[cell]["assets"])),
             "n_frame_rows": str(row_counts[cell]["frame"]),
             "n_window_rows": str(row_counts[cell]["window"]),
+            "n_bout_rows": str(row_counts[cell]["bout"]),
         }
         for cell in cells
         for task, side in (cell,)
     ]
 
     feature_rows: list[dict[str, str]] = []
-    zero_values = without_multiview = below_floor = 0
+    zero_values = below_floor = 0
+    agreement_reasons = dict.fromkeys(view_agreement.REASONS, 0)
     for feature in FEATURES:
         key = (feature.level, feature.column)
+        if key in reasons:
+            continue
         by_cell = medians.get(key, {})
         for task, side in cells:
             events = by_cell.get((task, side), {})
             by_subject: dict[str, list[float]] = defaultdict(list)
-            dispersions: list[float] = []
             n_assets = 0
             for event_id, asset_values in events.items():
                 n_assets += len(asset_values)
                 by_subject[subjects_of_event[event_id]].append(statistics.median(asset_values))
-                if len(asset_values) < 2:
-                    continue
-                mean = statistics.fmean(asset_values)
-                # A06: a zero-mean event has no scale to disperse against, so it leaves
-                # both the statistic and the population it would otherwise inflate.
-                if mean != 0:
-                    dispersions.append(statistics.pstdev(asset_values) / abs(mean))
+            agree = view_agreement.agreement(
+                events,
+                subjects_of_event,
+                f"{feature.level}/{feature.column}/{task}/{side}",
+                SUBJECT_FLOOR,
+            )
+            for reason in agree.reasons:
+                agreement_reasons[reason] += 1
             subject_values = [statistics.median(values) for values in by_subject.values()]
             n_subjects = len(subject_values)
             n_values = leaves.get(key, {}).get((task, side), 0)
@@ -593,7 +720,8 @@ def _aggregate(contributors: list[_Contributor], run_root: pathlib.Path) -> _Agg
                 "n_events": str(len(events)),
                 "n_assets": str(n_assets),
                 "n_values": str(n_values),
-                "n_events_multiview": str(len(dispersions)),
+                "n_events_multiview": str(agree.n_events),
+                "n_subjects_multiview": str(agree.n_subjects),
             }
             statistics_publishable = n_subjects >= SUBJECT_FLOOR
             row.update(
@@ -609,13 +737,13 @@ def _aggregate(contributors: list[_Contributor], run_root: pathlib.Path) -> _Agg
                     "sd": _cell(statistics.stdev(subject_values))
                     if statistics_publishable and n_subjects >= 2
                     else "",
-                    "view_dispersion": _cell(statistics.median(dispersions))
-                    if statistics_publishable and dispersions
-                    else "",
+                    "view_abs_diff": _cell(agree.abs_diff),
+                    "view_icc": _cell(agree.icc),
+                    "view_icc_range_lo": _cell(agree.range_lo),
+                    "view_icc_range_hi": _cell(agree.range_hi),
                 }
             )
             zero_values += n_values == 0
-            without_multiview += not dispersions
             below_floor += not statistics_publishable
             feature_rows.append(row)
 
@@ -628,6 +756,7 @@ def _aggregate(contributors: list[_Contributor], run_root: pathlib.Path) -> _Agg
         "frame_rows": sum(row_counts[cell]["frame"] for cell in cells),
         "subjects": len({contributor.subject for contributor in contributors}),
         "window_rows": sum(row_counts[cell]["window"] for cell in cells),
+        "bout_rows": sum(row_counts[cell]["bout"] for cell in cells),
     }
     return _Aggregate(
         cells=cell_rows,
@@ -636,27 +765,45 @@ def _aggregate(contributors: list[_Contributor], run_root: pathlib.Path) -> _Agg
         excluded=excluded,
         population=population,
         rows_zero_values=zero_values,
-        rows_without_multiview=without_multiview,
+        agreement_reasons=agreement_reasons,
         rows_below_subject_floor=below_floor,
+        exclusion_reasons=reasons,
     )
 
 
-def _assert_feature_table_matches(published: frozenset[tuple[str, str]]) -> None:
-    """A02's cross-check: the contract-owned table and the measured partition, by name."""
-    missing = sorted(published - FEATURE_KEYS)
-    extra = sorted(FEATURE_KEYS - published)
+def _partition(
+    source: Sequence[tuple[str, str]], finite: set[tuple[str, str]]
+) -> dict[tuple[str, str], str]:
+    """Excluded source columns -> reason; refuses what neither table names (A02, M4.5b P04).
+
+    Precedence: `construct_invalid` (window smoothness, whatever its values), then the named
+    `structurally_absent` set, then a declared bout column with no eligible value. A declared
+    frame / window feature with no finite value, and any unknown column, refuse.
+    """
+    reasons: dict[tuple[str, str], str] = {}
+    for key in source:
+        level, column = key
+        if key in CONSTRUCT_INVALID:
+            reasons[key] = "construct_invalid"
+        elif key in STRUCTURALLY_ABSENT and key not in finite:
+            reasons[key] = "structurally_absent"
+        elif key in FEATURE_KEYS and key not in finite:
+            if level != "bout":
+                raise CohortError(
+                    f"cohort.FEATURES carries {level} column {column!r}, for which the run "
+                    "publishes no finite value anywhere."
+                )
+            reasons[key] = "no_eligible_bout_values"
+        elif key not in FEATURE_KEYS:
+            raise CohortError(
+                f"The run publishes {level} column {column!r}, which cohort.FEATURES does "
+                "not carry."
+            )
+    missing = sorted(FEATURE_KEYS - set(source))
     if missing:
         level, column = missing[0]
-        raise CohortError(
-            f"The run publishes finite values for {level} column {column!r}, which "
-            "cohort.FEATURES does not carry."
-        )
-    if extra:
-        level, column = extra[0]
-        raise CohortError(
-            f"cohort.FEATURES carries {level} column {column!r}, for which the run publishes "
-            "no finite value anywhere."
-        )
+        raise CohortError(f"The run tree carries no {level} column {column!r}.")
+    return reasons
 
 
 def _descriptor_rows() -> list[dict[str, object]]:
@@ -730,7 +877,7 @@ def descriptor_collision(rows: list[dict[str, object]]) -> dict[str, object]:
     if len(raws) != len(set(raws)):
         raise CohortError("The descriptor fragment carries a duplicate raw name.")
     for raw in raws:
-        if not raw.startswith(("pose_frame_", "pose_window_")):
+        if not raw.startswith(tuple(f"pose_{level}_" for level in LEVELS)):
             raise CohortError(f"Descriptor raw {raw!r} does not carry the namespacing prefix.")
     external = _external_raws()
     if external is None:
@@ -955,13 +1102,17 @@ def _publish(staging: pathlib.Path, aggregate: _Aggregate, input_digests: dict[s
                 {"level": level, "column": column} for level, column in aggregate.published
             ],
             "excluded": [
-                {"level": level, "column": column, "reason": "structurally_absent"}
+                {
+                    "level": level,
+                    "column": column,
+                    "reason": aggregate.exclusion_reasons[(level, column)],
+                }
                 for level, column in aggregate.excluded
             ],
         },
         "estimand": ESTIMAND,
         "rows_zero_values": aggregate.rows_zero_values,
-        "rows_without_multiview": aggregate.rows_without_multiview,
+        "agreement_reasons": aggregate.agreement_reasons,
         "rows_below_subject_floor": aggregate.rows_below_subject_floor,
         "descriptor_collision": descriptor_collision(rows),
         "generation": {

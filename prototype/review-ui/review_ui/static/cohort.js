@@ -85,27 +85,49 @@ function distributionChart(rows, feature) {
   return node;
 }
 
-function dispersionChart(rows) {
+// v2 publishes view_icc + its resample range; a retained v1 generation carries view_dispersion.
+const isV2 = (rows) => rows.some((row) => row.view_icc != null || row.view_abs_diff != null);
+
+function agreementChart(rows) {
   const node = el("div", { class: "chart", style: { height: "220px" } });
-  requestAnimationFrame(() =>
-    chart(
-      node,
-      [
-        {
-          type: "bar",
-          x: rows.map(cellLabel),
-          y: rows.map((row) => row.view_dispersion),
-          marker: { color: palette().amber },
-          hovertemplate: "%{x}<br>%{y:.3f}<extra></extra>",
+  const v2 = isV2(rows);
+  const trace = v2
+    ? {
+        type: "scatter",
+        mode: "markers",
+        x: rows.map(cellLabel),
+        y: rows.map((row) => row.view_icc),
+        error_y: {
+          type: "data",
+          symmetric: false,
+          array: rows.map((row) => (row.view_icc_range_hi ?? row.view_icc) - row.view_icc),
+          arrayminus: rows.map((row) => row.view_icc - (row.view_icc_range_lo ?? row.view_icc)),
+          color: palette().text,
         },
-      ],
-      { showlegend: false },
-    ),
+        marker: { color: palette().amber, size: 8 },
+        hovertemplate: "%{x}<br>ICC %{y:.3f}<extra></extra>",
+      }
+    : {
+        type: "bar",
+        x: rows.map(cellLabel),
+        y: rows.map((row) => row.view_dispersion),
+        marker: { color: palette().amber },
+        hovertemplate: "%{x}<br>%{y:.3f}<extra></extra>",
+      };
+  requestAnimationFrame(() =>
+    chart(node, [trace], {
+      showlegend: false,
+      yaxis: v2 ? { title: { text: "ICC(1,1)" }, range: [-1, 1] } : {},
+    }),
   );
   return node;
 }
 
 function statisticsTable(rows) {
+  const v2 = isV2(rows);
+  const agreementHeads = v2
+    ? [t("col.view_abs_diff"), t("col.view_icc"), t("col.n_events_multiview"), t("col.n_subjects_multiview")]
+    : [t("col.view_dispersion"), t("col.n_events_multiview")];
   return table(
     [
       t("col.task"),
@@ -119,8 +141,7 @@ function statisticsTable(rows) {
       t("col.q75"),
       t("col.mean"),
       t("col.sd"),
-      t("col.view_dispersion"),
-      t("col.n_events_multiview"),
+      ...agreementHeads,
     ],
     rows.map((row) => [
       t(`task.${row.task}`),
@@ -134,10 +155,11 @@ function statisticsTable(rows) {
       num(row.q75, 3),
       num(row.mean, 3),
       num(row.sd, 3),
-      num(row.view_dispersion, 3),
-      num(row.n_events_multiview),
+      ...(v2
+        ? [num(row.view_abs_diff, 3), num(row.view_icc, 3), num(row.n_events_multiview), num(row.n_subjects_multiview)]
+        : [num(row.view_dispersion, 3), num(row.n_events_multiview)]),
     ]),
-    ["", "", "num", "num", "num", "num", "num", "num", "num", "num", "num", "num", "num"],
+    ["", "", ...Array(9 + agreementHeads.length).fill("num")],
   );
 }
 
@@ -157,6 +179,7 @@ function cellsPanel() {
           t("col.n_assets"),
           t("col.n_frame_rows"),
           t("col.n_window_rows"),
+          t("col.n_bout_rows"),
         ],
         cells.map((cell) => [
           t(`task.${cell.task}`),
@@ -166,8 +189,9 @@ function cellsPanel() {
           num(cell.n_assets),
           num(cell.n_frame_rows),
           num(cell.n_window_rows),
+          num(cell.n_bout_rows),
         ]),
-        ["", "", "num", "num", "num", "num", "num"],
+        ["", "", "num", "num", "num", "num", "num", "num"],
       ),
     ),
   );
@@ -188,7 +212,16 @@ function boundaryPanel() {
       "dl",
       { class: "kv" },
       el("dt", {}, t("cohort.estimand")),
-      el("dd", {}, wrappable(view.data.estimand || "—")),
+      // v1 publishes one estimand string; v2 an object keyed distribution / agreement / bout.
+      el(
+        "dd",
+        {},
+        wrappable(
+          typeof view.data.estimand === "object" && view.data.estimand
+            ? Object.entries(view.data.estimand).map(([key, text]) => `${key}: ${text}`).join(" · ")
+            : view.data.estimand || "—",
+        ),
+      ),
       el("dt", {}, t("cohort.excluded")),
       el(
         "dd",
@@ -260,7 +293,11 @@ function draw(lang) {
     el(
       "div",
       { class: "grid", style: { gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", marginTop: "14px" } },
-      panel(t("cohort.dispersion"), dispersionChart(rows), el("p", { class: "note" }, t("cohort.dispersion_note"))),
+      panel(
+        t(isV2(rows) ? "cohort.agreement" : "cohort.dispersion"),
+        agreementChart(rows),
+        el("p", { class: "note" }, t(isV2(rows) ? "cohort.agreement_note" : "cohort.dispersion_note")),
+      ),
       cellsPanel(),
       boundaryPanel(),
     ),
@@ -298,7 +335,7 @@ export async function renderCohort(root) {
   const levels = el(
     "div",
     { class: "segmented" },
-    ["frame", "window"].map((level) =>
+    ["frame", "window", "bout"].filter((level) => view.data.features.some((f) => f.level === level)).map((level) =>
       el(
         "button",
         {

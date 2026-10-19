@@ -107,7 +107,15 @@ conditional-bout + available-view-summary estimands; `../rehab` unchanged (no po
 
 | ID | verdict | evidence |
 | --- | --- | --- |
-| P01-P09 | open | |
+| P01 | pass | `tests/test_m4u5b_agreement.py` P01 ×4: 15/31, Shrout-Fleiss balanced equivalence, identical → 1, constant → undefined, negative unclipped; NC2 (k̄ ≠ k0) |
+| P02 | pass | exhaustive `[0,0];[0,2]` draws → {undefined, 0, 0, -1}, 75 % finite → no range; whole-cluster extremes with multiplicity; seeded + order-invariant; vectorised = scalar estimator per draw; NC1 (pooled ≠ cluster) |
+| P03 | pass | censored outlier rows move `n_bout_rows`, never a statistic; wrong-side value + missing bout file refuse; header-only files → every bout column `no_eligible_bout_values`, `n_bout_rows` 0; planted mutant (censored rows read) → 1 failed |
+| P04 | pass | `construct_invalid` = present subset of X (2 dropped from the tree → 13); unknown all-NA column refuses; mutant without the X branch → 1 failed |
+| P05 | pass | 14 bout descriptors: ja + en, `pose_bout_` raws, `s` / `count` units, ranges; P09/P10 suite rules extended to bout families |
+| P06 | pass | floor + four reasons (`agreement_reasons`); 4-subject cell empty (NC3; mutant floor - 1 → 1 failed); a subject's second event does not raise `n_subjects_multiview` |
+| P07 | pass | pairwise |Δ| exact on 2 / 3 views, 0 on constants; reversed manifest → byte-identical cells, features, descriptors |
+| P08 | pass | campaign `SOURCES` + `view_agreement.py` + bout golden; regenerated last (PASS, 6 sweeps, 15 tamper classes) |
+| P09 | pass | review UI on a synthetic v2 cohort (88 features, 1056 rows): level selector with Bout, ICC + range chart, agreement columns, v2 estimand, ja + en (`#cohort` captures, synthetic data only) |
 
 ## 8. Amendments
 
@@ -116,3 +124,13 @@ conditional-bout + available-view-summary estimands; `../rehab` unchanged (no po
   labelled as such with its measured Gaussian coverage, total + executable statistical
   predicates, empty-level policy, consumer update; C08 (exclusions, abs-diff, floor, no labels)
   passed as drafted.
+
+- **A01 (implementation shapes).** `cohort.json` carries `agreement_reasons` = {the four reason
+  tokens → row count} in place of `rows_without_multiview`, and `estimand` = {`distribution`,
+  `agreement`, `bout`}. The structurally-absent exclusions are a named set
+  (`cohort.STRUCTURALLY_ABSENT`, the 3 sagittal columns) so an unknown all-NA column can refuse.
+  The estimator lives in `src/pose_estimation/view_agreement.py` (numpy; resamples vectorised).
+  The review UI keeps rendering a retained v1 tree (`view_dispersion` fallback) beside v2.
+  The rewritten v1 agreement cases fired on v2 code before their rewrite (P03 census, P04 / P05
+  estimate fields, four P06 `view_dispersion` cases, two P07 `rows_without_multiview` cases, P18
+  doc phrases: 10 failed); the v2 suite reds 16/60 on the M4.5a commit.

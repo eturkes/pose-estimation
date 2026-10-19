@@ -698,5 +698,37 @@
   "cohort.pop.window_rows": {
     "ja": "窓行",
     "en": "Window rows"
+  },
+  "cohort.level_bout": {
+    "ja": "運動区間",
+    "en": "Bout"
+  },
+  "cohort.agreement": {
+    "ja": "視点間一致",
+    "en": "Cross-view agreement"
+  },
+  "cohort.agreement_note": {
+    "ja": "同一イベントの各視点の値の一致度。点はICC(1,1)、線は被験者リサンプリングの2.5〜97.5パーセンタイル範囲です。信頼区間ではありません。",
+    "en": "How closely the views of one event agree. The dot is ICC(1,1). The line is the 2.5-97.5 percentile range over subject resamples. It is not a confidence interval."
+  },
+  "col.view_abs_diff": {
+    "ja": "視点間絶対差",
+    "en": "View absolute difference"
+  },
+  "col.view_icc": {
+    "ja": "視点間ICC",
+    "en": "View ICC"
+  },
+  "col.n_subjects_multiview": {
+    "ja": "多視点被験者",
+    "en": "Multi-view subjects"
+  },
+  "col.n_bout_rows": {
+    "ja": "運動区間行",
+    "en": "Bout rows"
+  },
+  "cohort.pop.bout_rows": {
+    "ja": "運動区間行",
+    "en": "Bout rows"
   }
 }
