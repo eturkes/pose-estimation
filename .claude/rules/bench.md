@@ -31,8 +31,6 @@ Contracts `.agent/archive/contract-m4u{1,2,3a,3b,4,6}.md`; measured resolutions 
   so a crash costs the unfinished arm alone.
 - **Bench arm names are `run.MODEL_REGISTRY` keys** (`bench.arms` derives from the registry), so
   a cache directory, a calibration file and a corpus run all name one checkpoint one way.
-  Screening-only arms with no runtime path (`arms.SCREEN_ONLY`, Sapiens → `sapiens.md`) resolve in
-  `public-eval` + `hand-eval` alone and enter the registry under the same name if carried forward.
 - **A paired COCO subset = `public-eval --limit N --seed S` per arm**: one seeded draw over the
   eligible persons, its own GT file (the drawn persons alone — an unpredicted person in the same
   image reads as a miss), cached under `<arm>/subset-N-seed-S/`; `screen --coco-limit N

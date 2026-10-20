@@ -477,7 +477,7 @@ def cmd_public_eval(a: argparse.Namespace) -> int:
     files, persons = public.load_coco_wholebody(a.coco_wb)
     persons = [p for p in persons if p.box[2] > 1 and p.box[3] > 1]
     eligible = len(persons)
-    arm = arms.SCREENED_ARMS[a.arm]
+    arm = arms.POSE_ARMS[a.arm]
     out = a.out / arm.name
     gt = a.coco_wb
     if a.limit:
@@ -575,7 +575,7 @@ def cmd_hand_eval(a: argparse.Namespace) -> int:
         ]
     base = a.out / a.set
     boxes = _person_boxes(hands, base / f"det_{len(hands)}_{a.seed}.json")
-    arm = arms.SCREENED_ARMS[a.arm]
+    arm = arms.POSE_ARMS[a.arm]
     cache = base / arm.name / f"pred_{len(hands)}_{a.seed}.npz"
     if cache.is_file():
         z = np.load(cache)
@@ -1171,7 +1171,7 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("public-eval")
     s.add_argument("--coco-wb", type=Path, required=True)
     s.add_argument("--images", type=Path, required=True)
-    s.add_argument("--arm", required=True, choices=sorted(arms.SCREENED_ARMS))
+    s.add_argument("--arm", required=True, choices=sorted(arms.POSE_ARMS))
     s.add_argument("--device", default="GPU")
     s.add_argument("--limit", type=int, default=0, help="seeded person subset; 0 = all")
     s.add_argument("--seed", type=int, default=20261019)
@@ -1219,7 +1219,7 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("hand-eval")
     s.add_argument("--set", required=True, choices=["dexycb", "hint"])
     s.add_argument("--root", type=Path, required=True)
-    s.add_argument("--arm", required=True, choices=sorted(arms.SCREENED_ARMS))
+    s.add_argument("--arm", required=True, choices=sorted(arms.POSE_ARMS))
     s.add_argument("--device", default="GPU")
     s.add_argument("--limit", type=int, default=0)
     s.add_argument("--seed", type=int, default=20261019)

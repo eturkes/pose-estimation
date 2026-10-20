@@ -1,8 +1,8 @@
 """Candidate pose models for the benchmark, by exact checkpoint (contracts M4.1-M4.2).
 
 Names follow mmpose's own table, never the checkpoint's distillation prefix: `rtmw-dw-l-m` = m,
-`rtmw-dw-x-l` = L. SimCC scores = rtmlib's raw decode (mean of the x and y maximum logits); heatmap
-scores = peak value. Every checkpoint has its own scale, so nothing compares raw scores across arms.
+`rtmw-dw-x-l` = L. Scores are rtmlib's raw SimCC decode (mean of the x and y maximum logits); every
+checkpoint has its own scale, so nothing compares raw scores across arms.
 """
 
 from __future__ import annotations
@@ -18,8 +18,6 @@ class PoseArm:
     url: str
     input_size: tuple[int, int]  # (width, height)
     note: str
-    kind: str = "simcc"
-    flip_test: bool = True
 
 
 #: Screened arms = `run.MODEL_REGISTRY` keys, so a benchmark name, its runtime configuration and
@@ -54,31 +52,9 @@ def _arms() -> dict[str, PoseArm]:
 
 POSE_ARMS = _arms()
 
-#: Screening-only heatmap arms (M4.2 D01): f16 IR on GPU, no runtime pipeline path → kept apart
-#: from `POSE_ARMS`; a carried-forward arm enters `run.MODEL_REGISTRY` under the same name.
-SCREEN_ONLY = {
-    f"sapiens-{size}{suffix}": PoseArm(
-        f"sapiens-{size}{suffix}",
-        f"model/sapiens/sapiens-{size}-f16.xml",
-        (768, 1024),
-        "Sapiens v1 COCO-WholeBody, UDP/DARK" + (", flip TTA" if flip else ", no flip"),
-        "heatmap",
-        flip,
-    )
-    for size in ("0.3b", "0.6b", "1b", "2b")
-    for suffix, flip in (("", True), ("-noflip", False))
-}
-
-SCREENED_ARMS = POSE_ARMS | SCREEN_ONLY
-
 
 def load(arm: PoseArm, device: str = "GPU"):
-    """An rtmlib `RTMPose` for `arm` on the OpenVINO backend (GPU compiles at f32); heatmap arms
-    compile their f16 IR at f16."""
-    if arm.kind == "heatmap":
-        from pose_estimation.bench.heatmap_arm import HeatmapArm
-
-        return HeatmapArm(arm.url, device, precision="f16", flip_test=arm.flip_test)
+    """An rtmlib `RTMPose` for `arm` on the OpenVINO backend (GPU compiles at f32)."""
     import rtmlib
 
     from pose_estimation.rtmlib_openvino import _patch_rtmlib_openvino

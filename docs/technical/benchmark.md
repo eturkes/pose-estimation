@@ -64,11 +64,8 @@ bench.py hand-eval --set dexycb --root .scratch/data/dexycb/20200709-subject-01 
 $P python scripts/bench.py screen --coco-wb .scratch/data/cocowb/coco_wholebody_val_v1.0.json \
   --public .scratch/bench/public --dexycb .scratch/data/dexycb/20200709-subject-01 \
   --handsets .scratch/bench/handsets --arms <arm…> --out .scratch/bench/screen.json
-# Heavy arms (Sapiens v1, `.claude/rules/sapiens.md`; HF_TOKEN granted `noahcao/sapiens-pose-coco`):
-# export, parity, then a paired 500-person COCO subset per arm `sapiens-<size>[-noflip]`.
-uv run --script scripts/convert/sapiens.py --size <0.3b|0.6b|1b|2b> --out model/sapiens --stage export
-uv run --script scripts/convert/sapiens.py --size <size> --out model/sapiens --stage parity  # recipe
-bench.py public-eval … --arm sapiens-<size>[-noflip] --limit 500 --seed 20261019 --out .scratch/bench/public
+# Paired 500-person COCO subset (the Sapiens draw): per arm, then screen over the same draw.
+bench.py public-eval … --arm <arm> --limit 500 --seed 20261019 --out .scratch/bench/public
 $P python scripts/bench.py screen … --coco-limit 500 --coco-seed 20261019 --arms <arm…>
 # Cross-view residual: collect under the accelerator recipe, compare under $P.
 probe_crossview_arm.py collect --arm <arm> --device CPU --cache .scratch/calib-obs-arm-<arm> \
@@ -176,7 +173,7 @@ are unrun (no registration).
 ### Sapiens v1 (gated checkpoints)
 
 COCO-WholeBody checkpoints from `noahcao/sapiens-pose-coco` (access granted), strict-loaded and
-exported per size (`scripts/convert/sapiens.py`); OpenVINO GPU f16, the same 500-person subset
+exported per size; OpenVINO GPU f16, the same 500-person subset
 (`public-eval --limit 500 --seed 20261019`, 436 images, the Sapiens2 draw). Hand AP pairs = image
 bootstrap vs RTMW-L 384 on that draw (1 000 resamples). s/person = measured `public-eval` wall over
 the 500 persons (decode included; both 2B runs overlapped a CPU-bound INT8 calibration). Corpus
@@ -203,8 +200,17 @@ over 1 px, every point over 5 px at score <= 0.22 (argmax flips between near-equ
 sits 0.008-0.023 under the published table (0.620 / 0.695 / 0.727 / 0.745, detector boxes) while
 RTMW-L 384 sits 0.013 over its own → these Sapiens figures are plausibly conservative (GT boxes,
 f16, n = 500). 2.0 % of corpus frames lie outside the task span (6 864 / 337 090), so a span-only
-second pass saves nothing. DexYCB is unrun for every Sapiens size. Disposition: pending the user's
-ruling on the corpus cost bar (contract `contract-m4u2.md` A04).
+second pass saves nothing. DexYCB is unrun for every Sapiens size. **Dropped** (user ruling,
+`contract-m4u2.md` A04): one corpus run may take <= 1 day of iGPU, and every size projects over it.
+The converter, heatmap arm and tests live at `f35f83e` (removed from the tree with the weights);
+regenerate there: `scripts/convert/sapiens.py --stage export|parity`, then `public-eval --arm
+sapiens-<size>[-noflip] --limit 500 --seed 20261019`.
+
+SDPose-Wholebody (MIT; `teemosliang/SDPose-Wholebody` @ `0c8153e`, code `T-S-Liang/SDPose-OOD` @
+`0ba1ced`): strict CPU port (1 316 tensors), OpenVINO f32 + f16 IR at 1024×768, two-crop CPU f32
+parity max 0.0002 px. GPU f16, idle, batch 1: 481 ms/call (MAIN re-time; port author 489) →
+2.35 days per corpus run without flip, 4.22 with → over the 1-day ceiling; accuracy unscreened
+(A04 latency gate). Port removed with its weights.
 
 ## Cross-view residual per arm (3D-negative ruling)
 

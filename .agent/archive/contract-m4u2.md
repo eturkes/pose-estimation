@@ -93,3 +93,13 @@ with populations (persons, hands, joints) beside every number.
   on both metrics; DexYCB unrun); the user dropped it — no hand-accuracy gain at ~5 GPU-days per
   corpus run. ARCTIC / Ego-Exo4D / UBody stay unrun (registration absent); the user closed
   screening on COCO-WholeBody + DexYCB + HInt. Finalists: RTMW-L 384 + the RTMW-m baseline.
+- A04 (user rulings) — corpus cost ceiling: one full corpus run (337 090 frames) <= 1 day of iGPU.
+  D03 ranks only arms whose projected corpus run fits the ceiling; an arm over it is screened,
+  recorded and never a finalist. Projection = 337 090 × (measured s/person + 0.1205 s, the
+  non-pose share of RTMW-L 384's measured run) / 86 400. Sapiens v1 (HF-gated
+  `noahcao/sapiens-pose-coco`, access granted; `f35f83e`), GPU f16, the A03 500-person draw, paired
+  hand AP vs RTMW-L 384: 0.3B −0.085 [−0.120, −0.049] (2.0-3.3 d), 0.6B −0.018 [−0.048, 0.015]
+  (3.4-6.4 d), 1B +0.026 [−0.006, 0.057] (4.5-8.6 d), 2B +0.042 [0.007, 0.078] (10.4-20.5 d;
+  no flip / flip) → every size over the ceiling; dropped, DexYCB unrun. SDPose-Wholebody stops at
+  its latency gate: GPU f16 481 ms/call → 2.35 / 4.22 d, accuracy unscreened. Finalists unchanged:
+  RTMW-L 384 + the RTMW-m baseline.

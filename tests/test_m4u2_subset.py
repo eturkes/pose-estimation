@@ -90,9 +90,9 @@ def test_subset_draw_gt_and_cache(monkeypatch, tmp_path):
     assert cli["cmd_public_eval"](a) == 0
     assert len(calls) == 4
     # another arm, same seed → the identical GT draw (paired)
-    a.arm = "sapiens-1b-noflip"
+    a.arm = "rtmw-m-256"
     assert cli["cmd_public_eval"](a) == 0
-    other = a.out / "sapiens-1b-noflip" / "subset-4-seed-17" / "coco_wb_gt.json"
+    other = a.out / "rtmw-m-256" / "subset-4-seed-17" / "coco_wb_gt.json"
     assert other.read_bytes() == (run / "coco_wb_gt.json").read_bytes()
     # another seed → another directory + draw; the full set keeps the top-level cache
     a.seed = 19
@@ -101,7 +101,7 @@ def test_subset_draw_gt_and_cache(monkeypatch, tmp_path):
     a.limit = 0
     assert cli["cmd_public_eval"](a) == 0
     assert (scored[-1], predicted[-1]) == ([*range(100, 110), 999], 10)
-    assert (a.out / "sapiens-1b-noflip" / "coco_wb_pred.npz").is_file()
+    assert (a.out / "rtmw-m-256" / "coco_wb_pred.npz").is_file()
 
 
 def test_screen_refuses_unpaired_subsets(monkeypatch, tmp_path):
