@@ -52,8 +52,8 @@ hospital SCI database.
   `docs/technical/benchmark.md`; COCO-WholeBody AP via `tools/cocowb-eval/` (own Python 3.12 uv
   project); user labelling page = review UI `/label` over `.scratch/bench/user/`.
 - Gate — `scripts/gate.sh` (full chain + per-step wall-clock; `--fast <tests>` iterates) →
-  `.claude/rules/gates.md`. Its pytest step = the decisive gate (A32 reconciled in-session): 2613 collected,
-  2465 s measured under co-tenant load (host load moves it), run alone.
+  `.claude/rules/gates.md`. Its pytest step = the decisive gate (A32 reconciled in-session): 2727 passed on
+  `a588099`, 1339 s measured beside a corpus run (host load moves it); run it alone.
 
 ## Decisions
 
@@ -186,7 +186,22 @@ hospital SCI database.
 - [x] 3410a90 **`calibration_qc` claims name RTMW-m** — published claim text + fixtures + determinism campaigns.
 - [ ] **Monocular 3D angles pilot** (SAM 3D Body, >= 40 events) → user adoption ruling.
 - [x] fc58765 **Gate speed** — A32 reconciled in-session (`tests/a32_gate.py`), `test_c8_08` = plugin firing; pytest 2465 s vs 5634 s (44 %).
-- [ ] **Corpus rerun** (running: `output/corpus-2d-m4-rtmw-l-384` then `-rtmw-m-256`, ~7.5 frames/s, code pinned at `48078b4` → `--refresh-clinical` after) — cohort republished; after-table vs M2.10; `scientist`.
+- [ ] RESUME: paused by the user after the RTMW-L 384 corpus run. Finish line in force = the IMPLEMENT
+  body's Met-when: full gate (scanners included) passes on a clean tree at the closing commit; every
+  `Decisions` entry implemented or moved to `.agent/deferred.md` with its reason; `.agent/review.md`
+  holds no open row; `Phase: MAINTAIN` committed (CI/scanning/update automation `622317e` + prototype
+  retirement `a588099` = met). State: all work committed on `main` (this row's commit); no
+  uncommitted work, no `wip/` branch, no teammates or teammate branches, no running process. Corpus:
+  `output/corpus-2d-m4-rtmw-l-384` complete (193/193, 337 090 frames, 11/11 verdicts true; clinical
+  stage pre-bouts → needs `--refresh-clinical`); `-rtmw-m-256` not started; both pinned to worktree
+  `.scratch/worktrees/corpus-m4` (detached `48078b4`, keep until both runs end). User labels: 0 of 96
+  saved; the review UI is stopped (restart it for `/label`). Last full gate: PASS on `a588099` (2727).
+  Next: move `.scratch/impl/corpus-rtmw-l-384.log` aside, relaunch `.scratch/impl/gpu_queue3.sh`
+  (L384 0 due → m256 ~8-10 h), then the ordered steps in `.scratch/impl/checkpoint.md` (refresh →
+  M4.3 pilot-eval → M4.4 A01 + confirm → 3D pilot → `adopt.sh` + defaults unit → after-table +
+  `scientist` → Decisions rewrites → final-delta review → Close).
+- [ ] **Corpus rerun** (RTMW-L 384 done → `output/corpus-2d-m4-rtmw-l-384`; RTMW-m 256 pending; code pinned at
+  `48078b4` → `--refresh-clinical` after each) — cohort republished; after-table vs M2.10; `scientist`.
 - [ ] **Closing review** — one `reviewer` per lens + MAIN's security lens → `.agent/review.md`.
 - [ ] **Close** — README, review UI → `tools/review-ui/`, `Phase: MAINTAIN`.
 

@@ -42,3 +42,15 @@ Run under the accelerator recipe, never the gate prefix (→ `gates.md`).
   markers). `corpus_run_2d.py --model ARM --out DIR --analyse-only --refresh-clinical` reruns R
   over every complete event (landmarks untouched; no device needed) and brings the tree onto the
   current producer.
+- **A run's `pose_config.json` records the `--model` name exactly as given** (M2.10: `rtmw-l`; the
+  M4 queue passes `rtmw-l-384`, `rtmw-m-256`), so the alias and its target are different configs.
+  `--analyse-only`, `--refresh-clinical` and `--reuse-run` refuse a complete event whose recorded
+  config differs from the invocation's ("produced under another pose configuration") → always
+  pass the run's own `--model` name; the drivers' default `rtmw-l` matches M2.10-era trees alone.
+  Adopting a run as `output/corpus-2d` moves the defaults
+  (`scripts/{corpus_run_2d,pilot_corpus_run,run_report}.py`, `run.py DEFAULT_MODEL`,
+  `bench/replay.py` `CORPUS_ARGS`) to its name in the same unit.
+- **Resume = rerun the same command**: an event with a complete marker under the same config is
+  skipped, a markerless one (killed mid-run) is redone; measured across two interruptions of the
+  RTMW-L 384 run (138 → 193 after a reboot). A queue script's `> corpus-<arm>.log` truncates →
+  move the old log aside before relaunching.
