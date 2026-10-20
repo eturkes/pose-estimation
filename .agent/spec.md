@@ -50,7 +50,8 @@ hospital SCI database.
 - Benchmark — `scripts/bench.py <command>` under the gate prefix (sample, sheets, ingest, agree,
   public-eval, hand-eval, corpus-gross, calibrate, judge-*, preroll, user-sample) →
   `docs/technical/benchmark.md`; COCO-WholeBody AP via `tools/cocowb-eval/` (own Python 3.12 uv
-  project); user labelling page = review UI `/label` over `.scratch/bench/user/`.
+  project); heavy-arm converters `scripts/convert/` (weights + IR → gitignored `model/`); user
+  labelling page = review UI `/label` over `.scratch/bench/user/`.
 - Gate — `scripts/gate.sh` (full chain + per-step wall-clock; `--fast <tests>` iterates) →
   `.claude/rules/gates.md`. Its pytest step = the decisive gate (A32 reconciled in-session): 2727 passed on
   `a588099`, 1339 s measured beside a corpus run (host load moves it); run it alone.
@@ -65,7 +66,8 @@ hospital SCI database.
 - **IMPLEMENT optimises the video analysis itself** (user rulings) — model selection + parameter
   optimisation across detector, pose + hand model, tracker, filters, hand gate, span trim and
   features, benchmarked; every model + parameter ruling below is open, a replacement lands as a new
-  ruling. Accuracy wins above all: no wall or cost bar on any arm; any licence class; any
+  ruling. Accuracy wins within a cost bar (user ruling): one corpus run takes days at most —
+  weeks are excluded, and even days count against an arm; any licence class; any
   candidate family; features may change definition (per-movement SPARC, timing features, a
   published per-feature reliability) or join + leave the export. Ground truth = public 2D GT run
   through the deployment (COCO-WholeBody, ARCTIC, Ego-Exo4D, UBody, DexYCB, HInt) + in-domain
@@ -119,7 +121,7 @@ hospital SCI database.
 - **Seated subjects drop what the camera cannot see** (user ruling) — knees, ankles and feet score
   0 on every camera, hips score 0 under the overhead camera; trunk lean and rotation come from
   side views (posture symmetry reads the shoulders alone and keeps every view).
-- **Hand model = whichever arm the benchmark selects** (user ruling: no cost bar) — the earlier
+- **Hand model = whichever arm the benchmark selects** (user ruling, under the corpus cost bar) — the earlier
   second-stage bar (jitter <= 0.006, wall <= +15 %) retires with it; its "RTMW-X" arm was RTMW-L
   384x288 whose ONNX export emits unnormalised scores (600 COCO crops: median 4.2, max 8.4), so its
   rejection measured the export, not the model.
@@ -186,8 +188,13 @@ hospital SCI database.
 - [x] 3410a90 **`calibration_qc` claims name RTMW-m** — published claim text + fixtures + determinism campaigns.
 - [ ] **Monocular 3D angles pilot** (SAM 3D Body, >= 40 events) → user adoption ruling.
 - [x] fc58765 **Gate speed** — A32 reconciled in-session (`tests/a32_gate.py`), `test_c8_08` = plugin firing; pytest 2465 s vs 5634 s (44 %).
-- [ ] RESUME: paused by the user after the RTMW-L 384 corpus run. Finish line in force = the IMPLEMENT
-  body's Met-when: full gate (scanners included) passes on a clean tree at the closing commit; every
+- [ ] RESUME: user request = HF-gated models first, ahead of the ungated corpus work. Finish line =
+  Sapiens v1 COCO-WholeBody (`noahcao/sapiens-pose-coco`, 0.3B/0.6B/1B/2B; HF 403 until access lands)
+  accessed, ported to OpenVINO with measured parity (port = tag `archive/m4-sapiens-port-general-purpose-7`),
+  screened under `contract-m4u2.md` D01/D03 (500-person COCO-WB subset paired vs RTMW-L 384 +
+  RTMW-m, DexYCB PCK@0.1) → `docs/technical/benchmark.md` + contract A04; user carry-forward ruling
+  recorded; committed; then the paused state below resumes. Paused by the user after the RTMW-L 384
+  corpus run. IMPLEMENT finish line (after this request) = the IMPLEMENT body's Met-when: full gate (scanners included) passes on a clean tree at the closing commit; every
   `Decisions` entry implemented or moved to `.agent/deferred.md` with its reason; `.agent/review.md`
   holds no open row; `Phase: MAINTAIN` committed (CI/scanning/update automation `622317e` + prototype
   retirement `a588099` = met). State: all work committed on `main` (this row's commit); no
@@ -200,6 +207,9 @@ hospital SCI database.
   (L384 0 due → m256 ~8-10 h), then the ordered steps in `.scratch/impl/checkpoint.md` (refresh →
   M4.3 pilot-eval → M4.4 A01 + confirm → 3D pilot → `adopt.sh` + defaults unit → after-table +
   `scientist` → Decisions rewrites → final-delta review → Close).
+- [ ] **M4.2b heavy arms** (user request: HF-gated models first) — Sapiens v1 0.3B-2B screened on
+  the paired COCO-500 draw (`docs/technical/benchmark.md` § Sapiens v1); SDPose port + latency gate
+  (`general-purpose-8`); disposition under the corpus cost bar = user ruling → `contract-m4u2.md` A04.
 - [ ] **Corpus rerun** (RTMW-L 384 done → `output/corpus-2d-m4-rtmw-l-384`; RTMW-m 256 pending; code pinned at
   `48078b4` → `--refresh-clinical` after each) — cohort republished; after-table vs M2.10; `scientist`.
 - [ ] **Closing review** — one `reviewer` per lens + MAIN's security lens → `.agent/review.md`.

@@ -476,8 +476,24 @@ def cmd_public_eval(a: argparse.Namespace) -> int:
 
     files, persons = public.load_coco_wholebody(a.coco_wb)
     persons = [p for p in persons if p.box[2] > 1 and p.box[3] > 1]
-    arm = arms.POSE_ARMS[a.arm]
+    eligible = len(persons)
+    arm = arms.SCREENED_ARMS[a.arm]
     out = a.out / arm.name
+    gt = a.coco_wb
+    if a.limit:
+        # Same draw for every arm → paired subsets; the GT keeps the drawn persons alone, since
+        # an unpredicted person in the same image would read as a miss.
+        take = np.random.default_rng(a.seed).permutation(eligible)[: a.limit]
+        persons = [persons[i] for i in sorted(take)]
+        out /= f"subset-{a.limit}-seed-{a.seed}"
+        out.mkdir(parents=True, exist_ok=True)
+        gt = out / "coco_wb_gt.json"
+        keep = {p.ann_id for p in persons}
+        data = json.loads(a.coco_wb.read_text(encoding="utf-8"))
+        data["annotations"] = [r for r in data["annotations"] if r["id"] in keep]
+        image_ids = {r["image_id"] for r in data["annotations"]}
+        data["images"] = [r for r in data["images"] if r["id"] in image_ids]
+        gt.write_text(json.dumps(data), encoding="utf-8")
     out.mkdir(parents=True, exist_ok=True)
     cache = out / "coco_wb_pred.npz"
     if cache.is_file():
@@ -506,7 +522,7 @@ def cmd_public_eval(a: argparse.Namespace) -> int:
     stats = json.loads(
         subprocess.run(
             ["uv", "run", "--quiet", "--directory", str(evaluator), "python", "score.py",
-             str(a.coco_wb.resolve()), str(res_path.resolve())],
+             str(gt.resolve()), str(res_path.resolve())],
             check=True, capture_output=True, text=True,
         ).stdout
     )  # fmt: skip
@@ -515,6 +531,8 @@ def cmd_public_eval(a: argparse.Namespace) -> int:
     summary = {
         "arm": arm.name,
         "persons": len(persons),
+        "eligible_persons": eligible,
+        "subset_seed": a.seed if a.limit else None,
         "official": stats,
         "hand_pck": {sel: screen.pck(v, screen.PCK_HAND) for sel, v in hand_err.items()},
         "arm_pck": screen.pck(body_err, screen.PCK_ARM),
@@ -557,7 +575,7 @@ def cmd_hand_eval(a: argparse.Namespace) -> int:
         ]
     base = a.out / a.set
     boxes = _person_boxes(hands, base / f"det_{len(hands)}_{a.seed}.json")
-    arm = arms.POSE_ARMS[a.arm]
+    arm = arms.SCREENED_ARMS[a.arm]
     cache = base / arm.name / f"pred_{len(hands)}_{a.seed}.npz"
     if cache.is_file():
         z = np.load(cache)
@@ -963,11 +981,21 @@ def cmd_screen(a: argparse.Namespace) -> int:
     import subprocess
 
     evaluator = Path(__file__).resolve().parents[1] / "tools" / "cocowb-eval"
-    specs = [f"{arm}={(a.public / arm / 'coco_wb_results.json').resolve()}" for arm in a.arms]
+    runs = {arm: a.public / arm for arm in a.arms}
+    gt = a.coco_wb
+    if a.coco_limit:
+        runs = {arm: d / f"subset-{a.coco_limit}-seed-{a.coco_seed}" for arm, d in runs.items()}
+        digests = {
+            hashlib.sha256((d / "coco_wb_gt.json").read_bytes()).hexdigest() for d in runs.values()
+        }
+        if len(digests) != 1:
+            raise SystemExit("screen: the arms' subset GT files differ → not one paired draw")
+        gt = runs[a.arms[0]] / "coco_wb_gt.json"
+    specs = [f"{arm}={(d / 'coco_wb_results.json').resolve()}" for arm, d in runs.items()]
     hand_ap = json.loads(
         subprocess.run(
             ["uv", "run", "--quiet", "--directory", str(evaluator), "python", "bootstrap.py",
-             str(a.coco_wb.resolve()), *specs, "--n", str(a.n), "--seed", str(a.seed)],
+             str(gt.resolve()), *specs, "--n", str(a.n), "--seed", str(a.seed)],
             check=True, capture_output=True, text=True,
         ).stdout
     )  # fmt: skip
@@ -982,13 +1010,14 @@ def cmd_screen(a: argparse.Namespace) -> int:
         covered = z["covered"]
     dexycb = screen.paired_pck_bootstrap(correct, valid & covered[:, None], a.n, a.seed)
     arm_pck = {
-        arm: json.loads((a.public / arm / "coco_wb_summary.json").read_text(encoding="utf-8"))[
-            "arm_pck"
-        ]["@0.05"]
-        for arm in a.arms
+        arm: json.loads((d / "coco_wb_summary.json").read_text(encoding="utf-8"))["arm_pck"][
+            "@0.05"
+        ]
+        for arm, d in runs.items()
     }
     verdicts = screen.finalists(arm_pck, [hand_ap["pairs"], dexycb["pairs"]], a.baseline)
     report = {
+        "coco_subset": {"limit": a.coco_limit, "seed": a.coco_seed} if a.coco_limit else None,
         "hand_ap": hand_ap,
         "dexycb_pck_0.1": dexycb
         | {"hands": int(covered.sum()), "joints": int(valid[covered].sum())},
@@ -1142,8 +1171,10 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("public-eval")
     s.add_argument("--coco-wb", type=Path, required=True)
     s.add_argument("--images", type=Path, required=True)
-    s.add_argument("--arm", required=True, choices=sorted(arms.POSE_ARMS))
+    s.add_argument("--arm", required=True, choices=sorted(arms.SCREENED_ARMS))
     s.add_argument("--device", default="GPU")
+    s.add_argument("--limit", type=int, default=0, help="seeded person subset; 0 = all")
+    s.add_argument("--seed", type=int, default=20261019)
     s.add_argument("--out", type=Path, required=True)
     s = sub.add_parser("calibrate")
     s.add_argument("--coco-wb", type=Path, required=True)
@@ -1188,7 +1219,7 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("hand-eval")
     s.add_argument("--set", required=True, choices=["dexycb", "hint"])
     s.add_argument("--root", type=Path, required=True)
-    s.add_argument("--arm", required=True, choices=sorted(arms.POSE_ARMS))
+    s.add_argument("--arm", required=True, choices=sorted(arms.SCREENED_ARMS))
     s.add_argument("--device", default="GPU")
     s.add_argument("--limit", type=int, default=0)
     s.add_argument("--seed", type=int, default=20261019)
@@ -1200,6 +1231,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--handsets", type=Path, required=True, help="hand-eval --out")
     s.add_argument("--hand-seed", type=int, default=20261019)
     s.add_argument("--arms", nargs="+", required=True)
+    s.add_argument("--coco-limit", type=int, default=0, help="public-eval --limit of every arm")
+    s.add_argument("--coco-seed", type=int, default=20261019, help="public-eval --seed")
     s.add_argument("--baseline", default="rtmw-m-256")
     s.add_argument("--n", type=int, default=1000)
     s.add_argument("--seed", type=int, default=20261019)

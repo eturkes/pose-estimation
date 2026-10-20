@@ -64,6 +64,12 @@ bench.py hand-eval --set dexycb --root .scratch/data/dexycb/20200709-subject-01 
 $P python scripts/bench.py screen --coco-wb .scratch/data/cocowb/coco_wholebody_val_v1.0.json \
   --public .scratch/bench/public --dexycb .scratch/data/dexycb/20200709-subject-01 \
   --handsets .scratch/bench/handsets --arms <arm…> --out .scratch/bench/screen.json
+# Heavy arms (Sapiens v1, `.claude/rules/sapiens.md`; HF_TOKEN granted `noahcao/sapiens-pose-coco`):
+# export, parity, then a paired 500-person COCO subset per arm `sapiens-<size>[-noflip]`.
+uv run --script scripts/convert/sapiens.py --size <0.3b|0.6b|1b|2b> --out model/sapiens --stage export
+uv run --script scripts/convert/sapiens.py --size <size> --out model/sapiens --stage parity  # recipe
+bench.py public-eval … --arm sapiens-<size>[-noflip] --limit 500 --seed 20261019 --out .scratch/bench/public
+$P python scripts/bench.py screen … --coco-limit 500 --coco-seed 20261019 --arms <arm…>
 # Cross-view residual: collect under the accelerator recipe, compare under $P.
 probe_crossview_arm.py collect --arm <arm> --device CPU --cache .scratch/calib-obs-arm-<arm> \
   --frames-per-event 32 --stratum-events 25
@@ -164,8 +170,41 @@ the larger checkpoint loses on hands at equal input size.
 Sapiens2-0.4B (OpenVINO GPU f16, flip TTA; 500-person subset, seed 20261019, paired over its
 436 images): hand AP mean 0.626 against RTMW-L 384's 0.650 on the same persons (paired −0.024
 [−0.063, 0.018]), body AP 0.792, arm PCK@0.05 0.941, at ~1.37 s per person (~17× RTMW-L 384).
-Dropped by user ruling: no hand gain for ~5 GPU-days per corpus run. Sapiens v1 stayed gated
-(no checkpoint access). ARCTIC, Ego-Exo4D and UBody are unrun (no registration).
+Dropped by user ruling: no hand gain for ~5 GPU-days per corpus run. ARCTIC, Ego-Exo4D and UBody
+are unrun (no registration).
+
+### Sapiens v1 (gated checkpoints)
+
+COCO-WholeBody checkpoints from `noahcao/sapiens-pose-coco` (access granted), strict-loaded and
+exported per size (`scripts/convert/sapiens.py`); OpenVINO GPU f16, the same 500-person subset
+(`public-eval --limit 500 --seed 20261019`, 436 images, the Sapiens2 draw). Hand AP pairs = image
+bootstrap vs RTMW-L 384 on that draw (1 000 resamples). s/person = measured `public-eval` wall over
+the 500 persons (decode included; both 2B runs overlapped a CPU-bound INT8 calibration). Corpus
+days = projection: 337 090 frames × (s/person + 0.1205 s), the non-pose share of RTMW-L 384's
+measured corpus run (150.4 ms/frame − 29.9 ms/call).
+
+| arm | whole AP | body AP | hand AP L / R (mean) | hand AP − RTMW-L 384 | arm PCK@0.05 | s/person | corpus days |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| RTMW-m 256 (GPU f32) | 0.622 | 0.717 | 0.526 / 0.509 (0.517) | −0.133 [−0.174, −0.094] | 0.902 | — | 0.33 (measured, NPU) |
+| RTMW-L 384 (GPU f32) | 0.710 | 0.773 | 0.655 / 0.646 (0.650) | — | 0.934 | — | 0.59 (measured) |
+| Sapiens 0.3B flip | 0.612 | 0.665 | 0.580 / 0.552 (0.566) | −0.085 [−0.120, −0.049] | 0.877 | 0.72 | 3.3 |
+| Sapiens 0.3B | 0.587 | 0.648 | 0.537 / 0.546 (0.541) | −0.109 [−0.145, −0.072] | 0.868 | 0.38 | 2.0 |
+| Sapiens 0.6B flip | 0.672 | 0.738 | 0.642 / 0.622 (0.632) | −0.018 [−0.048, 0.015] | 0.909 | 1.53 | 6.4 |
+| Sapiens 0.6B | 0.661 | 0.729 | 0.629 / 0.627 (0.628) | −0.022 [−0.050, 0.008] | 0.901 | 0.75 | 3.4 |
+| Sapiens 1B flip | 0.719 | 0.785 | 0.699 / 0.654 (0.677) | +0.026 [−0.006, 0.057] | 0.934 | 2.09 | 8.6 |
+| Sapiens 1B | 0.716 | 0.777 | 0.695 / 0.641 (0.668) | +0.018 [−0.010, 0.048] | 0.928 | 1.03 | 4.5 |
+| Sapiens 2B flip | 0.735 | 0.804 | 0.693 / 0.692 (0.692) | +0.042 [0.007, 0.078] | 0.941 | 5.12 | 20.5 |
+| Sapiens 2B | 0.724 | 0.795 | 0.667 / 0.692 (0.680) | +0.029 [−0.003, 0.062] | 0.929 | 2.54 | 10.4 |
+
+Idle GPU f16 per call (median, batch 1): 0.3B 333 ms (flip pair batched 528 ms), 0.6B 694, 1B
+909, 2B 2021; GPU f32 0.3B 3688 ms (no XMX path); NPU 0.3B 659 ms. Parity, 20 COCO crops × 133
+joints vs PyTorch f32: 0.3B f32 IR on CPU max 0.31 px; f16 on GPU median 0.005 px, 23 of 2 660 points
+over 1 px, every point over 5 px at score <= 0.22 (argmax flips between near-equal modes). Whole AP
+sits 0.008-0.023 under the published table (0.620 / 0.695 / 0.727 / 0.745, detector boxes) while
+RTMW-L 384 sits 0.013 over its own → these Sapiens figures are plausibly conservative (GT boxes,
+f16, n = 500). 2.0 % of corpus frames lie outside the task span (6 864 / 337 090), so a span-only
+second pass saves nothing. DexYCB is unrun for every Sapiens size. Disposition: pending the user's
+ruling on the corpus cost bar (contract `contract-m4u2.md` A04).
 
 ## Cross-view residual per arm (3D-negative ruling)
 
