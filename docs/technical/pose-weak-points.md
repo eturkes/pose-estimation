@@ -213,3 +213,30 @@ span, per-row camera similarity applied in R), 379 clips; before = the M2.9 gene
 Instruments: `.scratch/triage.py` → `.scratch/watch/triage_m210.json`, `.scratch/after_table.py`,
 `.scratch/oof_probe.py`, `.scratch/flick_cause.py`, `.scratch/messy/{p08_compare,p08_sign,p08_keys,
 p11_corpus}.py` (→ `.claude/rules/pose-instruments.md`).
+
+## M4.6 out-of-frame residue — stage attribution (P07)
+
+Since M4.6 the export pass zeroes every scored point outside the frame and counts it
+(`exported_out_of_frame_zeroed`), so no stage can export one. P07 names the stage that places them.
+Hit set = the 6 clips with the most M2.10 P09 observations (83 hit clips, 2134 observations);
+each replayed whole at HEAD (`bench.replay`, RTMW-m, CPU detector = GPU f32 to IoU 1.0000) under
+three arms. Census = points the export pass zeroed, all 133 keypoints:
+
+| clip (view) | all stages | bone-length off | smoother + bone-length off |
+| --- | --- | --- | --- |
+| 1 (above) | 272 | 32 | 0 |
+| 2 (above) | 253 | 224 | 0 |
+| 3 (right) | 270 | 285 | 0 |
+| 4 (above) | 284 | 252 | 0 |
+| 5 (above) | 234 | 234 | 0 |
+| 6 (left) | 3877 | 3909 | 0 |
+
+- **The temporal filter places the residue**: with bone-length projection off it persists on every
+  clip (4936 of 5190 points); with the filter off too, 0 on all 6.
+- **Bone-length projection adds to it on 2 clips** (clip 1: 240 of 272) and pulls points back
+  inside on 2 (clips 3 + 6).
+- Unrun arm: filter off with bone-length on. `--no-smooth` also skips the bone-length stage,
+  which needs the smoother's track keys, so the filter's sole share is bounded by the two arms
+  above, not isolated.
+
+Instrument: `.scratch/impl/p07_stage.py` (→ `.claude/rules/pose-instruments.md`).

@@ -39,6 +39,12 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
   labels clips by the review UI's positional ordinals (imports `tools/review-ui`), prints
   numbers only. Baselines, 379 clips each: `.scratch/watch/triage_m210.json` (M2.10, shipped), `.scratch/watch/triage_m29.json` (M2.9, superseded) and
   `.scratch/watch/triage_f7.json` (superseded rtmlib-f7).
+- `.scratch/impl/p07_stage.py [--tree <run>] [--k N] [--out DIR]` — M4.6 P07 stage attribution
+  under the accelerator recipe: ranks clips by `oof_probe.py`'s predicate (reproduces M2.10's 83
+  clips / 2134), replays the top N whole under all / `--no-constraints` / `--no-smooth`, reads
+  `exported_out_of_frame_zeroed`. `run.main --source` writes no `_diag.csv`, so the script wraps
+  `run.process_source` to add one; resumes per clip from `<out>/results.jsonl`. Port →
+  `.agent/deferred.md`.
 - Corpus after-table instruments, numbers only, review-UI ordinals for labels:
   `P python .scratch/oof_probe.py [<tree>]` (P09: out-of-frame observations at vis >= 0.3, overshoot
   px by edge + keypoint; M2.9 = 3648/2 555 251); `P python .scratch/flick_cause.py [<tree>]` (hand

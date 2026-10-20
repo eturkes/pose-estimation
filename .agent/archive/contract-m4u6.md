@@ -87,6 +87,10 @@ recorded firing). No feature or R code changes.
 | --- | --- | --- |
 | P01-P05 | pass | `tests/test_m4u6_pipeline_defects.py` 10 cases (7 red on `487f790` + bench, the 3 green = guards the old code already met) + reviewer-10's malformed-frame reset (fixed, R01); M2.10.1's order case rewritten to pin select → gate (its old assertion reds on the new code = the recorded firing) |
 | P06 | pass | `tests/cohort_determinism_results.json` regenerated last (`corpus_run.py` in its `SOURCES`) |
-| P07 | open | stage attribution replay on real hit clips — MAIN, after the GPU queue |
+| P07 | pass | 6 top M2.10 hit clips × 3 whole-clip replays (`.scratch/impl/p07_stage.py`): export-zeroed points 5190 all stages → 4936 bone-length off → 0 smoother + bone-length off → the temporal filter places the residue; bone-length adds on 2 clips (`docs/technical/pose-weak-points.md` § M4.6) |
 
 ## 8. Amendments
+
+- **A01 (P07 arms).** `--no-smooth` also skips the bone-length stage (it reads the smoother's
+  track keys), so "filter off, bone-length on" cannot run; P07 reads the three runnable arms and
+  bounds the filter's share between them.

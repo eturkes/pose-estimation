@@ -171,8 +171,9 @@ hospital SCI database.
 - [x] 36e525b 8bc1b81 **M4.2 public screening** (finalists RTMW-L 384 + baseline; Sapiens2 dropped + gated sets unrun by user ruling, contract A03) — COCO-WholeBody official evaluator (GT boxes; body + hand parts),
   one qualified manipulation set (ARCTIC / Ego-Exo4D / DexYCB), HInt visibility; every candidate
   (RTMW m/L/X, DWPose, Sapiens, SDPose, hand models, detectors) → a diverse finalist set.
-- [ ] **On-path defects** (`73927ef` M4.6; P07 stage replay open) (before any calibration) — P08 gate keying, P09 out-of-frame residue, D02
-  counter, OpenVINO build in `pose_config.json`, raw-score decode before the smoother's clip.
+- [x] 73927ef **On-path defects** (M4.6; P07: the temporal filter places the out-of-frame residue,
+  bone-length adds on 2 of 6 clips → `docs/technical/pose-weak-points.md` § M4.6) — P08 gate keying,
+  P09 out-of-frame residue, D02 counter, OpenVINO build in `pose_config.json`, raw-score decode.
 - [x] 73927ef **M4.3a arm plumbing** — mmpose-named registry, per-model device, score-calibration hook.
 - [x] bf7728a **M4.3b calibration + gate rule** — reference-equivalent Platt maps, per-model hand gate, presence instrument; refit rule applies in M4.3.
 - [ ] **M4.3 complete-pipeline finalists** (instrument `b88b0e9`; scored from the M4 corpus runs) — pose × hand × detector/identity (incl. a wrong-person

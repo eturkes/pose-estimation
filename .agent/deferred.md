@@ -64,6 +64,11 @@ rows before sizing any unit that touches their surfaces.
   § M2.9.3: jitter 0.0079 vs <= 0.006, wall +41 % vs <= +15 %, right views worse) → a variant
   (batched crops, refinement only where the whole-body hand is small or unstable) reaches jitter
   <= 0.006 on the watch set at <= +15 % wall with collapse unchanged on every clip.
+- **`run.main --source` writes no per-source diagnostics; P07 attribution lives in
+  `.scratch/impl/p07_stage.py` alone** (it wraps `run.process_source` to get the
+  `exported_out_of_frame_zeroed` census; `docs/technical/pose-weak-points.md` § M4.6) → the
+  `--source` path writes `<stem>_diag.csv` beside its CSV (a test asserts the census fields on a
+  synthetic clip), and `bench.py` reproduces the P07 table from committed code.
 - **2D weak-point triage lives in `.scratch/triage.py` alone** (→ `pose-instruments.md`; behind
   `docs/technical/pose-weak-points.md`) → a committed `scripts/` instrument with no
   `tools/review-ui` import reproduces the catalog's per-view counts over a run tree and flags a
