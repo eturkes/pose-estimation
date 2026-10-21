@@ -137,7 +137,8 @@ L384 tree, baseline = the M2.10 cohort (v1): status counts 888 / 168 / 180; `|de
 
 | ID | verdict | evidence |
 | --- | --- | --- |
-| P01-P13 | open | |
+| P01-P13 | pass | `tests/test_m4u7_cohort_provenance.py` (`tester-6`, diff-blind, `archive/m4u7-test-6`): 322/323 red on 27079c4, 323/323 green at close; P01 real tree `45c77741…c132a898`; §5 888 / 168 / 180, 178/888 |
+| campaign | pass | `scripts/check_cohort_determinism.py` 10 sweeps (4 with baseline) + 22 tamper classes; planted path-bearing baseline identity → `drifted: with-baseline-relocated` |
 
 ## 8. Amendments
 

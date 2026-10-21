@@ -159,6 +159,8 @@ _MARKER_KEYS = frozenset(
         "agreement_reasons",
         "rows_below_subject_floor",
         "descriptor_collision",
+        "measurement",
+        "sensitivity",
         "generation",
     }
 )
@@ -436,6 +438,34 @@ def _write_artifact(
             writer.writerow(row)
 
 
+# contract-m4u7: every contributing event records the configuration + clinical producer it ran.
+_SYNTHETIC_POSE_CONFIG: dict[str, object] = {
+    "model": "rtmw-l-384",
+    "tracking": "body",
+    "tracker": "subject",
+    "drop_lower_body": True,
+    "drop_hips_camera": "above",
+    "hand_gate": True,
+    "camera_survey": True,
+    "task_gap_s": 2.5,
+    "det_device": "GPU",
+    "pose_device": "GPU",
+    "det_frequency": 1,
+    "single_subject": True,
+    "openvino_build": "synthetic",
+    "calibration": "identity",
+}
+_SYNTHETIC_ANALYSIS_SHA256 = "a" * 64
+
+
+def _write_event_metadata(event: pathlib.Path) -> None:
+    assert set(_SYNTHETIC_POSE_CONFIG) == set(corpus_run.POSE_CONFIG_FIELDS)
+    corpus_run.write_pose_config(event, _SYNTHETIC_POSE_CONFIG)
+    corpus_run.write_marker(
+        event, status=corpus_run.MARKER_COMPLETE, analysis_sha256=_SYNTHETIC_ANALYSIS_SHA256
+    )
+
+
 def _build_inputs(
     root: pathlib.Path,
     cohort: ModuleType,
@@ -521,6 +551,7 @@ def _build_inputs(
             published=published,
             repeats=repeats,
         )
+        _write_event_metadata(event)
         manifest.append(
             {
                 "asset_id": asset.asset_id,
@@ -630,10 +661,9 @@ def _validated_input_witnesses(inputs: _Inputs) -> tuple[str, str]:
 
 
 def _published_bytes(out: pathlib.Path) -> dict[str, bytes]:
-    return {
-        name: (out / name).read_bytes()
-        for name in ("cohort_cells.csv", "cohort_features.csv", "descriptors.yaml", "cohort.json")
-    }
+    names = ["cohort_cells.csv", "cohort_features.csv", "descriptors.yaml", "cohort.json"]
+    names += [name for name in ("cohort_sensitivity.csv",) if (out / name).exists()]
+    return {name: (out / name).read_bytes() for name in names}
 
 
 def _independent_cells(inputs: _Inputs) -> dict[tuple[str, str], dict[str, int]]:

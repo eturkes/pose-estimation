@@ -4,7 +4,9 @@ The published tree is gitignored (redaction-safe but uncommitted), so no golden 
 oracle exists for it. This campaign stands in for one: it re-publishes the same synthetic
 corpus under moved cwd, moved output path, moved pid and reordered inputs, and requires
 byte-identical artifacts every time; then it tampers with each published file and requires
-`validate_generation` to refuse. Failures keep their scratch tree for inspection.
+`validate_generation` to refuse. A second sweep group publishes against a fixed baseline
+generation (contract-m4u7 P13), built from a different corpus so its deltas are nonzero.
+Failures keep their scratch tree for inspection.
 
 Run: `env -u LD_LIBRARY_PATH PYTHONPATH=src uv run --no-sync python \
 scripts/check_cohort_determinism.py`.
@@ -66,16 +68,23 @@ def _digests(out: pathlib.Path) -> dict[str, str]:
     }
 
 
-def _publish(inputs, out: pathlib.Path) -> dict[str, str]:
-    cohort.run(inputs.inventory, inputs.sessions, inputs.run, out)
+def _publish(inputs, out: pathlib.Path, baseline: pathlib.Path | None = None) -> dict[str, str]:
+    cohort.run(inputs.inventory, inputs.sessions, inputs.run, out, baseline)
     cohort.validate_generation(out)
     return _digests(out)
 
 
-def _corpus(root: pathlib.Path, name: str):
+def _corpus(root: pathlib.Path, name: str, **options):
     directory = root / name
     directory.mkdir(parents=True)
-    return _build_inputs(directory, cohort)
+    return _build_inputs(directory, cohort, **options)
+
+
+def _reference(root: pathlib.Path) -> pathlib.Path:
+    """A baseline generation from another corpus (one more subject → different medians)."""
+    other = _corpus(root, "reference-corpus", clone_subject=True)
+    _publish(other, root / "reference")
+    return root / "reference"
 
 
 def _sweeps(root: pathlib.Path) -> list[tuple[str, dict[str, str]]]:
@@ -103,16 +112,37 @@ def _sweeps(root: pathlib.Path) -> list[tuple[str, dict[str, str]]]:
     return results
 
 
+def _baseline_sweeps(root: pathlib.Path) -> list[tuple[str, dict[str, str]]]:
+    """The with-baseline group: one corpus, one baseline's bytes, incidental conditions moved."""
+    inputs = _corpus(root, "baseline-corpus")
+    reference = _reference(root)
+    results = [("with-baseline", _publish(inputs, root / "b-out", reference))]
+    results.append(
+        ("with-baseline-moved-out", _publish(inputs, root / "b-x" / "cohort", reference))
+    )
+    relocated = root / "relocated" / "reference"
+    shutil.copytree(reference, relocated, symlinks=True)
+    results.append(("with-baseline-relocated", _publish(inputs, root / "b-rel", relocated)))
+    origin = pathlib.Path.cwd()
+    try:
+        os.chdir(root)
+        results.append(("with-baseline-moved-cwd", _publish(inputs, root / "b-cwd", reference)))
+    finally:
+        os.chdir(origin)
+    return results
+
+
 def _tampers(root: pathlib.Path) -> list[tuple[str, bool]]:
     """Every consumer-boundary class the marker claims to cover."""
     inputs = _corpus(root, "tamper-corpus")
+    reference = _reference(root / "tamper-reference")
     outcomes: list[tuple[str, bool]] = []
 
-    def refuses(name: str, mutate) -> None:
+    def refuses(name: str, mutate, baseline: pathlib.Path | None = None) -> None:
         out = root / "tamper" / name
         out.parent.mkdir(parents=True, exist_ok=True)
         shutil.rmtree(out, ignore_errors=True)
-        cohort.run(inputs.inventory, inputs.sessions, inputs.run, out)
+        cohort.run(inputs.inventory, inputs.sessions, inputs.run, out, baseline)
         mutate(out)
         try:
             cohort.validate_generation(out)
@@ -174,6 +204,38 @@ def _tampers(root: pathlib.Path) -> list[tuple[str, bool]]:
             encoding="utf-8",
         ),
     )
+    refuses(
+        "edited-measurement",
+        lambda out: edit_marker(
+            out, lambda marker: marker["measurement"].update(pose_config_sha256="0" * 64)
+        ),
+    )
+    sensitivity = cohort.SENSITIVITY_FILENAME
+    refuses(
+        "edited-sensitivity-block",
+        lambda out: edit_marker(
+            out, lambda marker: marker["sensitivity"]["status_counts"].update(common=-1)
+        ),
+        reference,
+    )
+    refuses(
+        f"append-{sensitivity}", lambda out: (out / sensitivity).open("a").write("x\n"), reference
+    )
+    refuses(f"remove-{sensitivity}", lambda out: (out / sensitivity).unlink(), reference)
+    refuses(f"add-{sensitivity}-under-null", lambda out: (out / sensitivity).write_text("x\n"))
+    refuses(
+        f"symlink-{sensitivity}",
+        lambda out: (
+            (out / sensitivity).unlink(),
+            (out / sensitivity).symlink_to(out / cohort.FEATURES_FILENAME),
+        ),
+        reference,
+    )
+    refuses(
+        f"directory-{sensitivity}",
+        lambda out: ((out / sensitivity).unlink(), (out / sensitivity).mkdir()),
+        reference,
+    )
     return outcomes
 
 
@@ -195,6 +257,9 @@ def main(argv: list[str] | None = None) -> int:
     sweeps = _sweeps(SCRATCH)
     baseline = sweeps[0][1]
     drifted = [name for name, digests in sweeps if digests != baseline]
+    with_baseline = _baseline_sweeps(SCRATCH)
+    drifted += [name for name, digests in with_baseline if digests != with_baseline[0][1]]
+    sweeps += with_baseline
     tampers = _tampers(SCRATCH)
     accepted = [name for name, refused in tampers if not refused]
     elapsed = time.monotonic() - started
@@ -207,6 +272,7 @@ def main(argv: list[str] | None = None) -> int:
         "elapsed_s": round(elapsed, 1),
         "verdict": "PASS" if not drifted and not accepted else "FAIL",
         "published_digests": baseline,
+        "published_digests_with_baseline": with_baseline[0][1],
     }
     RESULTS.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(

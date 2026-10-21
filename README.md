@@ -21,7 +21,7 @@ never a subject row.
 | Output | Contents |
 |--------|----------|
 | `output/corpus-2d/` | One landmark CSV per clip (body, arms, both hands), its diagnostics, and the clinical features at three levels: per frame, per 1 s window, and per wrist-motion bout. `run_report.json` records the model and every setting the run used. |
-| `cohort/` | The `../rehab` export: `cohort_cells.csv` (population per task and side), `cohort_features.csv` (median, quartiles, mean, SD and cross-view agreement per feature), `descriptors.yaml` (Japanese and English labels, units, ranges) and `cohort.json` (census, estimand, digests). |
+| `cohort/` | The `../rehab` export: `cohort_cells.csv` (population per task and side), `cohort_features.csv` (median, quartiles, mean, SD and cross-view agreement per feature), `descriptors.yaml` (Japanese and English labels, units, ranges), `cohort.json` (census, estimand, the pose model and settings that produced the numbers, digests) and, when a previous generation is given, `cohort_sensitivity.csv` (how each feature moved against it). |
 
 Each per-clip step runs in this order:
 
@@ -105,6 +105,9 @@ reads. A step refuses to write over a directory that it did not publish.
    ```bash
    pose-estimation-cohort --inventory inventory --sessions sessions --run output/corpus-2d --out cohort
    ```
+
+   To record how each feature moved against the previous export, add `--baseline <previous-cohort>`.
+   Compare two exports only when their `cohort.json` names the same pose model and settings.
 
 [`docs/technical/entrypoints.md`](docs/technical/entrypoints.md) lists every flag.
 

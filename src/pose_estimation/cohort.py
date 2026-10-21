@@ -12,10 +12,12 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import json
 import math
 import os
 import pathlib
+import re
 import shutil
 import stat
 import statistics
@@ -31,7 +33,7 @@ import yaml
 from . import corpus_run, inventory, qualify, sessions, view_agreement
 
 GENERATOR = "pose-estimation-cohort"
-GENERATOR_VERSION = "v2"
+GENERATOR_VERSION = "v3"
 
 
 class CohortError(Exception):
@@ -446,6 +448,8 @@ MARKER_KEYS: tuple[str, ...] = (
     "agreement_reasons",
     "rows_below_subject_floor",
     "descriptor_collision",
+    "measurement",
+    "sensitivity",
     "generation",
 )
 GENERATION_KEYS: tuple[str, ...] = (
@@ -454,6 +458,50 @@ GENERATION_KEYS: tuple[str, ...] = (
     "tree_digest",
     "input_digests",
 )
+MEASUREMENT_KEYS: tuple[str, ...] = ("pose_config", "pose_config_sha256", "analysis_sha256")
+
+# contract-m4u7 §3: one published file beside the features, present exactly when a baseline is.
+SENSITIVITY_FILENAME = "cohort_sensitivity.csv"
+SENSITIVITY_COLUMNS: tuple[str, ...] = (
+    "task",
+    "side",
+    "level",
+    "feature",
+    "status",
+    "n_subjects",
+    "baseline_n_subjects",
+    "n_values",
+    "baseline_n_values",
+    "median",
+    "baseline_median",
+    "delta_median",
+    "baseline_iqr",
+    "delta_iqr_scaled",
+)
+SENSITIVITY_STATUSES: tuple[str, ...] = ("common", "new", "retired")
+SENSITIVITY_ESTIMAND = (
+    "difference between the published cohort medians of two generations, not paired-subject "
+    "change and not an accuracy result; subjects and retained observations can differ; "
+    "delta_median = current - baseline; delta_iqr_scaled = delta_median / baseline published IQR; "
+    "feature definitions may differ across generations"
+)
+# v1 + v2 published the three required files under the digest `tree_digest` still computes (D03).
+BASELINE_VERSIONS = frozenset({"v1", "v2", GENERATOR_VERSION})
+BASELINE_COLUMNS: tuple[str, ...] = (
+    "task",
+    "side",
+    "level",
+    "feature",
+    "n_subjects",
+    "n_values",
+    "median",
+    "q25",
+    "q75",
+)
+_HEX64 = re.compile(r"[0-9a-f]{64}")
+_FEATURE_NAME = re.compile(r"[a-z0-9_]+")
+_COUNT = re.compile(r"[0-9]+")
+_DECIMAL = re.compile(r"-?[0-9]+(?:\.[0-9]+)?")
 
 # D05 refused min/max at n=15-16 because an extreme is one identifiable subject; a median
 # over fewer than five is strictly worse, so below the floor the counts publish and every
@@ -953,9 +1001,10 @@ def tree_digest(out_dir: str | os.PathLike[str], marker: Mapping[str, Any]) -> s
     # marker is excluded so staging — which has no marker yet — digests to the same value.
     entries = sorted(entry.name for entry in out.iterdir() if entry.name != COHORT_FILENAME)
     lines = ["\t".join(["entries", *entries]) + "\n"]
-    lines += [
-        f"{name}\t{_digest_bytes((out / name).read_bytes())}\n" for name in PUBLISHED_FILENAMES
-    ]
+    # The optional file digests like the required three wherever the entry set holds it; a
+    # v1/v2 tree never does, so their recorded digests still recompute (contract-m4u7 D03).
+    names = [*PUBLISHED_FILENAMES, *(n for n in (SENSITIVITY_FILENAME,) if n in entries)]
+    lines += [f"{name}\t{_digest_bytes((out / name).read_bytes())}\n" for name in names]
     lines.append(render_marker(body).decode("utf-8"))
     return _digest_bytes("".join(lines).encode("utf-8"))
 
@@ -971,7 +1020,8 @@ def _remove(path: pathlib.Path) -> None:
 def _is_within(candidate: pathlib.Path, ancestor: pathlib.Path) -> bool:
     resolved = os.path.realpath(candidate)
     root = os.path.realpath(ancestor)
-    return resolved == root or resolved.startswith(root + os.sep)
+    # `/` + os.sep is `//`, which no real path carries (`publishers.md`).
+    return resolved == root or resolved.startswith(root.rstrip(os.sep) + os.sep)
 
 
 def _assert_disjoint(out: pathlib.Path, source: pathlib.Path, name: str) -> None:
@@ -1108,17 +1158,202 @@ def _contributors(
     return contributors
 
 
+def _event_record(path: pathlib.Path, event_id: str) -> dict[str, Any]:
+    try:
+        payload = inventory.read_marker(path)
+    except (OSError, ValueError) as error:
+        raise CohortError(f"Event {event_id} carries no readable {path.name}: {error}") from error
+    if not isinstance(payload, dict):
+        raise CohortError(f"Event {event_id}'s {path.name} is not a JSON object.")
+    return payload
+
+
+def _scalar(value: object) -> bool:
+    if isinstance(value, float):
+        return math.isfinite(value)
+    return value is None or isinstance(value, (str, int))
+
+
+def _measurement(run_root: pathlib.Path, contributors: list[_Contributor]) -> dict[str, Any]:
+    """The one pose configuration + clinical method every contributing event ran (D01).
+
+    Read per event because `run_report.json` is a driver's declaration while these two files
+    are what resume and refresh key on; a tree mixing either describes no single instrument.
+    """
+    configs: dict[str, dict[str, Any]] = {}
+    methods: set[str] = set()
+    for event_id in sorted({contributor.event_id for contributor in contributors}):
+        event = run_root / event_id
+        config = _event_record(event / corpus_run.POSE_CONFIG_FILENAME, event_id)
+        marker = _event_record(event / corpus_run.MARKER_FILENAME, event_id)
+        if marker.get("status") != corpus_run.MARKER_COMPLETE:
+            raise CohortError(f"Event {event_id}'s completion marker is not complete.")
+        method = marker.get("analysis_sha256")
+        if not isinstance(method, str) or not _HEX64.fullmatch(method):
+            raise CohortError(f"Event {event_id} names no clinical producer digest.")
+        if set(config) != set(corpus_run.POSE_CONFIG_FIELDS):
+            raise CohortError(f"Event {event_id}'s pose configuration is not the frozen field set.")
+        if not all(_scalar(value) for value in config.values()):
+            raise CohortError(f"Event {event_id}'s pose configuration carries a non-scalar value.")
+        # Canonical text, not `==`: Python equates True with 1 and 1.0, the records do not.
+        configs[json.dumps(config, sort_keys=True)] = config
+        methods.add(method)
+    if len(configs) != 1:
+        raise CohortError(f"The run tree carries {len(configs)} pose configurations, not one.")
+    if len(methods) != 1:
+        raise CohortError(f"The run tree carries {len(methods)} clinical producers, not one.")
+    (config,) = configs.values()
+    return {
+        "pose_config": config,
+        "pose_config_sha256": corpus_run.pose_config_digest(config),
+        "analysis_sha256": methods.pop(),
+    }
+
+
+@dataclass(frozen=True)
+class _Baseline:
+    identity: dict[str, str]
+    rows: dict[tuple[str, str, str, str], dict[str, str]]
+
+
+def _baseline_row(row: dict[str, str]) -> tuple[str, str, str, str]:
+    key = (row["task"], row["side"], row["level"], row["feature"])
+    if (
+        row["task"] not in inventory.TASKS
+        or row["side"] not in inventory.SIDES
+        or row["level"] not in LEVELS
+        or not _FEATURE_NAME.fullmatch(row["feature"])
+    ):
+        raise CohortError(f"The baseline feature table names an unknown row {key}.")
+    if not all(_COUNT.fullmatch(row[name]) for name in ("n_subjects", "n_values")):
+        raise CohortError(f"The baseline row {key} carries a malformed count.")
+    statistics_cells = [row[name] for name in DISTRIBUTION_FIELDS if name in row]
+    if not all(cell == "" or _DECIMAL.fullmatch(cell) for cell in statistics_cells):
+        raise CohortError(f"The baseline row {key} carries a malformed statistic.")
+    if int(row["n_subjects"]) < SUBJECT_FLOOR and any(statistics_cells):
+        raise CohortError(f"The baseline row {key} publishes a statistic below the subject floor.")
+    return key
+
+
+def _read_baseline(root: pathlib.Path) -> _Baseline:
+    """A previous generation of this generator, validated by its own version's profile (D03).
+
+    The digest is recomputed, not trusted, and the table is re-validated because a digest
+    proves bytes, never shape (`publishers.md`).
+    """
+    marker = _read_marker(root / COHORT_FILENAME)
+    generation = marker.get("generation")
+    if not isinstance(generation, dict) or generation.get("generator") != GENERATOR:
+        raise CohortError("The baseline was published by another generator.")
+    version = generation.get("generator_version")
+    if version not in BASELINE_VERSIONS:
+        raise CohortError(f"The baseline generator version {version!r} is not supported.")
+    recorded = generation.get("tree_digest")
+    if not isinstance(recorded, str) or not _HEX64.fullmatch(recorded):
+        raise CohortError("The baseline marker carries no tree digest.")
+    if version == GENERATOR_VERSION:
+        validate_generation(root)
+    else:
+        for name in PUBLISHED_FILENAMES:
+            path = root / name
+            try:
+                if not stat.S_ISREG(path.lstat().st_mode):
+                    raise CohortError(f"The baseline {name} is not a regular file.")
+            except OSError as error:
+                raise CohortError(f"The baseline is missing {name}.") from error
+        try:
+            recomputed = tree_digest(root, marker)
+        except OSError as error:
+            raise CohortError("The baseline set is not readable.") from error
+        if recomputed != recorded:
+            raise CohortError("The baseline tree digest does not match its bytes.")
+    payload = (root / FEATURES_FILENAME).read_bytes()
+    try:
+        records = list(csv.reader(io.StringIO(payload.decode("utf-8"), newline="")))
+    except (UnicodeDecodeError, csv.Error) as error:
+        raise CohortError("The baseline feature table is not readable CSV.") from error
+    if len(records) < 2:
+        raise CohortError("The baseline feature table carries no row.")
+    header = tuple(records[0])
+    _assert_unique_header(f"baseline {FEATURES_FILENAME}", header)
+    if missing := [name for name in BASELINE_COLUMNS if name not in header]:
+        raise CohortError(f"The baseline feature table is missing the columns {missing}.")
+    rows: dict[tuple[str, str, str, str], dict[str, str]] = {}
+    for record in records[1:]:
+        if len(record) != len(header):
+            raise CohortError("The baseline feature table carries a ragged row.")
+        row = dict(zip(header, record, strict=True))
+        key = _baseline_row(row)
+        if key in rows:
+            raise CohortError(f"The baseline feature table repeats the row {key}.")
+        rows[key] = row
+    identity = {
+        "generator_version": version,
+        "tree_digest": recorded,
+        "features_sha256": _digest_bytes(payload),
+    }
+    return _Baseline(identity=identity, rows=rows)
+
+
+def _number(cell: str) -> float | None:
+    return float(cell) if cell else None
+
+
+def _sensitivity_rows(features: list[dict[str, str]], baseline: _Baseline) -> list[dict[str, str]]:
+    """Union of both tables' keys; arithmetic on the serialized cells (contract-m4u7 P06-P07)."""
+    current = {(r["task"], r["side"], r["level"], r["feature"]): r for r in features}
+    rows = []
+    for key in sorted(current.keys() | baseline.rows.keys()):
+        now, then = current.get(key), baseline.rows.get(key)
+        status = "common" if now and then else "new" if now else "retired"
+        row: dict[str, str] = dict(zip(("task", "side", "level", "feature"), key, strict=True))
+        row["status"] = status
+        for name in ("n_subjects", "n_values"):
+            row[name] = now[name] if now else ""
+            row[f"baseline_{name}"] = then[name] if then else ""
+        median = _number(now["median"]) if now else None
+        base = _number(then["median"]) if then else None
+        row["median"], row["baseline_median"] = _cell(median), _cell(base)
+        q25, q75 = (_number(then[name]) if then else None for name in ("q25", "q75"))
+        iqr = q75 - q25 if q25 is not None and q75 is not None else None
+        delta = median - base if median is not None and base is not None else None
+        row["baseline_iqr"] = _cell(iqr)
+        row["delta_median"] = _cell(delta)
+        scaled = delta / iqr if delta is not None and iqr is not None and iqr > 0 else None
+        row["delta_iqr_scaled"] = _cell(scaled)
+        rows.append(row)
+    return rows
+
+
 def _write(directory: pathlib.Path, name: str, text: str) -> None:
     (directory / name).write_text(text, encoding="utf-8", newline="")
 
 
-def _publish(staging: pathlib.Path, aggregate: _Aggregate, input_digests: dict[str, str]) -> None:
-    """Write the four files, digesting the set last because the digest covers the marker."""
+def _publish(
+    staging: pathlib.Path,
+    aggregate: _Aggregate,
+    input_digests: dict[str, str],
+    measurement: dict[str, Any],
+    baseline: _Baseline | None,
+) -> None:
+    """Write the set, digesting it last because the digest covers the marker."""
     staging.mkdir(parents=True)
     _write(staging, CELLS_FILENAME, inventory.render_csv(CELL_COLUMNS, aggregate.cells))
     _write(staging, FEATURES_FILENAME, inventory.render_csv(FEATURE_COLUMNS, aggregate.features))
     rows = _descriptor_rows()
     _write(staging, DESCRIPTORS_FILENAME, render_descriptors(rows))
+    sensitivity = None
+    if baseline is not None:
+        changes = _sensitivity_rows(aggregate.features, baseline)
+        _write(staging, SENSITIVITY_FILENAME, inventory.render_csv(SENSITIVITY_COLUMNS, changes))
+        sensitivity = {
+            "baseline": baseline.identity,
+            "status_counts": {
+                status: sum(row["status"] == status for row in changes)
+                for status in SENSITIVITY_STATUSES
+            },
+            "estimand": SENSITIVITY_ESTIMAND,
+        }
     marker: dict[str, Any] = {
         "population": aggregate.population,
         "columns": {
@@ -1139,6 +1374,8 @@ def _publish(staging: pathlib.Path, aggregate: _Aggregate, input_digests: dict[s
         "agreement_reasons": aggregate.agreement_reasons,
         "rows_below_subject_floor": aggregate.rows_below_subject_floor,
         "descriptor_collision": descriptor_collision(rows),
+        "measurement": measurement,
+        "sensitivity": sensitivity,
         "generation": {
             "generator": GENERATOR,
             "generator_version": GENERATOR_VERSION,
@@ -1154,14 +1391,22 @@ def run(
     sessions_dir: str | os.PathLike[str],
     run_dir: str | os.PathLike[str],
     out_dir: str | os.PathLike[str],
+    baseline_dir: str | os.PathLike[str] | None = None,
 ) -> pathlib.Path:
-    """Publish the cohort set. Every refusal raises `CohortError` and publishes nothing."""
+    """Publish the cohort set. Every refusal raises `CohortError` and publishes nothing.
+
+    `baseline_dir` = a previous generation to publish `cohort_sensitivity.csv` against; it may
+    be `out_dir` itself (read whole before the swap), never strictly inside or around it (D04).
+    """
     registry = pathlib.Path(inventory_dir)
     tree = pathlib.Path(sessions_dir)
     run_root = pathlib.Path(run_dir)
     out = pathlib.Path(out_dir)
     for source, name in ((registry, "inventory"), (tree, "sessions"), (run_root, "run")):
         _assert_disjoint(out, source, name)
+    baseline_root = None if baseline_dir is None else pathlib.Path(baseline_dir)
+    if baseline_root is not None and os.path.realpath(baseline_root) != os.path.realpath(out):
+        _assert_disjoint(out, baseline_root, "baseline")
 
     # Every upstream refusal reaches the caller as this module's own class (A16): a
     # consumer that has to name three foreign exception types to call one function cannot
@@ -1180,10 +1425,14 @@ def run(
     # statement about a corpus that no longer exists. The snapshot covers all three inputs
     # and subsumes a digest re-comparison, which sees only the files its own contract names
     # (A26 is the same gap one publisher up).
-    inputs = (("inventory", registry), ("sessions", tree), ("run", run_root))
+    inputs = [("inventory", registry), ("sessions", tree), ("run", run_root)]
+    if baseline_root is not None:
+        inputs.append(("baseline", baseline_root))
     before = {name: _snapshot(path) for name, path in inputs}
     contributors = _contributors(registry, tree, run_root)
     aggregate = _aggregate(contributors, run_root)
+    measurement = _measurement(run_root, contributors)
+    baseline = None if baseline_root is None else _read_baseline(baseline_root)
     for name, path in inputs:
         if _snapshot(path) != before[name]:
             raise CohortError(f"The {name} tree changed while the cohort was being read.")
@@ -1205,7 +1454,7 @@ def run(
     published = False
     try:
         _remove(staging)
-        _publish(staging, aggregate, input_digests)
+        _publish(staging, aggregate, input_digests, measurement, baseline)
         try:
             if out.exists():
                 out.rename(retiring)
@@ -1246,6 +1495,12 @@ def validate_generation(out_dir: str | os.PathLike[str]) -> dict[str, Any]:
                 raise CohortError(f"{name} is not a regular file.")
         except OSError as error:
             raise CohortError(f"The published set is missing {name}.") from error
+    # A symlink in the optional slot digests its target's bytes, so membership needs `lstat`.
+    optional = out / SENSITIVITY_FILENAME
+    if (marker["sensitivity"] is None) == os.path.lexists(optional):
+        raise CohortError("The sensitivity file and the marker's sensitivity block disagree.")
+    if os.path.lexists(optional) and not stat.S_ISREG(optional.lstat().st_mode):
+        raise CohortError(f"{SENSITIVITY_FILENAME} is not a regular file.")
     try:
         recomputed = tree_digest(out, marker)
     except OSError as error:
@@ -1263,8 +1518,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--sessions", required=True, help="Session tree directory.")
     parser.add_argument("--run", required=True, help="Corpus run directory.")
     parser.add_argument("--out", required=True, help="Output directory to publish.")
+    parser.add_argument(
+        "--baseline",
+        help="Previous cohort generation to compare against (writes cohort_sensitivity.csv).",
+    )
     arguments = parser.parse_args(argv)
-    out = run(arguments.inventory, arguments.sessions, arguments.run, arguments.out)
+    out = run(
+        arguments.inventory, arguments.sessions, arguments.run, arguments.out, arguments.baseline
+    )
     marker = validate_generation(out)
     print(
         f"cohort: {marker['population']['cells']} cells, "
@@ -1272,6 +1533,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"{len(marker['columns']['published'])} published columns, "
         f"{len(marker['columns']['excluded'])} excluded"
     )
+    if marker["sensitivity"] is not None:
+        counts = marker["sensitivity"]["status_counts"]
+        print("sensitivity: " + ", ".join(f"{counts[s]} {s}" for s in SENSITIVITY_STATUSES))
     return 0
 
 

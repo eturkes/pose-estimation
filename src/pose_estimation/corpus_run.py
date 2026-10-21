@@ -137,6 +137,11 @@ def pose_config(args: object) -> dict[str, object]:
     }
 
 
+def pose_config_digest(config: Mapping[str, object]) -> str:
+    """sha256 of the canonical configuration — the form `contract-m4u4.md` A01 recorded."""
+    return hashlib.sha256(json.dumps(dict(config), sort_keys=True).encode("utf-8")).hexdigest()
+
+
 def write_pose_config(event_out: Path, config: Mapping[str, object]) -> None:
     event_out.mkdir(parents=True, exist_ok=True)
     (event_out / POSE_CONFIG_FILENAME).write_text(

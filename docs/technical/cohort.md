@@ -14,13 +14,47 @@ pose-estimation-cohort \
   --inventory inventory \
   --sessions sessions \
   --run run \
-  --out cohort
+  --out cohort \
+  --baseline previous-cohort   # optional
 ```
 
 The tool publishes four files: `cohort_cells.csv`, `cohort_features.csv`, `descriptors.yaml`, and `cohort.json`.
-`cohort.json` is the ownership marker. It carries the census, the estimand, the column partition, and the tree digest.
+With `--baseline`, it also publishes `cohort_sensitivity.csv`.
+`cohort.json` is the ownership marker. It carries the census, the estimand, the column partition, the measurement configuration, and the tree digest.
 Consumers must call `cohort.validate_generation(out)` before they read a row.
 That call recomputes the digest over the published bytes. It refuses a set that changed after publication.
+
+## Measurement configuration
+
+The pose model and the run settings change the published numbers.
+A change of model can move a fifth of the cells by more than half an IQR (`docs/technical/pose-weak-points.md`).
+So `cohort.json` names the instrument in its `measurement` block:
+
+- `pose_config`: the pose model, the tracker, the devices, the hand gate, the OpenVINO build, and the score calibration that every contributing event ran.
+- `pose_config_sha256`: the digest of that configuration.
+- `analysis_sha256`: the digest of the R producer that computed the clinical features.
+
+The tool reads these values from each contributing event. It refuses a run tree whose events ran more than one configuration or more than one R producer.
+Compare two cohorts only when their `measurement` blocks are equal, or read their difference as an instrument change.
+
+## Generation sensitivity
+
+`--baseline` names a previous cohort generation of this tool (v1, v2, or v3).
+The tool recomputes the baseline's digest and validates its feature table before it reads a row.
+The baseline can be the `--out` directory itself when that directory holds a v3 generation.
+To compare against an older generation, move it to another path first.
+
+`cohort_sensitivity.csv` has one row for each feature cell in either generation:
+
+- `status`: `common` (in both), `new` (only in this generation), or `retired` (only in the baseline).
+- `n_subjects`, `n_values`, `median`, and their `baseline_` counterparts.
+- `delta_median`: this generation's median minus the baseline median.
+- `baseline_iqr` and `delta_iqr_scaled`: the baseline's published IQR, and the median difference divided by it.
+  The scaled value is empty when the baseline IQR is zero.
+
+A difference is a change of the published statistic. It is not a change in the patients, and it is not an accuracy result.
+The subjects and the retained observations can differ between generations, and a feature definition can change.
+`cohort.json` names the baseline by its version, its tree digest, and the digest of the feature bytes that the tool read.
 
 ## The estimand
 
