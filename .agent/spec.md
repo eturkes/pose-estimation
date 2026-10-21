@@ -206,7 +206,7 @@ hospital SCI database.
   peaks, path ratio, dwell), cohort v2 (bout level, construct-invalid exclusions, descriptive
   agreement), `--refresh-clinical` for runs made before the bout stage.
 - [x] 3410a90 **`calibration_qc` claims name RTMW-m** — published claim text + fixtures + determinism campaigns.
-- [ ] **Monocular 3D angles pilot** (SAM 3D Body, >= 40 events) → user adoption ruling.
+- [x] 2835e3d **Monocular 3D angles pilot** (SAM 3D Body, 60 events) → declined (user ruling).
 - [x] fc58765 **Gate speed** — A32 reconciled in-session (`tests/a32_gate.py`), `test_c8_08` = plugin firing; pytest 2465 s vs 5634 s (44 %).
 - [x] f35f83e **M4.2b heavy arms** (user request: HF-gated models first) — Sapiens v1 0.3B-2B
   (gated, access granted) + SDPose screened; every arm over the 1-day corpus ceiling → dropped
@@ -216,6 +216,9 @@ hospital SCI database.
   (resume = rerun it), then `--refresh-clinical`; code pinned at worktree
   `.scratch/worktrees/corpus-m4` (`48078b4`, landmark code = HEAD's); ordered next steps →
   `.scratch/impl/checkpoint.md`) — cohort republished; after-table vs M2.10; `scientist`.
+- [ ] **M4.7 cohort provenance + sensitivity** (`kernel`, `.agent/archive/contract-m4u7.md`; user
+  rulings after `scientist-2` S08) — `cohort.json` names the run's pose configuration + clinical
+  method; `--baseline` publishes `cohort_sensitivity.csv` against a previous generation; v3.
 - [ ] **Closing review** (wave over `301bd38..eccbe39` + re-review closed: `9417b9e` `7855bc5`
   `a79c355` `598b77d`; open = a delta round over the adoption units) — one `reviewer` per lens +
   MAIN's security lens → `.agent/review.md`.
