@@ -18,6 +18,14 @@ paths:
   14 points through the two-step zoom, worst 0.22 source px, wrist shared by hand + arm → rc 0
   (bar 0.5 px). Seed = loupe mapping dividing by `clientWidth + 4` (the border-inclusive bug the
   first draft had) → worst 0.71 px, rc 1. Capture-free: never point it at real frames.
+- **`tools/review-ui/tools/security_qa.py` — request boundary, measured.** `uv run --directory
+  tools/review-ui python tools/security_qa.py` serves a synthetic repo (one job) on a free loopback
+  port: foreign `Host` → 400, cross-site `text/plain` POST → 403 + no `labels.jsonl`, foreign
+  `Origin` JSON → 403, malformed JSON / non-object `points` → 400, same-origin save stored, access
+  log free of clip routes → 9/9, rc 0. Firing = the pre-hardening server (`eccbe39`): 2/9, rc 1
+  (rebound Host served, the cross-site POST overwrote the labels, 500s, 9 logged paths). Any
+  loopback server on this host is reachable from every page the browser opens; that is why each
+  row exists.
 - **`tools/review-ui/tools/check_glyphs.py` firing, measured** (prototype, outside the 16):
   live tree = 436 code points, 0 missing per weight, rc=0; `--extra 鬱` (the shipped firing input)
   = 1 missing per weight, `FAIL 2 missing`, rc=1. Absent `cohort/descriptors.yaml` → `charset()`

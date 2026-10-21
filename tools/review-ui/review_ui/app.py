@@ -16,6 +16,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import census, clips, cohort, label
 from .config import STATIC_DIR, Paths
@@ -23,6 +24,9 @@ from .config import STATIC_DIR, Paths
 RANGE_PATTERN = re.compile(r"bytes=(\d*)-(\d*)")
 CHUNK = 1 << 20
 CONTENT_TYPES = {".mov": "video/quicktime", ".mp4": "video/mp4", ".m4v": "video/x-m4v"}
+# Any page the user's browser opens can reach a loopback port: a rebound hostname reads
+# responses as same-origin (patient video, event ids), so only loopback names are served.
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost")
 
 
 def _content_type(path: Path) -> str:
@@ -78,10 +82,13 @@ def _ranged(path: Path, header: str | None) -> Response:
     )
 
 
-def create_app(paths: Paths | None = None) -> FastAPI:
+def create_app(paths: Paths | None = None, host: str | None = None) -> FastAPI:
     resolved = paths or Paths.resolve()
     app = FastAPI(title="pose-estimation review UI", docs_url=None, redoc_url=None)
     app.state.paths = resolved
+    app.add_middleware(
+        TrustedHostMiddleware, allowed_hosts=[*LOOPBACK_HOSTS, *([host] if host else [])]
+    )
 
     @app.middleware("http")
     async def revalidate(request: Request, call_next):
@@ -153,10 +160,17 @@ def create_app(paths: Paths | None = None) -> FastAPI:
 
     @app.post("/api/label/{job}/answer")
     async def label_save(job: int, request: Request) -> JSONResponse:
-        payload = await request.json()
+        # A cross-site page may send a simple (text/plain) POST without preflight: demanding
+        # JSON forces preflight, which this server never grants, and a foreign Origin is refused.
+        origin = request.headers.get("origin")
+        if origin is not None and origin != f"{request.url.scheme}://{request.headers['host']}":
+            raise HTTPException(status_code=403, detail="cross-site request")
+        if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
+            raise HTTPException(status_code=415, detail="answer must be JSON")
         try:
+            payload = await request.json()
             label.save(resolved, job, payload, int(payload["width"]), int(payload["height"]))
-        except (KeyError, TypeError, ValueError) as exc:
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail="malformed answer") from exc
         return JSONResponse(label.summary(resolved))
 

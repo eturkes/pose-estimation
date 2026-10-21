@@ -28,7 +28,14 @@ def main() -> int:
     for name, present in available.items():
         print(f"  {'ok     ' if present else 'absent '}{name}")
     print(f"serving http://{args.host}:{args.port}/")
-    uvicorn.run(create_app(paths), host=args.host, port=args.port, log_level=args.log_level)
+    # The access log would print each clip route, and its path carries the event id.
+    uvicorn.run(
+        create_app(paths, args.host),
+        host=args.host,
+        port=args.port,
+        log_level=args.log_level,
+        access_log=False,
+    )
     return 0
 
 

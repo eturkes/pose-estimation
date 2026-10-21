@@ -1,8 +1,9 @@
 # Review UI
 
-A local web UI over the 3-camera corpus. It reads the published trees and writes
-nothing. It has three views: a clip player with a pose overlay, the corpus census,
-and the cohort statistics explorer. The player opens first.
+A local web UI over the 3-camera corpus. It reads the published trees and never
+writes to them. It has three views: a clip player with a pose overlay, the corpus
+census, and the cohort statistics explorer. The player opens first. A separate
+labelling page (`/label`) stores your clicks in one file (see *Label points*).
 
 The UI is bilingual. Japanese is the default. The button at the top right changes
 the language, and `?lang=en` sets it in a link.
@@ -145,6 +146,15 @@ uv run --directory tools/review-ui python tools/check_glyphs.py
   node tools/review-ui/tools/overlay_map_qa.mjs http://127.0.0.1:8791
   node tools/review-ui/tools/decode_banner_qa.mjs http://127.0.0.1:8791
   ```
-- The server trusts its caller. It binds the loopback address and serves
-  read-only. Every request resolves through the built clip index, so a request
-  supplies a key and never a path.
+- The server binds the loopback address and has no login. Do not serve it on another
+  address: every clip it lists is a patient recording. It answers only requests that
+  name a loopback host (`127.0.0.1`, `localhost`), so a web page that points its own
+  domain name at your machine cannot read the clips. The three views are read-only.
+  The labelling page accepts a save only as JSON from the page itself, so another
+  web site cannot change your labels. Every request resolves through the built clip
+  index, so a request supplies a key and never a path.
+- `tools/security_qa.py` checks these request rules against a synthetic repository:
+
+  ```sh
+  uv run --directory tools/review-ui python tools/security_qa.py
+  ```
