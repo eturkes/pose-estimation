@@ -168,8 +168,8 @@ No `src/` module outside `bench/` changes; no published tree is written; `tests/
 | ID | verdict | evidence |
 | --- | --- | --- |
 | P01-P06b | pass | `tests/test_m4u1_{bench,sheets,statistics}.py` — tester-5's diff-blind suite (`archive/m4u1-test-5` = `fc0a8d1`, 184 cases red at import on `95a2eab`), 37 reds on first restore ruled in A03, + MAIN's patient-null ingest regression (red on real data: 4 defective records per labeller) = 185 green |
-| P07 | partial | D05(a)(b)(c) measured → `docs/technical/benchmark.md` § Measured resolutions; (e) pre-roll measured: no tested pre-roll reaches whole-clip equivalence (8 s: 14/20; A05) → whole-clip replays; (d) paired-subject SD pending the M4.3 presence replays |
-| P08 | partial | verdicts: agent coordinates = gross-error GT only; pairwise judge unqualified in every bin; categorical states qualified (Wilson lower bounds 0.885-0.963) |
+| P07 | pass | D05(a)(b)(c) measured → `docs/technical/benchmark.md` § Measured resolutions; (e) pre-roll measured: no tested pre-roll reaches whole-clip equivalence (8 s: 14/20; A05) → whole-clip replays; (d) paired subject-level SD of the presence-F1 difference, RTMW-L 384 − RTMW-m 256 whole-clip corpus rows = 0.090 over 14 subjects (§ Complete-pipeline pilot) |
+| P08 | pass | verdicts: pairwise judge unqualified in every bin; per class (`bench.py agree`, smaller lower bound of both directions) hand present 0.955, absent 0.924, hand joint `vis` 0.936, arm joint `vis` 0.849 qualified — hand `vis`/`part`, joint `oof`, arm `occ` unqualified; consensus hand points vs public GT p90 <= 0.518 → qualified at 0.6 of the hand diagonal, not 0.3 (`public-score --consensus`); arm at 0.1 (closing review F34/F36, `a79c355`) |
 
 ## 8. Amendments
 

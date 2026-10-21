@@ -74,7 +74,7 @@ frames. Every `pass` arm (plus the baseline) becomes an M4.4 candidate, named + 
 | P02 | pass | constant difference → `(0.5, 0.5, 0.5)`; subject-only loss reaches −1.0 and 0.0; seeded |
 | P03 | pass | `pilot.decide` pass / refit (interval + M4.3b point rule) / fail rows |
 | P04 | pass | `pilot.check_request` refuses an unknown key (A01); red 6/6 at `36e525b` |
-| P05 | open | after the pre-roll (D05(e)) and the finalist set |
+| P05 | pass | RTMW-L 384 vs RTMW-m 256 from their corpus runs: pass (ΔG1 −0.004 [−0.031, 0.017], ΔG2 +0.007 [−0.010, 0.026], ΔG3 +0.010 [−0.037, 0.059], ΔG4 −0.022 [−0.107, 0.000]), no refit; wall = 14.31 h / 7.75 h per corpus run → `docs/technical/benchmark.md` § Complete-pipeline pilot; A01 written into `contract-m4u4.md` |
 
 ## 8. Amendments
 

@@ -239,6 +239,29 @@ parity max 0.0002 px. GPU f16, idle, batch 1: 481 ms/call (MAIN re-time; port au
 2.35 days per corpus run without flip, 4.22 with → over the 1-day ceiling; accuracy unscreened
 (A04 latency gate). Port removed with its weights.
 
+## Complete-pipeline pilot (M4.3)
+
+Each finalist as a full production configuration (`contract-m4u3.md` + A01-A02): the whole-clip
+rows of its own corpus run (`--from-run`, completion + `pose_config` checked), read at the 102
+pilot frames (14 subjects, 204 sides); agent consensus labels at their qualified grains (G2 at
+0.6 of the hand extent, A02). Paired subject-cluster bootstrap, 2 000 resamples, seed 20261023.
+
+| endpoint | RTMW-L 384 | RTMW-m 256 | Δ (L384 − m256) [95 %] | margin |
+| --- | --- | --- | --- | --- |
+| G1 presence F1 | 0.967 | 0.970 | −0.004 [−0.031, 0.017] | lower >= −0.05 |
+| G2 gross hand (0.6) | 0.970 | 0.963 | +0.007 [−0.010, 0.026] | lower >= −0.05 |
+| G3 gross arm (0.1) | 0.900 | 0.890 | +0.010 [−0.037, 0.059] | lower >= −0.05 |
+| G4 side swaps | 0.000 | 0.022 | −0.022 [−0.107, 0.000] | upper <= +0.05 |
+
+**State: pass** (ΔG1 point −0.004 > −0.02 → no gate refit) → RTMW-L 384 is the M4.4 candidate
+(`contract-m4u4.md` A01). Wall = the corpus runs (`run_report.json`): RTMW-L 384 14.31 h, RTMW-m
+256 7.75 h over 337 090 frames — both inside the 1-day ceiling (A04). Paired subject-level SD of
+the presence-F1 difference (M4.1 D05(d), M4.4's power input): 0.090 over 14 subjects.
+Regenerate (gate prefix, both trees complete):
+`bench.py pilot-eval --labels <gp4> <gp5> --sample .scratch/bench/pilot/sample.json --arm
+rtmw-l-384 --baseline rtmw-m-256 --from-run rtmw-l-384=output/corpus-2d-m4-rtmw-l-384
+--from-run rtmw-m-256=output/corpus-2d-m4-rtmw-m-256 --out .scratch/bench/pilot_eval`.
+
 ## Cross-view residual per arm (3D-negative ruling)
 
 The 3D ruling rests on RTMW-m keypoints: per-keypoint signed epipolar residuals at 15-20 px

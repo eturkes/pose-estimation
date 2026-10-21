@@ -72,3 +72,11 @@ a 100-px hand; 0.05 presence agreement ≈ 5 of 96 frames' sides; stated here be
   frame 0 to its last decoded frame (`contract-m4u1.md` A05: no tested pre-roll stands in for the
   whole clip — at 8 s, 4/20 frames still sit on a different subject choice). Endpoints, margins and the
   adoption rule are unchanged; no statistic over the user's labels exists.
+- **A01 (candidates).** `rtmw-l-384` — the configuration recorded uniformly by all 193 events of
+  `output/corpus-2d-m4-rtmw-l-384` (`pose_config.json` canonical sha256 `45c77741…c132a898`:
+  RTMW-L 384x288 on GPU f32, calibration `e4340021…`, hand gate on, camera survey on, OpenVINO
+  2026.4.1); it passed M4.3 (`contract-m4u3.md` P05). Baseline = `rtmw-m-256`, the
+  `output/corpus-2d-m4-rtmw-m-256` configuration (sha256 `c771c79a…3547a77c`: RTMW-m 256x192 on
+  NPU, identity calibration, the same gate + survey + build — the shipped settings with M4.6
+  fixes). Written before any statistic over the user's labels exists; margins, endpoints and the
+  adoption rule unchanged.
