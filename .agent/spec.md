@@ -166,7 +166,7 @@ hospital SCI database.
 - [x] 13fc4dd **RTMW-m label + phase rulings** — live surfaces name the shipped checkpoint; rulings above.
 - [x] 622317e **Security scanners + update automation** — `uv audit` over both uv lockfiles, secret scan,
   security lint, each with a planted firing; Dependabot `uv` × 2; urllib3 2.7.0 → 2.8.0 (6 advisories).
-- [ ] **M4.1 instrument qualification** (`2ef508e`; pre-roll measured `48078b4` — no finite pre-roll matches the whole clip; paired-subject SD open, from the M4 corpus runs) (`kernel`, `.agent/archive/contract-m4u1.md`; design review
+- [x] 5cc8125 **M4.1 instrument qualification** (`2ef508e`; pre-roll `48078b4` — no tested pre-roll matches the whole clip; per-class + consensus-vs-GT `a79c355`; paired-subject SD 0.090) (`kernel`, `.agent/archive/contract-m4u1.md`; design review
   `consultant-2`: qualify before any selection protocol freezes) — codebook v2 on raw frames,
   labeller error vs public GT + inter-labeller agreement, pairwise judge on real model-error pairs,
   pre-roll for stateful replay, paired-subject variance → qualified resolutions. Corpus frame
@@ -179,9 +179,9 @@ hospital SCI database.
   P09 out-of-frame residue, D02 counter, OpenVINO build in `pose_config.json`, raw-score decode.
 - [x] 73927ef **M4.3a arm plumbing** — mmpose-named registry, per-model device, score-calibration hook.
 - [x] bf7728a **M4.3b calibration + gate rule** — reference-equivalent Platt maps, per-model hand gate, presence instrument; refit rule applies in M4.3.
-- [ ] **M4.3 complete-pipeline finalists** (instrument `b88b0e9`; scored from the M4 corpus runs) — pose × hand × detector/identity (incl. a wrong-person
+- [x] 5cc8125 **M4.3 complete-pipeline finalists** (RTMW-L 384 pass vs RTMW-m 256, no refit; G2 at 0.6, A02) — pose × hand × detector/identity (incl. a wrong-person
   arm), each recalibrated on development data, dynamic + feature controls, production replay.
-- [ ] **M4.4 locked confirmation** (table frozen `2ef508e`; review UI serves `/label` for the user's 96 frames) — decision table (superiority / non-inferiority / inconclusive)
+- [ ] **M4.4 locked confirmation** (table frozen `2ef508e`; A01 = `rtmw-l-384` `5cc8125`; user labels 0 of 96 — review UI serves `/label`) — decision table (superiority / non-inferiority / inconclusive)
   frozen with margins before a one-use corpus subset is scored; gates vs the shipped baseline.
 - [x] 2d0270f 8fe4e2b 48ef1fd **M4.5 features** — qualified wrist-motion bouts (SPARC, NJ, timing,
   peaks, path ratio, dwell), cohort v2 (bout level, construct-invalid exclusions, descriptive
