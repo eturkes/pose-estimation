@@ -30,7 +30,8 @@ hospital SCI database.
 - `cohort/` — the `../rehab` export, from the M2.10 generation. 12 `(task, side)` cells · 89
   features · 1068 rows; trunk features 6-16 subjects (side views alone), non-task-hand + bilateral
   hand features 6-16 (hand gate) → `cohort.md`; `descriptors.yaml` = ja/en labels, units, ranges.
-  `P pose-estimation-cohort --inventory inventory --sessions sessions --run output/corpus-2d --out cohort`
+  `P pose-estimation-cohort --inventory inventory --sessions sessions --run output/corpus-2d --out cohort
+  [--baseline <previous cohort>]` (v3 since M4.7: `measurement` block + optional `cohort_sensitivity.csv`)
 - `output/corpus-2d/` — per-asset 2D landmarks + clinical features, M2.10 generation (M2.9's subject
   tracker, GPU-f32 detector every frame, NPU pose, seated drops, SPARC v3 + hand presence gate +
   camera survey: task span, per-row camera similarity in R): 193/193 events, 379/379 `ok`,
@@ -53,8 +54,8 @@ hospital SCI database.
   `docs/technical/benchmark.md`; COCO-WholeBody AP via `tools/cocowb-eval/` (own Python 3.12 uv
   project); user labelling page = review UI `/label` over `.scratch/bench/user/`.
 - Gate — `scripts/gate.sh` (full chain + per-step wall-clock; `--fast <tests>` iterates) →
-  `.claude/rules/gates.md`. Its pytest step = the decisive gate (A32 reconciled in-session): 2733 passed at
-  the M4.2b close, 670 s measured alone (1339 s beside a corpus run); run it alone.
+  `.claude/rules/gates.md`. Its pytest step = the decisive gate (A32 reconciled in-session): 3074 passed at
+  M4.7, 1144 s alone under co-tenant host load ~11 (670 s for 2733 at M4.2b, quiet); run it alone.
 
 ## Decisions
 
@@ -186,20 +187,20 @@ hospital SCI database.
 - [x] bf7728a **M4.3b calibration + gate rule** — reference-equivalent Platt maps, per-model hand gate, presence instrument; refit rule applies in M4.3.
 - [x] 5cc8125 **M4.3 complete-pipeline finalists** (RTMW-L 384 pass vs RTMW-m 256, no refit; G2 at 0.6, A02) — pose × hand × detector/identity (incl. a wrong-person
   arm), each recalibrated on development data, dynamic + feature controls, production replay.
-- [ ] RESUME: finish line in force = the IMPLEMENT body's `Met when`: full gate (scanners
-  included) passes on a clean tree at the closing commit; scanners + Dependabot committed (local
-  gate, `gates.md` ruling); every `Decisions` entry implemented or deferred; `.agent/review.md` no
-  open row; review UI already retired to `tools/review-ui/`; `Phase: MAINTAIN` committed. State:
-  both M4 trees complete + clinically refreshed at HEAD R; M4.3 pass, A01 = `rtmw-l-384`
-  (`5cc8125`); worktree `.scratch/worktrees/corpus-m4` (`48078b4`) kept until Close; roster →
-  `.scratch/impl/roster.md`. In flight: review UI `/label` for the user's 96 frames; 3D pilot from
-  scratch → `.scratch/pilot3d/xview_60.json` (trunk angle added; rerun from scratch if
-  interrupted, never resume `xview_wide.json`); `scientist-2` on the after-table + cohort shift
-  (scratch cohorts per arm `.scratch/impl/cohort-<arm>/`). Next: (1) `bench.py confirm`
-  (command → `.scratch/impl/checkpoint.md`); (2) 3D pilot stats → `AskUserQuestion` with the cost
-  vs the 24 h ceiling; (3) adopt the M4.4 winner (`.scratch/impl/adopt.sh`) + defaults unit;
-  (4) M4 corpus section in `docs/technical/pose-weak-points.md` from `scientist-2`; (5)
-  `Decisions` rewrites, delta review of the adoption units, README, Close.
+- [ ] RESUME: (paused by the user after the label-independent units) finish line in force = the
+  IMPLEMENT body's `Met when`: full gate (scanners included) passes on a clean tree at the closing
+  commit; scanners + Dependabot committed (local gate, `gates.md` ruling); every `Decisions` entry
+  implemented or deferred; `.agent/review.md` no open row; review UI already retired to
+  `tools/review-ui/`; `Phase: MAINTAIN` committed. State: both M4 trees complete + clinically
+  refreshed at HEAD R; M4.3 pass, A01 = `rtmw-l-384`; after-table + `scientist-2` landed
+  (`2835e3d`); 3D declined; cohort v3 (`1b50129`, full gate PASS 3074). Uncommitted: none. No
+  teammates, no servers, no `wt/`/`wip/` branches; worktree `.scratch/worktrees/corpus-m4`
+  (`48078b4`) kept until Close. Next (commands → `.scratch/impl/checkpoint.md`): (1) the user's
+  96 frames (0 saved; `uv run --directory tools/review-ui python -m review_ui` → `/label`), then
+  `bench.py confirm`; (2) if `rtmw-l-384` wins, trace the severe jump tails numerically before
+  adoption (`scientist-2` F5); (3) `.scratch/impl/adopt.sh <arm>` (cohort v3 with `--baseline`) +
+  defaults unit; (4) `Decisions` rewrites, README model section; (5) closing delta review over
+  `9052629^..HEAD` + the adoption units; (6) Close.
 - [ ] **M4.4 locked confirmation** (table frozen `2ef508e`; A01 = `rtmw-l-384` `5cc8125`; user labels 0 of 96 — review UI serves `/label`) — decision table (superiority / non-inferiority / inconclusive)
   frozen with margins before a one-use corpus subset is scored; gates vs the shipped baseline.
 - [x] 2d0270f 8fe4e2b 48ef1fd **M4.5 features** — qualified wrist-motion bouts (SPARC, NJ, timing,
@@ -211,12 +212,11 @@ hospital SCI database.
 - [x] f35f83e **M4.2b heavy arms** (user request: HF-gated models first) — Sapiens v1 0.3B-2B
   (gated, access granted) + SDPose screened; every arm over the 1-day corpus ceiling → dropped
   (`contract-m4u2.md` A04, `docs/technical/benchmark.md` § Sapiens v1); finalists unchanged.
-- [ ] **Corpus rerun** (RTMW-L 384 → `output/corpus-2d-m4-rtmw-l-384`, 193/193, clinical refreshed
-  at HEAD R; RTMW-m 256 → `output/corpus-2d-m4-rtmw-m-256` running via `.scratch/impl/gpu_queue3.sh`
-  (resume = rerun it), then `--refresh-clinical`; code pinned at worktree
-  `.scratch/worktrees/corpus-m4` (`48078b4`, landmark code = HEAD's); ordered next steps →
-  `.scratch/impl/checkpoint.md`) — cohort republished; after-table vs M2.10; `scientist`.
-- [ ] **M4.7 cohort provenance + sensitivity** (`kernel`, `.agent/archive/contract-m4u7.md`; user
+- [ ] **Corpus rerun** (both M4 trees complete, 193/193, clinical refreshed at HEAD R:
+  `output/corpus-2d-m4-rtmw-l-384`, `output/corpus-2d-m4-rtmw-m-256`; code pinned at worktree
+  `.scratch/worktrees/corpus-m4` (`48078b4`); after-table + `scientist-2` done `2835e3d`) —
+  adoption of the M4.4 winner republishes `output/corpus-2d` + cohort v3 against M2.10.
+- [x] 1b50129 **M4.7 cohort provenance + sensitivity** (`kernel`, `.agent/archive/contract-m4u7.md`; user
   rulings after `scientist-2` S08) — `cohort.json` names the run's pose configuration + clinical
   method; `--baseline` publishes `cohort_sensitivity.csv` against a previous generation; v3.
 - [ ] **Closing review** (wave over `301bd38..eccbe39` + re-review closed: `9417b9e` `7855bc5`
