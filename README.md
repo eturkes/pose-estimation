@@ -36,7 +36,8 @@ Each per-clip step runs in this order:
 Read every published number under these limits:
 
 - **Angles are image-plane angles.** Each value comes from uncalibrated 2D keypoints. It is not
-  an anatomical joint angle.
+  an anatomical joint angle. In a sample of 60 recordings, two cameras that film the same moment
+  disagree on the elbow angle by a median of 27 degrees.
 - **No metric scale.** Distances and speeds use frame-normalized units, not metres. The tool
   publishes `scale_unmeasured` on every clip.
 - **No 3D.** The tested calibration methods could not recover the camera positions after the

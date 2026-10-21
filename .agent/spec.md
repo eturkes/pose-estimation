@@ -102,6 +102,11 @@ hospital SCI database.
   reopens on prospective calibrated capture. Each arm's cross-view residual is measured against
   RTMW-m's (a material drop returns the ruling to the user): RTMW-L 384 rises, ratio 1.23 [1.02,
   1.46] → the ruling stands (`docs/technical/benchmark.md`).
+- **Monocular 3D angles declined** (user ruling) — SAM 3D Body over 60 events / 1940 synced
+  instants: elbow flexion cross-view MAE 5.4° synced vs 8.8° time-shuffled (2D image-plane 26.7° vs
+  29.9°, r 0.19), 3D closer on 65/66 series; shoulder 3D within-series SD half of 2D (prior); the
+  trunk-vs-pelvis angle reads the prior (SD 0.5°). Agreement = consistency, no GT; cost 0.43 s/frame
+  (0.56 s with seeks) ≈ 40-52 h per corpus pass at every frame. Pilot code + gated weights deleted.
 - **Metric scale is unavailable.** Over a stratified 52/379 sample exact dimensional identity
   resolved 0/52, best conditional route floors at ±17.7 %. Angles, angular velocities, timing +
   dimensionless shape survive; metre-valued distance, velocity + jerk do not. Publishes

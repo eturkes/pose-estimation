@@ -62,7 +62,9 @@ rows before sizing any unit that touches their surfaces.
 - **2D weak-point triage lives in `.scratch/triage.py` alone** (→ `pose-instruments.md`; behind
   `docs/technical/pose-weak-points.md`) → a committed `scripts/` instrument with no
   `tools/review-ui` import reproduces the catalog's per-view counts over a run tree and flags a
-  seeded whole-skeleton relocation in a synthetic landmark CSV.
+  seeded whole-skeleton relocation in a synthetic landmark CSV. `whole`/`iso` print each clip's
+  eligible all-ten-point transitions, and a clip with none reads unavailable, never 0 (today
+  `max(obs, 1)` prints 0 on 278/379 RTMW-m M4 clips, every overhead one; `scientist-2` F1).
 - **Detector scores outside `[0,1]` accepted silently** → score-range guard fires on NPU, silent on
   CPU + GPU, under the synthetic zeros probe.
 - **`pose-estimation-run --session-dir … --output-dir X` ignores `X`** → rtmlib session artifacts
@@ -153,14 +155,6 @@ rows before sizing any unit that touches their surfaces.
   mask-conditioned pose model such as BMPv2/PMPose; `.scratch/agents/researcher-2.md`) raises the
   box hit share to >= 0.99 on the same 473 frames and halves the `o`/`x` body frames, held out by
   family, without lowering hand `k` retention.
-- **Monocular 3D angles (SAM 3D Body) — user: pilot more first** (`.scratch/pilot3d/`, Arc XPU,
-  CUDA calls patched to `SAM3D_DEVICE`; weights gated, granted) → a widened pilot over >= 40 events
-  reports, per joint (elbow, shoulder, trunk), synced cross-view MAE against a time-shuffled control
-  and against 2D, per-frame wall, and a non-collapse check (within-series SD vs 2D); adoption is the
-  user's ruling. Widened read (19 events / 620 synced instants, `.scratch/pilot3d/xview_wide.json`,
-  `xview_stats.py`): elbow flexion cross-view MAE 6.0° synced vs 11.7° time-shuffled (2D 33.5 vs
-  35.8), 3D closer on 23/24 series; shoulder 4.3 vs 5.2 (ratio 0.82, worse than 2D's 0.51 — the
-  3D shoulder may lean on the model's prior); inference 0.67 s/frame median on the Arc GPU.
 - **Pose latency runs 3-5× slow on some assets, cause unmeasured** — paired probes on one day: 1-3 of
   11 assets at 130-274 ms/frame mean in BOTH arms (survey on and off); the M2.10 corpus: median
   51.4 ms, 10/379 assets above 100 ms (M2.9: 50.0 ms, 0/379); AC power, `performance` profile, no
@@ -186,7 +180,8 @@ rows before sizing any unit that touches their surfaces.
   undiagnosed; 1 exports scores that differ from M2.9, cause unmeasured). M4.6 keys the
   single-subject gate on the selected row: the RTMW-m M4 tree reads 3/379 clips beyond 0.01, max
   0.049 (`.scratch/impl/p08_m256.log`), residue mechanism unmeasured (OpenVINO build drift in the
-  scores is one candidate) → the gate keys on the
+  scores is one candidate; a replay of recorded pre-gate scores under old + new keying in one
+  runtime separates the two, `scientist-2` F7) → the gate keys on the
   exported subject's identity (or carries state across the transient), `p08_compare.py` over a
   corpus rerun reads <= 0.01 on every clip, the held-out drop shares (`gate_flicker.py`: hallucinated
   >= 0.90 removed, real <= 0.06 lost) hold, and a synthetic two-track fixture with a handless
@@ -233,3 +228,19 @@ rows before sizing any unit that touches their surfaces.
   max, NA speed as 0, unexported) beside the qualified `detect_bouts` (M4.5a) → phases read
   `detect_bouts`' bouts, `*_movement_phases.csv` keeps its schema, and a hole inside motion no
   longer reads as rest (the M4.5a NC2 fixture splits into censored bouts in both artifacts).
+- **Score calibration transfer to this domain is unmeasured** (`scientist-2` F4) — RTMW-L 384's
+  reference-equivalent map is fit on COCO-WholeBody; at the 0.3 floor it admits 317 109 matched
+  frame×point observations RTMW-m holds below it (12 166 the reverse), temporally continuous but
+  0.028 median from RTMW-m's position → on development labels outside the M4.4 set, correctness +
+  presence per score bin × view × joint for candidate-only vs shared observations shows the
+  candidate-only bin within the shared bin's error at the same score, or the floor is refit per view.
+- **Bout-level features move with segmentation, not only with values** (`scientist-2` F6) —
+  RTMW-m → RTMW-L 384: bout rows 6524 → 6185, 20/24 bout-duration medians rise, SPARC medians fall
+  in 18/24 cells → bouts frozen by one arm-independent segmentation, both arms' SPARC, NJ, speed +
+  peak medians compared on identical bouts; the report attributes each family's shift to values vs
+  boundaries.
+- **The export carries no per-feature measurement status** (`scientist-2` F8) — validity,
+  reliability + units live in README limits alone → `descriptors.yaml` (or the cohort columns)
+  states per feature: unit class (image-plane angle, dimensionless, time), criterion validity
+  `not established`, reliability `not established` (never filled from cross-view ICC or model
+  agreement); a test reds on a feature missing either field.

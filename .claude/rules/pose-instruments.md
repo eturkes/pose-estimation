@@ -53,6 +53,13 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
   before/after + paired fixed/new; reproduces the catalog's before figures, `flick` 144 vs 143);
   `P python .scratch/frames_of.py '<#NNN task/side/view>' <metric>` (frame indices behind one
   clip's worst metric, for `bgrab.py` sheets).
+- M4 corpus section instruments (numbers only): `python3 .scratch/impl/probes/cohort_shift.py
+  <before-cohort> <after-cohort>` (median shift per family, > 0.5 IQR counts, subject-count
+  changes); `python3 .scratch/impl/probes/iso_clip.py '<#NNN task/side/view>' <tree>…` (one clip's
+  `iso` anatomy); `scientist-2`'s `.scratch/scientist-2/{aggregate_probe,common_support,
+  landmark_support}.py` under `.venv/bin/python` (matched-support cohort, alternation, floor sweep,
+  flagged-step magnitudes; commands in `.scratch/agents/scientist-2.md` F0). Scratch cohorts per
+  arm = `P pose-estimation-cohort … --run output/corpus-2d-m4-<arm> --out .scratch/impl/cohort-<arm>`.
 - M2.9 instruments, all `P python .scratch/<name>.py [<tree>]`, review-UI ordinals for labels,
   numbers only: `hygiene_stats.py` (per view × keypoint group: visibility quantiles, out-of-frame
   share — the M2.9.2 premise); `dup_hand.py [--ratio --weak --rel --sample]` (duplicate-hand rule

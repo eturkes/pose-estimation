@@ -151,7 +151,7 @@ of the largest. Labelled watch set = 81 clips / 36 families / 14 subjects, 12 fr
 | hand-held shake | camera motion at 0.5 s is 2.5 % of wrist motion at the median clip, ≥ 50 % on 10 overhead clips; per-frame it reaches wrist speed | M2.10.2 compensation: on known synthetic shake (14 clips) SPARC abs error median 0.3-1.9 uncompensated → 0.01-0.07 compensated |
 | wrong person (C02, C11) | patient's box chosen on 459/473 visible labelled task frames (0.970); body on another person or mixed on 17 labelled task frames in 9 clips (3 more in setup footage); the two worst clips (4 and 3 frames) show limb lines drawn across to another arm and a therapist leaning over the patient | none this unit → `.agent/deferred.md` |
 | other person's hand drawn as the patient's (C04) | 21 of 1 494 decided drawn hands | the gate removes 7/10 held-out; mask-conditioned pose → `.agent/deferred.md` |
-| inconsistent angles | 2D image-plane elbow flexion disagrees across synced views by median 60° on 14 series, no better than time-shuffled pairing (ratio 1.00) | SAM 3D Body pilot (not adopted; user: pilot more first): 5.9° synced vs 12.0° shuffled (ratio 0.49) |
+| inconsistent angles | 2D image-plane elbow flexion disagrees across synced views by median 60° on 14 series, no better than time-shuffled pairing (ratio 1.00) | SAM 3D Body pilot, 60 events / 1940 synced instants: elbow 5.4° synced vs 8.8° shuffled (2D 26.7° vs 29.9°) — declined (user ruling, `.agent/spec.md` Decisions) |
 
 The label vocabulary, graders and their regeneration paths → `.claude/rules/pose-instruments.md`.
 
@@ -240,3 +240,64 @@ three arms. Census = points the export pass zeroed, all 133 keypoints:
   above, not isolated.
 
 Instrument: `.scratch/impl/p07_stage.py` (→ `.claude/rules/pose-instruments.md`).
+
+## M4 corpus, measured
+
+Population = the two M4 corpus runs, 379 clips each, one code state (landmarks `48078b4`, clinical
+stage at HEAD R): RTMW-m 256 (`output/corpus-2d-m4-rtmw-m-256`, NPU pose, identity calibration)
+and RTMW-L 384 (`output/corpus-2d-m4-rtmw-l-384`, GPU pose, reference-equivalent calibration);
+before = M2.10 (`output/corpus-2d/`), paired by label. RTMW-m M4 vs M2.10 = the generation change
+(M4.5 bouts, M4.6 fixes, OpenVINO 2026.4.1); RTMW-m → RTMW-L 384 = the deployment change
+(checkpoint + input size + score map + device), not an isolated architecture effect. Appraisal =
+`scientist-2` (S01-S08: 2 supported, 5 overstated, 1 unsupported; its landmark probe rerun by MAIN
+byte-identical). Own support = each arm's points at vis >= 0.3.
+
+| metric | M2.10 | RTMW-m 256 | RTMW-L 384 |
+| --- | --- | --- | --- |
+| `alt` mean, own support (above / left / right) | 0.569 (0.418 / 0.607 / 0.719) | 0.569 | 0.478 (0.387 / 0.472 / 0.590) |
+| `alt` per-clip mean, matched moving support (above / left / right) | — | 0.356 / 0.477 / 0.550 | 0.367 / 0.428 / 0.505 |
+| `flick` mean | 0.269 | 0.256 | 0.155 |
+| hand blink-outs / 100 rows (above / left / right) | 0.23 / 0.33 / 0.14 | 0.22 / 0.31 / 0.13 | 0.13 / 0.19 / 0.08 |
+| `lowvis` mean (above) | 0.291 (0.507) | 0.291 (0.509) | 0.201 (0.377) |
+| `oof > 0.05` | 2/379 | 0/379 | 0/379 |
+| transitions eligible for `whole` / `iso` (all ten used points) | — | 38 619 | 90 287 |
+| hand-frames gated / drawn | 160 720 / 599 140 (0.268) | 159 842 / 599 140 (0.267) | 143 816 / 623 822 (0.231) |
+| pose latency median (assets > 100 ms) | 51.4 ms (10) | 54.7 ms (1) | 130.2 ms (264) |
+
+- **Generation change, small on shared cells.** On the 888 cohort cells both schemas share: 749
+  medians identical, 0 move > 0.5 of the M2.10 IQR (max 0.20, `compensatory_pattern_index`), 0
+  change subject count. The schema itself changes (180 window-smoothness cells leave as
+  `construct_invalid`, 168 bout cells join), out-of-frame observations fall to 0, and one clip each
+  gains a nonzero `whole` / `iso` rate below the 10 flag.
+- **`whole` / `iso` are conditional rates.** They count transitions with all ten used points
+  scored; 278/379 RTMW-m M4 clips — every overhead clip — have none, and `triage.py` prints those
+  as 0 (→ `.agent/deferred.md` triage row).
+- **Deployment change, large.** Over the 1056 v2 cells: 221 move > 0.5 IQR (median 0.225, max
+  2.50), 7 identical, subject count changes on 265 (211 up, 54 down). Summed feature values rise
+  25.5 % — repeated measurements of largely the same frames (frame rows 329 810 → 329 705, bout
+  rows 6524 → 6185), not more data. On identical finite frame + window support 149/888 cells still
+  move > 0.5 IQR (all support: 182/888), strongest in displacement + velocity → values move, not
+  coverage alone. Which arm sits nearer the truth is unidentified: public localisation improves
+  (§ Public screening in `benchmark.md`), M4.3 is a gross non-inferiority pass, and the cross-view
+  residual rises (ratio 1.23).
+- **Temporal proxies.** Alternation, flicker and blink-outs fall on each arm's own support; on
+  matched moving support left + right fall and overhead rises; gross steps (> 0.10) on common point
+  support 788 → 433 over 2 388 953 transitions. Lower irregularity of the exported trajectories —
+  no dynamic GT separates denoising from attenuation, so no motion-fidelity gain is claimed.
+- **Coverage.** At the 0.3 floor RTMW-L 384 admits 317 109 matched frame × point observations that
+  RTMW-m holds below it (12 166 the reverse); the gap persists from floor 0.2 to 0.65, so no single
+  cutoff explains it. In-domain correctness of the added observations is unmeasured
+  (→ `.agent/deferred.md` calibration-transfer row).
+- **Jump tails.** RTMW-L 384 gains `iso` flags on 11 clips and `whole` on 4; 16 of 16 and 5 of 6
+  flagged transitions have no RTMW-m eligibility, so the flags follow the denominator. The steps
+  are not all minor: max isolated step 0.876, whole-body 0.501 and 0.885 of the frame's max
+  dimension; mechanism (camera, identity, keypoint) unmeasured.
+- **P09 + P10 close**: 0 out-of-frame observations on both trees; `duplicate_hand_fired` 34 477
+  over 212 assets (RTMW-L 384), 60 077 over 269 (RTMW-m). **P08**: RTMW-m tree 3/379 clips beyond
+  0.01, max 0.049 (M2.10: 13/379, max 0.766) — the measured transient-track mechanism is addressed,
+  3 residuals unexplained.
+
+Instruments: `.scratch/triage.py` → `.scratch/impl/triage_{m256,l384}.json`,
+`.scratch/after_table.py`, `.scratch/impl/probes/{cohort_shift,iso_clip}.py`,
+`.scratch/scientist-2/{aggregate_probe,common_support,landmark_support}.py` (appraisal
+`.scratch/agents/scientist-2.md`) (→ `.claude/rules/pose-instruments.md`).
