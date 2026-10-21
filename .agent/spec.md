@@ -188,10 +188,11 @@ hospital SCI database.
   MAINTAIN` committed. Committed: closing review + fixes `9417b9e` `7855bc5` `a79c355` `598b77d`
   (ledger closed), certifi `d0c592e`, M4.3 pass + M4.4 A01 = `rtmw-l-384` `5cc8125`. Uncommitted:
   none. No teammates, no `wt/`/`wip/` branches; worktree `.scratch/worktrees/corpus-m4` (`48078b4`)
-  kept until Close. Both M4 trees complete (193/193, 379 `ok`, verdicts true); L384 clinical
-  refreshed at HEAD R; m256 refresh + the 3D pilot (`.scratch/pilot3d/xview_wide.log`, resumable)
-  ran to their end at pause → first confirm m256 `clinical_method_uniform` true and its
-  `analysis_sha256` = `sha256sum analysis/clinical_features.R`, else rerun the refresh. Next:
+  kept until Close. Both M4 trees complete (193/193, 379 `ok`, verdicts true) and both clinical
+  stages refreshed at HEAD R (`clinical_method_uniform` true, digest `2e02883b…`). The 3D pilot was
+  stopped at the user's word: restart it FROM SCRATCH to a fresh output
+  (`.scratch/pilot3d/xview_60.json`); never resume `xview_wide.json` (the earlier 19-event read
+  `deferred.md` cites + a few stopped-run events). Next:
   (1) the user's 96 frames (0 saved): `uv run --directory tools/review-ui python -m review_ui`
   → `/label`, then `scripts/gate.sh python scripts/bench.py confirm …` (command →
   `.scratch/impl/checkpoint.md`); (2) 3D pilot stats (`xview_stats.py`) → `AskUserQuestion` with
