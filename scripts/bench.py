@@ -31,11 +31,12 @@
   preroll        replay the shipped pipeline over windows ending at sampled frames; compare each
                  window's last row with the published whole-clip row (accelerator recipe)
 
-Commands that infer or replay (public-eval, hand-eval, corpus-gross, judge-public, presence and
-pilot-eval without --from-run, preroll) run under the accelerator recipe (`.claude/rules/gates.md`):
+Commands that infer or replay (public-eval, hand-eval, corpus-gross, judge-public, preroll, and
+presence / pilot-eval unless every evaluated arm has a --from-run tree) run under the accelerator recipe (`.claude/rules/gates.md`):
 `source <intel-accel>/env.sh; PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/bench.py …`
 — the gate prefix strips the accelerator and they fall back to the CPU silently. Every other
-command, and presence / pilot-eval / confirm with --from-run, runs under the gate prefix:
+command — confirm, and presence / pilot-eval when every evaluated arm has a --from-run tree —
+runs under the gate prefix:
 `scripts/gate.sh python scripts/bench.py <command> …`.
 """
 
@@ -817,14 +818,34 @@ def _run_trees(specs: list[str] | None) -> dict[str, Path]:
     return out
 
 
+def _production_config(arm: str) -> dict[str, object]:
+    """What a production corpus run of `arm` records in `pose_config.json`: the corpus driver's
+    own defaults with `--model arm`, minus `openvino_build` (the run's process, not the scorer's)."""
+    import importlib.util
+
+    from pose_estimation import corpus_run
+
+    spec = importlib.util.spec_from_file_location(
+        "corpus_run_2d", Path(__file__).with_name("corpus_run_2d.py")
+    )
+    if spec is None or spec.loader is None:
+        raise SystemExit("bench: cannot load scripts/corpus_run_2d.py")
+    driver = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(driver)
+    config = corpus_run.pose_config(driver._parse_args(["--model", arm]))
+    config.pop("openvino_build")
+    return config
+
+
 def _require_clips(trees: dict[str, Path], clips: set[tuple[str, str]]) -> None:
     """Refuse unless every requested `(event_id, camera)` is a complete event of that arm's run.
 
     A CSV alone proves nothing: a killed or failed event leaves a prefix that, scored, reads as
-    the arm missing every later point; and a tree run under another model or calibration would
-    credit its rows to this arm. Completion = the event marker; identity = the recorded
-    `pose_config.json` model + calibration digest against the registry's. The message names arm
-    + count alone (paths and event ids stay out).
+    the arm missing every later point; and a tree run under another configuration (model,
+    calibration, hand gate, survey, devices …) would credit its rows to this arm. Completion =
+    the event marker; identity = the recorded `pose_config.json` against `_production_config`,
+    with one OpenVINO build across the events. The message names arm + count alone (paths and
+    event ids stay out).
     """
     from pose_estimation import corpus_run
 
@@ -832,17 +853,16 @@ def _require_clips(trees: dict[str, Path], clips: set[tuple[str, str]]) -> None:
     for arm, tree in sorted(trees.items()):
         missing = sum(not (tree / event / f"{camera}.csv").is_file() for event, camera in clips)
         unfinished = sum(not corpus_run.is_complete(tree / event) for event in events)
-        expected = {"model": arm, "calibration": corpus_run.calibration_digest(arm)}
-        foreign = sum(
-            {k: (corpus_run.read_pose_config(tree / event) or {}).get(k) for k in expected}
-            != expected
-            for event in events
-        )
-        if missing or unfinished or foreign:
+        expected = _production_config(arm)
+        recorded = [corpus_run.read_pose_config(tree / event) or {} for event in events]
+        foreign = sum({k: r.get(k) for k in expected} != expected for r in recorded)
+        builds = {r.get("openvino_build") for r in recorded}
+        if missing or unfinished or foreign or len(builds) > 1:
             raise SystemExit(
                 f"--from-run {arm}: {missing} of {len(clips)} requested clips have no landmark"
                 f" CSV; {unfinished} of {len(events)} events are not complete; {foreign} of"
-                f" {len(events)} were produced under another model or calibration"
+                f" {len(events)} were produced under another configuration; {len(builds)}"
+                " OpenVINO builds"
             )
 
 

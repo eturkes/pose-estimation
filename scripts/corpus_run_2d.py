@@ -556,7 +556,7 @@ def _partitions(event_ids: list[str], out: Path, header, codes) -> tuple[Any, in
     return total, failures
 
 
-def _parse_args() -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the 2D pipeline over the whole corpus.")
     parser.add_argument("--inventory", type=Path, default=ROOT / "inventory")
     parser.add_argument("--qualification", type=Path, default=ROOT / "qualification")
@@ -595,7 +595,7 @@ def _parse_args() -> argparse.Namespace:
         help="Rerun the R stage over every complete event (current analysis/clinical_features.R) "
         "before the report; pair with --analyse-only to skip decoding.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.pose_device is None:
         args.pose_device = MODEL_REGISTRY[args.model]["pose_device"]
     return args

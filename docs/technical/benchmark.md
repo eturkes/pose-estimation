@@ -149,7 +149,8 @@ mean point where both marked `vis`, 60 COCO-WholeBody hands, error / GT hand-box
 p90: wrist 0.103 / 0.338, thumb tip 0.080 / 0.518, index knuckle 0.102 / 0.293, index tip
 0.040 / 0.216, little tip 0.031 / 0.093 (n = 11); pooled 0.083 / 0.318 (n = 176), 0.892 within
 0.3, 0.943 within 0.6. Public hands are fully visible and normalised by the GT box; corpus hands
-are mostly partial and normalised by the drawn extent, so these bound the corpus error from below.
+are mostly partial and normalised by the drawn extent, so these likely underestimate the corpus
+error — corpus consensus accuracy itself is unmeasured.
 
 **Verdict:** the four classes above qualify at their grains; arm consensus qualifies for gross
 localisation at 0.1 of the patient diagonal (each labeller's public p90 <= 0.083 of the person

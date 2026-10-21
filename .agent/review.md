@@ -162,7 +162,7 @@ fix against its acceptance check.
 | F27 | P07: "bone-length adds on 2 clips" vs the table's 3 of 6 | K11a N10c N12b N13a | accepted | 3 of 6 in pose-weak-points + spec | fixed |
 | F28 | `score_calibration` promised P(correct); shipped reference maps emit raw-scale scores > 1 | G01a | accepted | docstring names both fits | fixed |
 | F29 | DexYCB bootstrap resampled zero-evidence hands → ÷0 on a sparse draw | G03a | accepted | units = hands with a valid joint; equal coverage enforced; test; table re-derived (Δ ≤ 0.001) | fixed |
-| F30 | `--from-run` scored markerless / failed / other-generation events | G04a G04b | accepted | complete marker + recorded model + calibration digest; tests | fixed |
+| F30 | `--from-run` scored markerless / failed / other-generation events | G04a G04b | accepted | complete marker + whole recorded `pose_config` = the driver's defaults for the arm (build excluded, one per tree); tests | fixed |
 | F31 | pilot replay cache survived a hand-gate refit | G04c | accepted | cache keyed by replay args + calibration digest; test | fixed |
 | F32 | review-UI README: global "writes nothing" / "read-only" vs `/label` | G11a V11a M11b | accepted | scoped (`9417b9e`) | fixed |
 | F33 | "no finite pre-roll" for a 0-8 s grid | N04a N10f | accepted | "no tested pre-roll (0-8 s)" in CLI + benchmark.md | fixed |
@@ -188,3 +188,13 @@ AR(1); `scanners.md` / `gates.md` / spec "both" uv lockfiles → three; `run.py`
 `calibration/` → `score_calibrations/`; bout test "~0.6 %" → 1.18 %; `sample.py` reads the
 published CSVs unvalidated (unconfirmed, no red) → kept as register; 2/35 historic subjects
 without `→` → no rewrite; README accelerator path = the ruled one.
+
+Re-review (same reviewers, own rows only, acceptance checks alone; `## Re-review` in each report,
+grader PASS rc 0): 35 rows → 33 pass, 2 fail, both residuals fixed and closed on MAIN's rerun:
+F30 (reviewer-17: a same-model, same-digest tree with `hand_gate` off passed) → the whole
+recorded configuration is compared; its red `test_f30_disabled_gate_is_another_configuration`
+passes, the both real M4 trees match (193/193 L384, every m256 event so far, one build each).
+F45 (reviewer-19: "with --from-run" sent a half-cached pilot-eval to the gate prefix) → "when
+every evaluated arm has a --from-run tree". Register (reviewer-16): "bound the corpus error from
+below" → "likely underestimate … corpus accuracy unmeasured".
+

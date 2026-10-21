@@ -83,12 +83,16 @@ def _fixture(tmp_path):
     return label_path, job_path, records, row, trees
 
 
-def _complete(event: Path, arm: str, model: str | None = None) -> None:
+_PRODUCTION: dict[str, dict] = {}
+
+
+def _complete(event: Path, arm: str, **changed) -> None:
     """What a finished corpus event carries beside its CSVs: the marker + its generation."""
+    if arm not in _PRODUCTION:
+        cli = runpy.run_path(str(ROOT / "scripts/bench.py"))
+        _PRODUCTION[arm] = cli["_production_config"](arm) | {"openvino_build": "synthetic"}
     corpus_run.write_marker(event, status=corpus_run.MARKER_COMPLETE, stage="clinical")
-    corpus_run.write_pose_config(
-        event, {"model": model or arm, "calibration": corpus_run.calibration_digest(arm)}
-    )
+    corpus_run.write_pose_config(event, _PRODUCTION[arm] | changed)
 
 
 def test_a06_confirm_command_scores_each_arm_on_the_same_records(tmp_path):
@@ -378,10 +382,16 @@ def test_from_run_refuses_an_unfinished_or_failed_event(tmp_path, marker):
     assert "synthetic-event" not in str(refused.value)
 
 
-def test_from_run_refuses_a_tree_of_another_generation(tmp_path):
-    """Rows a run produced under another model or calibration are not this arm's rows."""
+@pytest.mark.parametrize(
+    "changed",
+    [{"model": "rtmw-x-384"}, {"calibration": "foreign"}, {"hand_gate": False},
+     {"openvino_build": "another build"}],
+)  # fmt: skip
+def test_from_run_refuses_a_tree_of_another_generation(tmp_path, changed):
+    """Rows a run produced under another configuration — model, calibration, the gate switched
+    off — or a tree mixing builds are not this arm's production rows."""
     label_path, job_path, _, _, trees = _fixture(tmp_path)
-    _complete(trees["rtmw-m-256"] / "synthetic-event-0", "rtmw-m-256", model="rtmw-x-384")
+    _complete(trees["rtmw-m-256"] / "synthetic-event-0", "rtmw-m-256", **changed)
     contract = tmp_path / "contract.md"
     contract.write_text("## 8. Amendments\n\n- **A01 (candidates).** `rtmw-l-384`.\n")
     main = runpy.run_path(str(ROOT / "scripts/bench.py"))["main"]
@@ -392,8 +402,10 @@ def test_from_run_refuses_a_tree_of_another_generation(tmp_path):
              "--out", str(tmp_path / "out.json"),
              *[x for arm, tree in trees.items() for x in ("--from-run", f"{arm}={tree}")]]
         )  # fmt: skip
-    assert "rtmw-m-256" in str(refused.value)
-    assert "1 of 2 were produced under another model or calibration" in str(refused.value)
+    message = str(refused.value)
+    assert "rtmw-m-256" in message
+    assert ("2 OpenVINO builds" if "openvino_build" in changed else
+            "1 of 2 were produced under another configuration") in message  # fmt: skip
 
 
 def test_confirm_refuses_an_empty_candidate_amendment_before_reading_labels(tmp_path, monkeypatch):
