@@ -47,8 +47,9 @@ hospital SCI database.
   symlinks onto the primary trees + the superseded run).
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
   run; each `P pose-estimation-<name> … --out <dir>`; `--help` = args.
-- Benchmark — `scripts/bench.py <command>` under the gate prefix (sample, sheets, ingest, agree,
-  public-eval, hand-eval, corpus-gross, calibrate, judge-*, preroll, user-sample) →
+- Benchmark — `scripts/bench.py <command>` (sample, sheets, ingest, agree, public-eval, hand-eval,
+  corpus-gross, calibrate, judge-*, preroll, user-sample; inference + replay under the accelerator
+  recipe, the rest under the gate prefix → `--help`) →
   `docs/technical/benchmark.md`; COCO-WholeBody AP via `tools/cocowb-eval/` (own Python 3.12 uv
   project); user labelling page = review UI `/label` over `.scratch/bench/user/`.
 - Gate — `scripts/gate.sh` (full chain + per-step wall-clock; `--fast <tests>` iterates) →

@@ -65,8 +65,10 @@ scanners() {
 }
 
 # The benchmark's COCO-WholeBody scorer runs in its own Python 3.12 project (xtcocotools).
+# An exported UV_PROJECT_ENVIRONMENT (worktree recipe: the primary .venv) would make uv sync this
+# project into that environment, replacing the primary .venv with the scorer's → unset it here.
 benchtools() {
-	step cocowb-eval uv run --quiet --directory tools/cocowb-eval python check.py
+	step cocowb-eval env -u UV_PROJECT_ENVIRONMENT uv run --quiet --directory tools/cocowb-eval python check.py
 }
 
 case ${1-} in

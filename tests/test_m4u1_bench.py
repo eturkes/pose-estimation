@@ -334,6 +334,7 @@ def test_p01_allowed_owners_accept_without_changing_anatomical_side(owner):
         (("sides", "L", "joints", "index_tip", "own"), "unknown-owner", "own"),
         (("sides", "R", "body", "shoulder", "own"), "unknown-owner", "own"),
         (("unexpected_root",), 1, "unexpected_root"),
+        (("frame", "unexpected_frame_key"), 1, "unexpected_frame_key"),
         (("sides", "L", "unexpected_side"), 1, "unexpected_side"),
         (("sides", "L", "joints", "unexpected_joint"), {"state": "occ"}, "unexpected_joint"),
         (("sides", "R", "body", "unexpected_body"), {"state": "occ"}, "unexpected_body"),

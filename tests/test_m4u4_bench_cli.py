@@ -4,11 +4,13 @@ import copy
 import csv
 import json
 import runpy
+import shutil
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from pose_estimation import corpus_run
 from pose_estimation.bench import confirm, labels
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,7 +79,16 @@ def _fixture(tmp_path):
                 writer = csv.DictWriter(stream, fieldnames=list(row))
                 writer.writeheader()
                 writer.writerow(row)
+            _complete(target.parent, arm)
     return label_path, job_path, records, row, trees
+
+
+def _complete(event: Path, arm: str, model: str | None = None) -> None:
+    """What a finished corpus event carries beside its CSVs: the marker + its generation."""
+    corpus_run.write_marker(event, status=corpus_run.MARKER_COMPLETE, stage="clinical")
+    corpus_run.write_pose_config(
+        event, {"model": model or arm, "calibration": corpus_run.calibration_digest(arm)}
+    )
 
 
 def test_a06_confirm_command_scores_each_arm_on_the_same_records(tmp_path):
@@ -176,7 +187,9 @@ def test_f05_two_candidates_and_baseline_reuse_all_records(tmp_path, monkeypatch
     from pose_estimation.bench import confirm
 
     label_path, jobs, _, _, trees = _fixture(tmp_path)
-    trees["rtmw-x-384"] = trees["rtmw-l-384"]
+    trees["rtmw-x-384"] = Path(shutil.copytree(trees["rtmw-l-384"], tmp_path / "x384"))
+    for event in trees["rtmw-x-384"].iterdir():
+        _complete(event, "rtmw-x-384")
     contract = tmp_path / "contract.md"
     contract.write_text(
         "## 8. Amendments\n- **A01 (candidates).** `rtmw-l-384` and `rtmw-x-384`.\n"
@@ -340,3 +353,100 @@ def test_replay_that_writes_no_landmark_csv_refuses(tmp_path, monkeypatch):
         )  # fmt: skip
     assert "rtmw-l-384" in str(refused.value)
     assert not (out / "rtmw-l-384" / "presence.json").exists()
+
+
+@pytest.mark.parametrize("marker", [None, "failed"])
+def test_from_run_refuses_an_unfinished_or_failed_event(tmp_path, marker):
+    """A CSV prefix left by a killed or failed event is no whole-clip run: scored, its missing
+    tail reads as the arm missing every later point."""
+    label_path, job_path, _, _, trees = _fixture(tmp_path)
+    event = trees["rtmw-l-384"] / "synthetic-event-1"
+    corpus_run.marker_path(event).unlink()
+    if marker:
+        corpus_run.write_marker(event, status=marker, stage="run", exit_code=1)
+    contract = tmp_path / "contract.md"
+    contract.write_text("## 8. Amendments\n\n- **A01 (candidates).** `rtmw-l-384`.\n")
+    main = runpy.run_path(str(ROOT / "scripts/bench.py"))["main"]
+    with pytest.raises(SystemExit) as refused:
+        main(
+            ["confirm", "--contract", str(contract), "--labels", str(label_path),
+             "--jobs", str(job_path), "--public-rank", "rtmw-l-384",
+             "--out", str(tmp_path / "out.json"),
+             *[x for arm, tree in trees.items() for x in ("--from-run", f"{arm}={tree}")]]
+        )  # fmt: skip
+    assert "1 of 2 events are not complete" in str(refused.value)
+    assert "synthetic-event" not in str(refused.value)
+
+
+def test_from_run_refuses_a_tree_of_another_generation(tmp_path):
+    """Rows a run produced under another model or calibration are not this arm's rows."""
+    label_path, job_path, _, _, trees = _fixture(tmp_path)
+    _complete(trees["rtmw-m-256"] / "synthetic-event-0", "rtmw-m-256", model="rtmw-x-384")
+    contract = tmp_path / "contract.md"
+    contract.write_text("## 8. Amendments\n\n- **A01 (candidates).** `rtmw-l-384`.\n")
+    main = runpy.run_path(str(ROOT / "scripts/bench.py"))["main"]
+    with pytest.raises(SystemExit) as refused:
+        main(
+            ["confirm", "--contract", str(contract), "--labels", str(label_path),
+             "--jobs", str(job_path), "--public-rank", "rtmw-l-384",
+             "--out", str(tmp_path / "out.json"),
+             *[x for arm, tree in trees.items() for x in ("--from-run", f"{arm}={tree}")]]
+        )  # fmt: skip
+    assert "rtmw-m-256" in str(refused.value)
+    assert "1 of 2 were produced under another model or calibration" in str(refused.value)
+
+
+def test_confirm_refuses_an_empty_candidate_amendment_before_reading_labels(tmp_path, monkeypatch):
+    """M4.4 P04: an A01 heading naming nobody is no frozen candidate list."""
+    label_path, job_path, _, _, trees = _fixture(tmp_path)
+    contract = tmp_path / "contract.md"
+    contract.write_text("## 8. Amendments\n- **A01 (candidates).**\n")
+
+    def forbidden(_):
+        pytest.fail("one-use labels read with no frozen candidate")
+
+    monkeypatch.setattr(labels, "load", forbidden)
+    main = runpy.run_path(str(ROOT / "scripts/bench.py"))["main"]
+    with pytest.raises(SystemExit, match="names no candidates"):
+        main(
+            ["confirm", "--contract", str(contract), "--labels", str(label_path),
+             "--jobs", str(job_path), "--public-rank", "rtmw-l-384",
+             "--out", str(tmp_path / "out.json"),
+             *[x for arm, tree in trees.items() for x in ("--from-run", f"{arm}={tree}")]]
+        )  # fmt: skip
+
+
+def test_pilot_cache_replays_after_a_hand_gate_refit(tmp_path, monkeypatch):
+    """M4.3b refit → a new generation: the replay cache must not serve the old rows."""
+    from pose_estimation import run
+    from pose_estimation.bench import replay
+
+    label_path, job_path, _, row, _ = _fixture(tmp_path)
+    run_root = tmp_path / "run"
+    for job in json.loads(job_path.read_text()):
+        diag = run_root / job["event_id"] / "left_diag.csv"
+        diag.parent.mkdir(parents=True)
+        diag.write_text("n_frames_decoded\n1\n")
+    cli = runpy.run_path(str(ROOT / "scripts/bench.py"))
+    monkeypatch.setitem(cli["main"].__globals__, "_media", lambda *_: tmp_path / "left.mp4")
+    calls = []
+
+    def fake_replay(media, start, stop, out_dir, extra=()):
+        calls.append(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        with (out_dir / "left.csv").open("w", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=list(row))
+            writer.writeheader()
+            writer.writerow(row)
+
+    monkeypatch.setattr(replay, "replay_window", fake_replay)
+    argv = ["presence", "--labels", str(label_path), str(label_path), "--sample", str(job_path),
+            "--arm", "rtmw-m-256", "--run", str(run_root), "--out", str(tmp_path / "out")]  # fmt: skip
+    assert cli["main"](argv) == 0
+    assert len(calls) == 2  # one whole-clip replay per pilot clip
+    assert cli["main"](argv) == 0
+    assert len(calls) == 2  # same configuration → the finished cache is reused
+    entry = run.MODEL_REGISTRY["rtmw-m-256"]
+    monkeypatch.setitem(run.MODEL_REGISTRY, "rtmw-m-256", entry | {"hand_gate": (0.85, 0.8)})
+    assert cli["main"](argv) == 0
+    assert len(calls) == 4, "a hand-gate refit reused the pre-refit replay rows"

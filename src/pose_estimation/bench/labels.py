@@ -135,6 +135,9 @@ def validate(record: Any) -> list[str]:
         return ["frame: needs key, index >= 0, width > 0, height > 0"]
     width, height = frame["width"], frame["height"]
     out = []
+    extra_frame = set(frame) - {"key", "index", "width", "height"}
+    if extra_frame:
+        out.append(f"frame: unknown keys {sorted(extra_frame)}")
     if not isinstance(record.get("labeller"), str) or not record["labeller"]:
         out.append("labeller: required")
     if record.get("task") not in TASK_STATES:

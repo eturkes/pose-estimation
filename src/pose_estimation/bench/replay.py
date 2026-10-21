@@ -12,9 +12,10 @@ import contextlib
 import csv
 from pathlib import Path
 
-#: The corpus driver's defaults (`scripts/corpus_run_2d.py`) minus the camera survey (`run.py`
-#: default off): on an untrimmed clip the survey adds camera columns and moves nothing else. The
-#: pose device follows the model's registry entry, so a `--model` override needs no device.
+#: The corpus driver's defaults (`scripts/corpus_run_2d.py`), camera survey included: it trims
+#: setup frames outside the task span, so a replay without it poses frames production never
+#: exports. The pose device follows the model's registry entry, so a `--model` override needs no
+#: device.
 CORPUS_ARGS = (
     "--headless",
     "--model=rtmw-l",
@@ -26,6 +27,7 @@ CORPUS_ARGS = (
     "--drop-lower-body",
     "--drop-hips-camera=above",
     "--hand-gate",
+    "--camera-survey",
 )
 
 

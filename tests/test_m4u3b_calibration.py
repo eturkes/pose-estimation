@@ -44,6 +44,22 @@ def test_p01_p02_reference_map_equalises_probability_of_correctness():
     assert float(curve(np.array([0.0]))[0]) == 0.0  # clamped, never negative
 
 
+def test_p01_reference_map_recovers_the_generating_affine_map_within_2_percent():
+    # Oracle = the generating logits, never the fitted ones: equal P(correct) at
+    # 1.5 r - 6 = 6 m - 3  →  m = 0.25 r - 0.5. The intercept is a difference of two fitted
+    # intercepts, so the sample is sized for it: at 1e6 per arm the fit errs <= 0.7 % over six
+    # seed pairs, while a 4 % slope bias in `_logistic` moves the intercept >= 3.3 %.
+    n = 1_000_000
+    curve = _cal().fit_reference(
+        *_sample(1.5, -6.0, n=n, lo=0, hi=8, seed=2), *_sample(6.0, -3.0, n=n, seed=1)
+    )
+    r0, r1 = 3.0, 7.0  # inside the arm's range, past the zero crossing at r = 2
+    m0, m1 = (float(v) for v in curve(np.array([r0, r1])))
+    slope = (m1 - m0) / (r1 - r0)
+    assert slope == pytest.approx(0.25, rel=0.02)
+    assert m0 - slope * r0 == pytest.approx(-0.5, rel=0.02)
+
+
 def test_p01_a_score_that_falls_with_correctness_is_refused():
     cal = _cal()
     with pytest.raises(ValueError):  # noqa: PT011

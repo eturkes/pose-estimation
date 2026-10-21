@@ -1,10 +1,12 @@
-"""Per-arm keypoint score calibration: raw model score → P(keypoint correct) (contract M4.3a).
+"""Per-arm keypoint score calibration: one meaning for a score across checkpoints (M4.3a/M4.3b).
 
 Raw SimCC and heatmap scores are checkpoint-specific — RTMW-L 384's raw median reads 4.2 where
 RTMW-m's reads 0.74 on the same crops — and the smoother clips every score to [0, 1], so an
 uncalibrated arm saturates each gate downstream. A calibration maps each keypoint group's raw
-score through a monotone piecewise-linear curve fit on public ground truth, giving every arm one
-meaning for a score.
+score through a monotone piecewise-linear curve fit on public ground truth. Two fits: `fit`
+(isotonic) maps onto P(keypoint correct); `fit_reference` (the shipped maps) maps onto the
+reference arm's raw score of equal P(correct), so the thresholds tuned on RTMW-m transfer — those
+outputs are raw-scale scores and may exceed 1.
 """
 
 from __future__ import annotations

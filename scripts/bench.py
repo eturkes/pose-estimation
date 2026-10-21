@@ -31,7 +31,12 @@
   preroll        replay the shipped pipeline over windows ending at sampled frames; compare each
                  window's last row with the published whole-clip row (accelerator recipe)
 
-Run under the gate prefix: `scripts/gate.sh python scripts/bench.py <command> …`.
+Commands that infer or replay (public-eval, hand-eval, corpus-gross, judge-public, presence and
+pilot-eval without --from-run, preroll) run under the accelerator recipe (`.claude/rules/gates.md`):
+`source <intel-accel>/env.sh; PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/bench.py …`
+— the gate prefix strips the accelerator and they fall back to the CPU silently. Every other
+command, and presence / pilot-eval / confirm with --from-run, runs under the gate prefix:
+`scripts/gate.sh python scripts/bench.py <command> …`.
 """
 
 from __future__ import annotations
@@ -40,6 +45,7 @@ import argparse
 import csv
 import hashlib
 import json
+import os
 import sys
 import time
 from collections import defaultdict
@@ -471,9 +477,23 @@ def cmd_preroll(a: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_public_eval(a: argparse.Namespace) -> int:
+def _evaluate(script: str, *args: str) -> dict:
+    """Run one `tools/cocowb-eval` script (its own Python 3.12 project) → its JSON stdout.
+
+    An exported UV_PROJECT_ENVIRONMENT (the worktree recipe names the primary .venv) would make
+    uv sync the evaluator project into that environment and replace it, so it is unset here.
+    """
     import subprocess
 
+    env = {k: v for k, v in os.environ.items() if k != "UV_PROJECT_ENVIRONMENT"}
+    evaluator = Path(__file__).resolve().parents[1] / "tools" / "cocowb-eval"
+    command = ["uv", "run", "--quiet", "--directory", str(evaluator), "python", script, *args]
+    return json.loads(
+        subprocess.run(command, check=True, capture_output=True, text=True, env=env).stdout
+    )
+
+
+def cmd_public_eval(a: argparse.Namespace) -> int:
     files, persons = public.load_coco_wholebody(a.coco_wb)
     persons = [p for p in persons if p.box[2] > 1 and p.box[3] > 1]
     eligible = len(persons)
@@ -518,14 +538,7 @@ def cmd_public_eval(a: argparse.Namespace) -> int:
     results = screen.result_rows(persons, kps, scores)
     res_path = out / "coco_wb_results.json"
     res_path.write_text(json.dumps(results), encoding="utf-8")
-    evaluator = Path(__file__).resolve().parents[1] / "tools" / "cocowb-eval"
-    stats = json.loads(
-        subprocess.run(
-            ["uv", "run", "--quiet", "--directory", str(evaluator), "python", "score.py",
-             str(gt.resolve()), str(res_path.resolve())],
-            check=True, capture_output=True, text=True,
-        ).stdout
-    )  # fmt: skip
+    stats = _evaluate("score.py", str(gt.resolve()), str(res_path.resolve()))
     hand_err = screen.hand_errors(persons, kps)
     body_err, vis_scores, occ_scores = screen.arm_errors(persons, kps, scores)
     summary = {
@@ -774,17 +787,31 @@ def _run_trees(specs: list[str] | None) -> dict[str, Path]:
 
 
 def _require_clips(trees: dict[str, Path], clips: set[tuple[str, str]]) -> None:
-    """Refuse unless every run tree holds each requested `(event_id, camera)` landmark CSV.
+    """Refuse unless every requested `(event_id, camera)` is a complete event of that arm's run.
 
-    A missing CSV is a failed or unfinished event, not an empty export: scored, it reads as the
-    arm missing every point. The message names arm + count alone (paths and event ids stay out).
+    A CSV alone proves nothing: a killed or failed event leaves a prefix that, scored, reads as
+    the arm missing every later point; and a tree run under another model or calibration would
+    credit its rows to this arm. Completion = the event marker; identity = the recorded
+    `pose_config.json` model + calibration digest against the registry's. The message names arm
+    + count alone (paths and event ids stay out).
     """
+    from pose_estimation import corpus_run
+
+    events = {event for event, _ in clips}
     for arm, tree in sorted(trees.items()):
         missing = sum(not (tree / event / f"{camera}.csv").is_file() for event, camera in clips)
-        if missing:
+        unfinished = sum(not corpus_run.is_complete(tree / event) for event in events)
+        expected = {"model": arm, "calibration": corpus_run.calibration_digest(arm)}
+        foreign = sum(
+            {k: (corpus_run.read_pose_config(tree / event) or {}).get(k) for k in expected}
+            != expected
+            for event in events
+        )
+        if missing or unfinished or foreign:
             raise SystemExit(
-                f"--from-run {arm}: {missing} of {len(clips)} requested clips have no landmark CSV"
-                " (failed or unfinished events)"
+                f"--from-run {arm}: {missing} of {len(clips)} requested clips have no landmark"
+                f" CSV; {unfinished} of {len(events)} events are not complete; {foreign} of"
+                f" {len(events)} were produced under another model or calibration"
             )
 
 
@@ -802,11 +829,14 @@ def _pilot_replays(a: argparse.Namespace, arm: str):
     production state, wall None); otherwise each clip is replayed here.
 
     Each pilot clip is replayed whole, frame 0 to its last decoded frame — the corpus run of
-    that clip under `arm`. M4.1 D05(e) measured no finite pre-roll reaching that state: hands
+    that clip under `arm`. No pre-roll M4.1 D05(e) tested (0-8 s) reached that state: hands
     converge by 4 s, but the sticky subject choice still differs on 4/20 frames at 8 s
-    (contract-m4u1 A05). Clips cache under `<out>/<arm>/whole/<sha256(clip)[:16]>/`; wall =
-    the clip's replay seconds over its sampled frames.
+    (contract-m4u1 A05). Clips cache under `<out>/<arm>/whole/<config>/<sha256(clip)[:16]>/`,
+    `<config>` = digest of the replay arguments + the arm's calibration digest, so a hand-gate
+    refit or an argument change replays instead of reusing old rows; wall = the clip's replay
+    seconds over its sampled frames.
     """
+    from pose_estimation import corpus_run
     from pose_estimation.bench import pilot, replay
 
     try:
@@ -832,11 +862,13 @@ def _pilot_replays(a: argparse.Namespace, arm: str):
     by_clip: dict[str, list[str]] = defaultdict(list)
     for key in keys:
         by_clip[key.split("#", 1)[0]].append(key)
+    identity = repr((replay.CORPUS_ARGS, arm, corpus_run.calibration_digest(arm)))
+    config = hashlib.sha256(identity.encode()).hexdigest()[:16]
     for clip, clip_keys in sorted(by_clip.items()):
         m0 = meta[clip_keys[0]]
         diag = a.run / m0["event_id"] / f"{m0['camera_name']}_diag.csv"
         n = int(_diag_row(diag)["n_frames_decoded"])
-        window = a.out / arm / "whole" / hashlib.sha256(clip.encode()).hexdigest()[:16]
+        window = a.out / arm / "whole" / config / hashlib.sha256(clip.encode()).hexdigest()[:16]
         media = _media(a.sessions, m0["event_id"], m0["camera_name"])
         done = window / f"{media.stem}.csv"
         wall_file = window / "wall.json"
@@ -978,9 +1010,12 @@ BOOT_SEED_PRESENCE = 20261022
 
 def cmd_screen(a: argparse.Namespace) -> int:
     """M4.2 D03: paired bootstraps of COCO-WB hand AP + DexYCB hand PCK@0.1 → the finalist set."""
-    import subprocess
+    from pose_estimation.run import MODEL_REGISTRY
 
-    evaluator = Path(__file__).resolve().parents[1] / "tools" / "cocowb-eval"
+    # A04: an arm leaves the registry when the user drops it, so a stale cache cannot rank it.
+    dropped = sorted(set(a.arms) - set(MODEL_REGISTRY))
+    if dropped:
+        raise SystemExit(f"screen: {dropped} are not run.MODEL_REGISTRY keys (dropped arms)")
     runs = {arm: a.public / arm for arm in a.arms}
     gt = a.coco_wb
     if a.coco_limit:
@@ -992,22 +1027,22 @@ def cmd_screen(a: argparse.Namespace) -> int:
             raise SystemExit("screen: the arms' subset GT files differ → not one paired draw")
         gt = runs[a.arms[0]] / "coco_wb_gt.json"
     specs = [f"{arm}={(d / 'coco_wb_results.json').resolve()}" for arm, d in runs.items()]
-    hand_ap = json.loads(
-        subprocess.run(
-            ["uv", "run", "--quiet", "--directory", str(evaluator), "python", "bootstrap.py",
-             str(gt.resolve()), *specs, "--n", str(a.n), "--seed", str(a.seed)],
-            check=True, capture_output=True, text=True,
-        ).stdout
-    )  # fmt: skip
+    hand_ap = _evaluate(
+        "bootstrap.py", str(gt.resolve()), *specs, "--n", str(a.n), "--seed", str(a.seed)
+    )
     hands = list(handsets.dexycb(a.dexycb))
     valid = np.stack([h.valid for h in hands])
-    correct = {}
+    correct, coverage = {}, {}
     for arm in a.arms:
         z = np.load(a.handsets / "dexycb" / arm / f"pred_{len(hands)}_{a.hand_seed}.npz")
         diag = np.array([h.diagonal for h in hands])
         err = np.hypot(*(z["kps"] - np.stack([h.kpts for h in hands])).transpose(2, 0, 1))
         correct[arm] = (err / diag[:, None] < 0.1) & z["covered"][:, None]
-        covered = z["covered"]
+        coverage[arm] = z["covered"]
+    covered = coverage[a.arms[0]]
+    # Every arm shares the shipped detector's boxes; differing coverage would unpair the hands.
+    if any(not np.array_equal(c, covered) for c in coverage.values()):
+        raise SystemExit("screen: the arms' DexYCB detector coverage differs → not one paired set")
     dexycb = screen.paired_pck_bootstrap(correct, valid & covered[:, None], a.n, a.seed)
     arm_pck = {
         arm: json.loads((d / "coco_wb_summary.json").read_text(encoding="utf-8"))["arm_pck"][

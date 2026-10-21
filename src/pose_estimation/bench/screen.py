@@ -106,12 +106,16 @@ def paired_pck_bootstrap(
     """Per arm PCK over `(units, joints)` + paired percentile intervals, units resampled jointly.
 
     `correct[arm]` and `valid` share one shape; a unit = one image (one hand per image here).
+    Units without a valid joint (e.g. hands the detector missed) are outside the estimand, so
+    they are dropped before resampling: every draw then has a nonzero denominator.
     """
     valid = np.asarray(valid, bool)
     if not valid.any():
         raise ValueError("PCK bootstrap over no valid joints")
+    units = valid.any(axis=1)
+    valid = valid[units]
     names = sorted(correct)
-    hits = {a: (np.asarray(correct[a], bool) & valid).sum(axis=1) for a in names}
+    hits = {a: (np.asarray(correct[a], bool)[units] & valid).sum(axis=1) for a in names}
     totals = valid.sum(axis=1)
     rng = np.random.default_rng(seed)
     boots: dict[str, list[float]] = {a: [] for a in names}

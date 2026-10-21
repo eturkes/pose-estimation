@@ -1,7 +1,8 @@
 # Pose-pipeline benchmark — instruments
 
 Contracts: `.agent/archive/contract-m4u1.md` (instrument qualification). Code:
-`src/pose_estimation/bench/`, CLI `scripts/bench.py` (run under the gate prefix). Every
+`src/pose_estimation/bench/`, CLI `scripts/bench.py` (inference + replay commands under the
+accelerator recipe, the rest under the gate prefix → its `--help`). Every
 patient-adjacent output (samples, corpus sheets, labels, judge keys) lives under `.scratch/bench/`,
 git-ignored; public-GT tables carry no corpus identifier.
 
@@ -155,13 +156,13 @@ image-bootstrap percentiles, 1 000 resamples shared by every arm (`bench.py scre
 
 | arm | whole-body AP | hand AP (mean L+R) | DexYCB PCK@0.1 | HInt PCK@0.1 vis / occ | occl. AUROC | arm PCK@0.05 | D03 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| RTMW-m 256 (shipped) | 0.634 | 0.534 [0.520, 0.548] | 0.691 [0.684, 0.699] | 0.782 / 0.524 | 0.646 | 0.909 | baseline |
-| RTMW-L 256 | 0.669 | 0.577 [0.563, 0.593] | 0.723 [0.716, 0.730] | 0.824 / 0.587 | 0.668 | 0.922 | dominated (L 384, X 384) |
+| RTMW-m 256 (shipped) | 0.634 | 0.534 [0.520, 0.548] | 0.691 [0.683, 0.699] | 0.782 / 0.524 | 0.646 | 0.909 | baseline |
+| RTMW-L 256 | 0.669 | 0.577 [0.563, 0.593] | 0.723 [0.715, 0.730] | 0.824 / 0.587 | 0.668 | 0.922 | dominated (L 384, X 384) |
 | RTMW-L 384 | 0.714 | 0.648 [0.635, 0.664] | 0.740 [0.733, 0.747] | 0.888 / 0.674 | 0.706 | 0.931 | **finalist** |
-| RTMW-X 384 (cocktail13) | 0.708 | 0.640 [0.626, 0.655] | 0.733 [0.726, 0.740] | 0.862 / 0.634 | 0.674 | 0.934 | dominated (L 384) |
-| DWPose-L 384 | 0.620 | 0.516 [0.501, 0.532] | 0.676 [0.668, 0.684] | 0.690 / 0.479 | 0.617 | 0.888 | dominated (all RTMW) |
+| RTMW-X 384 (cocktail13) | 0.708 | 0.640 [0.626, 0.655] | 0.733 [0.726, 0.739] | 0.862 / 0.634 | 0.674 | 0.934 | dominated (L 384) |
+| DWPose-L 384 | 0.620 | 0.516 [0.501, 0.532] | 0.676 [0.667, 0.684] | 0.690 / 0.479 | 0.617 | 0.888 | dominated (all RTMW) |
 
-Paired RTMW-L 384 − RTMW-X 384: hand AP +0.009 [0.003, 0.016], DexYCB +0.007 [0.004, 0.011] —
+Paired RTMW-L 384 − RTMW-X 384: hand AP +0.009 [0.003, 0.016], DexYCB +0.007 [0.004, 0.010] —
 the larger checkpoint loses on hands at equal input size.
 
 Sapiens2-0.4B (OpenVINO GPU f16, flip TTA; 500-person subset, seed 20261019, paired over its

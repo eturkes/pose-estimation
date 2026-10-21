@@ -120,6 +120,11 @@ scripts/gate.sh
   `PYTHONPATH` names a worktree's `src`, as `<worktree>/scripts/gate.sh <cmd…>` does. A reviewer's
   red suite run from its worktree tests its own copy → **print `<module>.__file__` before
   believing a red**; copy the test into the primary `tests/` to exercise primary code.
+- **An exported `UV_PROJECT_ENVIRONMENT` + any `uv run --directory <subproject>` (`tools/cocowb-eval`,
+  `tools/review-ui`) syncs that subproject INTO the named environment — the primary `.venv` becomes
+  the subproject's (measured: replaced by cocowb-eval's Python 3.12 env mid corpus run).** The gate's
+  `cocowb-eval` step and `bench.py _evaluate` unset it; a hand-run subproject command must too
+  (`env -u UV_PROJECT_ENVIRONMENT uv run --directory …`). Repair = `uv sync --locked` from the root.
 - Export `UV_PROJECT_ENVIRONMENT` on **every** call: otherwise `uv run` creates a worktree-local
   `.venv` that `--no-sync` leaves empty → `No module named pytest`. `--no-sync` keeps the shared
   environment unmutated (what makes concurrent gating safe); tool caches are cwd-relative →

@@ -173,7 +173,9 @@ def test_p03_long_hole_censors_short_hole_keeps_speed_features_only():
         _with_hole(base, 45, 2, drop_rows=False),
     )
     assert long_na == long_drop  # explicit NA and omitted rows read alike
-    assert all(long_na["censored"])
+    # The hole splits the one movement in two; both fragments publish, censored (an empty list
+    # would pass `all` while the bounds + censoring evidence vanished).
+    assert long_na["censored"] == [True, True]
     assert long_na["features"] == [] or all(
         v is None for name in _FEATURES for v in long_na["features"][name]
     )
@@ -556,3 +558,22 @@ def test_a12_each_driver_report_records_the_running_build(tmp_path, monkeypatch,
     _, args, _, _ = _generation(name, tmp_path, monkeypatch, enabled=True)
     report = json.loads(args.report.read_text(encoding="utf-8"))
     assert report["configuration"]["openvino_build"] == openvino.get_version()
+
+
+def test_s12_a_malformed_recorded_digest_never_reaches_the_report(tmp_path, monkeypatch):
+    """A marker value joins the report's redaction allowlist only when it is digest-shaped."""
+    producer = tmp_path / "synthetic_clinical.R"
+    producer.write_text("# producer\n")
+    driver, args, _, event_out = _driver_generation(tmp_path, monkeypatch, producer)
+    corpus_run = importlib.import_module("pose_estimation.corpus_run")
+    marker = corpus_run.read_marker(event_out)
+    assert marker is not None
+    assert len(marker["analysis_sha256"]) == 64  # positive control: a real digest was recorded
+    corpus_run.write_marker(event_out, **(marker | {"analysis_sha256": "PRIVATE-subject/a.mp4"}))
+    args.analyse_only, args.refresh_clinical = True, False
+    driver["main"]()
+    text = args.report.read_text()
+    assert "PRIVATE-subject" not in text
+    report = json.loads(text)
+    assert report["configuration"]["analysis_sha256"] == "mixed"
+    assert report["verdicts"]["clinical_method_uniform"] is False

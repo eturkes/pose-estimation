@@ -30,6 +30,7 @@ import csv
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -173,6 +174,7 @@ REPORT_FIELDS = frozenset(
 #: Report value when complete events record different (or no) R producers: run
 #: `--analyse-only --refresh-clinical` to bring every event onto one.
 ANALYSIS_MIXED = "mixed"
+SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 
 
 def _load_pilot() -> Any:
@@ -694,10 +696,13 @@ def main() -> int:
             "than this invocation's; the report would misname their generation"
         )
 
+    # A marker value reaches the report's redaction allowlist, so only a digest-shaped one counts;
+    # anything else reads like a pre-digest marker (no recorded producer → `mixed`).
     recorded = {
-        (read_marker(args.out / event_id) or {}).get("analysis_sha256")
+        digest if isinstance(digest, str) and SHA256_HEX.fullmatch(digest) else None
         for event_id in event_ids
         if is_complete(args.out / event_id)
+        for digest in [(read_marker(args.out / event_id) or {}).get("analysis_sha256")]
     }
     analysis_identity = recorded.pop() if len(recorded) == 1 else ANALYSIS_MIXED
     analysis_identity = analysis_identity or ANALYSIS_MIXED

@@ -129,6 +129,8 @@ def main():
         )
     }
     checks = {
+        "every part scored": set(perfect)
+        == {"body", "foot", "face", "lefthand", "righthand", "wholebody"},
         "perfect = 1.0 on every part": all(abs(v - 1.0) < 1e-9 for v in perfect.values()),
         "shifted right hand loses righthand AP alone": shifted["righthand"] < 0.5
         and shifted["lefthand"] == 1.0

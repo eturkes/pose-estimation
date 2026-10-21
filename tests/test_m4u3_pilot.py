@@ -159,3 +159,45 @@ def test_p01_g4_needs_both_hands_exported():
     rows = p.side_rows("s1", consensus, row, SCALE)
     assert all("swap" not in r for r in rows)
     assert math.isnan(p.endpoints(rows)["G4"])
+
+
+def test_a01_whole_clip_replay_exports_the_production_task_span(tmp_path, monkeypatch):
+    """M4.3 A01: a whole-clip replay = the corpus run of that clip, camera-survey trim included."""
+    import csv
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from pose_estimation import run, subject_tracker
+    from pose_estimation.bench import replay
+    from test_m2u92_keypoint_hygiene import _Capture
+
+    monkeypatch.setattr(run, "open_capture", lambda *a, **k: _Capture([(48, 64)] * 12))
+    monkeypatch.setattr(run, "_patch_rtmlib_openvino", lambda: None)
+
+    class Tracker:
+        def __init__(self, *args, **kwargs):
+            self.last_track_ids = [7]
+
+        def reset(self):
+            pass
+
+        def __call__(self, frame):
+            return np.full((1, 133, 2), 20.0), np.full((1, 133), 0.9)
+
+    monkeypatch.setattr(subject_tracker, "SubjectTracker", Tracker)
+    survey = SimpleNamespace(
+        span=(4, 12), n_frames=12, to_reference=np.repeat(np.eye(3)[None], 12, 0)
+    )
+    monkeypatch.setattr(run, "survey_source", lambda *a, **k: survey)
+    media = tmp_path / "synthetic.mp4"
+    media.touch()
+
+    def frames(path):
+        with path.open(newline="") as stream:
+            return [int(r["frame_idx"]) for r in csv.DictReader(stream)]
+
+    # The corpus driver's own invocation (survey on by default there) exports the span alone.
+    run.main(["--source", str(media), f"--output-dir={tmp_path / 'prod'}", *replay.CORPUS_ARGS])
+    assert frames(tmp_path / "prod" / "synthetic.csv") == list(range(4, 12))
+    assert frames(replay.replay_window(media, 0, 11, tmp_path / "replay")) == list(range(4, 12))

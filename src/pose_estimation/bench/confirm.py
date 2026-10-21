@@ -175,6 +175,7 @@ CANDIDATES_LINE = re.compile(r"^- \*\*A01 \(candidates\)\.\*\*(?P<names>.*)$", r
 def frozen_candidates(contract: Path) -> list[str]:
     """Candidate names from the contract's A01 amendment; refuses when it is absent (P04)."""
     match = CANDIDATES_LINE.search(contract.read_text(encoding="utf-8"))
-    if match is None:
+    names = re.findall(r"`([^`]+)`", match.group("names")) if match else []
+    if not names:
         raise ValueError("contract-m4u4 names no candidates (amendment A01): refusing to score")
-    return re.findall(r"`([^`]+)`", match.group("names"))
+    return names

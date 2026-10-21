@@ -197,3 +197,51 @@ def test_a03_bench_arms_are_runtime_registry_entries():
         size = entry["pose_input_size"]
         assert (arm.url, arm.input_size) == (entry["pose"], tuple(size))  # ty: ignore[invalid-argument-type]
         assert entry["calibration"] in (None, f"{key}.json")
+
+
+def test_p04_paired_pck_bootstrap_drops_units_with_no_valid_joint():
+    """An uncovered hand carries no evidence: resampling it could draw a zero denominator."""
+    valid = np.array([[True, True], [False, False]])
+    correct = {"base": np.array([[True, True], [False, False]]), "arm": np.array([[True, False], [False, False]])}  # fmt: skip
+    for seed in range(20):
+        result = _screen().paired_pck_bootstrap(correct, valid, n=50, seed=seed)
+        assert result["pairs"]["arm-base"]["difference"] == -0.5
+        assert result["pairs"]["arm-base"]["interval"] == (-0.5, -0.5)
+
+
+def test_a04_screen_refuses_an_arm_outside_the_registry(tmp_path):
+    """A04: a dropped arm left the registry, so its stale caches cannot reach the finalists."""
+    import argparse
+    import runpy
+    from pathlib import Path
+
+    cli = runpy.run_path(str(Path(__file__).resolve().parents[1] / "scripts" / "bench.py"))
+    args = argparse.Namespace(
+        public=tmp_path, coco_wb=tmp_path / "gt.json", arms=["rtmw-m-256", "sapiens-2b"],
+        coco_limit=0, coco_seed=1, dexycb=tmp_path, handsets=tmp_path, hand_seed=1,
+        baseline="rtmw-m-256", n=10, seed=1, out=tmp_path / "screen.json",
+    )  # fmt: skip
+    with pytest.raises(SystemExit, match="sapiens-2b"):
+        cli["cmd_screen"](args)
+    assert not args.out.exists()
+
+
+def test_evaluator_subprocess_never_inherits_the_project_environment(tmp_path, monkeypatch):
+    """The worktree recipe exports UV_PROJECT_ENVIRONMENT = the primary .venv; inherited by
+    `uv run --directory tools/cocowb-eval`, uv syncs the scorer's Python 3.12 project into it."""
+    import json
+    import os
+    import runpy
+    from pathlib import Path
+
+    fake = tmp_path / "bin" / "uv"
+    fake.parent.mkdir()
+    fake.write_text('#!/bin/sh\nprintf \'{"env": "%s"}\' "${UV_PROJECT_ENVIRONMENT-unset}"\n')
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{fake.parent}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", str(tmp_path / "primary-venv"))
+    cli = runpy.run_path(str(Path(__file__).resolve().parents[1] / "scripts" / "bench.py"))
+    assert cli["_evaluate"]("score.py", "gt.json") == {"env": "unset"}
+    assert json.loads(  # positive control: the fake uv reads the variable when it is passed
+        __import__("subprocess").run([str(fake)], capture_output=True, text=True).stdout
+    ) == {"env": str(tmp_path / "primary-venv")}
