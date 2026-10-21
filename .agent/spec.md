@@ -181,7 +181,7 @@ hospital SCI database.
 - [x] bf7728a **M4.3b calibration + gate rule** — reference-equivalent Platt maps, per-model hand gate, presence instrument; refit rule applies in M4.3.
 - [ ] **M4.3 complete-pipeline finalists** (instrument `b88b0e9`; scored from the M4 corpus runs) — pose × hand × detector/identity (incl. a wrong-person
   arm), each recalibrated on development data, dynamic + feature controls, production replay.
-- [ ] **M4.4 locked confirmation** (table frozen `2ef508e`; user labels 0 of 96 saved, review UI stopped → restart for `/label`) — decision table (superiority / non-inferiority / inconclusive)
+- [ ] **M4.4 locked confirmation** (table frozen `2ef508e`; review UI serves `/label` for the user's 96 frames) — decision table (superiority / non-inferiority / inconclusive)
   frozen with margins before a one-use corpus subset is scored; gates vs the shipped baseline.
 - [x] 2d0270f 8fe4e2b 48ef1fd **M4.5 features** — qualified wrist-motion bouts (SPARC, NJ, timing,
   peaks, path ratio, dwell), cohort v2 (bout level, construct-invalid exclusions, descriptive
@@ -192,12 +192,14 @@ hospital SCI database.
 - [x] f35f83e **M4.2b heavy arms** (user request: HF-gated models first) — Sapiens v1 0.3B-2B
   (gated, access granted) + SDPose screened; every arm over the 1-day corpus ceiling → dropped
   (`contract-m4u2.md` A04, `docs/technical/benchmark.md` § Sapiens v1); finalists unchanged.
-- [ ] **Corpus rerun** (RTMW-L 384 done → `output/corpus-2d-m4-rtmw-l-384`, 193/193, clinical stage
-  pre-bouts; RTMW-m 256 not started → move `.scratch/impl/corpus-rtmw-l-384.log` aside, relaunch
-  `.scratch/impl/gpu_queue3.sh` (~8-10 h); code pinned at worktree `.scratch/worktrees/corpus-m4`
-  (`48078b4`) → `--refresh-clinical` after each; ordered next steps → `.scratch/impl/checkpoint.md`)
-  — cohort republished; after-table vs M2.10; `scientist`.
-- [ ] **Closing review** — one `reviewer` per lens + MAIN's security lens → `.agent/review.md`.
+- [ ] **Corpus rerun** (RTMW-L 384 → `output/corpus-2d-m4-rtmw-l-384`, 193/193, clinical refreshed
+  at HEAD R; RTMW-m 256 → `output/corpus-2d-m4-rtmw-m-256` running via `.scratch/impl/gpu_queue3.sh`
+  (resume = rerun it), then `--refresh-clinical`; code pinned at worktree
+  `.scratch/worktrees/corpus-m4` (`48078b4`, landmark code = HEAD's); ordered next steps →
+  `.scratch/impl/checkpoint.md`) — cohort republished; after-table vs M2.10; `scientist`.
+- [ ] **Closing review** (wave over `301bd38..eccbe39` + re-review closed: `9417b9e` `7855bc5`
+  `a79c355` `598b77d`; open = a delta round over the adoption units) — one `reviewer` per lens +
+  MAIN's security lens → `.agent/review.md`.
 - [ ] **Close** — README, review UI → `tools/review-ui/`, `Phase: MAINTAIN`. Met when: full gate (scanners
   included) passes on a clean tree; every `Decisions` entry implemented or deferred with its reason;
   `.agent/review.md` holds no open row.
