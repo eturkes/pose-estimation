@@ -15,7 +15,9 @@ import numpy as np
 from .labels import HAND_JOINTS
 from .qualify import PRESENT, exported_hands, presence_f1
 
-GROSS_HAND = 0.3  # of the labelled hand extent diagonal (M4.1 qualified resolution)
+# Of the labelled hand extent diagonal: the consensus's own error vs public GT has p90 0.518 at
+# the thumb tip, so 0.3 graded label noise; every joint's p90 < 0.6 (contract-m4u3 A02, user).
+GROSS_HAND = 0.6
 GROSS_ARM = 0.1  # of the consensus patient-box diagonal
 ENDPOINTS = ("G1", "G2", "G3", "G4")
 #: Decision margins (contract §3): lower bound for G1-G3 differences, upper for G4.

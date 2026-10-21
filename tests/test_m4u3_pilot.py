@@ -43,14 +43,14 @@ def _frame_one():
                     "body.elbow": _joint("vis", (350, 350)),
                     "body.wrist": _joint("?"),
                 },
-                extent=[480, 480, 580, 480],  # diagonal 100 → hand tolerance 30 px
+                extent=[480, 480, 580, 480],  # diagonal 100 → hand tolerance 60 px
             ),
             "R": _side("?", {"joints.wrist": _joint("vis", (900, 500))}),
         },
     }
     row: dict[str, str] = {}
     _put(row, "left_hand_0", (510, 500), "conf")  # 10 px → hit
-    _put(row, "left_hand_8", (600, 500), "conf")  # 40 px → miss
+    _put(row, "left_hand_8", (630, 500), "conf")  # 70 px → miss
     row["left_hand_4_x"] = ""  # thumb tip not exported → miss
     _put(row, "body_left_shoulder", (340, 230), "vis")  # 50 px → hit
     _put(row, "body_left_elbow", (350, 350), "vis", score=0.0)  # masked → miss

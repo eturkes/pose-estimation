@@ -78,7 +78,8 @@ hospital SCI database.
   hand size and the blinded pairwise judge near chance) — public GT decides fine accuracy now;
   agent labels grade gross errors only; the user clicks wrist + fingertip points on ~100 sampled
   corpus frames in a review-UI labelling page, and those frames are the confirmation set before
-  the final corpus run.
+  the final corpus run. Agent hand points grade at 0.6 of the hand extent — their consensus's own
+  error vs public GT (p90 0.518 thumb tip) — never finer (M4.3 G2, contract-m4u3 A02).
 - **Shipped pose model = RTMW-m 256x192** — registry key `rtmw-l` names checkpoint
   `rtmw-dw-l-m` = RTMW-m in mmpose's own table (COCO-WholeBody hand AP 0.491, whole 0.582; true
   RTMW-L `rtmw-dw-x-l` 0.598 / 0.660, at 384x288 0.663 / 0.701); every generation through M2.10 ran
@@ -174,7 +175,7 @@ hospital SCI database.
   one qualified manipulation set (ARCTIC / Ego-Exo4D / DexYCB), HInt visibility; every candidate
   (RTMW m/L/X, DWPose, Sapiens, SDPose, hand models, detectors) → a diverse finalist set.
 - [x] 73927ef **On-path defects** (M4.6; P07: the temporal filter places the out-of-frame residue,
-  bone-length adds on 2 of 6 clips → `docs/technical/pose-weak-points.md` § M4.6) — P08 gate keying,
+  bone-length adds on 3 of 6 clips → `docs/technical/pose-weak-points.md` § M4.6) — P08 gate keying,
   P09 out-of-frame residue, D02 counter, OpenVINO build in `pose_config.json`, raw-score decode.
 - [x] 73927ef **M4.3a arm plumbing** — mmpose-named registry, per-model device, score-calibration hook.
 - [x] bf7728a **M4.3b calibration + gate rule** — reference-equivalent Platt maps, per-model hand gate, presence instrument; refit rule applies in M4.3.

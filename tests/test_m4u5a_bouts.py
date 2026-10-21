@@ -209,7 +209,7 @@ def _glitched(series: dict, at: int, length: int, size: float) -> dict:
 def test_p04_outlier_episode_leaves_genuine_bouts_and_fires_on_max_normaliser():
     parts = tuple((1.0 + 2.5 * k, 1.2, 0.08 if k % 2 == 0 else -0.08, 0.0) for k in range(6))
     clean = _series(parts=parts, total=17.0)
-    glitched = _glitched(clean, 470, 6, 0.08)  # ~0.6 % of the series: inside the top 1 %
+    glitched = _glitched(clean, 470, 6, 0.08)  # ~1.2 % of the slots, inside the top 5 %
     body = _DETECT.replace(
         "det <- detect_bouts(nums(q$t), x, y, as.integer(nums(q$frame)), q$fs)",
         "det <- detect_bouts(nums(q$t), x, y, as.integer(nums(q$frame)), q$fs, normaliser_q = q$q)",

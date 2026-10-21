@@ -233,8 +233,8 @@ three arms. Census = points the export pass zeroed, all 133 keypoints:
 
 - **The temporal filter places the residue**: with bone-length projection off it persists on every
   clip (4936 of 5190 points); with the filter off too, 0 on all 6.
-- **Bone-length projection adds to it on 2 clips** (clip 1: 240 of 272) and pulls points back
-  inside on 2 (clips 3 + 6).
+- **Bone-length projection adds to it on 3 clips** (clip 1: 240 of 272; clips 2 + 4: 29 + 32),
+  pulls points back inside on 2 (clips 3 + 6) and moves none on clip 5.
 - Unrun arm: filter off with bone-length on. `--no-smooth` also skips the bone-length stage,
   which needs the smoother's track keys, so the filter's sole share is bounded by the two arms
   above, not isolated.

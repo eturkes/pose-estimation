@@ -48,6 +48,25 @@ def agreement(a: Sequence[str], b: Sequence[str]) -> tuple[int, int]:
     return sum(x == y for x, y in pairs), len(pairs)
 
 
+def class_agreement(a: Sequence[str], b: Sequence[str], classes: Sequence[str]) -> dict[str, dict]:
+    """Per class: how often one rater's call of it is repeated by the other, both directions.
+
+    The bar (contract-m4u1 D06) is per class — a pooled interval lets a common class carry a rare
+    one. `?` on either side is excluded; `lower` = the smaller Wilson lower bound of the two
+    directions, None when either rater never calls the class.
+    """
+    if len(a) != len(b):
+        raise ValueError("label sequences differ in length")
+    pairs = [(x, y) for x, y in zip(a, b, strict=True) if x != "?" and y != "?"]
+    out = {}
+    for c in classes:
+        both = sum(x == c and y == c for x, y in pairs)
+        first, second = sum(x == c for x, _ in pairs), sum(y == c for _, y in pairs)
+        lower = min(wilson(both, first)[0], wilson(both, second)[0]) if first and second else None
+        out[c] = {"agree": both, "first": first, "second": second, "lower": lower}
+    return out
+
+
 def box_iou(a: Sequence[float], b: Sequence[float]) -> float:
     """IoU of two `[x0, y0, x1, y1]` boxes."""
     if len(a) != 4 or len(b) != 4:

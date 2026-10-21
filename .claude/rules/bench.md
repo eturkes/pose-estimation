@@ -14,10 +14,10 @@ Contracts `.agent/archive/contract-m4u{1,2,3a,3b,4,6}.md`; measured resolutions 
 `docs/technical/benchmark.md`.
 
 - **Agents cannot grade fine hand accuracy.** Agent-placed hand points err ~0.10 of the hand box
-  (COCO-WB, 2 labellers) — as coarse as RTMW-m; the blinded pairwise judge sat near chance at every
-  error margin while answering consistently across colour swaps (stable, mostly wrong). Agent labels
-  = gross-error ground truth (hand states, patient box, joints at 0.3 of the hand extent / 0.1 of
-  the patient box); fine accuracy = public GT (`public-eval`, `hand-eval`) + the user's `/label`
+  (COCO-WB, 2 labellers) — as coarse as RTMW-m; the blinded pairwise judge answered consistently
+  across colour swaps yet no error-margin bin reached the 0.8 Wilson lower bound (decisive 90/145
+  right). Agent labels = gross-error ground truth (binary hand presence, patient box, joints at 0.6 of the hand extent /
+  0.1 of the patient box — the consensus's p90 vs public GT; 0.3 graded label noise); fine accuracy = public GT (`public-eval`, `hand-eval`) + the user's `/label`
   frames. Never brief a judge or labeller for a finer resolution than the measured one.
 - **The user's 96 frames are one-use confirmation** (`.scratch/bench/user/labels.jsonl`): no agent
   reads, scores or summarises them before `contract-m4u4.md` names its candidates (A01), and no

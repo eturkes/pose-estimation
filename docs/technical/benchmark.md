@@ -107,12 +107,14 @@ error margin |eA − eB| / hand diagonal.
 | 0.1-0.2 | 60 | 44 | 34 | 0.63-0.87 | 16 |
 | >= 0.2 | 60 | 25 | 13 | 0.34-0.70 | 35 |
 
-Colour-swap consistency 116/120 pairs: stable answers, mostly not the truth. **Verdict:** the
+Colour-swap consistency 116/120 pairs: stable answers. Decisive answers were right 90 of 145
+times (0.62), the 0.1-0.2 bin best at 34/44; 95 abstentions carry no score. **Verdict:** the
 judge is not qualified in any bin (bar: Wilson lower bound >= 0.8, abstention <= 0.5); no
 in-domain fine-accuracy ranking rests on agent judgment. In-domain fine accuracy comes from the
 user's clicked confirmation frames (`/label`), public GT from `public-eval` + `hand-eval`.
 
-Corpus pilot inter-labeller agreement (102 frames, 14 subjects; general-purpose-4 vs -5, each
+Corpus pilot inter-labeller agreement (102 frames, 14 subjects: main stratum 8, stress 12 —
+`contract-m4u3.md`'s "8 subjects" is the main quota alone; general-purpose-4 vs -5, each
 labelling its own frame + crop sheets; `scripts/bench.py agree`; `?` on either side excluded):
 
 | field | agreeing / compared | Wilson 95 % |
@@ -127,9 +129,32 @@ Hand states in the corpus are mostly partial (103 agreed `part`, 63 `occ`, 14 `v
 hands hold objects. Coordinate disagreement between the labellers, p50 / p90: hand joints
 0.015-0.066 / 0.040-0.176 of the labelled hand extent diagonal (wrist 0.052 / 0.117), arm joints
 0.018-0.031 / 0.039-0.089 of the patient-box diagonal. Disagreement measures shared precision,
-not truth. **Verdict:** categorical states qualify (every Wilson lower bound >= 0.8); consensus
-coordinates (agreed state, mean point) qualify for gross localisation only — hand joints at 0.3 of
-the extent diagonal, arm joints at 0.1 of the patient diagonal (above both labellers' p90).
+not truth.
+
+Per class (D06's bar is per class; `bench.py agree`, each labeller's call as the condition, the
+smaller Wilson lower bound of the two directions), at the grains the M4.3 endpoints read:
+
+| class | gp4 → gp5 | gp5 → gp4 | lower |
+| --- | --- | --- | --- |
+| hand present (`vis`/`part`) — G1 | 121/122 | 121/121 | 0.955 |
+| hand absent (`occ`/`oof`) — G1 | 70/70 | 70/71 | 0.924 |
+| hand joint `vis` — G2 | 421/429 | 421/439 | 0.936 |
+| arm joint `vis` — G3 | 300/338 | 300/310 | 0.849 |
+
+Below the bar, and read by no endpoint: hand `vis` vs `part` (14 agreed `vis`: Wilson(14, 14) =
+0.785 at best), hand joint `oof` (2/2), arm joint `occ` (0.694).
+
+Consensus coordinates against public GT (`bench.py public-score --consensus`: the two labellers'
+mean point where both marked `vis`, 60 COCO-WholeBody hands, error / GT hand-box diagonal), p50 /
+p90: wrist 0.103 / 0.338, thumb tip 0.080 / 0.518, index knuckle 0.102 / 0.293, index tip
+0.040 / 0.216, little tip 0.031 / 0.093 (n = 11); pooled 0.083 / 0.318 (n = 176), 0.892 within
+0.3, 0.943 within 0.6. Public hands are fully visible and normalised by the GT box; corpus hands
+are mostly partial and normalised by the drawn extent, so these bound the corpus error from below.
+
+**Verdict:** the four classes above qualify at their grains; arm consensus qualifies for gross
+localisation at 0.1 of the patient diagonal (each labeller's public p90 <= 0.083 of the person
+box); hand consensus does NOT qualify at 0.3 of the hand diagonal (wrist + thumb tip p90 above
+it) and does at 0.6 (every joint's p90 below it).
 
 Pre-roll (20 untrimmed pilot frames, RTMW-m; `bench.py preroll`): a replay window ending at the
 frame against the whole clip replayed under the same code, equivalent = every point the R stage
@@ -141,8 +166,8 @@ reads within 0.001 frame-normalised with no visibility flip.
 | frames with a visibility flip | 6 | 4 | 4 | 2 | 0 |
 
 Hands converge by 2-4 s; at 8 s, 4 frames still differ by 0.16-0.39 on face and shoulder points —
-the subject tracker's sticky choice locked onto another person. **Verdict:** no finite pre-roll
-stands in for the whole clip, so `presence`, `pilot-eval` and the M4.4 confirmation replay each
+the subject tracker's sticky choice locked onto another person. **Verdict:** no tested pre-roll
+(0-8 s) stands in for the whole clip, so `presence`, `pilot-eval` and the M4.4 confirmation replay each
 clip whole.
 
 ## Public screening (M4.2)
@@ -239,7 +264,9 @@ points + boxes over the 22-event sample):
 Ratio 1.234 [1.023, 1.463] over 178 paired units / 103 events → **no material drop; the 3D
 ruling stands.** The per-keypoint bias stays as reproducible as on RTMW-m. Confound checked: the
 calibrated 0.5 cut admits more points per pair for L384 (median 34 vs 24), yet on the 39 pairs
-where it admits no more, the ratio is 1.408 — the rise is not a population artifact.
+where it admits no more, the ratio is 1.408 — more admitted points do not explain the rise.
+The check holds the count, not the support: the two arms' points on a pair can differ, so a
+composition effect stays unmeasured (a common-keypoint comparison would decide it).
 
 ## Public data provenance
 

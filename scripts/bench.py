@@ -238,9 +238,40 @@ BODY17 = {
 }
 
 
+def _public_consensus(a: argparse.Namespace, manifest, gt) -> int:
+    """Consensus hand points (both labellers `vis` → mean point) vs GT / GT hand-box diagonal:
+    the accuracy of what the pilot endpoints grade against, not each labeller's."""
+    if len(a.answers) != 2:
+        raise SystemExit("public-score --consensus takes exactly two answer files")
+    first, second = ({r["sheet"]: r for r in labels.load(p)} for p in a.answers)
+    errors: dict[str, list[float]] = defaultdict(list)
+    for sheet in sorted(set(first) & set(second)):
+        t = Path(sheet).stem
+        if gt[t]["kind"] != "hand":
+            continue
+        sm = sheets.SheetMap(**manifest[t].map)
+        k = np.asarray(gt[t]["kpts"])
+        for j, name in enumerate(labels.HAND_JOINTS):
+            pts = [r.get("joints", {}).get(name, {}) for r in (first[sheet], second[sheet])]
+            if all(p.get("state") == "vis" and p.get("uv") is not None for p in pts):
+                mean = np.mean([sm.to_frame(*p["uv"]) for p in pts], axis=0)
+                errors[name].append(float(np.hypot(*(mean - k[j, :2])) / gt[t]["diag"]))
+    pooled = [v for vals in errors.values() for v in vals]
+    for name, vals in [*errors.items(), ("all", pooled)]:
+        p50, p90 = qualify.quantiles(vals)
+        within = {t: float(np.mean(np.asarray(vals) <= t)) for t in (0.3, 0.6)}
+        print(
+            f"public-score: consensus hand/{name:10s} n={len(vals):3d} err/diag p50={p50:.3f} "
+            f"p90={p90:.3f} <=0.3 {within[0.3]:.3f} <=0.6 {within[0.6]:.3f}"
+        )
+    return 0
+
+
 def cmd_public_score(a: argparse.Namespace) -> int:
     manifest = sheets.load_manifest(a.sheets)
     gt = json.loads(a.gt.read_text(encoding="utf-8"))
+    if a.consensus:
+        return _public_consensus(a, manifest, gt)
     errors: dict[str, list[float]] = defaultdict(list)
     states: list[tuple[str, str]] = []
     for answer in _answers(a.answers):
@@ -1118,6 +1149,21 @@ def cmd_agree(a: argparse.Namespace) -> int:
         print(
             f"agree: {name:11s} {k}/{n} = {k / n:.3f} (Wilson {lo:.3f}-{hi:.3f}) {dict(sorted(confusion.items()))}"
         )
+    # Per class at the grains the pilot endpoints read: binary hand presence (G1), joint states.
+    presence = {k: "present" if v else "absent" for k, v in qualify.PRESENT.items()} | {"?": "?"}
+    per_class = (
+        ("hand presence", [presence[s] for s in fields["hand"][0]],
+         [presence[s] for s in fields["hand"][1]], ("present", "absent")),
+        ("hand_joint", *fields["hand_joint"], labels.JOINT_STATES[:-1]),
+        ("body_joint", *fields["body_joint"], labels.JOINT_STATES[:-1]),
+    )  # fmt: skip
+    for name, x, y, classes in per_class:
+        for c, r in qualify.class_agreement(x, y, classes).items():
+            lower = "—" if r["lower"] is None else f"{r['lower']:.3f}"
+            print(
+                f"agree: class {name:13s} {c:7s} {r['agree']}/{r['first']} · "
+                f"{r['agree']}/{r['second']} lower {lower}"
+            )
     if patient_iou:
         print(
             f"agree: patient box IoU >= 0.5 on {sum(i >= 0.5 for i in patient_iou)}/{len(patient_iou)}"
@@ -1172,6 +1218,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--sheets", type=Path, required=True)
     s.add_argument("--gt", type=Path, required=True)
     s.add_argument("--answers", type=Path, nargs="+", required=True)
+    s.add_argument("--consensus", action="store_true", help="two labellers' mean hand points vs GT")
     s = sub.add_parser("judge-public")
     s.add_argument("--coco-wb", type=Path, required=True)
     s.add_argument("--images", type=Path, required=True)

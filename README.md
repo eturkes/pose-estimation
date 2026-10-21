@@ -39,8 +39,8 @@ Read every published number under these limits:
   an anatomical joint angle.
 - **No metric scale.** Distances and speeds use frame-normalized units, not metres. The tool
   publishes `scale_unmeasured` on every clip.
-- **No 3D.** No method can calibrate these cameras after the recording, so the tool does not
-  fuse the views.
+- **No 3D.** The tested calibration methods could not recover the camera positions after the
+  recording, so the tool does not fuse the views. A calibrated capture can change this result.
 - **A bout is a span of detected wrist motion.** It is not a recovered reach or grasp. A pause
   can divide one action into two bouts.
 - **Cross-view agreement is descriptive.** It shows how much the camera views of one recording
@@ -121,10 +121,11 @@ describes each view.
 
 ## How the model was chosen
 
-The benchmark compared five pose models on public ground truth (COCO-WholeBody, DexYCB, HInt).
-It then checked the leading model inside the full pipeline on labelled corpus frames, and it
-confirmed the choice on corpus frames labelled by hand. The results and the decision rules are
-in [`docs/technical/benchmark.md`](docs/technical/benchmark.md).
+The benchmark compared five pose models on public ground truth (COCO-WholeBody, DexYCB, HInt),
+and RTMW-L 384 led on hand accuracy. Two more steps decide the shipped model: a check of each
+finalist inside the full pipeline on labelled corpus frames, and a confirmation on corpus frames
+that a person labels by hand. [`docs/technical/benchmark.md`](docs/technical/benchmark.md) records
+the results and the decision rules.
 
 ## Other uses
 

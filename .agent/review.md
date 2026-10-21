@@ -159,21 +159,21 @@ fix against its acceptance check.
 | F24 | `screen` ranked arms outside the registry (A04-dropped caches → finalist) | K07a K12 | accepted | refused before ranking; test | fixed |
 | F25 | whole-clip replay skipped the production camera survey → posed trimmed setup frames | K08a | accepted | `CORPUS_ARGS` + `--camera-survey`; test | fixed |
 | F26 | an A01 heading naming nobody passed the candidate freeze | K09a | accepted | refusal before labels load; test | fixed |
-| F27 | P07: "bone-length adds on 2 clips" vs the table's 3 of 6 | K11a N10c N12b N13a | accepted | live text | open |
+| F27 | P07: "bone-length adds on 2 clips" vs the table's 3 of 6 | K11a N10c N12b N13a | accepted | 3 of 6 in pose-weak-points + spec | fixed |
 | F28 | `score_calibration` promised P(correct); shipped reference maps emit raw-scale scores > 1 | G01a | accepted | docstring names both fits | fixed |
 | F29 | DexYCB bootstrap resampled zero-evidence hands → ÷0 on a sparse draw | G03a | accepted | units = hands with a valid joint; equal coverage enforced; test; table re-derived (Δ ≤ 0.001) | fixed |
 | F30 | `--from-run` scored markerless / failed / other-generation events | G04a G04b | accepted | complete marker + recorded model + calibration digest; tests | fixed |
 | F31 | pilot replay cache survived a hand-gate refit | G04c | accepted | cache keyed by replay args + calibration digest; test | fixed |
 | F32 | review-UI README: global "writes nothing" / "read-only" vs `/label` | G11a V11a M11b | accepted | scoped (`9417b9e`) | fixed |
-| F33 | "no finite pre-roll" for a 0-8 s grid | N04a N10f | accepted | "no tested pre-roll" (CLI docstring here; docs → text unit) | open |
-| F34 | per-class state qualification claimed from pooled field intervals | N09a N10a N13b | accepted | per-class at the grains M4.3 reads, measured → text | open |
-| F35 | M4.3 pilot "8 subjects" = main quota; combined = 14 | N09b | accepted | live erratum | open |
-| F36 | consensus coordinates "qualified at 0.3" from inter-labeller precision | N10b V10a V12 | accepted | consensus vs public GT measured → G2 tolerance = user ruling | open |
-| F37 | judge "near chance / mostly wrong" vs 90/145 decisive correct | N10d N12b | accepted | text | open |
-| F38 | cross-view "not a population artifact" from a count restriction | N10e N13c | accepted | narrowed | open |
-| F39 | README: "No method can calibrate these cameras" | N11a M11a | accepted | bounded to the evaluated conditions | open |
-| F40 | README: M4.3/M4.4 confirmation stated as done | N11b | accepted | measured state at close | open |
-| F41 | `cohort.md` 88 / 1056 stated as every publication's census | N12a | accepted | declared maximum | open |
+| F33 | "no finite pre-roll" for a 0-8 s grid | N04a N10f | accepted | "no tested pre-roll (0-8 s)" in CLI + benchmark.md | fixed |
+| F34 | per-class state qualification claimed from pooled field intervals | N09a N10a N13b | accepted | `bench.py agree` prints per-class lower bounds; benchmark.md table; test | fixed |
+| F35 | M4.3 pilot "8 subjects" = main quota; combined = 14 | N09b | accepted | benchmark.md + contract-m4u3 A02: main 8, stress 12, pilot 14 | fixed |
+| F36 | consensus coordinates "qualified at 0.3" from inter-labeller precision | N10b V10a V12 | accepted | consensus vs GT measured (`public-score --consensus`); user ruling: G2 at 0.6 (contract-m4u3 A02) | fixed |
+| F37 | judge "near chance / mostly wrong" vs 90/145 decisive correct | N10d N12b | accepted | decisive 90/145, no bin at the bar (benchmark.md, bench.md) | fixed |
+| F38 | cross-view "not a population artifact" from a count restriction | N10e N13c | accepted | count held, support not: composition unmeasured | fixed |
+| F39 | README: "No method can calibrate these cameras" | N11a M11a | accepted | README: the tested methods, a calibrated capture can change it | fixed |
+| F40 | README: M4.3/M4.4 confirmation stated as done | N11b | accepted | README states what is measured; final wording at close | fixed |
+| F41 | `cohort.md` 88 / 1056 stated as every publication's census | N12a | accepted | cohort.md: declares 88; published count = `population.features` | fixed |
 | F42 | calibration P01: 5 % bound + fitted-model oracle vs the frozen 2 % | V01a V08 V09 | accepted | generating-model oracle at 2 % (1e6/arm: ≤ 0.7 % over 6 seed pairs; kills the 4 % slope mutant) | fixed |
 | F43 | cocowb self-check passed a scorer missing its wholebody pass | V03a | accepted | exact six-part set | fixed |
 | F44 | censored-fragment test passed with zero fragments | V05a V08 | accepted | exact `[True, True]`; kills the row-drop mutant | fixed |

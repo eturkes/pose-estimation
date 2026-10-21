@@ -7,13 +7,14 @@ paths:
   - "uv.lock"
   - "renv.lock"
   - "tools/review-ui/uv.lock"
+  - "tools/cocowb-eval/uv.lock"
   - ".github/dependabot.yml"
 ---
 
 # Security scanners — what runs, what it covers, how it fires
 
-- **Dependency audit** = `uv audit --locked` over both uv lockfiles (root + `tools/review-ui/`;
-  `--preview-features audit-command` silences the experimental banner) + `osv-scanner scan source
+- **Dependency audit** = `uv audit --locked` over the three uv lockfiles (root, `tools/review-ui/`,
+  `tools/cocowb-eval/`; `--preview-features audit-command` silences the experimental banner) + `osv-scanner scan source
   -L renv.lock` (122 CRAN packages; Dependabot has no renv ecosystem, so this step is its only
   update signal). The vendored review-UI JS (Plotly, fonts) carries no lockfile and no audit.
 - **Secret scan** = betterleaks 1.9.0 (maintained by gitleaks' original author; MIT), default rules,

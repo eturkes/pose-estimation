@@ -77,7 +77,7 @@ the **inherited** `PYTHONPATH` names the host OpenVINO package (glibc 2.43) and 
 The decisive gate reads `videos/` + `inventory/` (patient data that never leaves this machine) and
 `renv/library`; a hosted runner without them fails or skips cases, and A32 fails any skip → no
 hosted runner can close it green. Scanners (dependency audit, secret scan, static analysis) run in
-the local gate (→ `scanners.md`); update automation = `.github/dependabot.yml` (uv, both
+the local gate (→ `scanners.md`); update automation = `.github/dependabot.yml` (uv, all three
 lockfiles). User ruling: no hosted scanner workflow either; the remote carries Dependabot config
 alone.
 

@@ -84,3 +84,10 @@ frames. Every `pass` arm (plus the baseline) becomes an M4.4 candidate, named + 
   of that clip under the arm), rows read at the sampled frames; wall = clip seconds over its
   sampled frames. P04 = refusal of an arm outside `run.MODEL_REGISTRY` (the pre-roll argument is
   gone); `bench.pilot.check_request(arm)`.
+- **A02 (G2 resolution; user ruling, before any arm result).** §2 G2's "within 0.3 of the agreed
+  hand extent diagonal" → **0.6**. The 0.3 was set from inter-labeller precision; the consensus's
+  own error against public GT (`bench.py public-score --consensus`, 60 COCO-WholeBody hands) has
+  p90 0.338 (wrist) and 0.518 (thumb tip), every joint below 0.6. Per-class agreement at the grains
+  G1-G3 read clears 0.8 (`bench.py agree`: lower 0.924-0.955 presence, 0.936 hand joint `vis`,
+  0.849 arm joint `vis`) → G1-G4, the margins and the decision table are unchanged. §3's "8
+  subjects" = the main stratum; the pilot carries 14 (stress 12).

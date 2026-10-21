@@ -4,7 +4,7 @@
 #   gate.sh --fast [pytest…]   fast gate: static steps + the named tests
 #   gate.sh <cmd…>             <cmd> under the gate prefix
 # Static = spec-lint, ruff check (security rules S included), ruff format --check, ty check, shell
-# lint, Dependabot schema. Scanners = dependency audit (both uv.lock via uv audit, renv.lock via osv-scanner), secret
+# lint, Dependabot schema. Scanners = dependency audit (three uv.lock via uv audit, renv.lock via osv-scanner), secret
 # scan (history + working tree), scanner seeds (each scanner fires on a planted input); they need
 # network + one run of scripts/install-tools.sh.
 # Every step runs from the repo root under the prefix; an exported UV_PROJECT_ENVIRONMENT passes

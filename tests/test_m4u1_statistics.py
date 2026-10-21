@@ -343,3 +343,54 @@ def test_p05_hand_diagonal_depends_on_native_width_height_not_position():
             image_id=1, ann_id=i, side="L", box=[x, y, width, height], kpts=np.zeros((21, 3))
         )
         assert hand.diagonal == pytest.approx(math.hypot(width, height))
+
+
+def test_p06_class_agreement_is_per_class_in_both_directions():
+    """D06 is per class: 14/14 agreed `vis` cannot clear 0.8 even when the pooled rate is high."""
+    qualify = bench("qualify")
+    a = ["vis"] * 14 + ["part"] * 100 + ["part", "?", "occ"]
+    b = ["vis"] * 14 + ["part"] * 100 + ["vis", "occ", "occ"]
+    out = qualify.class_agreement(a, b, ("vis", "part", "occ", "oof"))
+    assert out["vis"] == {
+        "agree": 14,
+        "first": 14,
+        "second": 15,
+        "lower": qualify.wilson(14, 15)[0],
+    }
+    assert (out["part"]["agree"], out["part"]["first"], out["part"]["second"]) == (100, 101, 100)
+    assert out["occ"] == {"agree": 1, "first": 1, "second": 1, "lower": qualify.wilson(1, 1)[0]}
+    assert out["oof"]["lower"] is None
+    assert qualify.wilson(14, 14)[0] < 0.8 < qualify.agreement(a, b)[0] / qualify.agreement(a, b)[1]
+
+
+def test_p07_public_score_consensus_grades_the_mean_point_against_gt(tmp_path, capsys):
+    """Consensus accuracy (what the pilot grades against) = the two labellers' mean `vis` point
+    vs GT; a joint either labeller left unsure stays out."""
+    import json
+    import runpy
+    from pathlib import Path
+
+    unit = {"origin_x": 0.0, "origin_y": 0.0, "scale_x": 1.0, "scale_y": 1.0, "zoom": 1.0}
+    entry = {"token": "t1", "kind": "hand", "key": "coco/1/1", "index": 0, "width": 100,
+             "height": 100, "side": "L", "map": unit}  # fmt: skip
+    sheets_dir = tmp_path / "sheets"
+    sheets_dir.mkdir()
+    (sheets_dir / "manifest.json").write_text(json.dumps({"t1": entry}))
+    kpts = [[0.0, 0.0, 2.0]] * 21
+    gt = tmp_path / "gt.json"
+    gt.write_text(json.dumps({"t1": {"kind": "hand", "kpts": kpts, "diag": 10.0}}))
+    # wrist: (2, 0) and (4, 0) → mean (3, 0) → 0.3; thumb tip: one labeller unsure → excluded.
+    answers = []
+    for i, (wx, thumb) in enumerate(((2.0, {"state": "vis", "uv": [1, 0]}), (4.0, {"state": "?"}))):
+        path = tmp_path / f"a{i}.jsonl"
+        joints = {"wrist": {"state": "vis", "uv": [wx, 0.0]}, "thumb_tip": thumb}
+        path.write_text(json.dumps({"sheet": "t1.png", "joints": joints}) + "\n")
+        answers.append(str(path))
+    main = runpy.run_path(str(Path(__file__).resolve().parents[1] / "scripts" / "bench.py"))["main"]
+    argv = ["public-score", "--sheets", str(sheets_dir), "--gt", str(gt), "--answers", *answers]
+    assert main([*argv, "--consensus"]) == 0
+    out = capsys.readouterr().out
+    assert "consensus hand/wrist      n=  1 err/diag p50=0.300 p90=0.300" in out
+    assert "thumb_tip" not in out
+    with pytest.raises(SystemExit, match="exactly two"):
+        main([*argv[:-2], answers[0], "--consensus"])

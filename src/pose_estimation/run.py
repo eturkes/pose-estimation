@@ -79,7 +79,7 @@ _RTMPOSE = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk
 
 # Keys follow mmpose's RTMW table, never the checkpoint's distillation prefix: `rtmw-dw-l-m` is
 # RTMW-m, `rtmw-dw-x-l` is RTMW-L. `pose_device` = where the model compiles (the L/X checkpoints
-# fail NPU compile); `calibration` = the score map under `calibration/` (None = raw scores).
+# fail NPU compile); `calibration` = the score map under `score_calibrations/` (None = raw scores).
 MODEL_REGISTRY = {
     "rtmw-m-256": {
         "pose": _RTMW + "rtmw-dw-l-m_simcc-cocktail14_270e-256x192_20231122.zip",
