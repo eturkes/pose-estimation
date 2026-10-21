@@ -44,22 +44,12 @@ rows before sizing any unit that touches their surfaces.
   non-task spans per asset (camera handling, floor/ceiling, operator) online; on >= 20
   hand-labelled assets it flags >= 90 % of setup frames and < 2 % of task frames, and the R stage
   excludes flagged spans with the exclusion counted in the run report.
-- **Out-of-frame points reach the export at visibility >= 0.3 (M2.9.2 P09 fail)** — 3648 of
-  2 555 251 feature-keypoint observations, 84/379 clips, overshoot median 36 px; a stage after
-  hygiene relocates them (`docs/technical/pose-weak-points.md` § M2.9 corpus; `.scratch/oof_probe.py`)
-  → the moving stage is named by one measurement (bone-length projection vs filter on a hit
-  clip); a test drives that stage to place a scored in-frame point outside the frame and asserts
-  exported visibility 0; `oof_probe.py` reports 0 on the next corpus run.
 - **Occluded far hand blinks under the duplicate rule** (right-view blink-outs 0.46 → 3.27 per
   100 rows, 46 % on or near the other hand; `.scratch/flick_cause.py`) → over the watch set every
   view reads <= 1.0 blink-outs per 100 rows while exported frames with one hand's median point
   distance to the other < 0.3 of hand extent stay 0, and each clip's task-hand presence share
   stays within 0.02 of the M2.9 baseline (`.scratch/watch/triage_m29.json`), so an all-absent
   candidate fails. Mechanism open (hysteresis, occlusion-aware presence).
-- **M2.9.2 P10 census is vacuous** — it counts frames with both hands' coordinates present, and a
-  suppressed hand exports none (`mapping._HAND_PRESENCE_THRESHOLD`), so it reads 0 on both
-  generations → a D02 firing counter published per view (run report or diagnostics) reads > 0 on
-  the corpus and 0 with the rule disabled.
 - **Gated hand-crop refinement misses the adoption bar** (`docs/technical/pose-weak-points.md`
   § M2.9.3: jitter 0.0079 vs <= 0.006, wall +41 % vs <= +15 %, right views worse) → a variant
   (batched crops, refinement only where the whole-body hand is small or unstable) reaches jitter
@@ -193,7 +183,10 @@ rows before sizing any unit that touches their surfaces.
   exported row while the subject's own track carries a handless row, which switches that hand off;
   back on the exported row, 0.50-0.65 levels hold it off (`pose-weak-points.md` § M2.10 corpus;
   measured on 1 clip with `.scratch/messy/p08_keys.py`; 11 share its signature via `p08_sign.py`,
-  undiagnosed; 1 exports scores that differ from M2.9, cause unmeasured) → the gate keys on the
+  undiagnosed; 1 exports scores that differ from M2.9, cause unmeasured). M4.6 keys the
+  single-subject gate on the selected row: the RTMW-m M4 tree reads 3/379 clips beyond 0.01, max
+  0.049 (`.scratch/impl/p08_m256.log`), residue mechanism unmeasured (OpenVINO build drift in the
+  scores is one candidate) → the gate keys on the
   exported subject's identity (or carries state across the transient), `p08_compare.py` over a
   corpus rerun reads <= 0.01 on every clip, the held-out drop shares (`gate_flicker.py`: hallucinated
   >= 0.90 removed, real <= 0.06 lost) hold, and a synthetic two-track fixture with a handless

@@ -181,25 +181,20 @@ hospital SCI database.
 - [x] bf7728a **M4.3b calibration + gate rule** — reference-equivalent Platt maps, per-model hand gate, presence instrument; refit rule applies in M4.3.
 - [x] 5cc8125 **M4.3 complete-pipeline finalists** (RTMW-L 384 pass vs RTMW-m 256, no refit; G2 at 0.6, A02) — pose × hand × detector/identity (incl. a wrong-person
   arm), each recalibrated on development data, dynamic + feature controls, production replay.
-- [ ] RESUME: (paused by the user) finish line in force = the IMPLEMENT body's `Met when`: full gate
-  (scanners included) passes on a clean tree at the closing commit; scanners + Dependabot
-  committed (local gate, `gates.md` ruling); every `Decisions` entry implemented or deferred;
-  `.agent/review.md` no open row; review UI already retired to `tools/review-ui/`; `Phase:
-  MAINTAIN` committed. Committed: closing review + fixes `9417b9e` `7855bc5` `a79c355` `598b77d`
-  (ledger closed), certifi `d0c592e`, M4.3 pass + M4.4 A01 = `rtmw-l-384` `5cc8125`. Uncommitted:
-  none. No teammates, no `wt/`/`wip/` branches; worktree `.scratch/worktrees/corpus-m4` (`48078b4`)
-  kept until Close. Both M4 trees complete (193/193, 379 `ok`, verdicts true) and both clinical
-  stages refreshed at HEAD R (`clinical_method_uniform` true, digest `2e02883b…`). The 3D pilot was
-  stopped at the user's word: restart it FROM SCRATCH to a fresh output
-  (`.scratch/pilot3d/xview_60.json`); never resume `xview_wide.json` (the earlier 19-event read
-  `deferred.md` cites + a few stopped-run events). Next:
-  (1) the user's 96 frames (0 saved): `uv run --directory tools/review-ui python -m review_ui`
-  → `/label`, then `scripts/gate.sh python scripts/bench.py confirm …` (command →
-  `.scratch/impl/checkpoint.md`); (2) 3D pilot stats (`xview_stats.py`) → `AskUserQuestion` with
-  the cost (0.67 s/frame × 337 090 frames ≈ 63 h vs the 24 h ceiling minus 14.31 h L384 or 7.75 h
-  m256); (3) adopt the M4.4 winner (`.scratch/impl/adopt.sh`) + defaults unit; (4) after-table
-  (triage/oof/flick done for both trees in `.scratch/impl/`), deferred P08/P09/P10 rows,
-  `scientist`; (5) `Decisions` rewrites, delta review of the adoption units, README, Close.
+- [ ] RESUME: finish line in force = the IMPLEMENT body's `Met when`: full gate (scanners
+  included) passes on a clean tree at the closing commit; scanners + Dependabot committed (local
+  gate, `gates.md` ruling); every `Decisions` entry implemented or deferred; `.agent/review.md` no
+  open row; review UI already retired to `tools/review-ui/`; `Phase: MAINTAIN` committed. State:
+  both M4 trees complete + clinically refreshed at HEAD R; M4.3 pass, A01 = `rtmw-l-384`
+  (`5cc8125`); worktree `.scratch/worktrees/corpus-m4` (`48078b4`) kept until Close; roster →
+  `.scratch/impl/roster.md`. In flight: review UI `/label` for the user's 96 frames; 3D pilot from
+  scratch → `.scratch/pilot3d/xview_60.json` (trunk angle added; rerun from scratch if
+  interrupted, never resume `xview_wide.json`); `scientist-2` on the after-table + cohort shift
+  (scratch cohorts per arm `.scratch/impl/cohort-<arm>/`). Next: (1) `bench.py confirm`
+  (command → `.scratch/impl/checkpoint.md`); (2) 3D pilot stats → `AskUserQuestion` with the cost
+  vs the 24 h ceiling; (3) adopt the M4.4 winner (`.scratch/impl/adopt.sh`) + defaults unit;
+  (4) M4 corpus section in `docs/technical/pose-weak-points.md` from `scientist-2`; (5)
+  `Decisions` rewrites, delta review of the adoption units, README, Close.
 - [ ] **M4.4 locked confirmation** (table frozen `2ef508e`; A01 = `rtmw-l-384` `5cc8125`; user labels 0 of 96 — review UI serves `/label`) — decision table (superiority / non-inferiority / inconclusive)
   frozen with margins before a one-use corpus subset is scored; gates vs the shipped baseline.
 - [x] 2d0270f 8fe4e2b 48ef1fd **M4.5 features** — qualified wrist-motion bouts (SPARC, NJ, timing,

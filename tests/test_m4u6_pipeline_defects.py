@@ -144,6 +144,13 @@ def test_p04_diagnostics_publish_the_duplicate_census(tmp_path, monkeypatch):
     assert int(diag["duplicate_hand_fired"]) == 0
 
 
+def test_p04_census_reads_zero_with_the_rule_disabled(tmp_path, monkeypatch):
+    hygiene = importlib.import_module("pose_estimation.keypoint_hygiene")
+    monkeypatch.setattr(hygiene, "suppress_duplicate_hand", lambda _k, scores, **_: scores)
+    _, diag, _ = _pipeline(tmp_path / "off", monkeypatch, [_duplicate_hands()] * 3)
+    assert int(diag["duplicate_hand_fired"]) == 0
+
+
 def test_p05_build_is_part_of_the_generation(tmp_path):
     import openvino
 
