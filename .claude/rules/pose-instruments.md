@@ -60,6 +60,12 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
   landmark_support}.py` under `.venv/bin/python` (matched-support cohort, alternation, floor sweep,
   flagged-step magnitudes; commands in `.scratch/agents/scientist-2.md` F0). Scratch cohorts per
   arm = `P pose-estimation-cohort … --run output/corpus-2d-m4-<arm> --out .scratch/impl/cohort-<arm>`.
+  Severe steps (> 0.25 of max frame dimension, ten used points): `P python
+  .scratch/impl/jump_count.py <tree>…` (census per million valid point-steps; M2.10 = 137 / 57.0),
+  `P python .scratch/impl/jump_trace.py > .scratch/impl/jump_trace.json` (per step, both M4 arms:
+  point count, coherence, camera step vs clip p99, persistence, the other arm at that transition,
+  bout overlap), `P python .scratch/impl/jump_bouts.py` (bouts carrying one),
+  `P python .scratch/impl/jump_slice.py <ordinal> <view> <row-fraction>` (positions around one).
 - M2.9 instruments, all `P python .scratch/<name>.py [<tree>]`, review-UI ordinals for labels,
   numbers only: `hygiene_stats.py` (per view × keypoint group: visibility quantiles, out-of-frame
   share — the M2.9.2 premise); `dup_hand.py [--ratio --weak --rel --sample]` (duplicate-hand rule

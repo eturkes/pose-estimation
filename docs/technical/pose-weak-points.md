@@ -291,7 +291,15 @@ byte-identical). Own support = each arm's points at vis >= 0.3.
 - **Jump tails.** RTMW-L 384 gains `iso` flags on 11 clips and `whole` on 4; 16 of 16 and 5 of 6
   flagged transitions have no RTMW-m eligibility, so the flags follow the denominator. The steps
   are not all minor: max isolated step 0.876, whole-body 0.501 and 0.885 of the frame's max
-  dimension; mechanism (camera, identity, keypoint) unmeasured.
+  dimension.
+- **Severe steps predate the model swap.** Severe = one of the ten used points moving > 0.25 of
+  the max frame dimension between adjacent frames, both ends at vis >= 0.3. M2.10 137, RTMW-m 131,
+  RTMW-L 384 165 → 57.0 / 54.6 / 60.7 per million valid point-steps. 79 RTMW-L steps coincide
+  with an RTMW-m severe step at the same transition, the arms agreeing before and after on 62 →
+  triggered upstream of the pose model; 52 are RTMW-L's alone (RTMW-m 41 alone), mostly one joint
+  that relocates and stays; 1 per arm is camera-wide. Bouts carrying a severe step on their own
+  wrist or index: RTMW-L 84/6185 (1.4 %), RTMW-m 66/6524 (1.0 %). Shared-class mechanism (pose
+  re-interpretation, identity, crop) needs frame viewing → `.agent/deferred.md` severe-step row.
 - **P09 + P10 close**: 0 out-of-frame observations on both trees; `duplicate_hand_fired` 34 477
   over 212 assets (RTMW-L 384), 60 077 over 269 (RTMW-m). **P08**: RTMW-m tree 3/379 clips beyond
   0.01, max 0.049 (M2.10: 13/379, max 0.766) — the measured transient-track mechanism is addressed,
@@ -300,4 +308,5 @@ byte-identical). Own support = each arm's points at vis >= 0.3.
 Instruments: `.scratch/triage.py` → `.scratch/impl/triage_{m256,l384}.json`,
 `.scratch/after_table.py`, `.scratch/impl/probes/{cohort_shift,iso_clip}.py`,
 `.scratch/scientist-2/{aggregate_probe,common_support,landmark_support}.py` (appraisal
-`.scratch/agents/scientist-2.md`) (→ `.claude/rules/pose-instruments.md`).
+`.scratch/agents/scientist-2.md`), `.scratch/impl/jump_{count,trace,bouts}.py`
+(→ `.claude/rules/pose-instruments.md`).

@@ -244,3 +244,11 @@ rows before sizing any unit that touches their surfaces.
   states per feature: unit class (image-plane angle, dimensionless, time), criterion validity
   `not established`, reliability `not established` (never filled from cross-view ICC or model
   agreement); a test reds on a feature missing either field.
+- **Severe steps: the shared class's mechanism is unmeasured** (`scientist-2` F5 trace,
+  `docs/technical/pose-weak-points.md` § M4 corpus) — 79 of RTMW-L 384's 165 severe steps (> 0.25
+  of the max frame dimension between adjacent frames on the ten used points, both ends vis >= 0.3)
+  coincide with RTMW-m's at the same transition; 84/6185 bouts carry one on their own wrist or
+  index → with the user's per-session word, frame pairs of a stratified sample of shared steps are
+  classified (pose re-interpretation, identity, crop, content); an upstream fix of the dominant
+  class halves both `jump_count.py`'s per-million rate and the bouts carrying an own-side severe
+  step on a rerun tree, with `whole` / `iso` / `alt` no worse (`.claude/rules/pose-instruments.md`).

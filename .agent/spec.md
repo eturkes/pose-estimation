@@ -187,20 +187,21 @@ hospital SCI database.
 - [x] bf7728a **M4.3b calibration + gate rule** — reference-equivalent Platt maps, per-model hand gate, presence instrument; refit rule applies in M4.3.
 - [x] 5cc8125 **M4.3 complete-pipeline finalists** (RTMW-L 384 pass vs RTMW-m 256, no refit; G2 at 0.6, A02) — pose × hand × detector/identity (incl. a wrong-person
   arm), each recalibrated on development data, dynamic + feature controls, production replay.
-- [ ] RESUME: (paused by the user after the label-independent units) finish line in force = the
+- [ ] RESUME: (resumed 2026-10-22; user labelling in progress) finish line in force = the
   IMPLEMENT body's `Met when`: full gate (scanners included) passes on a clean tree at the closing
   commit; scanners + Dependabot committed (local gate, `gates.md` ruling); every `Decisions` entry
   implemented or deferred; `.agent/review.md` no open row; review UI already retired to
   `tools/review-ui/`; `Phase: MAINTAIN` committed. State: both M4 trees complete + clinically
   refreshed at HEAD R; M4.3 pass, A01 = `rtmw-l-384`; after-table + `scientist-2` landed
   (`2835e3d`); 3D declined; cohort v3 (`1b50129`, full gate PASS 3074). Uncommitted: none. No
-  teammates, no servers, no `wt/`/`wip/` branches; worktree `.scratch/worktrees/corpus-m4`
+  teammates, review UI :8791 up for `/label`, no `wt/`/`wip/` branches; worktree `.scratch/worktrees/corpus-m4`
   (`48078b4`) kept until Close. Next (commands → `.scratch/impl/checkpoint.md`): (1) the user's
   96 frames (0 saved; `uv run --directory tools/review-ui python -m review_ui` → `/label`), then
-  `bench.py confirm`; (2) if `rtmw-l-384` wins, trace the severe jump tails numerically before
-  adoption (`scientist-2` F5); (3) `.scratch/impl/adopt.sh <arm>` (cohort v3 with `--baseline`) +
-  defaults unit; (4) `Decisions` rewrites, README model section; (5) closing delta review over
-  `9052629^..HEAD` + the adoption units; (6) Close.
+  `bench.py confirm`; (2) done — severe steps predate the swap (`pose-weak-points.md` § M4
+  corpus, deferred severe-step row) → adoption unblocked; (3) `.scratch/impl/adopt.sh <arm>`
+  (cohort v3 with `--baseline`) + defaults unit; (4) `Decisions` rewrites, README model section;
+  (5) closing delta review: round A over `9052629^..` the F5 commit (label-independent, runs
+  during labelling), round B over the adoption units; (6) Close.
 - [ ] **M4.4 locked confirmation** (table frozen `2ef508e`; A01 = `rtmw-l-384` `5cc8125`; user labels 0 of 96 — review UI serves `/label`) — decision table (superiority / non-inferiority / inconclusive)
   frozen with margins before a one-use corpus subset is scored; gates vs the shipped baseline.
 - [x] 2d0270f 8fe4e2b 48ef1fd **M4.5 features** — qualified wrist-motion bouts (SPARC, NJ, timing,
