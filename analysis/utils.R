@@ -158,3 +158,12 @@ read_clinical <- function(files) {
   }) |> compact() |> bind_rows()
 }
 
+#' Sorted unique video names across *found*'s frame files: each file's first `video`, else its
+#' stem.
+clinical_videos <- function(found) {
+  videos <- map_chr(found$frame_files, \(f) {
+    d <- readr::read_csv(f, show_col_types = FALSE, n_max = 1)
+    if ("video" %in% names(d) && nrow(d) > 0) d$video[1] else clinical_stem(f, found$mode)
+  })
+  sort(unique(videos))
+}

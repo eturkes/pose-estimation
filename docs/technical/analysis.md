@@ -232,6 +232,8 @@ Every script below reads its inputs through `utils.R` `discover_clinical`: one m
 
 ## Metadata management
 
+Both scripts discover videos through `discover_clinical`, like the consumers above: one mode per run, `--mode 2d|3d` on a two-mode directory. 3D templates are `clinical_scores_3d_template.csv` + `sessions_3d_template.csv`.
+
 | Script | Purpose |
 |--------|---------|
 | `make_templates.R` | Scans output dir for unique videos; writes `clinical_scores_template.csv` (`video, GRASSP, UEMS, SCIM`) and `sessions_template.csv` (`video, patient_id, session_date`). |

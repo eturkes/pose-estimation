@@ -10,18 +10,35 @@
 # Usage:
 #   Rscript analysis/validate_metadata.R clinical_scores.csv output/
 #   Rscript analysis/validate_metadata.R sessions.csv output/
+#   Append --mode 2d|3d when the directory holds both 2D and 3D artifacts.
 
 library(readr)
 library(stringr)
 library(purrr)
 
+# Shared helpers (discover_clinical, take_mode_arg, read_clinical).
+local({
+  args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- "--file="
+  match <- grep(file_arg, args)
+  here <- if (length(match) > 0) {
+    dirname(sub(file_arg, "", args[match]))
+  } else if (file.exists("analysis/utils.R")) {
+    "analysis"
+  } else {
+    "."
+  }
+  source(file.path(here, "utils.R"))
+})
+
 # ------------------------------------------------------------------
 # CLI
 # ------------------------------------------------------------------
 
-args <- commandArgs(trailingOnly = TRUE)
+cli <- take_mode_arg(commandArgs(trailingOnly = TRUE))
+args <- cli$args
 if (length(args) < 2) {
-  stop("Usage: Rscript analysis/validate_metadata.R <metadata.csv> <output_dir>")
+  stop("Usage: Rscript analysis/validate_metadata.R <metadata.csv> <output_dir> [--mode 2d|3d]")
 }
 meta_path <- args[1]
 out_dir   <- args[2]
@@ -33,24 +50,8 @@ if (!dir.exists(out_dir))    stop("The directory does not exist: ", out_dir)
 # Discover expected video names from clinical CSVs
 # ------------------------------------------------------------------
 
-frame_files <- list.files(out_dir, pattern = "_clinical\\.csv$",
-                          full.names = TRUE)
-frame_files <- frame_files[!str_detect(basename(frame_files),
-                                       "_windows\\.csv$")]
-
-if (length(frame_files) == 0) {
-  stop("The directory contains no *_clinical.csv files: ", out_dir)
-}
-
-expected_videos <- map_chr(frame_files, \(f) {
-  d <- read_csv(f, show_col_types = FALSE, n_max = 1)
-  if ("video" %in% names(d) && nrow(d) > 0) {
-    d$video[1]
-  } else {
-    str_remove(basename(f), "_clinical\\.csv$")
-  }
-})
-expected_videos <- sort(unique(expected_videos))
+found <- discover_clinical(out_dir, cli$mode)
+expected_videos <- clinical_videos(found)
 
 # ------------------------------------------------------------------
 # Read metadata

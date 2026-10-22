@@ -8,19 +8,38 @@
 #   sessions_template.csv         — video + patient_id + session_date
 #
 # Usage:
-#   Rscript analysis/make_templates.R output/
+#   Rscript analysis/make_templates.R output/ [--mode 2d|3d]
+#
+# 3D input (*_clinical_3d.csv) writes clinical_scores_3d_template.csv + sessions_3d_template.csv;
+# a directory holding both 2D and 3D artifacts needs --mode.
 
 library(readr)
 library(stringr)
 library(purrr)
 
+# Shared helpers (discover_clinical, take_mode_arg, read_clinical).
+local({
+  args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- "--file="
+  match <- grep(file_arg, args)
+  here <- if (length(match) > 0) {
+    dirname(sub(file_arg, "", args[match]))
+  } else if (file.exists("analysis/utils.R")) {
+    "analysis"
+  } else {
+    "."
+  }
+  source(file.path(here, "utils.R"))
+})
+
 # ------------------------------------------------------------------
 # CLI
 # ------------------------------------------------------------------
 
-args <- commandArgs(trailingOnly = TRUE)
+cli <- take_mode_arg(commandArgs(trailingOnly = TRUE))
+args <- cli$args
 if (length(args) < 1) {
-  stop("Usage: Rscript analysis/make_templates.R <output_dir>")
+  stop("Usage: Rscript analysis/make_templates.R <output_dir> [--mode 2d|3d]")
 }
 out_dir <- args[1]
 if (!dir.exists(out_dir)) stop("The directory does not exist: ", out_dir)
@@ -29,24 +48,8 @@ if (!dir.exists(out_dir)) stop("The directory does not exist: ", out_dir)
 # Discover video names
 # ------------------------------------------------------------------
 
-frame_files <- list.files(out_dir, pattern = "_clinical\\.csv$",
-                          full.names = TRUE)
-frame_files <- frame_files[!str_detect(basename(frame_files),
-                                       "_windows\\.csv$")]
-
-if (length(frame_files) == 0) {
-  stop("The directory contains no *_clinical.csv files: ", out_dir)
-}
-
-videos <- map_chr(frame_files, \(f) {
-  d <- read_csv(f, show_col_types = FALSE, n_max = 1)
-  if ("video" %in% names(d) && nrow(d) > 0) {
-    d$video[1]
-  } else {
-    str_remove(basename(f), "_clinical\\.csv$")
-  }
-})
-videos <- sort(unique(videos))
+found <- discover_clinical(out_dir, cli$mode)
+videos <- clinical_videos(found)
 
 cat(sprintf("The script found %d videos:\n", length(videos)))
 for (v in videos) cat(sprintf("  %s\n", v))
@@ -55,7 +58,7 @@ for (v in videos) cat(sprintf("  %s\n", v))
 # Write clinical_scores_template.csv
 # ------------------------------------------------------------------
 
-scores_path <- file.path(out_dir, "clinical_scores_template.csv")
+scores_path <- file.path(out_dir, paste0("clinical_scores", found$tag, "_template.csv"))
 scores_tpl <- data.frame(
   video  = videos,
   GRASSP = NA_real_,
@@ -70,7 +73,7 @@ cat(sprintf("\nThe script wrote %s.\n", scores_path))
 # Write sessions_template.csv
 # ------------------------------------------------------------------
 
-sessions_path <- file.path(out_dir, "sessions_template.csv")
+sessions_path <- file.path(out_dir, paste0("sessions", found$tag, "_template.csv"))
 sessions_tpl <- data.frame(
   video        = videos,
   patient_id   = NA_character_,

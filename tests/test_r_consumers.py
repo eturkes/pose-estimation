@@ -1,4 +1,4 @@
-"""The six downstream R consumers read clinical artifacts through one mode-aware reader.
+"""The eight downstream R consumers read clinical artifacts through one mode-aware reader.
 
 `analysis/utils.R` `discover_clinical` selects each mode's suffixes positively: a 2D-only or
 3D-only directory runs as before (3D outputs carry `_3d`), and a directory holding both modes
@@ -87,6 +87,8 @@ def _argv(consumer: str, root: pathlib.Path, meta: dict[str, pathlib.Path]) -> l
         "longitudinal": [str(meta["sessions"]), str(meta["scores"])],
         "clinical_correlation": [str(meta["scores"])],
     }
+    if consumer == "validate_metadata":
+        return ["Rscript", script, str(meta["sessions"]), str(root)]
     return ["Rscript", script, str(root), *extra.get(consumer, [])]
 
 
@@ -97,8 +99,11 @@ _CONSUMERS = (
     "clinical_dimreduce",
     "temporal_clinical",
     "explore_clinical",
+    "make_templates",
+    "validate_metadata",
 )
-_WRITERS = _CONSUMERS
+# validate_metadata writes nothing; it reports + exits.
+_WRITERS = tuple(c for c in _CONSUMERS if c != "validate_metadata")
 
 
 def _run(argv: list[str]) -> subprocess.CompletedProcess[str]:
@@ -156,3 +161,26 @@ def test_3d_outputs_carry_the_mode_and_mode_flag_selects_it_from_a_mixed_tree(
     )
     assert result.returncode == 0, result.stderr
     assert _outputs(mixed, before) == expected
+
+
+@requires_features_r
+def test_validate_metadata_reads_the_selected_mode_videos(tmp_path: pathlib.Path) -> None:
+    mixed = _tree(tmp_path / "mixed", ("2d", "3d"))
+    meta = _metadata(mixed, ["v3d_a", "v3d_b", "v3d_c"])
+    argv = _argv("validate_metadata", mixed, meta)
+    right = _run([*argv, "--mode", "3d"])
+    assert right.returncode == 0, right.stderr
+    assert "do not contain these metadata videos" not in right.stdout + right.stderr
+    wrong = _run([*argv, "--mode", "2d"])
+    assert "do not contain these metadata videos" in wrong.stdout + wrong.stderr
+
+
+@requires_features_r
+def test_make_templates_lists_each_video_once_per_mode(tmp_path: pathlib.Path) -> None:
+    root = _tree(tmp_path / "mixed", ("2d", "3d"))
+    script = str(_ANALYSIS / "make_templates.R")
+    for mode, videos in (("2d", ["v2d_a", "v2d_b", "v2d_c"]), ("3d", ["v3d_a", "v3d_b", "v3d_c"])):
+        assert _run(["Rscript", script, str(root), "--mode", mode]).returncode == 0
+        tag = "" if mode == "2d" else "_3d"
+        with (root / f"sessions{tag}_template.csv").open(encoding="utf-8") as stream:
+            assert [row["video"] for row in csv.DictReader(stream)] == videos
