@@ -53,6 +53,9 @@ STAGE_CLINICAL = "clinical"
 #: different trackers or detector cadences are shaped identically, so a report must read
 #: this per-event record rather than the invocation that happens to publish it.
 POSE_CONFIG_FILENAME = "pose_config.json"
+#: The adopted pose model (`run.MODEL_REGISTRY` key) = the configuration `output/corpus-2d` records;
+#: here, not in `run`, so light readers (replay, run report) take it without the inference stack.
+DEFAULT_MODEL = "rtmw-l-384"
 POSE_CONFIG_FIELDS: tuple[str, ...] = (
     "model",
     "tracking",

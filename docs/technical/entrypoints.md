@@ -59,7 +59,7 @@ device and its score calibration (`src/pose_estimation/score_calibrations/<key>.
 ```bash
 python -m pose_estimation.run                                          # webcam 0, rtmw-l-384
 python -m pose_estimation.run --model dwpose-m
-python -m pose_estimation.run --source video.mp4 --det-device CPU --pose-device NPU
+python -m pose_estimation.run --source video.mp4 --model rtmw-m-256 --det-device CPU --pose-device NPU
 python -m pose_estimation.run --batch-dir videos/ --single-subject
 python -m pose_estimation.run --source video.mp4 --tracker rtmlib        # upstream PoseTracker
 python -m pose_estimation.run --session-dir videos/session_a/           # multi-camera

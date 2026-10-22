@@ -296,8 +296,9 @@ before = M2.10 (`output/corpus-2d-superseded-m210/`), paired by label. RTMW-m M4
   ends at vis >= 0.3. Per million valid point-steps: M2.10 262 / 2 402 082 (109.1), RTMW-m
   256 / 2 400 939 (106.6), RTMW-L 384 442 / 2 717 441 (162.7). On points both arms score at both
   ends (2 388 953 point-steps): RTMW-L 249 (104.2), RTMW-m 235 (98.4); on RTMW-L's own extra
-  points (328 470): 190 (578.4) → the excess sits in the low-score observations RTMW-L adds
-  (→ calibration-transfer row), not in its localisation of shared points. Frames: 79 of RTMW-L's
+  points (328 470): 190 (578.4) → most of the excess sits on the points only RTMW-L reports
+  (→ calibration-transfer row); on shared points its rate is also 6 % higher. Step frequency is
+  not localisation accuracy, which stays unmeasured on this footage. Frames: 79 of RTMW-L's
   165 severe transitions coincide with an RTMW-m severe transition (mechanism unmeasured: shared
   image content, correlated model error, crop or identity); 1 per arm is camera-wide. Bouts with a
   severe step on their own wrist or index: RTMW-L 84/6185 (1.4 %), RTMW-m 66/6524 (1.0 %)

@@ -37,6 +37,7 @@ import pandas as pd
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
+from pose_estimation.corpus_run import DEFAULT_MODEL
 from pose_estimation.export import make_csv_header
 
 VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
@@ -311,7 +312,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Read source videos from this directory. The search is not recursive.",
     )
     p.add_argument("--tracking", default="body", choices=["hands", "hands-arms", "body"])
-    p.add_argument("--model", default="rtmw-l-384")
+    p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--backend", default="openvino")
     p.add_argument("--det-device", default="GPU")
     p.add_argument("--pose-device", default="GPU")

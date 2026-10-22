@@ -26,7 +26,7 @@ import tempfile
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from decimal import Decimal, localcontext
+from decimal import ROUND_HALF_EVEN, Context, Decimal, localcontext
 from typing import Any
 
 import yaml
@@ -1308,14 +1308,15 @@ def _number(cell: str) -> Decimal | None:
 def _sensitivity_rows(features: list[dict[str, str]], baseline: _Baseline) -> list[dict[str, str]]:
     """Union of both tables' keys; arithmetic on the serialized cells (contract-m4u7 P06-P07)."""
     current = {(r["task"], r["side"], r["level"], r["feature"]): r for r in features}
-    with localcontext() as context:
-        # P07 is arithmetic on the serialized cells: sized from the widest operand, no
-        # difference or 9-place quotient rounds before rendering (binary floats did).
-        widest = max(
-            (len(row[n]) for row in (*features, *baseline.rows.values()) for n in _OPERANDS),
-            default=1,
-        )
-        context.prec = 2 * (widest + DECIMALS) + 4
+    widest = max(
+        (len(row[n]) for row in (*features, *baseline.rows.values()) for n in _OPERANDS),
+        default=1,
+    )
+    # P07 is arithmetic on the serialized cells: precision sized from the widest operand, so no
+    # difference or 9-place quotient rounds before rendering; a fresh context, so the caller's
+    # rounding mode or traps never reach a published digit.
+    exact = Context(prec=2 * (widest + DECIMALS) + 4, rounding=ROUND_HALF_EVEN)
+    with localcontext(exact):
         return [
             _sensitivity_row(key, current.get(key), baseline.rows.get(key))
             for key in sorted(current.keys() | baseline.rows.keys())

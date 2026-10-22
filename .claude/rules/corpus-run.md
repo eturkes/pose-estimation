@@ -49,11 +49,12 @@ Run under the accelerator recipe, never the gate prefix (→ `gates.md`).
   M4 queue passes `rtmw-l-384`, `rtmw-m-256`), so the alias and its target are different configs.
   `--analyse-only`, `--refresh-clinical` and `--reuse-run` refuse a complete event whose recorded
   config differs from the invocation's ("produced under another pose configuration") → always
-  pass the run's own `--model` name. Defaults = `run.DEFAULT_MODEL` = `rtmw-l-384`, the adopted
-  `output/corpus-2d` (193/193 recorded configurations equal the bare driver's); the two drivers read
-  it, `bench/replay.py` `CORPUS_ARGS` + `scripts/run_report.py` spell it, and
-  `tests/test_adopted_model_defaults.py` pins all four → adopting another run moves
-  `DEFAULT_MODEL` + those two spellings in the same unit. M2.10-era trees need `--model rtmw-l`.
+  pass the run's own `--model` name. Defaults = `corpus_run.DEFAULT_MODEL` = `rtmw-l-384`, the
+  adopted `output/corpus-2d` (193/193 recorded configurations equal the bare driver's); `run`, both
+  drivers, `bench/replay.py` `CORPUS_ARGS` and `scripts/run_report.py` read it
+  (`tests/test_adopted_model_defaults.py`) → adopting another run moves that one constant in the
+  same unit. The runner resolves an unset `--pose-device` after its whole-body fallback, so the
+  device always follows the model that loads. M2.10-era trees need `--model rtmw-l`.
 - **Resume = rerun the same command**: an event with a complete marker under the same config is
   skipped, a markerless one (killed mid-run) is redone; measured across two interruptions of the
   RTMW-L 384 run (138 → 193 after a reboot). A queue script's `> corpus-<arm>.log` truncates →

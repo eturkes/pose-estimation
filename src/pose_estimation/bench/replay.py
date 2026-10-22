@@ -12,13 +12,15 @@ import contextlib
 import csv
 from pathlib import Path
 
+from ..corpus_run import DEFAULT_MODEL
+
 #: The corpus driver's defaults (`scripts/corpus_run_2d.py`), camera survey included: it trims
 #: setup frames outside the task span, so a replay without it poses frames production never
 #: exports. The pose device follows the model's registry entry, so a `--model` override needs no
 #: device.
 CORPUS_ARGS = (
     "--headless",
-    "--model=rtmw-l-384",
+    f"--model={DEFAULT_MODEL}",
     "--tracking=body",
     "--tracker=subject",
     "--det-device=GPU",

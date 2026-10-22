@@ -206,7 +206,7 @@ Lenses fixed at seed (`.scratch/impl/seed_reviews_a.py`; seeds `FAIL P03`, a fil
 A01-A03, `reviewer-23` claim soundness N01-N06, `reviewer-24` guarantee-vs-claim G01-G05,
 `reviewer-25` verification integrity V01-V04, `reviewer-26` conformance M01-M08 (reports
 `.scratch/agents/reviewer-2{0..6}.md`, grader PASS rc 0 each); MAIN security S13-S17
-(`.scratch/agents/security-main-a.md`). 33 reviewer rows: 19 pass, 14 fail → 8 distinct
+(`.scratch/agents/security-main-a.md`). 33 reviewer rows: 20 pass, 13 fail → 8 distinct
 findings, + S17. Reviewer reds rerun by MAIN at `4282c52`: 6 failed (5 in scope, 1 pre-existing).
 
 | ID | finding | rows | ruling | fix | state |
@@ -230,3 +230,27 @@ pattern-checked. Chained `OSError` causes still name paths in an uncaught traceb
 clinical method (`reviewer-26` R01). v1/v2 profile tests relabel current generations
 (`reviewer-25` R02) → the real v1 baseline runs at adoption (`adopt.sh`). Oversized decimal
 (`reviewer-22` R01) = F47; `reviewer-23` R01-R03 = bounded verification, noted.
+
+## IMPLEMENT closing delta, round B (`4282c52..908b780`: round-A fixes + RTMW-L 384 adoption) + MAIN security lens
+
+Same seven reviewers, same lenses, second deliverables `.scratch/agents/reviewer-2{0..6}-b.md`
+(`.scratch/impl/seed_reviews_b.py`; `R` rows = re-review of each reviewer's own round-A findings
+against their acceptance check alone), grader PASS rc 0 each; MAIN security S18-S21
+(`.scratch/agents/security-main-b.md`). Re-review: 13 `R` rows, 13 pass → F47-F54 closed. Lens
+rows: 26 → 15 pass, 11 fail → 6 distinct findings. Reviewer reds rerun by MAIN after the fix:
+reviewer-20 6/6, reviewer-22 7/7, reviewer-24 5/5 pass.
+
+| ID | finding | rows | ruling | fix | state |
+| --- | --- | --- | --- | --- | --- |
+| F55 | sensitivity Decimal context inherited the caller's rounding + traps (ROUND_UP → 1/3 = 0.333333334; a trapped `Inexact` aborted publication) | K01 A01 | accepted | fresh `Context(prec, ROUND_HALF_EVEN)` | fixed |
+| F56 | whole-body fallback kept the abandoned 17-kp model's NPU for RTMW-L 384 (`--model rtmpose-m` / `--body-only` + hands tracking) | K02 A02 G02 | accepted | unset `--pose-device` resolves after the fallback | fixed |
+| F57 | default model spelled in three places | U02 | accepted | `corpus_run.DEFAULT_MODEL`, read by `run`, both drivers, replay, run report | fixed |
+| F58 | "not in its localisation of shared points" against shared support 249 vs 235, no localisation GT | N02a N04a G03 | accepted | "most of the excess"; shared +6 %; frequency ≠ accuracy | fixed (79c4f2a body corrected here) |
+| F59 | round-A ledger tally 19 / 14 vs the reports' 20 / 13 | N01a | accepted | 20 pass, 13 fail | fixed |
+| F60 | `908b780` body named the red result, not its command | V04 | accepted | recorded in the fix commit body | fixed |
+| S21 | 96 patient frames kept with no consumer after the M4.4 waiver | S21 | accepted | `.scratch/bench/user/` deleted (97 files) | fixed |
+
+Register, ruled: `docs/technical/entrypoints.md` device example pinned NPU under the GPU default
+(`reviewer-26` B-R01) → the example names `--model rtmw-m-256`; `run_report.json` carries 13 of the
+14 pose-config fields (no `calibration`; `reviewer-26`) → by design, the cohort `measurement`
+block carries all 14; Decimal context sized from operator input (S20) → kept.

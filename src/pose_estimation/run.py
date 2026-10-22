@@ -32,6 +32,7 @@ from . import score_calibration
 from .calibration import CalibrationError
 from .camera_survey import TASK_GAP_S, survey_source
 from .constraints import BoneLengthSmoother
+from .corpus_run import DEFAULT_MODEL
 from .export import camera_values, frame_to_rows, open_csv_writer
 from .keypoint_hygiene import (
     HAND_GATE_OFF,
@@ -147,8 +148,6 @@ MODEL_REGISTRY = {
 }
 # Every recorded pose_config.json through M2.10 names `rtmw-l`; it stays the same entry.
 MODEL_REGISTRY["rtmw-l"] = MODEL_REGISTRY["rtmw-m-256"]
-
-DEFAULT_MODEL = "rtmw-l-384"
 
 
 # ---------------------------------------------------------------------------
@@ -1072,18 +1071,17 @@ def main(argv=None):
     if args.body_only and model_name == DEFAULT_MODEL:
         model_name = "rtmpose-m"
 
-    model = MODEL_REGISTRY[model_name]
-    if args.pose_device is None:
-        args.pose_device = model["pose_device"]
-
     # --tracking hands/hands-arms needs wholebody (133 kps)
-    if args.tracking != "body" and model["n_kps"] == 17:
+    if args.tracking != "body" and MODEL_REGISTRY[model_name]["n_kps"] == 17:
         print(
             f"NOTE: --tracking {args.tracking} requires a Wholebody model. "
             f"The runner switches from {model_name} to {DEFAULT_MODEL}."
         )
         model_name = DEFAULT_MODEL
-        model = MODEL_REGISTRY[model_name]
+    # The device follows the model that loads, after any fallback: RTMW-L compiles on GPU alone.
+    model = MODEL_REGISTRY[model_name]
+    if args.pose_device is None:
+        args.pose_device = model["pose_device"]
 
     # ── Patch rtmlib before importing its classes ────────────────────
     if args.backend == "openvino":
