@@ -8,8 +8,12 @@ Read on demand — not attached state. A row promoted to an unfinished unit move
 Evidence → `.agent/archive/{polish,review-m2}.md`; regen → each check's `paths:` rule in `.claude/rules/`. Read the
 rows before sizing any unit that touches their surfaces.
 
-- **Four `../rehab` JP faces miss 14 cohort-label characters** → each reports 0 missing code points
-  over the `cohort.FEATURES` `ja` union.
+- **Four `../rehab` JP faces miss 17 cohort-label characters** (v3 `cohort/descriptors.yaml`, 88
+  labels, 93 distinct `ja` characters; `チペ偏停勢姿尖幹扇把斜旋止称肘路隔` on all four weights) →
+  each reports 0 missing code points over the `cohort.FEATURES` `ja` union. Owed to the user (edit
+  outside this repo): `../rehab` `scripts/font_charset.py` scans `schema/`, so appending the
+  fragment to `schema/columns.yaml` and rerunning `scripts/02_build_fonts.py` (npm fetch) covers them;
+  `../rehab` `tests/test_font_coverage.py` then pins it.
 - **Gate prefix recalled by failure** (`scripts/gate.sh <cmd…>` carries it: collects in the primary
   tree + a fresh worktree, bare `uv run` still reproduces `GLIBC_2.43`) → 0 bare invocations in
   `.agent/spec.md` + `.claude/rules/` + `docs/` + `scripts/` (`.agent/archive/` frozen, keeps its
