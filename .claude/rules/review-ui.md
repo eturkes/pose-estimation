@@ -45,6 +45,8 @@ paths:
 
 ## Scratch validators pending port
 
+- **Ruled for the ports in flight (`wt/general-purpose-3`)**: the theme rehydration row reads a routed sentinel placed right after the inline resolver (`pre-paint parser checkpoint`; Playwright's `waitUntil: 'commit'` = response received, not script run) plus a seed deferring the resolver that must red it. The clock check grades on a deterministic rAF cadence (virtual `requestAnimationFrame` + `performance.now`) over the shipped `player.js`; the live arm reports a spread and sets no rc. The recorded 6-row clock-seed set is stale: `397cc8a` (round → floor) landed after `c61a18e` recorded it. Open at merge: whether the graded seed set is the current semantic failure set under a calibrated cadence rather than a cadence picked to reproduce 6 rows.
+
 Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each port = a `.agent/deferred.md` row.
 
 - `.scratch/theme_qa.mjs` — review-ui theme control, the paths a still capture cannot show.

@@ -237,3 +237,9 @@ rows before sizing any unit that touches their surfaces.
   runs the foreign-destination refusal its name claims → P12 runs the generator against a non-empty
   foreign directory and requires the refusal, and reds on a generator whose ownership check is
   removed.
+- **The decisive gate's pytest step has no equal-strength speedup** (`.claude/rules/gates.md` names
+  this row; serial: 3142 cases in 1358 s alone, 1517 s at IMPLEMENT close, longer under co-tenant
+  load; every commit pays it) → a parallel runner (e.g. pytest-xdist) runs the same collection with
+  A32 reconciling every case passed + zero skipped across workers, `test_c8_08`'s planted
+  skip/deselect seeds still red, no R-subprocess case timing out under the parallel load, and the
+  pytest wall on this machine below half the serial figure measured beside it.

@@ -176,6 +176,33 @@ hospital SCI database.
 
 ## Tasks
 
+- [ ] RESUME: request = work every `.agent/deferred.md` row in rank order (user's MAINTAIN body,
+  session 2026-10-22); `Met when` = every row closed by its acceptance check in its own commit,
+  recorded blocked on the user with what it owes, waiting on its trigger, or routed (`route.md`),
+  + full gate green on a clean tree at the closing commit. One AskUserQuestion collects user-owed
+  parts after agent-side work; new finds fund after the session-start rows. Working state +
+  per-row classification + owed list = `.scratch/maintain/plan.md` (read first).
+  - Full gate PASS at 52d9427, ac21d21, 6d3ab19 (3153 passed, 1929 s under co-tenant load;
+    worktree `.scratch/maintain/gate-wt`, logs `.scratch/maintain/gate-<sha7>.log`). NOT gated:
+    55f3c31 c4f7231 ca6b013 57b69bc 317e91f 97bbeee 6615eb4 9650496 + this commit → rerun the full
+    gate per commit (`nohup .scratch/maintain/gateq.sh &`; it skips SHAs in `done.txt`, gates
+    `queue.txt` in order; append this commit's SHA first).
+  - Uncommitted (R15, rank 15): `src/pose_estimation/run.py` (--source writes `<stem>_diag.csv`),
+    `tests/test_run_source_diag.py` (2 green; red at 9650496 = 1 failed), `scripts/bench.py` `p07`
+    (port of `.scratch/impl/p07_stage.py`, UNRUN); snapshot = branch `wip/r15-source-diag` 579032f.
+    Next: run `bench.py p07 --tree output/corpus-2d-superseded-m210 --k 6 --out .scratch/bench/p07
+    --run-args --model=rtmw-m-256` under the accelerator recipe (add `--det-device=CPU` if counts
+    miss the pose-weak-points P07 table), then commit R15 + prune its row.
+  - Teammate branches (worktrees kept, unmerged, last states NOT rerun by MAIN): `wt/general-purpose-2`
+    748aea0 (R10 register scanner; report `.scratch/agents/general-purpose-2.md`: S01-S08 pass, the
+    `robust Sampson` exact-phrase ruling applied; its fast gate 42 passed; Register = rule +
+    conventions text proposals); `wt/general-purpose-3` 5e7a855 (review-UI ports: R20 294ec7d, R21 a46ace9, R22
+    251e4dc, R28 50b81c4, R29 5e7a855; report `.scratch/agents/general-purpose-3.md`: Q02 owes a
+    10/10 rehydration trial under a live full gate, Q05 owes the clock ruling in
+    `.claude/rules/review-ui.md`) → rerun each port in the primary, merge one commit per row.
+  - Next rows after R15: R16 triage port onward (rank order, `.agent/deferred.md`); owed-to-user
+    so far (plan.md): R07 ../rehab edit, R13 conjunct residues, R14 retired bar; N01 pytest
+    speedup + N02 P12 spelling test are new rows (fund after the session-start rows).
 Evidence → `.agent/archive/{polish,review-m2,phases}.md`; regen → each check's `paths:` rule in `.claude/rules/`; queue → `.agent/deferred.md`.
 
 ## Phase
