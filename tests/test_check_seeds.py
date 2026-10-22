@@ -42,6 +42,7 @@ def test_inert_control_fails_and_names_the_checker() -> None:
     assert done.returncode == 1, done.stdout + done.stderr
     assert "check_prospective_capture NC4 SEED-INERT" in done.stdout
     assert "check_prospective_capture SEED-INERT" in done.stdout
-    assert "11/12 refused" in done.stdout
+    total = len([path for path in _RUNNER.parent.glob("check_*.py") if path != _RUNNER])
+    assert f"{total - 1}/{total} refused" in done.stdout
     assert "controls_firing 7 of 8" in done.stdout
     assert _SPEC.read_bytes() == before

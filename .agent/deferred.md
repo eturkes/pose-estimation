@@ -18,8 +18,6 @@ rows before sizing any unit that touches their surfaces.
   committed scanner reports 0 `FILLER` over the `conventions.md` inventory and lists every
   `LONG`/`CONTRACTION`/`PASSIVE` flag as a lead for judgment (no length cap), fails a seeded
   `simply`, no specifier/flag/number delta.
-- **M2.8.4's two corpus checks port** → `scripts/check_corpus_2d_integrity.py` rc=0 on
-  `output/corpus-2d` (379/379 set-equal, 11 verdicts true, breach < 0.1 %), rc=1 named on 3 tampers.
 - **Camera-setup and other non-task footage is tracked as the subject (C06,
   `docs/technical/pose-weak-points.md`; 13/193 families noted)** → a committed segmenter flags
   non-task spans per asset (camera handling, floor/ceiling, operator) online; on >= 20

@@ -402,12 +402,31 @@ def _review(module: types.ModuleType, work: pathlib.Path, _: str | None) -> str:
     return _require_refusal(_capture(lambda: module.main(report)), 1, f"FAIL {pid}")
 
 
+def _corpus_integrity(module: types.ModuleType, work: pathlib.Path, _: str | None) -> str:
+    # The suite's synthetic registry + run tree builder (PyAV-free test_sessions registry).
+    sys.path.insert(0, str(ROOT / "tests"))
+    from test_corpus_2d_integrity import _run_tree
+
+    tree, registry, _rows = _run_tree(work)
+    argv = ["--tree", str(tree), "--inventory", str(registry)]
+    _require_green(_capture(lambda: module.main(argv)))
+    report = tree / "run_report.json"
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    first = sorted(payload["verdicts"])[0]
+    payload["verdicts"][f"{first}_seed"] = payload["verdicts"].pop(first)
+    _json(report, payload)
+    return _require_refusal(
+        _capture(lambda: module.main(argv)), 1, "FAIL verdict_keys_set_equal_driver"
+    )
+
+
 SEEDS = {
     "check_calibration_qc_determinism": _stale,
     "check_calibration_qc_fixtures": _fixtures,
     "check_cameras_qc_census": _cameras,
     "check_claim_report": _claims,
     "check_cohort_determinism": _stale,
+    "check_corpus_2d_integrity": _corpus_integrity,
     "check_inventory_determinism": _stale,
     "check_isotropy_angle_fidelity": _isotropy,
     "check_m2u4_suite_seed": _suite,
