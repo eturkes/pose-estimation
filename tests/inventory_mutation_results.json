@@ -2,7 +2,8 @@
   "closure": [],
   "initial": [
     {
-      "file_line": "src/pose_estimation/inventory.py:701",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:702",
       "id": "M001",
       "killing_tests": [
         "tests/test_inventory.py::test_path_rendering_is_injective_and_non_utf8_names_are_excluded",
@@ -13,7 +14,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:703",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:704",
       "id": "M002",
       "killing_tests": [
         "tests/test_inventory.py::test_path_rendering_is_injective_and_non_utf8_names_are_excluded",
@@ -25,7 +27,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:700",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:701",
       "id": "M003",
       "killing_tests": [
         "tests/test_inventory.py::test_path_rendering_is_injective_and_non_utf8_names_are_excluded"
@@ -35,7 +38,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:701",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:702",
       "id": "M004",
       "killing_tests": [
         "tests/test_inventory.py::test_path_rendering_is_injective_and_non_utf8_names_are_excluded"
@@ -45,7 +49,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:703",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:704",
       "id": "M005",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_printable_path_doubles_every_escape_introducer"
@@ -55,7 +60,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:701",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:702",
       "id": "M006",
       "killing_tests": [
         "tests/test_inventory.py::test_control_character_path_is_escaped_and_excluded_without_aborting",
@@ -66,7 +72,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:558",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:559",
       "id": "M007",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_build_assets_parses_canonical_relative_text"
@@ -76,7 +83,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:482",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:483",
       "id": "M008",
       "killing_tests": [
         "tests/test_inventory_review.py::test_valid_utf8_path_survives_ascii_filesystem_locale",
@@ -92,7 +100,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:528",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:529",
       "id": "M009",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_discover_paths_returns_canonical_relative_text"
@@ -102,7 +111,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:537",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:538",
       "id": "M010",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_build_assets_parses_canonical_relative_text",
@@ -113,7 +123,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:498",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:499",
       "id": "M011",
       "killing_tests": [
         "tests/test_inventory.py::test_path_rendering_is_injective_and_non_utf8_names_are_excluded",
@@ -129,7 +140,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:945",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:946",
       "id": "M012",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -141,7 +153,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:944",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:945",
       "id": "M013",
       "killing_tests": [
         "tests/test_inventory.py::test_extension_case_redacts_unrecognized_suffixes"
@@ -151,7 +164,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:945",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:946",
       "id": "M014",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -163,7 +177,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:945",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:946",
       "id": "M015",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -175,7 +190,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:770",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:771",
       "id": "M016",
       "killing_tests": [
         "tests/test_inventory_review.py::test_capture_fps_aggregates_are_member_order_independent",
@@ -186,7 +202,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:770",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:771",
       "id": "M017",
       "killing_tests": [
         "tests/test_inventory_review.py::test_capture_fps_aggregates_are_member_order_independent",
@@ -197,7 +214,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:770",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:771",
       "id": "M018",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_capture_fps_is_unknown_when_any_member_is_nonfinite"
@@ -207,7 +225,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:771",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:772",
       "id": "M019",
       "killing_tests": [
         "tests/test_inventory.py::test_degenerate_container_facts_flag_without_changing_disposition[fps-nonfinite]",
@@ -221,7 +240,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:772",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:773",
       "id": "M020",
       "killing_tests": [
         "tests/test_inventory_review.py::test_capture_fps_aggregates_are_member_order_independent",
@@ -232,7 +252,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:789",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:790",
       "id": "M021",
       "killing_tests": [
         "tests/test_inventory_review.py::test_capture_fps_aggregates_are_member_order_independent",
@@ -243,7 +264,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1087",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1128",
       "id": "M022",
       "killing_tests": [
         "tests/test_inventory_review.py::test_generation_validation_hashes_exact_table_bytes"
@@ -253,7 +275,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1075",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1115",
       "id": "M023",
       "killing_tests": [
         "tests/test_inventory.py::test_validate_generation_detects_every_artifact_tamper"
@@ -263,9 +286,11 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1075",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1115",
       "id": "M024",
       "killing_tests": [
+        "tests/test_inventory.py::test_validate_generation_detects_every_artifact_tamper",
         "tests/test_inventory_predicates.py::test_validate_generation_wraps_invalid_utf8_census"
       ],
       "mutation": "generation validation leaks invalid-UTF-8 census exceptions",
@@ -273,7 +298,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1075",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1115",
       "id": "M025",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_validate_generation_wraps_missing_census"
@@ -283,7 +309,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1088",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1129",
       "id": "M026",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_validate_generation_wraps_table_read_oserror"
@@ -293,7 +320,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1079",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1120",
       "id": "M027",
       "killing_tests": [
         "tests/test_inventory.py::test_validate_generation_detects_every_artifact_tamper"
@@ -303,15 +331,17 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1082",
+      "equivalent_reason": "both validation orders raise InventoryError, and no contract pins precedence between two simultaneously corrupt tables",
+      "file_line": "src/pose_estimation/inventory.py:1123",
       "id": "M028",
       "killing_tests": [],
       "mutation": "generation validation checks captures before assets",
       "pytest_returncode": 0,
-      "verdict": "SURVIVED"
+      "verdict": "equivalent"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1007",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1008",
       "id": "M029",
       "killing_tests": [
         "tests/test_inventory_review.py::test_capture_membership_rejects_duplicate_and_omitted_assets"
@@ -321,7 +351,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1007",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1008",
       "id": "M030",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_capture_membership_rejects_an_extra_duplicate_member"
@@ -331,7 +362,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1011",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1012",
       "id": "M031",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_each_capture_contains_only_its_own_members"
@@ -341,7 +373,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:999",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1000",
       "id": "M032",
       "killing_tests": [
         "tests/test_inventory.py::test_duplicate_capture_identifiers_are_rejected_directly"
@@ -351,7 +384,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1002",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1003",
       "id": "M033",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_capture_coverage_rejects_an_extra_empty_row"
@@ -361,7 +395,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:972",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:973",
       "id": "M034",
       "killing_tests": [
         "tests/test_inventory.py::test_invariant_failure_preserves_all_previous_artifact_bytes"
@@ -371,7 +406,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:834",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:835",
       "id": "M035",
       "killing_tests": [
         "tests/test_inventory.py::test_shape_histogram_counts_rendered_nan_keys",
@@ -382,7 +418,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:950",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:951",
       "id": "M036",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -396,7 +433,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:950",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:951",
       "id": "M037",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -410,7 +448,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:950",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:951",
       "id": "M038",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -422,7 +461,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:950",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:951",
       "id": "M039",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -436,7 +476,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/video_io.py:236",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/video_io.py:273",
       "id": "M040",
       "killing_tests": [
         "tests/test_inventory.py::test_probe_exceptions_become_open_failed_rows"
@@ -446,7 +487,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/video_io.py:254",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/video_io.py:291",
       "id": "M041",
       "killing_tests": [
         "tests/test_inventory.py::test_probe_acquisition_exceptions_become_open_failed[is_opened]",
@@ -458,7 +500,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/video_io.py:261",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/video_io.py:298",
       "id": "M042",
       "killing_tests": [
         "tests/test_inventory.py::test_probe_release_exception_keeps_opened_facts",
@@ -471,7 +514,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/video_io.py:241",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/video_io.py:278",
       "id": "M043",
       "killing_tests": [
         "tests/test_inventory.py::test_probe_and_parse_run_independently_for_every_file",
@@ -486,7 +530,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/video_io.py:236",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/video_io.py:273",
       "id": "M044",
       "killing_tests": [
         "tests/test_inventory.py::test_probe_exceptions_become_open_failed_rows"
@@ -496,7 +541,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:608",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:609",
       "id": "M045",
       "killing_tests": [
         "tests/test_inventory.py::test_symlinks_are_excluded_without_duplicate_fixity_or_membership",
@@ -507,7 +553,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:608",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:609",
       "id": "M046",
       "killing_tests": [
         "tests/test_inventory.py::test_symlinks_are_excluded_without_duplicate_fixity_or_membership",
@@ -518,7 +565,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:610",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:611",
       "id": "M047",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_size_lookup_oserror_does_not_escape",
@@ -529,7 +577,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:610",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:611",
       "id": "M048",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_failed_size_lookup_publishes_a_blank_cell_not_zero"
@@ -539,7 +588,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/video_io.py:202",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/video_io.py:239",
       "id": "M049",
       "killing_tests": [
         "tests/test_inventory.py::test_reported_fourcc_preserves_a_trailing_space",
@@ -551,7 +601,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/video_io.py:202",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/video_io.py:239",
       "id": "M050",
       "killing_tests": [
         "tests/test_inventory.py::test_reported_fourcc_preserves_a_trailing_space",
@@ -563,7 +614,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/video_io.py:201",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/video_io.py:238",
       "id": "M051",
       "killing_tests": [
         "tests/test_inventory.py::test_exact_artifact_schema_identity_and_order",
@@ -579,7 +631,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/video_io.py:202",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/video_io.py:239",
       "id": "M052",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_fourcc_keeps_printable_spaces_but_rejects_controls"
@@ -589,7 +642,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/video_io.py:202",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/video_io.py:239",
       "id": "M053",
       "killing_tests": [
         "tests/test_inventory.py::test_exact_artifact_schema_identity_and_order",
@@ -605,7 +659,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1060",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1096",
       "id": "M054",
       "killing_tests": [
         "tests/test_inventory.py::test_census_digest_round_trip_uses_string_key_order"
@@ -615,7 +670,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1055",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1091",
       "id": "M055",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -627,7 +683,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1055",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1091",
       "id": "M056",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -639,7 +696,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1055",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1091",
       "id": "M057",
       "killing_tests": [
         "tests/test_inventory.py::test_validate_generation_detects_every_artifact_tamper",
@@ -652,7 +710,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1028",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1029",
       "id": "M058",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -664,7 +723,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1028",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1029",
       "id": "M059",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -676,7 +736,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1161",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1202",
       "id": "M060",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -689,7 +750,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:1060",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:1096",
       "id": "M061",
       "killing_tests": [
         "tests/test_inventory.py::test_census_counts_recompute_from_the_two_csv_artifacts",
@@ -701,7 +763,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:996",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:997",
       "id": "M062",
       "killing_tests": [
         "tests/test_inventory.py::test_mixed_orientation_readbacks_abort_before_publication"
@@ -711,7 +774,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:566",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:567",
       "id": "M063",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_unreadable_probe_outranks_grammar_quarantine"
@@ -721,7 +785,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:567",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:568",
       "id": "M064",
       "killing_tests": [
         "tests/test_inventory.py::test_disposition_partition_and_closed_reason_vocabulary",
@@ -738,7 +803,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:370",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:371",
       "id": "M065",
       "killing_tests": [
         "tests/test_inventory.py::test_disposition_partition_and_closed_reason_vocabulary",
@@ -750,7 +816,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:635",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:636",
       "id": "M066",
       "killing_tests": [
         "tests/test_inventory.py::test_subject_directory_conflicts_quarantine_every_parsed_asset"
@@ -760,7 +827,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:260",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:261",
       "id": "M067",
       "killing_tests": [
         "tests/test_inventory.py::test_excluded_parses_cannot_change_canonical_identity_or_conflicts",
@@ -771,7 +839,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:922",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:923",
       "id": "M068",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_view_coverage_counts_distinct_views_not_assets"
@@ -781,7 +850,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:585",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:586",
       "id": "M069",
       "killing_tests": [
         "tests/test_inventory.py::test_adversarial_filename_surfaces_follow_the_closed_grammar"
@@ -791,7 +861,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:67",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:68",
       "id": "M070",
       "killing_tests": [
         "tests/test_inventory.py::test_normalization_steps_are_individually_observable[N9-grass]",
@@ -806,7 +877,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:305",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:306",
       "id": "M071",
       "killing_tests": [
         "tests/test_inventory_predicates.py::test_n2_lowercases_without_compatibility_folding"
@@ -816,7 +888,8 @@
       "verdict": "killed"
     },
     {
-      "file_line": "src/pose_estimation/inventory.py:334",
+      "equivalent_reason": null,
+      "file_line": "src/pose_estimation/inventory.py:335",
       "id": "M072",
       "killing_tests": [
         "tests/test_inventory.py::test_repeat_marker_edge_cases_preserve_the_marker_integer"
@@ -826,11 +899,10 @@
       "verdict": "killed"
     }
   ],
-  "schema_version": 1,
+  "schema_version": 2,
   "target_sha256": {
-    "src/pose_estimation/inventory.py": "96a6d0c928f4574ada4999473e27298cc3a7a59f82e7d758d035b2dc506e87ef",
-    "src/pose_estimation/video_io.py": "fa3572b4bf6e7ba5412771f9aecf2c2629ee56da835169eb9be705ff7fa9c28d"
+    "src/pose_estimation/inventory.py": "43031c774ba60fccf7803389de195167d879272aee9d8b764c4c7eb79ec42579",
+    "src/pose_estimation/video_io.py": "3a7f2e95a80eaa1a6b1d096437fa35e894d77b8ffd8eccc3f536710b449717ea"
   },
-  "test_command": "python -m pytest -q tests/test_inventory.py tests/test_inventory_review.py tests/test_inventory_predicates.py",
-  "tested_head": "9bccfe29c075753c0d315b62eae55393981b4871"
+  "test_command": "python -m pytest -q tests/test_inventory.py tests/test_inventory_review.py tests/test_inventory_predicates.py --deselect=tests/test_inventory_review.py::test_committed_determinism_evidence_binds_to_its_current_sources"
 }

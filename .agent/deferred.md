@@ -8,10 +8,6 @@ Read on demand — not attached state. A row promoted to an unfinished unit move
 Evidence → `.agent/archive/{polish,review-m2}.md`; regen → each check's `paths:` rule in `.claude/rules/`. Read the
 rows before sizing any unit that touches their surfaces.
 
-- **`inventory_mutation_results.json` + `measure_mutation_results.json` target moved bytes** (2/2,
-  2/3) → each campaign runs from clean checkout, no target-mismatch refusal, reproduces its kill
-  list, and exits 1 on a seeded survivor with `M028` the sole allowlisted equivalent — today
-  `run_inventory_mutations.py` returns 0 whatever survives (their only firing → `checks.md`).
 - **Six legacy R clinical consumers re-implement suffix/read/bind** → one mode-aware reader; a
   mixed 2D+3D tree yields named mode outputs or rejection, 2D goldens unchanged.
 - **`make_templates.R` + `validate_metadata.R` skip `_3d` silently** → both route through that

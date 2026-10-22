@@ -24,6 +24,12 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 # The oracle sees exactly these files.  A suite that pins a mutated predicate
 # and is not named here scores a silent no-op kill, so every test file covering
 # `measure` or `qualify` joins this tuple in the commit that adds it.
+# The determinism-evidence binding test fails on ANY byte change to a target, so it would kill
+# every mutant by construction; the seeded survivor (a comment edit) proves no other suite case
+# reads bytes alone.
+BYTE_BINDING_TESTS = (
+    "tests/test_qualify.py::test_m2u5_p20_committed_determinism_evidence_matches_its_sources",
+)
 TEST_COMMAND = (
     sys.executable,
     "-m",
@@ -34,6 +40,7 @@ TEST_COMMAND = (
     "tests/test_measure_diff_blind.py",
     "tests/test_measure_mutants.py",
     "tests/test_qualify.py",
+    *(f"--deselect={nodeid}" for nodeid in BYTE_BINDING_TESTS),
 )
 # `sys.executable` is an absolute interpreter path, so the committed result
 # would bind to whoever ran it.  The record names the command, not the machine.
@@ -172,11 +179,11 @@ MUTANTS = (
     ),
     mutant(
         "M11-spanning-connectivity",
-        "return a partial spanning solution",
+        "a partially solved event reads connected",
         patch(
             QUALIFY,
-            "    return solved if len(solved) == len(members) else None\n",
-            "    return solved\n",
+            '        connected = not unreachable_by_event.get(event["event_id"], 0)\n',
+            "        connected = True\n",
         ),
     ),
     mutant(
@@ -191,11 +198,7 @@ MUTANTS = (
     mutant(
         "M13-span-multicamera",
         "publish a zero offset span for one camera",
-        patch(
-            QUALIFY,
-            "        if solved is not None and len(members) > 1:\n",
-            "        if solved is not None:\n",
-        ),
+        patch(QUALIFY, "        if len(solved_offsets) > 1:\n", "        if solved_offsets:\n"),
     ),
     mutant(
         "M14-cache-full-digest",
@@ -258,9 +261,32 @@ def baseline_files() -> dict[str, bytes]:
     return {path: (ROOT / path).read_bytes() for path in TARGETS}
 
 
+# The campaign's own firing input: a comment edit no test can observe, so it must survive and
+# the run must fail on it. `--seed-survivor` runs it alone and never writes the result file.
+SEED_SURVIVOR = mutant(
+    "S01-seeded-survivor",
+    "seeded survivor: a comment no test observes",
+    patch(
+        MEASURE,
+        "def manifest_digest(manifest: dict[str, Any]) -> str:\n",
+        "def manifest_digest(manifest: dict[str, Any]) -> str:  # seed\n",
+    ),
+)
+
+
+def campaign_status(rows: Sequence[dict[str, Any]]) -> int:
+    """1 when a mutant survived unruled or a ruled equivalent was killed (its ruling is stale)."""
+    for row in rows:
+        if row["verdict"] == "SURVIVED" or (
+            row["verdict"] == "killed" and row["equivalent_reason"]
+        ):
+            return 1
+    return 0
+
+
 def validate_catalog(originals: dict[str, bytes]) -> None:
     seen: set[str] = set()
-    for item in MUTANTS:
+    for item in (*MUTANTS, SEED_SURVIVOR):
         if item.id in seen:
             raise SystemExit(f"duplicate mutant id: {item.id}")
         seen.add(item.id)
@@ -341,6 +367,11 @@ def parser() -> argparse.ArgumentParser:
     )
     result.add_argument("--only", help="Run a comma-separated mutant-id subset.")
     result.add_argument(
+        "--seed-survivor",
+        action="store_true",
+        help="Run the seeded survivor alone (must exit 1); writes no result file.",
+    )
+    result.add_argument(
         "--output",
         default=str(ROOT / "tests" / "measure_mutation_results.json"),
         help="Write an atomic JSON result, or use '-' to stream without a file.",
@@ -377,6 +408,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if unknown:
             raise SystemExit(f"unknown mutant ids: {','.join(sorted(unknown))}")
     selected = [item for item in MUTANTS if selected_ids is None or item.id in selected_ids]
+    if args.seed_survivor:
+        selected = [SEED_SURVIVOR]
 
     baseline = run_tests()
     if baseline.returncode:
@@ -384,7 +417,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stderr.write(baseline.stderr)
         raise SystemExit("focused baseline is not green")
 
-    output = None if args.output == "-" else pathlib.Path(args.output)
+    output = None if args.output == "-" or args.seed_survivor else pathlib.Path(args.output)
     if output is not None and not output.is_absolute():
         output = ROOT / output
     payload = _payload(originals, output)
@@ -438,7 +471,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(
         f"mutants={len(selected_rows)} killed={killed} equivalent={equivalent} survived={survived}"
     )
-    return 1 if survived else 0
+    return campaign_status(selected_rows)
 
 
 if __name__ == "__main__":

@@ -13,10 +13,17 @@ import re
 import subprocess
 import sys
 from collections.abc import Sequence
+from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 INVENTORY = "src/pose_estimation/inventory.py"
 VIDEO_IO = "src/pose_estimation/video_io.py"
+# The determinism-evidence binding test fails on ANY byte change to a target, so it would kill
+# every mutant by construction; the seeded survivor (a comment edit) proves no other suite case
+# reads bytes alone.
+BYTE_BINDING_TESTS = (
+    "tests/test_inventory_review.py::test_committed_determinism_evidence_binds_to_its_current_sources",
+)
 TEST_COMMAND = (
     sys.executable,
     "-m",
@@ -25,6 +32,7 @@ TEST_COMMAND = (
     "tests/test_inventory.py",
     "tests/test_inventory_review.py",
     "tests/test_inventory_predicates.py",
+    *(f"--deselect={nodeid}" for nodeid in BYTE_BINDING_TESTS),
 )
 
 
@@ -40,14 +48,17 @@ class Mutant:
     id: str
     description: str
     patches: tuple[Patch, ...]
+    # A ruled equivalent: its survival is the expected verdict, and a kill means the ruling went
+    # stale. Every other survivor fails the campaign.
+    equivalent_reason: str | None = None
 
 
 def patch(old: str, new: str, *, path: str = INVENTORY) -> Patch:
     return Patch(path, old, new)
 
 
-def mutant(id_: str, description: str, *patches: Patch) -> Mutant:
-    return Mutant(id_, description, tuple(patches))
+def mutant(id_: str, description: str, *patches: Patch, equivalent: str | None = None) -> Mutant:
+    return Mutant(id_, description, tuple(patches), equivalent)
 
 
 MUTANTS = (
@@ -222,11 +233,13 @@ MUTANTS = (
             'raw = (out_dir / name).read_text(encoding="utf-8").encode("utf-8")',
         ),
     ),
+    # `read_marker` raises ValueError for malformed JSON + duplicate keys, and UnicodeDecodeError
+    # is a ValueError, so dropping UnicodeDecodeError alone is equivalent; M024 drops both.
     mutant(
         "M023",
         "generation validation leaks malformed-JSON exceptions",
         patch(
-            "except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:",
+            "except (OSError, UnicodeDecodeError, ValueError) as error:",
             "except (OSError, UnicodeDecodeError) as error:",
         ),
     ),
@@ -234,16 +247,16 @@ MUTANTS = (
         "M024",
         "generation validation leaks invalid-UTF-8 census exceptions",
         patch(
-            "except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:",
-            "except (OSError, json.JSONDecodeError) as error:",
+            "except (OSError, UnicodeDecodeError, ValueError) as error:",
+            "except OSError as error:",
         ),
     ),
     mutant(
         "M025",
         "generation validation leaks a missing-census OSError",
         patch(
-            "except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:",
-            "except (UnicodeDecodeError, json.JSONDecodeError) as error:",
+            "except (OSError, UnicodeDecodeError, ValueError) as error:",
+            "except (UnicodeDecodeError, ValueError) as error:",
         ),
     ),
     mutant(
@@ -273,6 +286,10 @@ MUTANTS = (
         patch(
             "for name in (ASSETS_FILENAME, CAPTURES_FILENAME):",
             "for name in (CAPTURES_FILENAME, ASSETS_FILENAME):",
+        ),
+        equivalent=(
+            "both validation orders raise InventoryError, and no contract pins precedence "
+            "between two simultaneously corrupt tables"
         ),
     ),
     mutant(
@@ -690,10 +707,25 @@ def sha256(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def git(*args: str) -> str:
-    return subprocess.run(
-        ("git", *args), cwd=ROOT, text=True, capture_output=True, check=True
-    ).stdout.strip()
+# The campaign's own firing input: a comment edit no test can observe, so it must survive and
+# the run must fail on it. `--seed-survivor` runs it alone and never writes the result file.
+SEED_SURVIVOR = mutant(
+    "S001",
+    "seeded survivor: a comment no test observes",
+    patch(
+        "def asset_id_of(relative_posix_path):\n", "def asset_id_of(relative_posix_path):  # seed\n"
+    ),
+)
+
+
+def campaign_status(rows: Sequence[dict[str, object]]) -> int:
+    """1 when a mutant survived unruled or a ruled equivalent was killed (its ruling is stale)."""
+    for row in rows:
+        if row["verdict"] == "SURVIVED" or (
+            row["verdict"] == "killed" and row["equivalent_reason"]
+        ):
+            return 1
+    return 0
 
 
 def baseline_files() -> dict[str, bytes]:
@@ -702,7 +734,7 @@ def baseline_files() -> dict[str, bytes]:
 
 def validate_catalog(originals: dict[str, bytes]) -> None:
     seen: set[str] = set()
-    for item in MUTANTS:
+    for item in (*MUTANTS, SEED_SURVIVOR):
         if item.id in seen:
             raise SystemExit(f"duplicate mutant id: {item.id}")
         seen.add(item.id)
@@ -779,6 +811,11 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--check", action="store_true", help="validate the mutation catalogue only")
     result.add_argument("--only", help="comma-separated mutant IDs")
     result.add_argument(
+        "--seed-survivor",
+        action="store_true",
+        help="run the seeded survivor alone (must exit 1); writes no result file",
+    )
+    result.add_argument(
         "--phase",
         choices=("initial", "closure"),
         default="initial",
@@ -806,6 +843,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if unknown:
             raise SystemExit(f"unknown mutant ids: {','.join(sorted(unknown))}")
     selected = [item for item in MUTANTS if selected_ids is None or item.id in selected_ids]
+    if args.seed_survivor:
+        selected = [SEED_SURVIVOR]
 
     baseline = run_tests()
     if baseline.returncode:
@@ -814,33 +853,36 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit("focused baseline is not green")
 
     target_hashes = {path: sha256(raw) for path, raw in originals.items()}
-    tested_head = git("rev-parse", "HEAD")
     output = args.output if args.output.is_absolute() else ROOT / args.output
-    if output.exists():
+    if args.seed_survivor:
+        payload: dict[str, Any] = {"initial": [], "closure": []}
+    elif output.exists():
         payload = json.loads(output.read_text(encoding="utf-8"))
         if payload.get("target_sha256") != target_hashes:
             raise SystemExit("result file targets a different source baseline")
     else:
         payload = {
-            "schema_version": 1,
-            "tested_head": tested_head,
-            "test_command": (
-                "python -m pytest -q tests/test_inventory.py tests/test_inventory_review.py "
-                "tests/test_inventory_predicates.py"
-            ),
+            "schema_version": 2,
+            "test_command": " ".join(("python", *TEST_COMMAND[1:])),
             "target_sha256": target_hashes,
             "initial": [],
             "closure": [],
         }
 
     rows = {row["id"]: row for row in payload[args.phase]}
+    selected_rows: list[dict[str, Any]] = []
     try:
         for item in selected:
             apply(item, originals)
             completed = run_tests()
             nodeids = failure_nodeids(completed)
-            verdict = "killed" if completed.returncode else "SURVIVED"
-            rows[item.id] = {
+            if completed.returncode:
+                verdict = "killed"
+            elif item.equivalent_reason is not None:
+                verdict = "equivalent"
+            else:
+                verdict = "SURVIVED"
+            row: dict[str, Any] = {
                 "id": item.id,
                 "file_line": locate(item, originals),
                 "mutation": item.description,
@@ -848,13 +890,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "pytest_returncode": completed.returncode,
                 "killing_tests": nodeids
                 or ([f"<pytest-exit:{completed.returncode}>"] if completed.returncode else []),
+                "equivalent_reason": item.equivalent_reason,
             }
+            rows[item.id] = row
+            selected_rows.append(row)
             restore(originals)
-            payload[args.phase] = [rows[key] for key in sorted(rows)]
-            write_result(output, payload)
-            first = rows[item.id]["killing_tests"][:1]
+            if not args.seed_survivor:
+                payload[args.phase] = [rows[key] for key in sorted(rows)]
+                write_result(output, payload)
+            first = row["killing_tests"][:1]
             suffix = first[0] if first else "none"
-            print(f"{item.id} {verdict} {suffix}")
+            print(f"{item.id} {verdict} {suffix}", flush=True)
     finally:
         restore(originals)
 
@@ -865,7 +911,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stdout.write(final_baseline.stdout)
         sys.stderr.write(final_baseline.stderr)
         raise SystemExit("focused baseline failed after restoration")
-    return 0
+    counts = {
+        v: sum(r["verdict"] == v for r in selected_rows)
+        for v in ("killed", "equivalent", "SURVIVED")
+    }
+    print(
+        f"mutants={len(selected_rows)} killed={counts['killed']} "
+        f"equivalent={counts['equivalent']} survived={counts['SURVIVED']}"
+    )
+    return campaign_status(selected_rows)
 
 
 if __name__ == "__main__":

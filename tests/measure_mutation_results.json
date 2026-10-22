@@ -2,7 +2,7 @@
   "results": [
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/measure/__init__.py:718",
+      "file_line": "src/pose_estimation/measure/__init__.py:744",
       "id": "M01-reconcile-foreign",
       "killing_tests": [
         "tests/test_measure_diff_blind.py::test_p35_qualification_reconciliation_rejects_a_foreign_per_asset_key",
@@ -15,7 +15,7 @@
     },
     {
       "equivalent_reason": "qualify._ingest discards the return; asset and pair omission semantics come from independent keyed lookups",
-      "file_line": "src/pose_estimation/measure/__init__.py:735",
+      "file_line": "src/pose_estimation/measure/__init__.py:761",
       "id": "M02-reconcile-omitted-return",
       "killing_tests": [],
       "mutation": "discard the omitted canonical-key return",
@@ -24,7 +24,7 @@
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/measure/__init__.py:390",
+      "file_line": "src/pose_estimation/measure/__init__.py:419",
       "id": "M03-scale-pairing",
       "killing_tests": [
         "tests/test_measure_diff_blind.py::test_r3_scale_class_and_confidence_pairing_is_closed[coin-none]",
@@ -36,7 +36,7 @@
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/measure/__init__.py:562",
+      "file_line": "src/pose_estimation/measure/__init__.py:588",
       "id": "M04-row-count-bool",
       "killing_tests": [
         "tests/test_measure_diff_blind.py::test_manifest_row_count_is_a_nonnegative_json_integer[True]"
@@ -47,7 +47,7 @@
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/qualify.py:789",
+      "file_line": "src/pose_estimation/qualify.py:1030",
       "id": "M05-fuse-corroborated",
       "killing_tests": [
         "tests/test_measure_diff_blind.py::test_r6_fusion_policy_stays_in_qualification[ok-ok-0.000000000-0.010000000-ok_corroborated]",
@@ -59,7 +59,7 @@
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/qualify.py:789",
+      "file_line": "src/pose_estimation/qualify.py:1030",
       "id": "M06-fuse-contradicted",
       "killing_tests": [
         "tests/test_measure_diff_blind.py::test_r6_fusion_policy_stays_in_qualification[ok-ok-0.000000000-0.100000000-contradicted]"
@@ -70,7 +70,7 @@
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/qualify.py:791",
+      "file_line": "src/pose_estimation/qualify.py:1032",
       "id": "M07-fuse-uncorroborated",
       "killing_tests": [
         "tests/test_measure_diff_blind.py::test_r6_fusion_policy_stays_in_qualification[ok-ambiguous_peak-0.000000000-0.010000000-ok_uncorroborated]",
@@ -84,7 +84,7 @@
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/qualify.py:793",
+      "file_line": "src/pose_estimation/qualify.py:1034",
       "id": "M08-fuse-visual-only",
       "killing_tests": [
         "tests/test_measure_diff_blind.py::test_r6_fusion_policy_stays_in_qualification[boundary_peak-ok-0.000000000-0.010000000-visual_only]"
@@ -95,7 +95,7 @@
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/qualify.py:794",
+      "file_line": "src/pose_estimation/qualify.py:1035",
       "id": "M09-fuse-neither",
       "killing_tests": [
         "tests/test_measure_diff_blind.py::test_r6_fusion_policy_stays_in_qualification[boundary_peak-ambiguous_peak-0.000000000-0.010000000-neither_accepted]"
@@ -106,7 +106,7 @@
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/qualify.py:789",
+      "file_line": "src/pose_estimation/qualify.py:1030",
       "id": "M10-fuse-boundary",
       "killing_tests": [
         "tests/test_measure_mutants.py::test_fusion_agreement_tolerance_is_inclusive"
@@ -117,18 +117,18 @@
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/qualify.py:885",
+      "file_line": "src/pose_estimation/qualify.py:1364",
       "id": "M11-spanning-connectivity",
       "killing_tests": [
         "tests/test_qualify.py::test_p19_an_isolated_camera_leaves_its_event_unqualified"
       ],
-      "mutation": "return a partial spanning solution",
+      "mutation": "a partially solved event reads connected",
       "pytest_returncode": 1,
       "verdict": "killed"
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/qualify.py:941",
+      "file_line": "src/pose_estimation/qualify.py:1384",
       "id": "M12-closure-three-edges",
       "killing_tests": [
         "tests/test_qualify.py::test_p16_an_unclosed_triangle_publishes_no_closure_rather_than_a_partial_one",
@@ -140,10 +140,10 @@
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/qualify.py:936",
+      "file_line": "src/pose_estimation/qualify.py:1372",
       "id": "M13-span-multicamera",
       "killing_tests": [
-        "tests/test_measure_mutants.py::test_single_camera_event_has_no_offset_span"
+        "tests/test_qualify.py::test_p19_an_isolated_camera_leaves_its_event_unqualified"
       ],
       "mutation": "publish a zero offset span for one camera",
       "pytest_returncode": 1,
@@ -184,7 +184,7 @@
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/qualify.py:430",
+      "file_line": "src/pose_estimation/qualify.py:588",
       "id": "M17-placement-sort",
       "killing_tests": [
         "tests/test_measure_mutants.py::test_load_placements_sorts_members_independent_of_table_order"
@@ -195,7 +195,7 @@
     },
     {
       "equivalent_reason": null,
-      "file_line": "src/pose_estimation/qualify.py:1033",
+      "file_line": "src/pose_estimation/qualify.py:1526",
       "id": "M18-closure-distribution-sort",
       "killing_tests": [
         "tests/test_measure_mutants.py::test_closure_distribution_endpoints_ignore_event_order"
@@ -207,9 +207,9 @@
   ],
   "schema_version": 1,
   "target_sha256": {
-    "src/pose_estimation/measure/__init__.py": "52a39facb0dff453199b0272d56d624b181b0c89537b901a40f0dcfc224092b3",
+    "src/pose_estimation/measure/__init__.py": "36f1a53366f518c3a837ae367f12142cad193c92d2af8f8e67fc8bc7d166e45e",
     "src/pose_estimation/measure/audio_offset.py": "37750a68c2d9b76428230a37fb40058327ce4bc1673321483f58555ef94f4a32",
-    "src/pose_estimation/qualify.py": "42a78377e968ead54aef59b952941bf281b56f2d02ebb9fdae0700a54aeaac0d"
+    "src/pose_estimation/qualify.py": "f6c27bbc260f17ac2d5b055e8ca3787d0cb609c923633af6a206543d3c1ce37a"
   },
-  "test_command": "python -m pytest -q tests/test_measure.py tests/test_measure_cache.py tests/test_measure_diff_blind.py tests/test_measure_mutants.py tests/test_qualify.py"
+  "test_command": "python -m pytest -q tests/test_measure.py tests/test_measure_cache.py tests/test_measure_diff_blind.py tests/test_measure_mutants.py tests/test_qualify.py --deselect=tests/test_qualify.py::test_m2u5_p20_committed_determinism_evidence_matches_its_sources"
 }
