@@ -9,8 +9,10 @@ It runs no pose model and re-derives no per-frame value.
 
 ## Run the tool
 
+`$P` = the gate prefix, `$A` = the accelerator recipe — both defined in `entrypoints.md`.
+
 ```sh
-pose-estimation-cohort \
+$P pose-estimation-cohort \
   --inventory inventory \
   --sessions sessions \
   --run run \

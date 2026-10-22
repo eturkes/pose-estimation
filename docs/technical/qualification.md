@@ -8,8 +8,10 @@ The tool is the third artifact publisher, after `pose-estimation-inventory` and
 
 ## Run the tool
 
+`$P` = the gate prefix, `$A` = the accelerator recipe — both defined in `entrypoints.md`.
+
 ```sh
-pose-estimation-qualify \
+$P pose-estimation-qualify \
   --inventory inventory \
   --sessions sessions \
   --corpus videos/3-cam \

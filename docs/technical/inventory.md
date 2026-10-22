@@ -4,11 +4,13 @@
 
 ## Run the inventory
 
+`$P` = the gate prefix, `$A` = the accelerator recipe — both defined in `entrypoints.md`.
+
 ```bash
-pose-estimation-inventory --corpus videos/3-cam --out inventory
-pose-estimation-inventory --corpus videos/3-cam --out inventory --no-checksums
-pose-estimation-inventory --corpus videos/3-cam --out inventory --strict
-python -m pose_estimation.inventory --corpus videos/3-cam --out inventory
+$P pose-estimation-inventory --corpus videos/3-cam --out inventory
+$P pose-estimation-inventory --corpus videos/3-cam --out inventory --no-checksums
+$P pose-estimation-inventory --corpus videos/3-cam --out inventory --strict
+$P python -m pose_estimation.inventory --corpus videos/3-cam --out inventory
 ```
 
 Use `--corpus` to select the recursively searched directory. Use `--out` to select the output, which defaults to `inventory`. Use `--no-checksums` to skip full-byte SHA-256 scans. Use `--strict` to return status 1 when any asset is not canonical. The output must sit outside the corpus. The discovery layer also skips the output for library callers.

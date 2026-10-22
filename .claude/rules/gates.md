@@ -5,7 +5,7 @@
 - **Full gate = `scripts/gate.sh`**: static steps (`.agent/spec-lint`, `ruff check` incl. security
   rules `S`, `ruff format --check`, `ty check` over `src/` + `tests/`, `shellcheck`, Dependabot
   schema), scanners (`audit`, `secrets`, `scanner-seeds` → `scanners.md`; network + one
-  `scripts/install-tools.sh`), `cocowb-eval` (`bench.md`), then `pytest --durations=15`, in that
+  `scripts/install-tools.sh`), `cocowb-eval` (`bench.md`), then `P pytest --durations=15`, in that
   order, each under the prefix below and each printing `gate: <step> rc=<rc> <wall> s`. A failed
   step leaves the later ones running → one run reports every failure; rc=1 + `gate: FAIL <steps>`,
   else `gate: PASS`.
@@ -27,7 +27,7 @@ env -u LD_LIBRARY_PATH PYTHONPATH="$PWD/src" uv run --no-sync <cmd>
 
 Carry it verbatim (`scripts/gate.sh <cmd…>` does). `PYTHONPATH` is the half that does the work:
 the **inherited** `PYTHONPATH` names the host OpenVINO package (glibc 2.43) and pointing it at
-`src` displaces it so `tests/conftest.py` imports the `.venv` wheel. Measured, `pytest
+`src` displaces it so `tests/conftest.py` imports the `.venv` wheel. Measured, `<form> pytest
 --collect-only -q tests/test_public_api.py` under an interactive shell's environment:
 
 | form | rc | outcome |

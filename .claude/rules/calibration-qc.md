@@ -23,11 +23,11 @@ Publication contract → `publishers.md`.
 - **A scan's own documentation must not spell the needles it forbids**, and `PROHIBITED_PARAPHRASES` stays module-side and never publishes. A document inside the scanned set carries every string it quotes. Keep the needle list in the checker, describe the rule without spelling it, and the scan stays total over every byte. An exclusion list is the wrong fix — it opens a hole exactly where data could hide.
 - **A needle list is scoped to the surface it was written for.** Ranged over `docs/capture_protocol.md`, `PROHIBITED_PARAPHRASES` fires on *"This clinical-validity gap stays open"* — `_fold` flattens `-`, so the concession of a gap reads as the overreach the needle exists to catch. Scope the scan; never reword a DONE unit's shipped document to satisfy a rule it was not written for.
 - **`docs/calibration_finding.md` is the sole published home of the `calibration_bias` numbers.** The publisher cites and digests that probe and ingests nothing from it, so `evidence_qc.csv` carries `bias_transfer` rows alone. Quote C01-C04's closure, control, bundle-adjustment and subset figures from the report, never from a published cell — there is none.
-- `python scripts/check_claim_report.py` = 9 predicates in under a second, driven identically from `tests/test_claim_report.py` through `runpy`. The report re-derives nothing.
+- `P python scripts/check_claim_report.py` = 9 predicates in under a second, driven identically from `tests/test_claim_report.py` through `runpy`. The report re-derives nothing.
 
 ## The committed fixture set = this publisher's byte oracle
 
-- `python scripts/make_calibration_qc_fixtures.py --force` then `python scripts/check_calibration_qc_fixtures.py` = **12/12 in 1.9 s**, both under the standard gate prefix.
+- `P python scripts/make_calibration_qc_fixtures.py --force` then `P python scripts/check_calibration_qc_fixtures.py` = **12/12 in 1.9 s**.
 - `inputs/upstream/` is one `qualify.run()` generation over `_canonical(90, "above")` — subject 90 keeps the capture inside the scan's synthetic namespace, and `calibration_qc.run` validates that tree standalone, so no registry, session tree or media is committed.
 - Refusal matrix = **26 file-only reasons** (17 run, 9 validate) + **4 state-only**: `claim_missing`, `corpus_cardinality`, `tree_unreadable`, `output_overlap` (overlap needs a symlink the fixture set forbids). `claim_prohibited` IS file-only, reached through an arm label carrying a prohibited paraphrase.
 - **The generator's `--force` deletes its destination, so it carries the publishers' ownership rule**: it refuses any non-empty destination whose `manifest.json` does not name it, and still accepts an empty directory, which is how the idempotence predicate drives it.

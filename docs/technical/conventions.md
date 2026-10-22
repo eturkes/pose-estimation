@@ -82,8 +82,8 @@ Per-file ignores:
 
 Run:
 ```bash
-uv run ruff check --fix
-uv run ruff format
+$P ruff check --fix
+$P ruff format
 ```
 
 `docstring-code-format = true` — code blocks inside docstrings are reformatted.
@@ -93,7 +93,7 @@ uv run ruff format
 Astral's type checker (alpha; pre-1.0). Config: `[tool.ty.*]`.
 
 ```bash
-uv run ty check
+$P ty check
 ```
 
 `tool.ty.environment.root = ["src", "tests"]`, Python 3.10 target. `tool.ty.src.include = ["src", "tests"]`.

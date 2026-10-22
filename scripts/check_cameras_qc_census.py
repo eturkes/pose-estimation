@@ -12,7 +12,7 @@ cameras sitting inside a graph-connected event and 355 counts cameras carrying
 an offset; quoting either as the other is the defect ruling A02 corrected, and
 this project has conflated a pair of same-shaped counts three times.
 
-Usage: ``python scripts/check_cameras_qc_census.py [--qualification DIR]
+Usage: ``scripts/gate.sh python scripts/check_cameras_qc_census.py [--qualification DIR]
 [--oracle CSV] [--expect-rows N]``.  Exits 0 when every check passes.
 """
 

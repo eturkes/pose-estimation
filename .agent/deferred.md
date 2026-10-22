@@ -14,10 +14,6 @@ rows before sizing any unit that touches their surfaces.
   outside this repo): `../rehab` `scripts/font_charset.py` scans `schema/`, so appending the
   fragment to `schema/columns.yaml` and rerunning `scripts/02_build_fonts.py` (npm fetch) covers them;
   `../rehab` `tests/test_font_coverage.py` then pins it.
-- **Gate prefix recalled by failure** (`scripts/gate.sh <cmd…>` carries it: collects in the primary
-  tree + a fresh worktree, bare `uv run` still reproduces `GLIBC_2.43`) → 0 bare invocations in
-  `.agent/spec.md` + `.claude/rules/` + `docs/` + `scripts/` (`.agent/archive/` frozen, keeps its
-  bare forms).
 - **12/12 `check_*.py` ship green-only; `run_measure_mutations.py` firing unrecorded** (census +
   acceptance → `checks.md`) → each checker grows a committed seed driving it to its own named
   failure; a runner reports 12/12 refused, rc=1 naming one that stops. Covers the

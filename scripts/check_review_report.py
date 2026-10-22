@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Grade a MILESTONE-REVIEW report against the Review contract's report shape.
 
-Usage: python check_review_report.py <report.md>
+Usage: scripts/gate.sh python scripts/check_review_report.py <report.md>
 rc=0 <=> every predicate passes. Seed (all-`unknown`) grades nonzero by P03.
 """
 

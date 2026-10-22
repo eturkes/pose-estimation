@@ -16,19 +16,31 @@ Eleven console scripts (see `pyproject.toml:[project.scripts]`):
 | `pose-estimation-validate` | `pose_estimation.validation` | End-to-end pipeline validation report. |
 | `pose-estimation-cohort` | `pose_estimation.cohort` | Publishes the `(task, side)` cohort aggregate from a corpus run. |
 
+Every command below carries one of two mutually exclusive prefixes (`.claude/rules/gates.md`);
+a bare `python`, `pytest` or console script imports the host OpenVINO build and fails at
+`GLIBC_2.43`:
+
+```bash
+P="env -u LD_LIBRARY_PATH PYTHONPATH=$PWD/src uv run --no-sync"   # gate prefix: publishers, tools, tests (CPU)
+source /var/home/eturkes/.local/app/intel-accel/env.sh              # accelerator recipe, then
+A="env PYTHONPATH=$PWD/src:$PYTHONPATH .venv/bin/python"             # inference on GPU/NPU
+```
+
+The gate prefix silently strips the accelerator: inference under `$P` runs on CPU with no warning.
+
 ## `main.py` — MediaPipe path
 
 ```bash
-python -m pose_estimation.main                            # webcam 0, NPU, hands-arms
-python -m pose_estimation.main --source video.mp4
-python -m pose_estimation.main --batch-dir videos/        # batch over a directory
-python -m pose_estimation.main --headless                 # no pygame, emit metrics CSV
-python -m pose_estimation.main --metrics-detail           # adds *_kp_detail.csv
-python -m pose_estimation.main --single-subject           # keep largest body only
-python -m pose_estimation.main --postprocess              # +Savitzky-Golay smoothing pass
-python -m pose_estimation.main --det-device CPU --pose-device CPU   # CPU instead of NPU
-python -m pose_estimation.main --no-flip                  # disable mirror flip
-python -m pose_estimation.main --tracking hands|hands-arms|body
+$A -m pose_estimation.main                            # webcam 0, NPU, hands-arms
+$A -m pose_estimation.main --source video.mp4
+$A -m pose_estimation.main --batch-dir videos/        # batch over a directory
+$A -m pose_estimation.main --headless                 # no pygame, emit metrics CSV
+$A -m pose_estimation.main --metrics-detail           # adds *_kp_detail.csv
+$A -m pose_estimation.main --single-subject           # keep largest body only
+$A -m pose_estimation.main --postprocess              # +Savitzky-Golay smoothing pass
+$A -m pose_estimation.main --det-device CPU --pose-device CPU   # CPU instead of NPU
+$A -m pose_estimation.main --no-flip                  # disable mirror flip
+$A -m pose_estimation.main --tracking hands|hands-arms|body
 ```
 
 Key flags: `--source`, `--batch-dir`, `--session-dir`, `--sessions-dir`, `--calibration`, `--output-dir`, `--det-device`, `--pose-device`, `--model-dir`, `--tracking`, `--single-subject`, `--headless`, `--metrics-detail`, `--postprocess`, `--savgol-window`, `--savgol-polyorder`, `--no-flip`.
@@ -57,15 +69,15 @@ device and its score calibration (`src/pose_estimation/score_calibrations/<key>.
 | `mediapipe` | — | — | Delegates to `main.py`. |
 
 ```bash
-python -m pose_estimation.run                                          # webcam 0, rtmw-l-384
-python -m pose_estimation.run --model dwpose-m
-python -m pose_estimation.run --source video.mp4 --model rtmw-m-256 --det-device CPU --pose-device NPU
-python -m pose_estimation.run --batch-dir videos/ --single-subject
-python -m pose_estimation.run --source video.mp4 --tracker rtmlib        # upstream PoseTracker
-python -m pose_estimation.run --session-dir videos/session_a/           # multi-camera
-python -m pose_estimation.run --sessions-dir videos/ --calibration calib.json
-python -m pose_estimation.run --list-sessions                          # read-only discovery probe
-python -m pose_estimation.run --headless                               # no display
+$A -m pose_estimation.run                                          # webcam 0, rtmw-l-384
+$A -m pose_estimation.run --model dwpose-m
+$A -m pose_estimation.run --source video.mp4 --model rtmw-m-256 --det-device CPU --pose-device NPU
+$A -m pose_estimation.run --batch-dir videos/ --single-subject
+$A -m pose_estimation.run --source video.mp4 --tracker rtmlib        # upstream PoseTracker
+$A -m pose_estimation.run --session-dir videos/session_a/           # multi-camera
+$A -m pose_estimation.run --sessions-dir videos/ --calibration calib.json
+$A -m pose_estimation.run --list-sessions                          # read-only discovery probe
+$A -m pose_estimation.run --headless                               # no display
 ```
 
 All rtmlib models share the YOLOX-m detector (640×640). Detector + pose URLs are pinned in `MODEL_REGISTRY`. Models download on first run. `--tracker subject` (default) crops every frame from a detector box and keeps one subject identity; `--tracker rtmlib` builds the upstream `PoseTracker` (`tracking-modes.md`).
@@ -75,9 +87,9 @@ All rtmlib models share the YOLOX-m detector (640×640). Detector + pose URLs ar
 ## `benchmark.py` — parameter sweep
 
 ```bash
-python -m pose_estimation.benchmark --source video.mp4 --sweep body_min_cutoff 0.1 0.3 0.5 1.0
-python -m pose_estimation.benchmark --source video.mp4 --config sweep_default.yaml
-python -m pose_estimation.benchmark --source video.mp4 --config sweep_quick.yaml
+$A -m pose_estimation.benchmark --source video.mp4 --sweep body_min_cutoff 0.1 0.3 0.5 1.0
+$A -m pose_estimation.benchmark --source video.mp4 --config sweep_default.yaml
+$A -m pose_estimation.benchmark --source video.mp4 --config sweep_quick.yaml
 ```
 
 Spawns headless subprocesses with `POSE_BENCH_*` env-var overrides. See `optimization.md` for the parameter list.
@@ -85,10 +97,10 @@ Spawns headless subprocesses with `POSE_BENCH_*` env-var overrides. See `optimiz
 ## `calibration_cli.py` — multi-camera calibration
 
 ```bash
-pose-estimation-calibrate verify  --calibration calib.json
-pose-estimation-calibrate solve   --session-dir videos/calib_session/ --output calib.json
-pose-estimation-calibrate board   --output board.png
-pose-estimation-calibrate capture --session-dir videos/calib_session/ --devices 0,1,2
+$P pose-estimation-calibrate verify  --calibration calib.json
+$P pose-estimation-calibrate solve   --session-dir videos/calib_session/ --output calib.json
+$P pose-estimation-calibrate board   --output board.png
+$P pose-estimation-calibrate capture --session-dir videos/calib_session/ --devices 0,1,2
 ```
 
 `verify` prints a summary; `solve` runs the ChArUco solver (`charuco.py`); `board` renders the printable pattern; `capture` records synchronized per-camera AVIs via a pygame grid (SPACE = save one frame per camera). Full flags + workflow: `calibration.md`.
@@ -96,10 +108,10 @@ pose-estimation-calibrate capture --session-dir videos/calib_session/ --devices 
 ## `inventory.py` — task-side family registry and census
 
 ```bash
-pose-estimation-inventory --corpus synthetic-corpus --out inventory
-pose-estimation-inventory --corpus synthetic-corpus --out inventory --no-checksums
-pose-estimation-inventory --corpus synthetic-corpus --out inventory --strict
-python -m pose_estimation.inventory --corpus synthetic-corpus --out inventory
+$P pose-estimation-inventory --corpus synthetic-corpus --out inventory
+$P pose-estimation-inventory --corpus synthetic-corpus --out inventory --no-checksums
+$P pose-estimation-inventory --corpus synthetic-corpus --out inventory --strict
+$P python -m pose_estimation.inventory --corpus synthetic-corpus --out inventory
 ```
 
 `--corpus` selects the required directory and searches every subdirectory.
@@ -142,9 +154,9 @@ See `inventory.md` for identities, schemas, claim limits, and generation validat
 ## `sessions.py` — recording-event tree
 
 ```bash
-pose-estimation-sessions --inventory inventory --corpus videos/3-cam --out sessions
-pose-estimation-sessions --strict
-python -m pose_estimation.sessions --out sessions
+$P pose-estimation-sessions --inventory inventory --corpus videos/3-cam --out sessions
+$P pose-estimation-sessions --strict
+$P python -m pose_estimation.sessions --out sessions
 ```
 
 `--inventory` selects the published registry and defaults to `inventory`.
@@ -159,14 +171,14 @@ The tool reads the registry alone and never walks the corpus. See `sessions.md`.
 ## `qualify.py` — capture-qualification evidence publisher
 
 ```bash
-pose-estimation-qualify \
+$P pose-estimation-qualify \
   --inventory inventory \
   --sessions sessions \
   --corpus videos/3-cam \
   --out qualification \
   --measurements measurements
 
-python -m pose_estimation.qualify \
+$P python -m pose_estimation.qualify \
   --inventory inventory \
   --sessions sessions \
   --corpus videos/3-cam \
@@ -190,7 +202,7 @@ See [Capture qualification](qualification.md) for the schemas, measurement limit
 ## `calibration_qc.py` — corpus-level calibration ruling
 
 ```bash
-pose-estimation-calibration-qc \
+$P pose-estimation-calibration-qc \
   --qualification qualification \
   --evidence evidence \
   --probes scripts \
@@ -198,7 +210,7 @@ pose-estimation-calibration-qc \
   --sessions sessions \
   --inventory inventory
 
-python -m pose_estimation.calibration_qc \
+$P python -m pose_estimation.calibration_qc \
   --qualification qualification \
   --evidence evidence \
   --probes scripts \
@@ -225,9 +237,9 @@ See [Calibration ruling](calibration_qc.md) for the schemas, claim bound, and co
 ## `validation.py` — end-to-end validation report
 
 ```bash
-pose-estimation-validate --session-dir videos/session_a --calibration calib.json \
+$A -m pose_estimation.validation --session-dir videos/session_a --calibration calib.json \
     --out report.json --markdown report.md
-pose-estimation-validate --session-dir videos/session_a --baseline ref.json
+$A -m pose_estimation.validation --session-dir videos/session_a --baseline ref.json
 ```
 
 Runs the full 3D clinical chain (calibration → 2D tracking → `world3d.csv` fusion → R clinical metrics) on one session and emits JSON + Markdown with a PASS/WARN/FAIL verdict. `--qa-only` runs pre-flight capture QA without fusion/clinical analysis; `--strict` makes WARN fail. Exit codes: 0 = accepted verdict, 1 = FAIL (or WARN under `--strict`), 2 = harness/input error. Full flags, schemas, thresholds, and surrogates: `validation.md`.
@@ -235,7 +247,7 @@ Runs the full 3D clinical chain (calibration → 2D tracking → `world3d.csv` f
 ## `postprocess.py` — offline Savitzky-Golay
 
 ```bash
-python -m pose_estimation.postprocess output/video1.csv --window 15 --polyorder 3
+$P python -m pose_estimation.postprocess output/video1.csv --window 15 --polyorder 3
 ```
 
 Writes `<stem>_smooth.csv` next to the input. Also exposed as the `--postprocess` flag on `main.py`. Before interpolation/filtering, current-schema coordinates are treated as missing wherever their matching `_vis` or `_conf` value is blank, nonfinite, or zero; this prevents held predictions from pulling adjacent observations. Evidence columns are copied unchanged, and legacy coordinates without a matching evidence column retain the original smoothing behavior.

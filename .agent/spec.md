@@ -41,7 +41,7 @@ hospital SCI database.
   (landmarks `48078b4`), clinical stage = bouts + SPARC v3 (`2e02883b…`): 193/193 events, 379/379
   `ok`, 337 090 frames, 14.365 h measured, all 12 `run_report.json` verdicts true. The defaults
   reproduce it (`run.DEFAULT_MODEL` = `rtmw-l-384`; 193/193 recorded configurations equal):
-  `python scripts/corpus_run_2d.py` under the accelerator recipe, resumes per event marker.
+  `A scripts/corpus_run_2d.py` (`A` = the accelerator recipe), resumes per event marker.
   Effect vs M2.10 + RTMW-m → `docs/technical/pose-weak-points.md` § M4 corpus. Kept beside it:
   `output/corpus-2d-m4-rtmw-m-256` (the M4 RTMW-m arm; comparison side of the F4/F5/F6
   `.agent/deferred.md` rows). Superseded generations kept by user ruling (delete on the user's

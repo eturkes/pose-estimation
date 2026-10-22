@@ -2,13 +2,13 @@
 """Run the full benchmark suite and write JSON results.
 
 Usage (from project root):
-    uv run python scripts/benchmarks/run.py
+    scripts/gate.sh python scripts/benchmarks/run.py
 
     # Limit to one group:
-    uv run python scripts/benchmarks/run.py smoothing
+    scripts/gate.sh python scripts/benchmarks/run.py smoothing
 
     # Quick pass with fewer iterations:
-    uv run python scripts/benchmarks/run.py --quick
+    scripts/gate.sh python scripts/benchmarks/run.py --quick
 """
 
 from __future__ import annotations

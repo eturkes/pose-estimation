@@ -9,8 +9,10 @@ It runs no probe and computes no statistic.
 
 ## Run the tool
 
+`$P` = the gate prefix, `$A` = the accelerator recipe — both defined in `entrypoints.md`.
+
 ```sh
-pose-estimation-calibration-qc \
+$P pose-estimation-calibration-qc \
   --qualification qualification \
   --evidence evidence \
   --probes scripts \
@@ -18,7 +20,7 @@ pose-estimation-calibration-qc \
   --sessions sessions \
   --inventory inventory
 
-python -m pose_estimation.calibration_qc \
+$P python -m pose_estimation.calibration_qc \
   --qualification qualification \
   --evidence evidence \
   --probes scripts \

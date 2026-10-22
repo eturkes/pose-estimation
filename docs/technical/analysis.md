@@ -26,7 +26,7 @@ Separate from the `clinical_features.R` ecosystem: each reads one capture's raw 
 | `data_extraction.R` | one landmark CSV `[out_dir]` | `<stem>_angle_data.csv` (per-frame flexion, 5 fingers × both hands), `<stem>_mobility_analysis.csv` (frame-to-frame Δ + angular speed). |
 | `arthrose_diag.R` | one landmark CSV `[out_dir]` | stdout: index range-of-motion, mean angular speed, mobility diagnosis (thresholds amplitude ≥ 40°, speed ≥ 60°/s), or an explicit insufficient-observations result; `<stem>_closed_hand.png` (thumb–index distance over time). Needs `zoo`. |
 
-Live-camera captures now feed these: `pose-estimation-run <idx> --output-dir output/` exports `output/camera<idx>.csv` (file sources still use the file stem).
+Live-camera captures now feed these: `$A -m pose_estimation.run <idx> --output-dir output/` (`$A` = the accelerator recipe, `entrypoints.md`) exports `output/camera<idx>.csv` (file sources still use the file stem).
 
 ## Feature engineering
 

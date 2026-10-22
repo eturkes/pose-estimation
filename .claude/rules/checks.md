@@ -4,6 +4,7 @@ paths:
   - "scripts/run_*_mutations.py"
   - "tests/*_results.json"
   - "scripts/gate.sh"
+  - "tests/test_gate_prefix_recall.py"
 ---
 
 # Committed checks — firing records
@@ -29,3 +30,7 @@ runs + its rc. Firing, measured (`scripts/gate.sh --fast tests/test_spec_lint.py
 history line in `.agent/spec.md` + an unused import in a planted `scripts/*.py` → rc=1,
 `gate: FAIL spec-lint ruff-check pytest`, every later step still run; both plants removed →
 `gate: PASS`, spec digest restored.
+
+## Gate-prefix recall scan
+
+`tests/test_gate_prefix_recall.py` scans `.agent/spec.md`, `.claude/rules/`, `docs/` and `scripts/` for a root-project command (`uv run`, `python`, `pytest`, `pose-estimation-*`) without `P`/`$P`/`scripts/gate.sh`/the spelled prefix/the accelerator recipe; code spans (wrapped ones included), fenced lines and script comments, shell continuations joined. Firing, measured: a planted `` `pytest -q tests/test_x.py` `` line in `docs/technical/tests.md` → 1 failed naming `docs/technical/tests.md:103`; removed → 2 passed. At its landing the four surfaces held 90 bare forms (`d2eafbd`-era docs). The seed case pins each bare + accepted form.

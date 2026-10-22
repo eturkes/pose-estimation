@@ -4,10 +4,12 @@
 
 ## Run the generator
 
+`$P` = the gate prefix, `$A` = the accelerator recipe — both defined in `entrypoints.md`.
+
 ```bash
-pose-estimation-sessions --inventory inventory --corpus videos/3-cam --out sessions
-pose-estimation-sessions --strict
-python -m pose_estimation.sessions --out sessions
+$P pose-estimation-sessions --inventory inventory --corpus videos/3-cam --out sessions
+$P pose-estimation-sessions --strict
+$P python -m pose_estimation.sessions --out sessions
 ```
 
 Use `--inventory` to select the published registry. Use `--corpus` to select the root that the registry's relative paths resolve against. Use `--out` to select the output directory. Use `--strict` to return status 1 when the tool holds any asset out. Status 2 reports a usage or registry error.

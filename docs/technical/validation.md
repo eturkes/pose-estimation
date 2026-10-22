@@ -17,7 +17,7 @@ and returns a `ValidationReport`:
    → `ValidationError`.
 2. **2D tracking** — three-way branch (`_run_tracking`): an injected
    `camera_processor` (tests), else reuse if ≥2 per-camera CSVs already exist,
-   else a real backend run via `python -m pose_estimation.run --headless` per
+   else a real backend run via `$A -m pose_estimation.run --headless` (accelerator recipe, `entrypoints.md`) per
    camera.
 3. **3D fusion** — `multicam.fuse_session_outputs` + `export.write_world3d_csv`
    (run directly, *not* via `process_session`, so each stage gets its own
@@ -139,8 +139,7 @@ camera_processor=None, device, backend, confidence_floor, board=None) ->
 QAReport` (`validation.py`) is a **pre-flight gate**: it grades a *raw
 capture* before its clinical metrics are trusted, without running the
 fusion/clinical chain. The human procedure behind it is
-`../capture_protocol.md`. Run it via `pose-estimation-validate
---qa-only`.
+`../capture_protocol.md`. Run it via the `--qa-only` mode of `pose-estimation-validate`.
 
 It assesses three failure surfaces, reusing the harness building blocks
 (`detect_charuco_corners`, `_resolve_external_calibration`, `_run_tracking`
@@ -196,12 +195,14 @@ stability) only.
 
 ## Running
 
+`$P` = the gate prefix, `$A` = the accelerator recipe — both defined in `entrypoints.md`.
+
 ```bash
 # Full validation:
-pose-estimation-validate --session-dir videos/session_a \
+$A -m pose_estimation.validation --session-dir videos/session_a \
     --calibration calib.json --out report.json --markdown report.md
 # Pre-flight capture QA only (no fusion/clinical chain):
-pose-estimation-validate --session-dir videos/subject_a \
+$A -m pose_estimation.validation --session-dir videos/subject_a \
     --calibration videos/calib_a --qa-only --out qa.json --markdown qa.md
 ```
 

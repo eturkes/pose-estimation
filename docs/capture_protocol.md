@@ -3,8 +3,8 @@
 This document tells you how to record a calibration session and a subject
 session that the 3D clinical pipeline can validate. It also tells you how to
 grade a capture before you trust its clinical metrics. The automated gate is
-`pose-estimation-validate --qa-only` (see `docs/technical/validation.md` →
-*qa_check*). This document is the human procedure behind that gate.
+the `--qa-only` mode of `pose-estimation-validate` (see
+`docs/technical/validation.md` → *qa_check*). This document is the human procedure behind that gate.
 
 **Which document governs which capture.** This protocol governs a capture recorded with the
 tooling this repository ships. A future acquisition built for calibrated 3D is governed by
@@ -76,13 +76,18 @@ This capture produces the per-camera intrinsics and extrinsics. The board
 geometry defaults (`charuco.py`) are 6×9 squares, `DICT_4X4_250`, 40 mm
 squares and 30 mm markers.
 
-**Print the board.** Run `pose-estimation-calibrate board --output board.png`.
+Run each command from the repository root. Put the gate prefix `P` before a
+command that runs no pose model. Use the accelerator recipe `A` for a command
+that runs pose inference. `docs/technical/entrypoints.md` defines both. A
+command without its prefix fails at import on this machine.
+
+**Print the board.** Run `$P pose-estimation-calibrate board --output board.png`.
 Print the image at **100 % scale**. Measure one square with a ruler, because
 a mis-scaled board corrupts the metric units silently.
 Mount the board flat and rigid, for example on foam-board or a clipboard.
 Any flex breaks the planar assumption.
 
-**Record.** Run `pose-estimation-calibrate capture --devices 0,1,2`. Each
+**Record.** Run `$P pose-estimation-calibrate capture --devices 0,1,2`. Each
 SPACE press appends one synchronized frame per camera, and the frame index
 equals the press index, so the clips stay synchronized by construction. As an
 alternative, record freely and align the clips later. **Move the board
@@ -110,7 +115,7 @@ through the entire working volume** while you press SPACE:
   which stays well above the floor. The solver needs 8 views for the
   intrinsics, and more views give a better result.
 
-**Solve.** Run `pose-estimation-calibrate solve --session-dir <calib_dir>
+**Solve.** Run `$P pose-estimation-calibrate solve --session-dir <calib_dir>
 --output calibration.json`. Read the global reprojection RMS that the solver
 reports. Target less than 1 px. Accept up to 2 px. If the RMS is high, sweep
 the board again. Then solve again.
@@ -151,7 +156,7 @@ pipeline does not handle it.
 Run the automated gate first. Then confirm the manual items by eye:
 
 ```bash
-pose-estimation-validate --session-dir <subject_dir> \
+$A -m pose_estimation.validation --session-dir <subject_dir> \
     --calibration <calib_dir> --qa-only --out qa.json --markdown qa.md
 ```
 

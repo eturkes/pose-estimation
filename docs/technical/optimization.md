@@ -6,10 +6,12 @@ Two distinct surfaces: **pipeline parameter sweeps** (find best params for the l
 
 Spawns headless subprocesses with `POSE_BENCH_*` env-var overrides; each run emits `*_metrics.csv` for comparison via `analysis/summary.R` or `analysis/compare.R`.
 
+`$P` = the gate prefix, `$A` = the accelerator recipe — both defined in `entrypoints.md`.
+
 ```bash
-python -m pose_estimation.benchmark --source v.mp4 --sweep body_min_cutoff 0.1 0.3 0.5 1.0
-python -m pose_estimation.benchmark --source v.mp4 --config sweep_quick.yaml
-python -m pose_estimation.benchmark --source v.mp4 --config sweep_default.yaml
+$A -m pose_estimation.benchmark --source v.mp4 --sweep body_min_cutoff 0.1 0.3 0.5 1.0
+$A -m pose_estimation.benchmark --source v.mp4 --config sweep_quick.yaml
+$A -m pose_estimation.benchmark --source v.mp4 --config sweep_default.yaml
 ```
 
 ### Sweep parameters (env-var override, name → meaning)

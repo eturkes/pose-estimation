@@ -14,7 +14,7 @@ raising it, and the whole question lives in the assets that carry no verdict.
 The sweep runs there and spot-checks the monotonicity it relies on.
 
 Rerun:
-    uv run --no-sync python scripts/probe_rigidity_saturation.py \
+    scripts/gate.sh python scripts/probe_rigidity_saturation.py \
         --inventory inventory --corpus videos/3-cam --measurements measurements
 """
 

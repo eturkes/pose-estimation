@@ -87,11 +87,13 @@ Board defaults (constants in `charuco.py`): 6×9 squares, `DICT_4X4_250`, 40 mm 
 
 ## CLI surface
 
+`$P` = the gate prefix, `$A` = the accelerator recipe — both defined in `entrypoints.md`.
+
 ```bash
-pose-estimation-calibrate verify  --calibration calib.json
-pose-estimation-calibrate solve   --session-dir videos/calib_session/ --output calib.json [--world-frame cam1] [--max-frames 50] [board args]
-pose-estimation-calibrate board   --output board.png [--px-per-square 240] [board args]
-pose-estimation-calibrate capture --session-dir videos/calib_session/ --devices 0,1,2 [--names cam1,cam2,cam3] [--width W --height H]
+$P pose-estimation-calibrate verify  --calibration calib.json
+$P pose-estimation-calibrate solve   --session-dir videos/calib_session/ --output calib.json [--world-frame cam1] [--max-frames 50] [board args]
+$P pose-estimation-calibrate board   --output board.png [--px-per-square 240] [board args]
+$P pose-estimation-calibrate capture --session-dir videos/calib_session/ --devices 0,1,2 [--names cam1,cam2,cam3] [--width W --height H]
 ```
 
 Board args: `--squares COLSxROWS --square-size-m 0.04 --marker-size-m 0.03`. All errors → stderr `ERROR: ...`, exit 2.
