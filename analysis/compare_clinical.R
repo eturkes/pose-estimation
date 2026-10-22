@@ -6,12 +6,13 @@
 # identify sessions with notably different movement patterns.
 #
 # Usage:
-#   Rscript analysis/compare_clinical.R output/
+#   Rscript analysis/compare_clinical.R output/ [--mode 2d|3d]
 #
-# Outputs (written to the input directory):
+# Outputs (written to the input directory; 3D names carry `_3d` after `all_clinical`):
 #   all_clinical_video_summary.csv — one row per video, all aggregated features
 #   all_clinical_radar.png         — parallel-coordinate plot (z-scored means)
 #   all_clinical_heatmap.png       — clustered heatmap (z-scored means)
+# A directory holding both 2D and 3D artifacts needs --mode.
 
 library(dplyr)
 library(tidyr)
@@ -42,28 +43,22 @@ FRAME_META <- METADATA_COLS
 # CLI
 # ------------------------------------------------------------------
 
-args <- commandArgs(trailingOnly = TRUE)
+cli <- take_mode_arg(commandArgs(trailingOnly = TRUE))
+args <- cli$args
 if (length(args) < 1) {
-  stop("Usage: Rscript analysis/compare_clinical.R <output_dir>")
+  stop("Usage: Rscript analysis/compare_clinical.R <output_dir> [--mode 2d|3d]")
 }
 out_dir <- args[1]
 if (!dir.exists(out_dir)) stop("The directory does not exist: ", out_dir)
+found <- discover_clinical(out_dir, cli$mode)
 
 # ------------------------------------------------------------------
 # Load per-frame files
 # ------------------------------------------------------------------
 
-frame_files <- list.files(out_dir, pattern = "_clinical\\.csv$",
-                          full.names = TRUE)
-frame_files <- frame_files[!str_detect(basename(frame_files), "_windows\\.csv$")]
-if (length(frame_files) == 0) stop("The directory contains no *_clinical.csv files: ", out_dir)
-
+frame_files <- found$frame_files
 cat(sprintf("The script loads %d per-frame clinical CSVs.\n", length(frame_files)))
-frame_df <- map(frame_files, \(f) {
-  d <- read_csv(f, show_col_types = FALSE)
-  if (nrow(d) == 0) return(NULL)
-  d
-}) |> compact() |> bind_rows()
+frame_df <- read_clinical(frame_files)
 
 if (nrow(frame_df) == 0) stop("All per-frame files are empty.")
 
@@ -73,17 +68,12 @@ frame_agg <- aggregate_per_video(frame_df, FRAME_META)
 # Load per-window files
 # ------------------------------------------------------------------
 
-win_files <- list.files(out_dir, pattern = "_clinical_windows\\.csv$",
-                        full.names = TRUE)
+win_files <- found$win_files
 
 win_agg <- tibble()
 if (length(win_files) > 0) {
   cat(sprintf("The script loads %d per-window clinical CSVs.\n", length(win_files)))
-  win_df <- map(win_files, \(f) {
-    d <- read_csv(f, show_col_types = FALSE)
-    if (nrow(d) == 0) return(NULL)
-    d
-  }) |> compact() |> bind_rows()
+  win_df <- read_clinical(win_files)
 
   if (nrow(win_df) > 0) {
     win_agg <- aggregate_per_video(win_df, WINDOW_META,
@@ -106,7 +96,7 @@ if (nrow(win_agg) > 0 && "video" %in% names(win_agg)) {
     select(-ends_with(".win"))
 }
 
-out_csv <- file.path(out_dir, "all_clinical_video_summary.csv")
+out_csv <- file.path(out_dir, paste0("all_clinical", found$tag, "_video_summary.csv"))
 write_csv(summary_df, out_csv)
 cat(sprintf("The script wrote %d videos × %d columns to %s.\n",
             nrow(summary_df), ncol(summary_df), out_csv))
@@ -176,7 +166,7 @@ p_radar <- ggplot(z_long, aes(x = feature, y = z, group = video,
        x = NULL, y = "z-score")
 
 radar_w <- max(10, n_feat * 0.4)
-out_radar <- file.path(out_dir, "all_clinical_radar.png")
+out_radar <- file.path(out_dir, paste0("all_clinical", found$tag, "_radar.png"))
 ggsave(out_radar, p_radar, width = radar_w, height = 7, dpi = 150,
        limitsize = FALSE)
 cat(sprintf("The script wrote %s.\n", out_radar))
@@ -231,7 +221,7 @@ p_heat <- ggplot(heat_df, aes(feature, video, fill = z)) +
 
 heat_w <- max(10, n_feat * 0.35)
 heat_h <- max(5, nrow(z_mat) * 0.5)
-out_heat <- file.path(out_dir, "all_clinical_heatmap.png")
+out_heat <- file.path(out_dir, paste0("all_clinical", found$tag, "_heatmap.png"))
 ggsave(out_heat, p_heat, width = heat_w, height = heat_h, dpi = 150,
        limitsize = FALSE)
 cat(sprintf("The script wrote %s.\n", out_heat))

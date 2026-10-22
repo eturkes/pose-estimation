@@ -8,8 +8,10 @@
 # Usage:
 #   Rscript analysis/longitudinal.R output/ sessions.csv
 #   Rscript analysis/longitudinal.R output/ sessions.csv clinical_scores.csv
+#   Append --mode 2d|3d when the directory holds both 2D and 3D artifacts.
 #
-# Outputs (written into the clinical features directory):
+# Outputs (written into the clinical features directory; <prefix> = clinical, or clinical_3d
+# for 3D input):
 #   <prefix>_longitudinal_summary.csv        — tidy table of values, deltas, flags
 #   <prefix>_longitudinal_<patient_id>.png   — line plots per patient
 
@@ -149,11 +151,12 @@ plot_patient <- function(summary_df, patient, features, scores_df = NULL) {
 # Main
 # ------------------------------------------------------------------
 
-args <- commandArgs(trailingOnly = TRUE)
+cli <- take_mode_arg(commandArgs(trailingOnly = TRUE))
+args <- cli$args
 if (length(args) < 2) {
   stop(paste(
     "Usage: Rscript analysis/longitudinal.R",
-    "<clinical_csv_or_directory> <sessions.csv> [clinical_scores.csv]"
+    "<clinical_csv_or_directory> <sessions.csv> [clinical_scores.csv] [--mode 2d|3d]"
   ))
 }
 
@@ -209,24 +212,11 @@ if (!is.null(scores_path)) {
 }
 
 # --- Discover clinical feature CSVs ---
-if (dir.exists(clin_path)) {
-  frame_files <- list.files(clin_path, pattern = "_clinical\\.csv$",
-                            full.names = TRUE)
-  frame_files <- frame_files[!str_detect(basename(frame_files), "_windows\\.csv$")]
-  win_files <- list.files(clin_path, pattern = "_clinical_windows\\.csv$",
-                          full.names = TRUE)
-  out_dir <- clin_path
-} else {
-  frame_files <- clin_path
-  win_files <- str_replace(clin_path, "_clinical\\.csv$",
-                           "_clinical_windows.csv")
-  win_files <- win_files[file.exists(win_files)]
-  out_dir <- dirname(clin_path)
-}
+found <- discover_clinical(clin_path, cli$mode)
+frame_files <- found$frame_files
+win_files <- found$win_files
+out_dir <- found$out_dir
 
-if (length(frame_files) == 0) {
-  stop("The input contains no *_clinical.csv files: ", clin_path)
-}
 cat(sprintf("The script found %d frame-level and %d window-level clinical CSVs.\n",
             length(frame_files), length(win_files)))
 
@@ -327,7 +317,7 @@ cat("The script computes deltas from baseline.\n")
 summary_tbl <- compute_deltas(long)
 
 # --- Output prefix ---
-out_prefix <- file.path(out_dir, "clinical")
+out_prefix <- file.path(out_dir, paste0("clinical", found$tag))
 
 # --- Write summary CSV ---
 out_csv <- paste0(out_prefix, "_longitudinal_summary.csv")

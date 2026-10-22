@@ -8,8 +8,6 @@ Read on demand — not attached state. A row promoted to an unfinished unit move
 Evidence → `.agent/archive/{polish,review-m2}.md`; regen → each check's `paths:` rule in `.claude/rules/`. Read the
 rows before sizing any unit that touches their surfaces.
 
-- **Six legacy R clinical consumers re-implement suffix/read/bind** → one mode-aware reader; a
-  mixed 2D+3D tree yields named mode outputs or rejection, 2D goldens unchanged.
 - **`make_templates.R` + `validate_metadata.R` skip `_3d` silently** → both route through that
   reader; 2D templates + validation unchanged.
 - **Four `../rehab` JP faces miss 14 cohort-label characters** → each reports 0 missing code points

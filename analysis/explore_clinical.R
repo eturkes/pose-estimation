@@ -6,9 +6,10 @@
 # data-quality warnings, and produces diagnostic plots.
 #
 # Usage:
-#   Rscript analysis/explore_clinical.R output/
+#   Rscript analysis/explore_clinical.R output/ [--mode 2d|3d]
 #
-# Outputs (written to the input directory):
+# Outputs (written to the input directory; 3D names carry `_3d` after `all_clinical`; a
+# directory holding both 2D and 3D artifacts needs --mode):
 #   all_clinical_distributions.png    — per-feature density plots
 #   all_clinical_na_heatmap.png       — missingness heatmap
 #   all_clinical_boxplots.png         — per-feature box plots by video
@@ -23,6 +24,21 @@ library(ggplot2)
 library(tibble)
 library(scales)
 
+# Shared helpers (discover_clinical, take_mode_arg, read_clinical).
+local({
+  args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- "--file="
+  match <- grep(file_arg, args)
+  here <- if (length(match) > 0) {
+    dirname(sub(file_arg, "", args[match]))
+  } else if (file.exists("analysis/utils.R")) {
+    "analysis"
+  } else {
+    "."
+  }
+  source(file.path(here, "utils.R"))
+})
+
 # ------------------------------------------------------------------
 # Constants
 # ------------------------------------------------------------------
@@ -34,46 +50,34 @@ WINDOW_META <- c("video", "person_idx", "window_start_sec", "window_end_sec")
 # CLI
 # ------------------------------------------------------------------
 
-args <- commandArgs(trailingOnly = TRUE)
+cli <- take_mode_arg(commandArgs(trailingOnly = TRUE))
+args <- cli$args
 if (length(args) < 1) {
-  stop("Usage: Rscript analysis/explore_clinical.R <output_dir>")
+  stop("Usage: Rscript analysis/explore_clinical.R <output_dir> [--mode 2d|3d]")
 }
 out_dir <- args[1]
 if (!dir.exists(out_dir)) stop("The directory does not exist: ", out_dir)
+found <- discover_clinical(out_dir, cli$mode)
 
 # ------------------------------------------------------------------
 # Load per-frame files
 # ------------------------------------------------------------------
 
-frame_files <- list.files(out_dir, pattern = "_clinical\\.csv$",
-                          full.names = TRUE)
-frame_files <- frame_files[!str_detect(basename(frame_files), "_windows\\.csv$")]
-
-if (length(frame_files) == 0) stop("The directory contains no *_clinical.csv files: ", out_dir)
-
-df <- map(frame_files, \(f) {
-  d <- read_csv(f, show_col_types = FALSE)
-  if (nrow(d) == 0) return(NULL)
-  d
-}) |> compact() |> bind_rows()
+frame_files <- found$frame_files
+df <- read_clinical(frame_files)
 
 all_videos <- map_chr(frame_files, \(f) {
   d <- read_csv(f, show_col_types = FALSE, n_max = 1)
   if ("video" %in% names(d) && nrow(d) > 0) d$video[1]
-  else str_remove(basename(f), "_clinical\\.csv$")
+  else clinical_stem(f, found$mode)
 })
 
 # ------------------------------------------------------------------
 # Load per-window files
 # ------------------------------------------------------------------
 
-win_files <- list.files(out_dir, pattern = "_clinical_windows\\.csv$",
-                        full.names = TRUE)
-win <- map(win_files, \(f) {
-  d <- read_csv(f, show_col_types = FALSE)
-  if (nrow(d) == 0) return(NULL)
-  d
-}) |> compact() |> bind_rows()
+win_files <- found$win_files
+win <- read_clinical(win_files)
 
 # ------------------------------------------------------------------
 # Console summary
@@ -155,7 +159,7 @@ p_dist <- ggplot(long, aes(value, fill = video)) +
         axis.text.x = element_text(size = 7)) +
   labs(title = "Per-Frame Feature Distributions", x = NULL, y = "Density")
 
-out_dist <- file.path(out_dir, "all_clinical_distributions.png")
+out_dist <- file.path(out_dir, paste0("all_clinical", found$tag, "_distributions.png"))
 ggsave(out_dist, p_dist, width = 12, height = dist_h, dpi = 150,
        limitsize = FALSE)
 cat(sprintf("\nThe script wrote %s.\n", out_dist))
@@ -189,7 +193,7 @@ p_na <- ggplot(na_by_video, aes(feature, video, fill = na_prop)) +
   labs(title = "Missing Data by Video × Feature",
        x = NULL, y = NULL, fill = "% NA")
 
-out_na <- file.path(out_dir, "all_clinical_na_heatmap.png")
+out_na <- file.path(out_dir, paste0("all_clinical", found$tag, "_na_heatmap.png"))
 ggsave(out_na, p_na, width = 12, height = 6, dpi = 150)
 cat(sprintf("The script wrote %s.\n", out_na))
 
@@ -206,7 +210,7 @@ p_box <- ggplot(long, aes(video, value)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6)) +
   labs(title = "Feature Distributions by Video", x = NULL, y = NULL)
 
-out_box <- file.path(out_dir, "all_clinical_boxplots.png")
+out_box <- file.path(out_dir, paste0("all_clinical", found$tag, "_boxplots.png"))
 ggsave(out_box, p_box, width = 14, height = box_h, dpi = 150,
        limitsize = FALSE)
 cat(sprintf("The script wrote %s.\n", out_box))
@@ -236,7 +240,7 @@ if (nrow(win) > 0) {
           axis.text.x = element_text(size = 7)) +
     labs(title = "Window Feature Distributions", x = NULL, y = "Density")
 
-  out_wdist <- file.path(out_dir, "all_clinical_window_distributions.png")
+  out_wdist <- file.path(out_dir, paste0("all_clinical", found$tag, "_window_distributions.png"))
   ggsave(out_wdist, p_wdist, width = 12, height = wdist_h, dpi = 150,
          limitsize = FALSE)
   cat(sprintf("The script wrote %s.\n", out_wdist))

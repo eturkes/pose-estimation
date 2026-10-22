@@ -8,8 +8,10 @@
 # Usage:
 #   Rscript analysis/clinical_correlation.R output/ clinical_scores.csv
 #   Rscript analysis/clinical_correlation.R output/video1_clinical.csv clinical_scores.csv
+#   Append --mode 2d|3d when the directory holds both 2D and 3D artifacts.
 #
-# Outputs (written next to the first input or into the directory):
+# Outputs (written next to the first input or into the directory; <prefix> = clinical, or
+# clinical_3d for 3D input):
 #   <prefix>_correlation_matrix.png  — heatmap (Spearman rho) with stars
 #   <prefix>_correlation_table.csv   — tidy correlation results
 #   <prefix>_scatter_top.png         — scatter plots for top 6 pairs
@@ -170,11 +172,12 @@ plot_scatter_top <- function(joined, cor_tbl, title_prefix, n_top = 6) {
 # Main
 # ------------------------------------------------------------------
 
-args <- commandArgs(trailingOnly = TRUE)
+cli <- take_mode_arg(commandArgs(trailingOnly = TRUE))
+args <- cli$args
 if (length(args) < 2) {
   stop(paste(
     "Usage: Rscript analysis/clinical_correlation.R",
-    "<clinical_csv_or_directory> <clinical_scores.csv>"
+    "<clinical_csv_or_directory> <clinical_scores.csv> [--mode 2d|3d]"
   ))
 }
 
@@ -199,25 +202,10 @@ cat(sprintf("The script loaded %d scores for %d videos: %s.\n",
             paste(score_cols, collapse = ", ")))
 
 # --- Discover clinical feature CSVs ---
-if (dir.exists(clin_path)) {
-  frame_files <- list.files(clin_path, pattern = "_clinical\\.csv$",
-                            full.names = TRUE)
-  # Exclude window files.
-  frame_files <- frame_files[!str_detect(basename(frame_files), "_windows\\.csv$")]
-  win_files <- list.files(clin_path, pattern = "_clinical_windows\\.csv$",
-                          full.names = TRUE)
-  out_dir <- clin_path
-} else {
-  frame_files <- clin_path
-  win_files <- str_replace(clin_path, "_clinical\\.csv$",
-                           "_clinical_windows.csv")
-  win_files <- win_files[file.exists(win_files)]
-  out_dir <- dirname(clin_path)
-}
-
-if (length(frame_files) == 0) {
-  stop("The input contains no *_clinical.csv files: ", clin_path)
-}
+found <- discover_clinical(clin_path, cli$mode)
+frame_files <- found$frame_files
+win_files <- found$win_files
+out_dir <- found$out_dir
 
 cat(sprintf("The script found %d frame-level and %d window-level clinical CSVs.\n",
             length(frame_files), length(win_files)))
@@ -295,7 +283,7 @@ cat(sprintf("The script computes correlations for %d features × %d scores.\n",
 cor_tbl <- compute_correlations(joined, feature_cols, score_cols)
 
 # --- Output prefix ---
-out_prefix <- file.path(out_dir, "clinical")
+out_prefix <- file.path(out_dir, paste0("clinical", found$tag))
 
 # --- Write correlation table ---
 out_csv <- paste0(out_prefix, "_correlation_table.csv")

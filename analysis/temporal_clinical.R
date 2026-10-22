@@ -8,9 +8,10 @@
 # all qualifying videos.
 #
 # Usage:
-#   Rscript analysis/temporal_clinical.R output/
+#   Rscript analysis/temporal_clinical.R output/ [--mode 2d|3d]
 #
-# Outputs (written alongside the input CSVs):
+# Outputs (written alongside the input CSVs; 3D names carry `_3d` after `clinical`; a
+# directory holding both 2D and 3D artifacts needs --mode):
 #   <stem>_clinical_timeseries.png         — per-video time series
 #   all_clinical_timeseries_overview.png   — cross-video comparison
 
@@ -21,6 +22,21 @@ library(stringr)
 library(purrr)
 library(ggplot2)
 library(patchwork)
+
+# Shared helpers (discover_clinical, take_mode_arg, read_clinical).
+local({
+  args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- "--file="
+  match <- grep(file_arg, args)
+  here <- if (length(match) > 0) {
+    dirname(sub(file_arg, "", args[match]))
+  } else if (file.exists("analysis/utils.R")) {
+    "analysis"
+  } else {
+    "."
+  }
+  source(file.path(here, "utils.R"))
+})
 
 # ------------------------------------------------------------------
 # Constants
@@ -53,22 +69,20 @@ WINDOW_LABELS <- c(
 # CLI
 # ------------------------------------------------------------------
 
-args <- commandArgs(trailingOnly = TRUE)
+cli <- take_mode_arg(commandArgs(trailingOnly = TRUE))
+args <- cli$args
 if (length(args) < 1) {
-  stop("Usage: Rscript analysis/temporal_clinical.R <output_dir>")
+  stop("Usage: Rscript analysis/temporal_clinical.R <output_dir> [--mode 2d|3d]")
 }
 out_dir <- args[1]
 if (!dir.exists(out_dir)) stop("The directory does not exist: ", out_dir)
+found <- discover_clinical(out_dir, cli$mode)
 
 # ------------------------------------------------------------------
 # Load per-frame files
 # ------------------------------------------------------------------
 
-frame_files <- list.files(out_dir, pattern = "_clinical\\.csv$",
-                          full.names = TRUE)
-frame_files <- frame_files[!str_detect(basename(frame_files), "_windows\\.csv$")]
-
-if (length(frame_files) == 0) stop("The directory contains no *_clinical.csv files: ", out_dir)
+frame_files <- found$frame_files
 
 frames_by_video <- map(frame_files, \(f) {
   d <- read_csv(f, show_col_types = FALSE)
@@ -80,8 +94,7 @@ frames_by_video <- map(frame_files, \(f) {
 # Load per-window files
 # ------------------------------------------------------------------
 
-win_files <- list.files(out_dir, pattern = "_clinical_windows\\.csv$",
-                        full.names = TRUE)
+win_files <- found$win_files
 wins_by_video <- map(win_files, \(f) {
   d <- read_csv(f, show_col_types = FALSE)
   if (nrow(d) == 0) return(NULL)
@@ -217,8 +230,8 @@ for (f in names(frames_by_video)) {
     total_h <- frame_rows * 2.5 + 1
   }
 
-  stem <- str_remove(basename(f), "_clinical\\.csv$")
-  out_png <- file.path(out_dir, paste0(stem, "_clinical_timeseries.png"))
+  stem <- clinical_stem(f, found$mode)
+  out_png <- file.path(out_dir, paste0(stem, "_clinical", found$tag, "_timeseries.png"))
   ggsave(out_png, p_combined, width = 12, height = total_h, dpi = 150,
          limitsize = FALSE)
   cat(sprintf("  → %s\n", basename(out_png)))
@@ -258,7 +271,7 @@ if (length(all_long) > 0) {
     labs(title = paste0("Right ", feat_title, " — All Videos"),
          x = "Time (s)", y = NULL)
 
-  out_ov <- file.path(out_dir, "all_clinical_timeseries_overview.png")
+  out_ov <- file.path(out_dir, paste0("all_clinical", found$tag, "_timeseries_overview.png"))
   ggsave(out_ov, p_ov, width = 12, height = ov_h, dpi = 150,
          limitsize = FALSE)
   cat(sprintf("The script wrote %s.\n", out_ov))

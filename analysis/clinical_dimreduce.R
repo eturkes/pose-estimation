@@ -3,9 +3,10 @@
 # clinical kinematic features.
 #
 # Usage:
-#   Rscript analysis/clinical_dimreduce.R output/
+#   Rscript analysis/clinical_dimreduce.R output/ [--mode 2d|3d]
 #
-# Outputs (written to the input directory):
+# Outputs (written to the input directory; 3D names carry `_3d` after `all_clinical`; a
+# directory holding both 2D and 3D artifacts needs --mode):
 #   all_clinical_pca_scree.png    — scree plot of variance explained
 #   all_clinical_pca_biplot.png   — PC1 vs PC2 biplot with video labels
 #                                   and feature loading arrows
@@ -45,28 +46,22 @@ FRAME_META <- METADATA_COLS
 # CLI
 # ------------------------------------------------------------------
 
-args <- commandArgs(trailingOnly = TRUE)
+cli <- take_mode_arg(commandArgs(trailingOnly = TRUE))
+args <- cli$args
 if (length(args) < 1) {
-  stop("Usage: Rscript analysis/clinical_dimreduce.R <output_dir>")
+  stop("Usage: Rscript analysis/clinical_dimreduce.R <output_dir> [--mode 2d|3d]")
 }
 out_dir <- args[1]
 if (!dir.exists(out_dir)) stop("The directory does not exist: ", out_dir)
+found <- discover_clinical(out_dir, cli$mode)
 
 # ------------------------------------------------------------------
 # Load and aggregate per-frame features
 # ------------------------------------------------------------------
 
-frame_files <- list.files(out_dir, pattern = "_clinical\\.csv$",
-                          full.names = TRUE)
-frame_files <- frame_files[!str_detect(basename(frame_files), "_windows\\.csv$")]
-if (length(frame_files) == 0) stop("The directory contains no *_clinical.csv files: ", out_dir)
-
+frame_files <- found$frame_files
 cat(sprintf("The script loads %d per-frame clinical CSVs.\n", length(frame_files)))
-frame_df <- map(frame_files, \(f) {
-  d <- read_csv(f, show_col_types = FALSE)
-  if (nrow(d) == 0) return(NULL)
-  d
-}) |> compact() |> bind_rows()
+frame_df <- read_clinical(frame_files)
 
 if (nrow(frame_df) == 0) stop("All per-frame files are empty.")
 
@@ -76,17 +71,12 @@ frame_agg <- aggregate_per_video(frame_df, FRAME_META)
 # Load and aggregate per-window features
 # ------------------------------------------------------------------
 
-win_files <- list.files(out_dir, pattern = "_clinical_windows\\.csv$",
-                        full.names = TRUE)
+win_files <- found$win_files
 
 win_agg <- tibble()
 if (length(win_files) > 0) {
   cat(sprintf("The script loads %d per-window clinical CSVs.\n", length(win_files)))
-  win_df <- map(win_files, \(f) {
-    d <- read_csv(f, show_col_types = FALSE)
-    if (nrow(d) == 0) return(NULL)
-    d
-  }) |> compact() |> bind_rows()
+  win_df <- read_clinical(win_files)
 
   if (nrow(win_df) > 0) {
     win_agg <- aggregate_per_video(win_df, WINDOW_META,
@@ -197,7 +187,7 @@ p_scree <- ggplot(scree_df, aes(PC)) +
        x = "Principal Component", y = "Variance Explained") +
   theme_minimal(base_size = 11)
 
-out_scree <- file.path(out_dir, "all_clinical_pca_scree.png")
+out_scree <- file.path(out_dir, paste0("all_clinical", found$tag, "_pca_scree.png"))
 ggsave(out_scree, p_scree, width = 8, height = 5, dpi = 150)
 cat(sprintf("The script wrote %s.\n", out_scree))
 
@@ -243,7 +233,7 @@ if (ncol(scores) < 2) {
          x = pc1_lab, y = pc2_lab) +
     theme_minimal(base_size = 11)
 
-  out_biplot <- file.path(out_dir, "all_clinical_pca_biplot.png")
+  out_biplot <- file.path(out_dir, paste0("all_clinical", found$tag, "_pca_biplot.png"))
   ggsave(out_biplot, p_biplot, width = 10, height = 8, dpi = 150)
   cat(sprintf("The script wrote %s.\n", out_biplot))
 }
@@ -277,7 +267,7 @@ if (n_videos < 4) {
     theme_minimal(base_size = 11) +
     coord_equal()
 
-  out_umap <- file.path(out_dir, "all_clinical_umap.png")
+  out_umap <- file.path(out_dir, paste0("all_clinical", found$tag, "_umap.png"))
   ggsave(out_umap, p_umap, width = 8, height = 7, dpi = 150)
   cat(sprintf("The script wrote %s.\n", out_umap))
 }
@@ -296,7 +286,7 @@ loadings_df <- as.data.frame(pca_fit$rotation[, seq_len(n_pcs_save)]) |>
   ) |>
   arrange(desc(abs_PC1))
 
-out_loadings <- file.path(out_dir, "all_clinical_pca_loadings.csv")
+out_loadings <- file.path(out_dir, paste0("all_clinical", found$tag, "_pca_loadings.csv"))
 write_csv(loadings_df, out_loadings)
 cat(sprintf("The script wrote %s.\n", out_loadings))
 

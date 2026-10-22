@@ -219,6 +219,8 @@ The producer emits no rows for `bilateral_wrist`, `bilateral_fingertip`, `trunk`
 
 ## Clinical comparison / longitudinal
 
+Every script below reads its inputs through `utils.R` `discover_clinical`: one mode per run, selected by suffix — 2D `*_clinical.csv` + `*_clinical_windows.csv`, 3D `*_clinical_3d.csv` + `*_clinical_3d_windows.csv`. A directory holding both modes stops unless `--mode 2d|3d` names one. 2D outputs keep the names below; 3D outputs insert `_3d` after `clinical` (`all_clinical_3d_radar.png`, `clinical_3d_correlation_table.csv`).
+
 | Script | Inputs | Outputs |
 |--------|--------|---------|
 | `clinical_correlation.R` | `*_clinical*.csv` + `clinical_scores.csv` | `*_correlation_table.csv` (Pearson, Spearman, BH-FDR), `*_correlation_matrix.png`, `*_scatter_top.png`. |
