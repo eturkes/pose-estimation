@@ -61,7 +61,8 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
   flagged-step magnitudes; commands in `.scratch/agents/scientist-2.md` F0). Scratch cohorts per
   arm = `P pose-estimation-cohort … --run output/corpus-2d-m4-<arm> --out .scratch/impl/cohort-<arm>`.
   Severe steps (> 0.25 of max frame dimension, ten used points): `P python
-  .scratch/impl/jump_count.py <tree>…` (census per million valid point-steps; M2.10 = 137 / 57.0),
+  .scratch/impl/jump_count.py <tree>…` (severe point-steps per million valid point-steps + frames
+  carrying one; M2.10 = 262 / 2 402 082 = 109.1; no args = the two M4 arms on shared vs own support),
   `P python .scratch/impl/jump_trace.py > .scratch/impl/jump_trace.json` (per step, both M4 arms:
   point count, coherence, camera step vs clip p99, persistence, the other arm at that transition,
   bout overlap), `P python .scratch/impl/jump_bouts.py` (bouts carrying one),

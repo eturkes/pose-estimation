@@ -198,3 +198,35 @@ F45 (reviewer-19: "with --from-run" sent a half-cached pilot-eval to the gate pr
 every evaluated arm has a --from-run tree". Register (reviewer-16): "bound the corpus error from
 below" → "likely underestimate … corpus accuracy unmeasured".
 
+
+## IMPLEMENT closing delta, round A (`9052629^..4282c52`) + MAIN security lens
+
+Lenses fixed at seed (`.scratch/impl/seed_reviews_a.py`; seeds `FAIL P03`, a filled copy PASS):
+`reviewer-20` correctness/spec K01-K04, `reviewer-21` cleanup U01-U03, `reviewer-22` altitude
+A01-A03, `reviewer-23` claim soundness N01-N06, `reviewer-24` guarantee-vs-claim G01-G05,
+`reviewer-25` verification integrity V01-V04, `reviewer-26` conformance M01-M08 (reports
+`.scratch/agents/reviewer-2{0..6}.md`, grader PASS rc 0 each); MAIN security S13-S17
+(`.scratch/agents/security-main-a.md`). 33 reviewer rows: 19 pass, 14 fail → 8 distinct
+findings, + S17. Reviewer reds rerun by MAIN at `4282c52`: 6 failed (5 in scope, 1 pre-existing).
+
+| ID | finding | rows | ruling | fix | state |
+| --- | --- | --- | --- | --- | --- |
+| F47 | sensitivity arithmetic in binary floats: Δ 1e-9 / IQR 2e-9 → 0.500000056, IQR 1e16..1e16+1 → 0, a 310-digit median → `inf` | K01a G01b | accepted | exact `Decimal` arithmetic, precision sized from the widest operand | fixed |
+| F48 | list / object baseline `generator_version` → `TypeError` | K01b G01a | accepted | non-string version → `CohortError` | fixed |
+| F49 | campaign: no sweep reorders input rows (contract §1; the docstring claimed one) | K02 V01 G02 G03 | accepted | `reordered-rows` sweep per group, every clinical table reversed; 12 sweeps | fixed |
+| F50 | severe census divided frames by point-steps (57.0 / 54.6 / 60.7) | N03a N05a N06a | accepted | point-step rates 109.1 / 106.6 / 162.7 + shared vs own support | fixed |
+| F51 | "triggered upstream of the pose model" from all-body cross-arm agreement | N03b N06b G04 | accepted | coincidence stated, mechanism unmeasured | fixed |
+| F52 | `cohort.md` v3 sections in the human register | M05a | accepted | agent register | fixed |
+| F53 | appraisal tally + rerun narrative in the live M4 section | M05b | accepted | removed | fixed |
+| F54 | P13 manifest-order exception absent from live law | M07a | accepted | `.claude/rules/cohort.md` v3 bullet | fixed |
+| S17 | six measurement refusals print the event id (+ the `OSError` path) | S17 | accepted | position in the sorted contributor list, no `OSError` text | fixed |
+
+Register, ruled: a symlinked `--out` naming the baseline root raises `IsADirectoryError`
+(`reviewer-20` R01, also at `9052629^`) → `.agent/deferred.md` row. S13 (`reviewer-24` R02): the
+export's freedom from paths + identifiers rests on the producer (`corpus_run.pose_config`: CLI
+arguments, registry key, build tag, digests) + the frozen field set; values are not
+pattern-checked. Chained `OSError` causes still name paths in an uncaught traceback, module-wide
+(every `from error` refusal) → kept, the CLI runs operator-local. README comparison names the
+clinical method (`reviewer-26` R01). v1/v2 profile tests relabel current generations
+(`reviewer-25` R02) → the real v1 baseline runs at adoption (`adopt.sh`). Oversized decimal
+(`reviewer-22` R01) = F47; `reviewer-23` R01-R03 = bounded verification, noted.

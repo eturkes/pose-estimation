@@ -26,6 +26,7 @@ import tempfile
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal, localcontext
 from typing import Any
 
 import yaml
@@ -570,7 +571,7 @@ class _Contributor:
     camera_name: str
 
 
-def _cell(value: float | int | None) -> str:
+def _cell(value: float | int | Decimal | None) -> str:
     """Serialize one published cell. A19 rules 9 decimals; a count renders as a count."""
     if value is None:
         return ""
@@ -1158,13 +1159,13 @@ def _contributors(
     return contributors
 
 
-def _event_record(path: pathlib.Path, event_id: str) -> dict[str, Any]:
+def _event_record(path: pathlib.Path, event: str) -> dict[str, Any]:
     try:
         payload = inventory.read_marker(path)
     except (OSError, ValueError) as error:
-        raise CohortError(f"Event {event_id} carries no readable {path.name}: {error}") from error
+        raise CohortError(f"{event} carries no readable {path.name}.") from error
     if not isinstance(payload, dict):
-        raise CohortError(f"Event {event_id}'s {path.name} is not a JSON object.")
+        raise CohortError(f"{event}'s {path.name} is not a JSON object.")
     return payload
 
 
@@ -1182,19 +1183,21 @@ def _measurement(run_root: pathlib.Path, contributors: list[_Contributor]) -> di
     """
     configs: dict[str, dict[str, Any]] = {}
     methods: set[str] = set()
-    for event_id in sorted({contributor.event_id for contributor in contributors}):
-        event = run_root / event_id
-        config = _event_record(event / corpus_run.POSE_CONFIG_FILENAME, event_id)
-        marker = _event_record(event / corpus_run.MARKER_FILENAME, event_id)
+    events = sorted({contributor.event_id for contributor in contributors})
+    for index, event_id in enumerate(events, 1):
+        # An event id is patient-adjacent (`data-boundary.md`): refusals name its position.
+        event = f"Contributing event {index} of {len(events)}"
+        config = _event_record(run_root / event_id / corpus_run.POSE_CONFIG_FILENAME, event)
+        marker = _event_record(run_root / event_id / corpus_run.MARKER_FILENAME, event)
         if marker.get("status") != corpus_run.MARKER_COMPLETE:
-            raise CohortError(f"Event {event_id}'s completion marker is not complete.")
+            raise CohortError(f"{event}'s completion marker is not complete.")
         method = marker.get("analysis_sha256")
         if not isinstance(method, str) or not _HEX64.fullmatch(method):
-            raise CohortError(f"Event {event_id} names no clinical producer digest.")
+            raise CohortError(f"{event} names no clinical producer digest.")
         if set(config) != set(corpus_run.POSE_CONFIG_FIELDS):
-            raise CohortError(f"Event {event_id}'s pose configuration is not the frozen field set.")
+            raise CohortError(f"{event}'s pose configuration is not the frozen field set.")
         if not all(_scalar(value) for value in config.values()):
-            raise CohortError(f"Event {event_id}'s pose configuration carries a non-scalar value.")
+            raise CohortError(f"{event}'s pose configuration carries a non-scalar value.")
         # Canonical text, not `==`: Python equates True with 1 and 1.0, the records do not.
         configs[json.dumps(config, sort_keys=True)] = config
         methods.add(method)
@@ -1246,7 +1249,7 @@ def _read_baseline(root: pathlib.Path) -> _Baseline:
     if not isinstance(generation, dict) or generation.get("generator") != GENERATOR:
         raise CohortError("The baseline was published by another generator.")
     version = generation.get("generator_version")
-    if version not in BASELINE_VERSIONS:
+    if not isinstance(version, str) or version not in BASELINE_VERSIONS:
         raise CohortError(f"The baseline generator version {version!r} is not supported.")
     recorded = generation.get("tree_digest")
     if not isinstance(recorded, str) or not _HEX64.fullmatch(recorded):
@@ -1295,34 +1298,49 @@ def _read_baseline(root: pathlib.Path) -> _Baseline:
     return _Baseline(identity=identity, rows=rows)
 
 
-def _number(cell: str) -> float | None:
-    return float(cell) if cell else None
+_OPERANDS = ("median", "q25", "q75")
+
+
+def _number(cell: str) -> Decimal | None:
+    return Decimal(cell) if cell else None
 
 
 def _sensitivity_rows(features: list[dict[str, str]], baseline: _Baseline) -> list[dict[str, str]]:
     """Union of both tables' keys; arithmetic on the serialized cells (contract-m4u7 P06-P07)."""
     current = {(r["task"], r["side"], r["level"], r["feature"]): r for r in features}
-    rows = []
-    for key in sorted(current.keys() | baseline.rows.keys()):
-        now, then = current.get(key), baseline.rows.get(key)
-        status = "common" if now and then else "new" if now else "retired"
-        row: dict[str, str] = dict(zip(("task", "side", "level", "feature"), key, strict=True))
-        row["status"] = status
-        for name in ("n_subjects", "n_values"):
-            row[name] = now[name] if now else ""
-            row[f"baseline_{name}"] = then[name] if then else ""
-        median = _number(now["median"]) if now else None
-        base = _number(then["median"]) if then else None
-        row["median"], row["baseline_median"] = _cell(median), _cell(base)
-        q25, q75 = (_number(then[name]) if then else None for name in ("q25", "q75"))
-        iqr = q75 - q25 if q25 is not None and q75 is not None else None
-        delta = median - base if median is not None and base is not None else None
-        row["baseline_iqr"] = _cell(iqr)
-        row["delta_median"] = _cell(delta)
-        scaled = delta / iqr if delta is not None and iqr is not None and iqr > 0 else None
-        row["delta_iqr_scaled"] = _cell(scaled)
-        rows.append(row)
-    return rows
+    with localcontext() as context:
+        # P07 is arithmetic on the serialized cells: sized from the widest operand, no
+        # difference or 9-place quotient rounds before rendering (binary floats did).
+        widest = max(
+            (len(row[n]) for row in (*features, *baseline.rows.values()) for n in _OPERANDS),
+            default=1,
+        )
+        context.prec = 2 * (widest + DECIMALS) + 4
+        return [
+            _sensitivity_row(key, current.get(key), baseline.rows.get(key))
+            for key in sorted(current.keys() | baseline.rows.keys())
+        ]
+
+
+def _sensitivity_row(
+    key: tuple[str, str, str, str], now: dict[str, str] | None, then: dict[str, str] | None
+) -> dict[str, str]:
+    row: dict[str, str] = dict(zip(("task", "side", "level", "feature"), key, strict=True))
+    row["status"] = "common" if now and then else "new" if now else "retired"
+    for name in ("n_subjects", "n_values"):
+        row[name] = now[name] if now else ""
+        row[f"baseline_{name}"] = then[name] if then else ""
+    median = _number(now["median"]) if now else None
+    base = _number(then["median"]) if then else None
+    row["median"], row["baseline_median"] = _cell(median), _cell(base)
+    q25, q75 = (_number(then[name]) if then else None for name in ("q25", "q75"))
+    iqr = q75 - q25 if q25 is not None and q75 is not None else None
+    delta = median - base if median is not None and base is not None else None
+    row["baseline_iqr"] = _cell(iqr)
+    row["delta_median"] = _cell(delta)
+    scaled = delta / iqr if delta is not None and iqr is not None and iqr > 0 else None
+    row["delta_iqr_scaled"] = _cell(scaled)
+    return row
 
 
 def _write(directory: pathlib.Path, name: str, text: str) -> None:

@@ -80,6 +80,19 @@ def _corpus(root: pathlib.Path, name: str, **options):
     return _build_inputs(directory, cohort, **options)
 
 
+def _reordered(root: pathlib.Path, name: str):
+    """The same corpus with every clinical table's data rows reversed (contract-m4u7 §1)."""
+    inputs = _corpus(root, name)
+    changed = 0
+    for path in sorted(inputs.run.glob("*/*_clinical*.csv")):
+        header, *rows = path.read_text(encoding="utf-8").splitlines(keepends=True)
+        changed += rows != rows[::-1]
+        path.write_text(header + "".join(rows[::-1]), encoding="utf-8")
+    if not changed:
+        raise SystemExit("cohort determinism: the reorder sweep changed no clinical table")
+    return inputs
+
+
 def _reference(root: pathlib.Path) -> pathlib.Path:
     """A baseline generation from another corpus (one more subject → different medians)."""
     other = _corpus(root, "reference-corpus", clone_subject=True)
@@ -109,6 +122,8 @@ def _sweeps(root: pathlib.Path) -> list[tuple[str, dict[str, str]]]:
         os.getpid = real_getpid  # type: ignore[assignment]
     fresh = _corpus(root, "corpus-rebuilt")
     results.append(("rebuilt-corpus", _publish(fresh, root / "out-rebuilt")))
+    reordered = _reordered(root, "corpus-reordered")
+    results.append(("reordered-rows", _publish(reordered, root / "out-reordered")))
     return results
 
 
@@ -129,6 +144,8 @@ def _baseline_sweeps(root: pathlib.Path) -> list[tuple[str, dict[str, str]]]:
         results.append(("with-baseline-moved-cwd", _publish(inputs, root / "b-cwd", reference)))
     finally:
         os.chdir(origin)
+    reordered = _reordered(root, "baseline-corpus-reordered")
+    results.append(("with-baseline-reordered-rows", _publish(reordered, root / "b-ord", reference)))
     return results
 
 

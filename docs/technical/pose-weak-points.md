@@ -248,9 +248,8 @@ stage at HEAD R): RTMW-m 256 (`output/corpus-2d-m4-rtmw-m-256`, NPU pose, identi
 and RTMW-L 384 (`output/corpus-2d-m4-rtmw-l-384`, GPU pose, reference-equivalent calibration);
 before = M2.10 (`output/corpus-2d/`), paired by label. RTMW-m M4 vs M2.10 = the generation change
 (M4.5 bouts, M4.6 fixes, OpenVINO 2026.4.1); RTMW-m → RTMW-L 384 = the deployment change
-(checkpoint + input size + score map + device), not an isolated architecture effect. Appraisal =
-`scientist-2` (S01-S08: 2 supported, 5 overstated, 1 unsupported; its landmark probe rerun by MAIN
-byte-identical). Own support = each arm's points at vis >= 0.3.
+(checkpoint + input size + score map + device), not an isolated architecture effect. Own support
+= each arm's points at vis >= 0.3.
 
 | metric | M2.10 | RTMW-m 256 | RTMW-L 384 |
 | --- | --- | --- | --- |
@@ -292,14 +291,17 @@ byte-identical). Own support = each arm's points at vis >= 0.3.
   flagged transitions have no RTMW-m eligibility, so the flags follow the denominator. The steps
   are not all minor: max isolated step 0.876, whole-body 0.501 and 0.885 of the frame's max
   dimension.
-- **Severe steps predate the model swap.** Severe = one of the ten used points moving > 0.25 of
-  the max frame dimension between adjacent frames, both ends at vis >= 0.3. M2.10 137, RTMW-m 131,
-  RTMW-L 384 165 → 57.0 / 54.6 / 60.7 per million valid point-steps. 79 RTMW-L steps coincide
-  with an RTMW-m severe step at the same transition, the arms agreeing before and after on 62 →
-  triggered upstream of the pose model; 52 are RTMW-L's alone (RTMW-m 41 alone), mostly one joint
-  that relocates and stays; 1 per arm is camera-wide. Bouts carrying a severe step on their own
-  wrist or index: RTMW-L 84/6185 (1.4 %), RTMW-m 66/6524 (1.0 %). Shared-class mechanism (pose
-  re-interpretation, identity, crop) needs frame viewing → `.agent/deferred.md` severe-step row.
+- **Severe steps: 1.5× on RTMW-L 384, carried by the points it adds.** Severe point-step = one
+  of the ten used points moving > 0.25 of the max frame dimension between adjacent frames, both
+  ends at vis >= 0.3. Per million valid point-steps: M2.10 262 / 2 402 082 (109.1), RTMW-m
+  256 / 2 400 939 (106.6), RTMW-L 384 442 / 2 717 441 (162.7). On points both arms score at both
+  ends (2 388 953 point-steps): RTMW-L 249 (104.2), RTMW-m 235 (98.4); on RTMW-L's own extra
+  points (328 470): 190 (578.4) → the excess sits in the low-score observations RTMW-L adds
+  (→ calibration-transfer row), not in its localisation of shared points. Frames: 79 of RTMW-L's
+  165 severe transitions coincide with an RTMW-m severe transition (mechanism unmeasured: shared
+  image content, correlated model error, crop or identity); 1 per arm is camera-wide. Bouts with a
+  severe step on their own wrist or index: RTMW-L 84/6185 (1.4 %), RTMW-m 66/6524 (1.0 %)
+  (→ `.agent/deferred.md` severe-step row).
 - **P09 + P10 close**: 0 out-of-frame observations on both trees; `duplicate_hand_fired` 34 477
   over 212 assets (RTMW-L 384), 60 077 over 269 (RTMW-m). **P08**: RTMW-m tree 3/379 clips beyond
   0.01, max 0.049 (M2.10: 13/379, max 0.766) — the measured transient-track mechanism is addressed,

@@ -244,11 +244,17 @@ rows before sizing any unit that touches their surfaces.
   states per feature: unit class (image-plane angle, dimensionless, time), criterion validity
   `not established`, reliability `not established` (never filled from cross-view ICC or model
   agreement); a test reds on a feature missing either field.
-- **Severe steps: the shared class's mechanism is unmeasured** (`scientist-2` F5 trace,
-  `docs/technical/pose-weak-points.md` § M4 corpus) — 79 of RTMW-L 384's 165 severe steps (> 0.25
-  of the max frame dimension between adjacent frames on the ten used points, both ends vis >= 0.3)
-  coincide with RTMW-m's at the same transition; 84/6185 bouts carry one on their own wrist or
-  index → with the user's per-session word, frame pairs of a stratified sample of shared steps are
-  classified (pose re-interpretation, identity, crop, content); an upstream fix of the dominant
+- **Severe steps: mechanism unmeasured** (`scientist-2` F5, `docs/technical/pose-weak-points.md`
+  § M4 corpus) — severe point-steps (> 0.25 of the max frame dimension between adjacent frames on
+  the ten used points, both ends vis >= 0.3) per million valid: RTMW-L 384 162.7, RTMW-m 106.6;
+  on shared support 104.2 vs 98.4, on RTMW-L's own extra points 578.4; 79 of RTMW-L's 165 severe
+  transitions coincide with RTMW-m's; 84/6185 RTMW-L bouts carry one on their own wrist or index
+  → with the user's per-session word, frame pairs of a stratified sample are classified (pose
+  re-interpretation, identity, crop, content, low-score addition); an upstream fix of the dominant
   class halves both `jump_count.py`'s per-million rate and the bouts carrying an own-side severe
   step on a rerun tree, with `whole` / `iso` / `alt` no worse (`.claude/rules/pose-instruments.md`).
+- **A symlinked `--out` naming the baseline root fails to publish** (closing delta round A,
+  `reviewer-20` R01; also at `9052629^`) — `cohort.run` checks overlap on real paths but renames
+  the unresolved link over a directory → `IsADirectoryError`; `--out` = a symlink to the v3
+  baseline root publishes at the resolved root, keeps the link, and validates (the reviewer's
+  `test_p11_equal_root_output_symlink_publishes_at_resolved_root`, `.scratch/reviewer-20/`).

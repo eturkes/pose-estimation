@@ -107,7 +107,7 @@ reads. A step refuses to write over a directory that it did not publish.
    ```
 
    To record how each feature moved against the previous export, add `--baseline <previous-cohort>`.
-   Compare two exports only when their `cohort.json` names the same pose model and settings.
+   Compare two exports only when their `cohort.json` names the same pose model, settings and clinical method.
 
 [`docs/technical/entrypoints.md`](docs/technical/entrypoints.md) lists every flag.
 
