@@ -67,6 +67,7 @@ def _write_generation(root: pathlib.Path) -> dict[str, object]:
         "inventory": {},
         "generator_version": sessions_module.GENERATOR_VERSION,
     }
+    generation["marker"] = sessions_module.marker_digest(generation)
     (root / sessions_module.GENERATION_FILENAME).write_text(
         json.dumps(generation, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",

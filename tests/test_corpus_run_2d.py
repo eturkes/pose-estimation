@@ -1033,6 +1033,7 @@ def _publish(root: pathlib.Path, *, link_target: pathlib.Path | None = None) -> 
         "inventory": {},
         "generator_version": sessions_module.GENERATOR_VERSION,
     }
+    generation["marker"] = sessions_module.marker_digest(generation)
     (root / sessions_module.GENERATION_FILENAME).write_text(
         json.dumps(generation, sort_keys=True, indent=2) + "\n", encoding="utf-8"
     )

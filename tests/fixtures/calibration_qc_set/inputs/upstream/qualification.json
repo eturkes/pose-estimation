@@ -44,7 +44,7 @@
   "generation": {
     "assets_qc.csv": "f54c2557f9ddfaf1079cf6c5bbd76cb0c714457160ad3767ca6ed94ecf2a8af0",
     "cameras_qc.csv": "c71483d69d4230ffd352246fed454288d9b0a0dd4cff7032ea5c802bb6074217",
-    "census": "603008f4e2d5b9e13a64f393285ea6024d97810c2e20a802948b46886baa60c3",
+    "census": "e69da5cabf85ca26bf14ff28c22396867dacfe66e1f4986b2fa4234be4a844aa",
     "events_qc.csv": "82ce45a918e1d7aa51546bcabb76f7d32b41c7bfe3d92e7c61fa9543bb0a58e2",
     "generator_version": "v4",
     "inventory": {
@@ -61,6 +61,7 @@
         "captures.csv": "d27ca914b727f78a00af5d671c915728828f86813035ff453be3867efe429df5",
         "census.json": "31c004e07fa3b2b564b85539d789f62df504bc7a2e0abf2b016374238a94b3d7"
       },
+      "marker": "51fe87203b20854929f7e31f3944e89e5c66005673262d67a2c3060119a0eddf",
       "placements.csv": "4b4cf97f756e29c2215034f30dbb5367de819be37c3aa3123cf8db8d8869da52",
       "tree": "5d0db0d5a11bdc8fa1588717678102afa7dd01c46471ad0b56c9fdd4735ec0a7"
     },

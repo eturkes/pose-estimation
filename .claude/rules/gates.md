@@ -136,6 +136,11 @@ scripts/gate.sh
   case SKIPs; missing `inventory` → `test_p05_real_corpus_headline_counts` SKIPs; each skip fails
   A32. Never write through any of the four — `inventory/` carries source paths, and R must never
   `renv::install`/`renv::snapshot` through the link.
+- **A full gate from a worktree adds two tool links**: `.tools` → `<primary>/.tools` (else `audit`
+  + `secrets` fail "scanners missing") and `tools/cocowb-eval/.venv` → the primary's (else the
+  step syncs a fresh Python 3.12 env). Measured at `d2eafbd` with all six links: `gate: PASS`, 3142
+  passed, pytest 1358 s. A republish in the primary (`qualification/` is linked) waits for the
+  worktree gate to finish.
 
 ## Check firing + scratch validators
 

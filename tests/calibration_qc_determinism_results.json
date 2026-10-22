@@ -1,6 +1,6 @@
 {
   "baseline_sha256": {
-    "calibration_qc.json": "36911e9ea6b134336537fa47241565c32ac0caaf8e6db00ddcbbe935853dc3dc",
+    "calibration_qc.json": "9317573d3bd6a53a5cf411f0c0b95bad9463b10bf89bdd6d02f39909e3ca437f",
     "corpus_qc.csv": "810c65aeb7bcacb6f783c66628b301e7b3203eb6570cabbe2ac5ee003affe0da",
     "evidence_qc.csv": "853078a8e2432e3b06326c4947629340e592ef2365f265fdfd4ed20378608fa8"
   },
@@ -12,7 +12,7 @@
     "src/pose_estimation/__init__.py": "de77d850cc0d7695903de638c51dda72a5e03612ebc850e80fb707bc7e6477a2",
     "src/pose_estimation/calibration_qc.py": "ba6c84b9b4cfd3056a4281595576752510a99ecdccc6cdf28428bed86d65d708",
     "src/pose_estimation/inventory.py": "43031c774ba60fccf7803389de195167d879272aee9d8b764c4c7eb79ec42579",
-    "src/pose_estimation/measure/__init__.py": "25dc284986f3f2ffbc6d6d166df26ef2b0558d0b154a464bf933775f2550fdec",
+    "src/pose_estimation/measure/__init__.py": "36f1a53366f518c3a837ae367f12142cad193c92d2af8f8e67fc8bc7d166e45e",
     "src/pose_estimation/measure/audio_offset.py": "37750a68c2d9b76428230a37fb40058327ce4bc1673321483f58555ef94f4a32",
     "src/pose_estimation/measure/detect.py": "7baba972d16d94db83177bcb12875fbd28127c11584f17b15bd8ef7797aa45f9",
     "src/pose_estimation/measure/mebx.py": "3f95181086240b6e917fcedb7d37cfb0305be3b10e5d4a7ca737f8d4ddcecd8f",
@@ -23,10 +23,10 @@
     "src/pose_estimation/measure/visual_offset.py": "80d03893e407187216875af174496af912f2edcd4ceec1bf2618da73cc3a7ff6",
     "src/pose_estimation/multicam.py": "f14fd26be4cae2309129f5fd78d3c2590d1c44446c2920dae216f3f32ad74403",
     "src/pose_estimation/qualify.py": "f6c27bbc260f17ac2d5b055e8ca3787d0cb609c923633af6a206543d3c1ce37a",
-    "src/pose_estimation/sessions.py": "4644f729dd59425a63971227e5752fd4d3ac68b7a37c810a58600c3c187f111c",
+    "src/pose_estimation/sessions.py": "524105294712608d1bbb61214261ff2fec71ddad9ce09f93a9db735aabfefc8d",
     "src/pose_estimation/video_io.py": "3a7f2e95a80eaa1a6b1d096437fa35e894d77b8ffd8eccc3f536710b449717ea",
     "tests/test_calibration_qc.py": "9c107fbfe90af0ceb994f06596fe89a2134d46da3928b71ec91f94172a8bca19",
-    "tests/test_measure.py": "9e7a077dc191664af8cd2ea40c78258194da1afb6dd2bfee1dc9cb11233c17a4",
+    "tests/test_measure.py": "6edaa80ce2764e87ed8dca6608509e996aba9e5b6186e5c970810b56ef6ff72e",
     "tests/test_qualify.py": "c630877ebe9a4a4c1876b21721b0fad487ad5e41373b03ede22b5878d67e5156",
     "tests/test_sessions.py": "570ed80320204100c7ed4e790fd9a126048945815dee47185546f00850c1f021"
   },

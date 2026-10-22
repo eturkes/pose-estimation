@@ -279,8 +279,17 @@ def _digest_bytes(path: pathlib.Path) -> str:
 
 
 def manifest_digest(manifest: dict[str, Any]) -> str:
-    """Digest the manifest exactly as published, minus its own marker."""
-    body = {key: value for key, value in manifest.items() if key != "generation"}
+    """Digest the manifest exactly as published, minus its own self-referential key.
+
+    The generation block's upstream claims are the content a consumer trusts most, so only
+    `generation.manifest` itself leaves the digest (M2 review T5 R17).
+    """
+    body = dict(manifest)
+    body["generation"] = {
+        key: value
+        for key, value in dict(manifest.get("generation") or {}).items()
+        if key != "manifest"
+    }
     return hashlib.sha256(inventory.render_json(body).encode("utf-8")).hexdigest()
 
 
@@ -512,11 +521,8 @@ def write_axis(
         "provenance": provenance,
     }
     manifest["axes"] = dict(sorted(manifest["axes"].items()))
-    manifest["generation"] = {
-        "manifest": manifest_digest(manifest),
-        "inventory": dict(upstream),
-        "generator_version": GENERATOR_VERSION,
-    }
+    manifest["generation"] = {"inventory": dict(upstream), "generator_version": GENERATOR_VERSION}
+    manifest["generation"]["manifest"] = manifest_digest(manifest)
     inventory.write_text(out / MANIFEST_FILENAME, inventory.render_json(manifest))
     return manifest
 

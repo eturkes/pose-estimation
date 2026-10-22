@@ -34,6 +34,8 @@ import pathlib
 import re
 import shutil
 import sys
+from collections.abc import Mapping
+from typing import Any
 
 from . import inventory
 from .multicam import (
@@ -55,6 +57,7 @@ GENERATION_KEYS: tuple[str, ...] = (
     "tree",
     "inventory",
     "generator_version",
+    "marker",
 )
 
 PLACED = "placed"
@@ -599,6 +602,21 @@ def _digest_bytes(path: pathlib.Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def render_marker(generation: Mapping[str, Any]) -> str:
+    """The marker's published text."""
+    return json.dumps(dict(generation), sort_keys=True, indent=2) + "\n"
+
+
+def marker_digest(generation: Mapping[str, Any]) -> str:
+    """Digest the marker's claims minus its own self-referential key (M2 review T5 R17).
+
+    `tree_digest` excludes the marker, so without this key the upstream `inventory` block —
+    the claim a consumer trusts most — validates after any edit no other digest can see.
+    """
+    body = {key: value for key, value in generation.items() if key != "marker"}
+    return hashlib.sha256(render_marker(body).encode("utf-8")).hexdigest()
+
+
 def generation_digest(out_dir: str | os.PathLike[str]) -> str:
     """Digest the marker itself — the one file `tree_digest` excludes.
 
@@ -658,8 +676,9 @@ def _build(
         "inventory": dict(upstream),
         "generator_version": GENERATOR_VERSION,
     }
+    generation["marker"] = marker_digest(generation)
     (staging / GENERATION_FILENAME).write_text(
-        json.dumps(generation, sort_keys=True, indent=2) + "\n", encoding="utf-8", newline=""
+        render_marker(generation), encoding="utf-8", newline=""
     )
 
 
@@ -825,6 +844,10 @@ def validate_generation(out_dir, inventory_dir=None):
     ):
         raise SessionsError(
             "The published tree is unusable: generation.json is not this generator's document."
+        )
+    if generation["marker"] != marker_digest(generation):
+        raise SessionsError(
+            "The published tree is inconsistent: generation.json changed after publication."
         )
     for name in (EVENTS_FILENAME, PLACEMENTS_FILENAME):
         try:

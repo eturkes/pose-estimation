@@ -12,6 +12,7 @@ that refuses an empty directory refuses a symlinked marker for the wrong reason.
 
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import re
@@ -19,9 +20,10 @@ from collections.abc import Callable
 
 import pytest
 
-from pose_estimation import inventory, sessions
+from pose_estimation import inventory, measure, sessions
 
 test_sessions = pytest.importorskip("test_sessions")
+test_measure = pytest.importorskip("test_measure")
 
 _SCALAR_LINE = re.compile(r'^\s*"[^"]+":\s*(?!\{|\[)[^\n]*,\s*$')
 
@@ -175,3 +177,32 @@ def test_r15_read_marker_accepts_exactly_the_kind_the_publishers_write(
     marker.write_text('{"a": 1, "a": 2}', encoding="utf-8")
     with pytest.raises(ValueError, match="duplicate key"):
         inventory.read_marker(marker)
+
+
+def test_r17_sessions_marker_digest_covers_its_upstream_claim(
+    published_sessions: pathlib.Path,
+) -> None:
+    """T5 R17: an edited `inventory` block refuses, though every other digest still agrees."""
+    marker = published_sessions / sessions.GENERATION_FILENAME
+    generation = json.loads(marker.read_text(encoding="utf-8"))
+    edited = {**generation, "inventory": {**generation["inventory"], "assets.csv": "0" * 64}}
+    marker.write_text(json.dumps(edited, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    with pytest.raises(sessions.SessionsError, match="changed after publication"):
+        sessions.validate_generation(published_sessions)
+    # A keyless digest detects; recomputing it re-validates (the bound, never a signature).
+    edited["marker"] = sessions.marker_digest(edited)
+    marker.write_text(sessions.render_marker(edited), encoding="utf-8", newline="")
+    assert sessions.validate_generation(published_sessions)["inventory"]["assets.csv"] == "0" * 64
+
+
+def test_r17_measure_manifest_digest_covers_its_upstream_claim(tmp_path: pathlib.Path) -> None:
+    """T5 R17: the manifest digest keeps `generation` minus its own `manifest` key."""
+    out = test_measure._sidecar(tmp_path, [test_measure._row()])
+    assert measure.validate(out), "positive control: the untouched sidecar validates"
+    path = out / measure.MANIFEST_FILENAME
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["generation"]["inventory"] = {"assets.csv": "0" * 64}
+    path.write_text(inventory.render_json(manifest), encoding="utf-8", newline="")
+    with pytest.raises(measure.MeasureError) as refusal:
+        measure.validate(out)
+    assert refusal.value.reason == "manifest_edited"

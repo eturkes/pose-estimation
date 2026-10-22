@@ -8,8 +8,6 @@ Read on demand — not attached state. A row promoted to an unfinished unit move
 Evidence → `.agent/archive/{polish,review-m2}.md`; regen → each check's `paths:` rule in `.claude/rules/`. Read the
 rows before sizing any unit that touches their surfaces.
 
-- **Two census digests skip their own provenance block** (T5 R17, `sessions.py:588`,
-  `measure/__init__.py:281`) → each covers its block minus its self-referential key.
 - **`inventory_mutation_results.json` + `measure_mutation_results.json` target moved bytes** (2/2,
   2/3) → each campaign runs from clean checkout, no target-mismatch refusal, reproduces its kill
   list, and exits 1 on a seeded survivor with `M028` the sole allowlisted equivalent — today

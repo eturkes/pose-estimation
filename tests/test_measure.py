@@ -90,11 +90,8 @@ def _sidecar(
             }
         }
     }
-    manifest["generation"] = {
-        "manifest": measure.manifest_digest(manifest),
-        "inventory": {},
-        "generator_version": measure.GENERATOR_VERSION,
-    }
+    manifest["generation"] = {"inventory": {}, "generator_version": measure.GENERATOR_VERSION}
+    manifest["generation"]["manifest"] = measure.manifest_digest(manifest)
     inventory.write_text(out / measure.MANIFEST_FILENAME, inventory.render_json(manifest))
     return out
 

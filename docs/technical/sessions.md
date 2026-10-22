@@ -131,7 +131,7 @@ Rules that the manifest must keep:
 
 `placements.csv` sorts by `asset_id` and carries `asset_id`, `capture_id`, `disposition`, `placement`, `placement_reason`, `event_id`, `camera_name`, and `grammar_version`. It holds one row for every registry row, so no asset leaves the tree silently. A held-out row carries an empty `event_id`, so the ledger is the only place that qualifies it without the registry.
 
-`generation.json` records the digest of each table, a digest of the tree, and the upstream `inventory` generation block.
+`generation.json` records the digest of each table, a digest of the tree, the upstream `inventory` generation block, and `marker`: the SHA-256 of the document's own rendering without `marker`.
 
 The tree digest covers every entry under the output directory except `generation.json`, which cannot digest itself. For each entry it records the relative name, the kind, and either the exact symbolic link target text or the SHA-256 of the file bytes. It never reads a link target's contents, so corpus bytes stay outside the digest. It excludes inode, mtime, and permissions, because those are not a function of the registry.
 
@@ -159,9 +159,11 @@ Every consumer must call `validate_generation` before it reads a row or opens a 
 
 `generation.json` **is** the block. The registry's equivalent is nested inside `census.json` because that file also carries aggregates; this file carries the block alone.
 
-Its schema is closed. The key set must be exactly `events.csv`, `placements.csv`, `tree`, `inventory`, and `generator_version`, and `generator_version` must match this generator. An added, renamed, or missing key means another writer or an edit, which no digest inside the document can catch.
+Its schema is closed. The key set must be exactly `events.csv`, `placements.csv`, `tree`, `inventory`, `generator_version`, and `marker`, and `generator_version` must match this generator. An added, renamed, or missing key means another writer or an edit.
 
-Pass `inventory_dir` to also prove that the registry on disk is the generation that produced the tree. That check is the only one that catches a registry rebuilt under a tree which still looks internally consistent. It is also the only check that finds a rewritten `inventory` block, because such a block keeps the closed schema and every digest. A consumer that omits the argument gets no protection against either case. The argument is optional because the tree must stay consumable after it moves away from the registry.
+`marker` covers every other field, the upstream `inventory` block included, so an edit that keeps the closed schema and every table digest still fails validation. The digest has no key: a writer that recomputes it after an edit passes, so it detects an edit and does not authenticate one.
+
+Pass `inventory_dir` to also prove that the registry on disk is the generation that produced the tree. That check is the only one that catches a registry rebuilt under a tree which still looks internally consistent. It is also the only check that finds a rewritten `inventory` block whose writer recomputed `marker`. A consumer that omits the argument gets no protection against either case. The argument is optional because the tree must stay consumable after it moves away from the registry.
 
 Unchanged inputs produce a byte-identical tree. The test suite proves this against a shuffled directory order, four locales, a changed hash seed, a changed time zone, and a different `--out` name.
 
