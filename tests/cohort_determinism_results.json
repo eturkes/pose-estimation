@@ -1,22 +1,22 @@
 {
   "accepted_tampers": [],
   "drifted": [],
-  "elapsed_s": 4.1,
+  "elapsed_s": 8.6,
   "n_sweeps": 12,
   "n_tamper_classes": 22,
   "published_digests": {
-    "cohort.json": "fed13f4d81144cbaa7b72edd323b2ca8b647f594d0f20afde13809ed9af4b4f8",
+    "cohort.json": "4d6bf817d5c8d9c188ede1b0564b20929f6604b64817959d675b24fcc75c35f7",
     "cohort_cells.csv": "a8af821f33a2c94ca4893b4c177da115fbc08a42068febe5d6b6bf57c52b5935",
     "cohort_features.csv": "5f911249e61ab10188b1e04224201b8d77a1dfee9cd16e202d273e3a6bee2248",
     "descriptors.yaml": "60b2ca6dfae3195df3a8dce1a2fb64a5cfd38a47f7aa1aceb20dab208443488b"
   },
   "published_digests_with_baseline": {
-    "cohort.json": "0fce0cc22ab81506bd177e750dc0b5a8090a336726f54ad8b399f8e2625eaa77",
+    "cohort.json": "db91f4e15529d1c69a2b7ed15cb1623067d3aac71358ee3aff8d594b22ec7fd5",
     "cohort_cells.csv": "a8af821f33a2c94ca4893b4c177da115fbc08a42068febe5d6b6bf57c52b5935",
     "cohort_features.csv": "5f911249e61ab10188b1e04224201b8d77a1dfee9cd16e202d273e3a6bee2248",
     "cohort_sensitivity.csv": "1bba09062fa67e9155329f3de916ef0e52b2c60c810cada93fbaa692b1a55471",
     "descriptors.yaml": "60b2ca6dfae3195df3a8dce1a2fb64a5cfd38a47f7aa1aceb20dab208443488b"
   },
-  "source_digest": "ace2d3d244dcb708f22586428992ed54a628ec4bce5b365cbebb445aa49c3b8e",
+  "source_digest": "2818b95f412de4f6a5ee0ceea69c778607bbed7cc22a631e61bb7e6593fec869",
   "verdict": "PASS"
 }

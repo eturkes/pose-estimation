@@ -8,8 +8,6 @@ Read on demand — not attached state. A row promoted to an unfinished unit move
 Evidence → `.agent/archive/{polish,review-m2}.md`; regen → each check's `paths:` rule in `.claude/rules/`. Read the
 rows before sizing any unit that touches their surfaces.
 
-- **Cohort census omits the external descriptor digest** (T4 R37) → census records it;
-  `descriptor_collision` re-checkable.
 - **Two census digests skip their own provenance block** (T5 R17, `sessions.py:588`,
   `measure/__init__.py:281`) → each covers its block minus its self-referential key.
 - **`inventory_mutation_results.json` + `measure_mutation_results.json` target moved bytes** (2/2,

@@ -37,6 +37,15 @@ That call recomputes the digest over the published bytes. It refuses a set that 
 - Equal `measurement` blocks → comparable cohorts; unequal → the difference includes an instrument
   change.
 
+## Descriptor collision
+
+`cohort.json` `descriptor_collision` = the `descriptors.yaml` raws checked against `../rehab`
+`schema/columns.yaml` (families expanded): `checked`, `source`, `source_sha256` (the bytes the
+check read; `null` when the sibling does not resolve), `n_external`, `n_collisions`.
+`cohort.recheck_descriptor_collision(out, schema)` reruns the check against a schema file and
+refuses one whose bytes differ from `source_sha256` → a `../rehab` schema edit moves
+`cohort.json` at the next republish.
+
 ## Generation sensitivity
 
 `--baseline <dir>` = a previous generation of this tool (v1-v3): digest recomputed, feature table

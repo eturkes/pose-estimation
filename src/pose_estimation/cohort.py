@@ -926,12 +926,9 @@ def render_descriptors(rows: list[dict[str, object]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _external_raws() -> frozenset[str] | None:
-    """`../rehab`'s raw names, families expanded. `None` when the sibling does not resolve."""
-    path = pathlib.Path(__file__).resolve().parents[2].parent / "rehab" / "schema" / "columns.yaml"
-    if not path.is_file():
-        return None
-    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+def external_raws(payload: bytes) -> frozenset[str] | None:
+    """`../rehab` `columns.yaml` bytes → raw names, families expanded; `None` = no mapping."""
+    document = yaml.safe_load(payload.decode("utf-8"))
     if not isinstance(document, dict):
         return None
     raws = [str(row["raw"]) for row in document.get("columns") or []]
@@ -944,6 +941,17 @@ def _external_raws() -> frozenset[str] | None:
     return frozenset(raws)
 
 
+def _external_descriptors() -> tuple[frozenset[str], str] | None:
+    """`../rehab`'s raw names + the digest of the bytes they came from; `None` = unresolved."""
+    path = pathlib.Path(__file__).resolve().parents[2].parent / "rehab" / "schema" / "columns.yaml"
+    if not path.is_file():
+        return None
+    # One read feeds both, so the recorded digest names the bytes the check ran on.
+    payload = path.read_bytes()
+    raws = external_raws(payload)
+    return None if raws is None else (raws, _digest_bytes(payload))
+
+
 def descriptor_collision(rows: list[dict[str, object]]) -> dict[str, object]:
     """A08's two collision layers. The external outcome publishes; it never silently skips."""
     raws = [str(row["raw"]) for row in rows]
@@ -952,14 +960,16 @@ def descriptor_collision(rows: list[dict[str, object]]) -> dict[str, object]:
     for raw in raws:
         if not raw.startswith(tuple(f"pose_{level}_" for level in LEVELS)):
             raise CohortError(f"Descriptor raw {raw!r} does not carry the namespacing prefix.")
-    external = _external_raws()
-    if external is None:
+    resolved = _external_descriptors()
+    if resolved is None:
         return {
             "checked": False,
             "source": EXTERNAL_DESCRIPTOR_SOURCE,
+            "source_sha256": None,
             "n_external": 0,
             "n_collisions": 0,
         }
+    external, digest = resolved
     collisions = sorted(set(raws) & external)
     if collisions:
         raise CohortError(
@@ -968,6 +978,7 @@ def descriptor_collision(rows: list[dict[str, object]]) -> dict[str, object]:
     return {
         "checked": True,
         "source": EXTERNAL_DESCRIPTOR_SOURCE,
+        "source_sha256": digest,
         "n_external": len(external),
         "n_collisions": 0,
     }
@@ -1527,6 +1538,32 @@ def validate_generation(out_dir: str | os.PathLike[str]) -> dict[str, Any]:
     if recomputed != generation["tree_digest"]:
         raise CohortError("The cohort tree digest does not match the published bytes.")
     return marker
+
+
+def recheck_descriptor_collision(
+    out_dir: str | os.PathLike[str], schema: str | os.PathLike[str]
+) -> None:
+    """Re-run a published set's collision check against the consumer schema it recorded.
+
+    Raises when the set was published unchecked, *schema* is not the bytes its census
+    digested, or a published raw collides — silence = the recorded outcome holds.
+    """
+    out = pathlib.Path(out_dir)
+    collision = validate_generation(out)["descriptor_collision"]
+    if collision.get("checked") is not True:
+        raise CohortError("The cohort set was published without a descriptor collision check.")
+    payload = pathlib.Path(schema).read_bytes()
+    if _digest_bytes(payload) != collision.get("source_sha256"):
+        raise CohortError("The consumer schema is not the one the collision check digested.")
+    external = external_raws(payload)
+    if external is None or len(external) != collision.get("n_external"):
+        raise CohortError("The consumer schema does not yield the recorded descriptor count.")
+    published = yaml.safe_load((out / DESCRIPTORS_FILENAME).read_text(encoding="utf-8"))
+    collisions = sorted({str(row["raw"]) for row in published["columns"]} & external)
+    if collisions:
+        raise CohortError(
+            f"Descriptor raw {collisions[0]!r} collides with an existing consumer descriptor."
+        )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

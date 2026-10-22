@@ -220,3 +220,87 @@ def test_r41_invalid_inputs_raise_exactly_cohort_error(
     with pytest.raises(cohort.CohortError) as caught:
         cohort.run(inputs.inventory, inputs.sessions, inputs.run, tmp_path / "cohort")
     assert type(caught.value) is cohort.CohortError
+
+
+def _schema(path: pathlib.Path, raws: list[str]) -> pathlib.Path:
+    path.write_text(yaml.safe_dump({"columns": [{"raw": raw} for raw in raws]}), encoding="utf-8")
+    return path
+
+
+def test_r37_census_digests_the_consumer_schema_so_the_collision_check_reruns(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    schema = _schema(tmp_path / "columns.yaml", ["AGE", "ASIA_admission"])
+    monkeypatch.setattr(
+        cohort,
+        "_external_descriptors",
+        lambda: (
+            cohort.external_raws(schema.read_bytes()),
+            cohort._digest_bytes(schema.read_bytes()),
+        ),
+    )
+    root = tmp_path / "input"
+    root.mkdir()
+    inputs = _build_inputs(root, cohort)
+    out = cohort.run(inputs.inventory, inputs.sessions, inputs.run, tmp_path / "cohort")
+    collision = cohort.validate_generation(out)["descriptor_collision"]
+    assert collision["checked"] is True
+    assert collision["n_external"] == 2
+    assert collision["source_sha256"] == cohort._digest_bytes(schema.read_bytes())
+    cohort.recheck_descriptor_collision(out, schema)
+
+    published = yaml.safe_load((out / cohort.DESCRIPTORS_FILENAME).read_text(encoding="utf-8"))
+    colliding = _schema(tmp_path / "moved.yaml", ["AGE", published["columns"][0]["raw"]])
+    with pytest.raises(cohort.CohortError, match="not the one"):
+        cohort.recheck_descriptor_collision(out, colliding)
+
+
+def test_r37_an_unchecked_set_cannot_be_rechecked(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cohort, "_external_descriptors", lambda: None)
+    root = tmp_path / "input"
+    root.mkdir()
+    inputs = _build_inputs(root, cohort)
+    out = cohort.run(inputs.inventory, inputs.sessions, inputs.run, tmp_path / "cohort")
+    collision = cohort.validate_generation(out)["descriptor_collision"]
+    assert collision["checked"] is False
+    assert collision["source_sha256"] is None
+    with pytest.raises(cohort.CohortError, match="without a descriptor collision check"):
+        cohort.recheck_descriptor_collision(out, _schema(tmp_path / "columns.yaml", ["AGE"]))
+
+
+def test_r37_recheck_reds_a_census_whose_names_and_digest_disagree(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "input"
+    root.mkdir()
+    inputs = _build_inputs(root, cohort)
+    raw = cohort._descriptor_rows()[0]["raw"]
+    schema = _schema(tmp_path / "columns.yaml", [str(raw), "AGE"])
+    # A publisher that checked other names than the bytes it digested: 2 names, neither `raw`.
+    monkeypatch.setattr(
+        cohort,
+        "_external_descriptors",
+        lambda: (frozenset({"AGE", "SEX"}), cohort._digest_bytes(schema.read_bytes())),
+    )
+    out = cohort.run(inputs.inventory, inputs.sessions, inputs.run, tmp_path / "cohort")
+    with pytest.raises(cohort.CohortError, match="collides"):
+        cohort.recheck_descriptor_collision(out, schema)
+
+
+def test_r37_recheck_reds_a_census_whose_count_and_digest_disagree(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "input"
+    root.mkdir()
+    inputs = _build_inputs(root, cohort)
+    schema = _schema(tmp_path / "columns.yaml", ["AGE", "SEX"])
+    monkeypatch.setattr(
+        cohort,
+        "_external_descriptors",
+        lambda: (frozenset({"AGE"}), cohort._digest_bytes(schema.read_bytes())),
+    )
+    out = cohort.run(inputs.inventory, inputs.sessions, inputs.run, tmp_path / "cohort")
+    with pytest.raises(cohort.CohortError, match="descriptor count"):
+        cohort.recheck_descriptor_collision(out, schema)

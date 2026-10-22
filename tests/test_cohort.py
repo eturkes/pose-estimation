@@ -7,6 +7,7 @@ pre-implementation branch reports one predicate-specific red per case.
 from __future__ import annotations
 
 import csv
+import hashlib
 import importlib
 import json
 import math
@@ -969,7 +970,7 @@ def _assert_typed_publication(cohort: ModuleType, out: pathlib.Path) -> None:
 
     collision = marker["descriptor_collision"]
     assert isinstance(collision, dict), "P11: descriptor collision is not a mapping"
-    assert set(collision) == {"checked", "source", "n_external", "n_collisions"}, (
+    assert set(collision) == {"checked", "source", "source_sha256", "n_external", "n_collisions"}, (
         "P11: descriptor collision fields drifted"
     )
     assert type(collision["checked"]) is bool, "P11: collision checked is not boolean"
@@ -1640,7 +1641,7 @@ def test_p09_descriptor_fragment_is_the_bijective_feature_table_projection(
 
     collision = _marker(out).get("descriptor_collision")
     assert isinstance(collision, dict), "P09: descriptor collision outcome is absent"
-    assert set(collision) == {"checked", "source", "n_external", "n_collisions"}, (
+    assert set(collision) == {"checked", "source", "source_sha256", "n_external", "n_collisions"}, (
         "P09/A22: descriptor collision field set drifted"
     )
     assert type(collision["checked"]) is bool, "P09: collision checked is not boolean"
@@ -1660,9 +1661,13 @@ def test_p09_descriptor_fragment_is_the_bijective_feature_table_projection(
             "P09: published external count differs from the expanded schema"
         )
         assert collision["n_collisions"] == 0, "P09: collision outcome is not clean"
+        assert (
+            collision["source_sha256"] == hashlib.sha256(_REHAB_SCHEMA.read_bytes()).hexdigest()
+        ), "T4 R37: the census does not digest the schema it checked"
         assert not set(actual) & external, "P09/N8: descriptor raw collides with ../rehab"
     else:
         assert collision["checked"] is False, "P09: absent external schema reported checked"
+        assert collision["source_sha256"] is None, "T4 R37: unchecked schema published a digest"
         assert collision["n_external"] == collision["n_collisions"] == 0, (
             "P09: unchecked external schema published nonzero counts"
         )

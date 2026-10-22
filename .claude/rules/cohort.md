@@ -52,9 +52,15 @@ Separate git repo, dashboard over the hospital SCI database. Its conventions bin
 
 - **`../rehab` = the one sanctioned pointer to another repo, by user ruling** (on `CLAUDE.md`
   `Authoring` portability): the product's named consumer (`.agent/spec.md` `Intent`, `retention.md`)
-  and an optional code input — `cohort._external_raws()` reads its `schema/columns.yaml` (label
+  and an optional code input — `cohort._external_descriptors()` reads its `schema/columns.yaml` (label
   `EXTERNAL_DESCRIPTOR_SOURCE`) for the descriptor-collision check, `None` when the sibling does
-  not resolve.
+  not resolve. `descriptor_collision.source_sha256` digests those bytes → a `../rehab` schema
+  edit moves `cohort.json` (census + tree digest alone) at the next republish, and
+  `cohort.recheck_descriptor_collision(out, schema)` refuses a schema the census did not digest.
+- **A nested census field joins inside v3**: `validate_generation` freezes the top-level
+  `MARKER_KEYS` + `GENERATION_KEYS` alone, so an added sub-key keeps every v3 tree valid and
+  ownable; the contract tests (`test_cohort.py` P09/P11) freeze the sub-key sets → extend them
+  in the same commit. A top-level key or a moved published file = a `GENERATOR_VERSION` bump.
 
 - **The pose↔rehab join is CUT by user ruling.** Publish cohort aggregates alone: no per-subject rows, patient identifier, join column or join template. `IDNumber`/`TIMES` are absent, so no identifier map, join-validating loader or dataset merge belongs to this deliverable. Keep `analysis/make_templates.R`'s operator-filled `sessions.csv` pattern unchanged.
 - Sole raw source `data/raw/ALL_SCIDATA.csv` (**cp932**, Japanese headers). `schema/columns.yaml` = **67 direct descriptors + 152 family-expanded = 219 `ColumnSpec`**; observed key union `{raw, ja, en, group, role, dtype, unit, range, levels}`, six required. **`short_ja`/`short_en`/`description` are a comment-only aspiration — ZERO literal descriptors carry them**, and short labels are absent from `ColumnSpec` and from dashboard code, so dense charts reuse the full labels. Groups `demographics id injury isncsci isncsci_motor isncsci_sensory meta scim`; roles `feature id meta outcome`; dtypes `categorical datetime numeric ordinal`; `missing_sentinels: ["_","","NA","NT","ND"]`.
