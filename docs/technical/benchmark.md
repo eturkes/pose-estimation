@@ -259,7 +259,7 @@ pilot frames (14 subjects, 204 sides); agent consensus labels at their qualified
 the presence-F1 difference (M4.1 D05(d), M4.4's power input): 0.090 over 14 subjects.
 Regenerate (gate prefix, both trees complete):
 `bench.py pilot-eval --labels <gp4> <gp5> --sample .scratch/bench/pilot/sample.json --arm
-rtmw-l-384 --baseline rtmw-m-256 --from-run rtmw-l-384=output/corpus-2d-m4-rtmw-l-384
+rtmw-l-384 --baseline rtmw-m-256 --from-run rtmw-l-384=output/corpus-2d
 --from-run rtmw-m-256=output/corpus-2d-m4-rtmw-m-256 --out .scratch/bench/pilot_eval`.
 
 ## Cross-view residual per arm (3D-negative ruling)

@@ -46,10 +46,10 @@ device and its score calibration (`src/pose_estimation/score_calibrations/<key>.
 
 | Model key | Keypoints | Device | Notes |
 |-----------|-----------|--------|-------|
-| `rtmw-l` (default) | 133 | NPU | Alias of `rtmw-m-256`; the key predates the RTMW-m correction. |
+| `rtmw-l` | 133 | NPU | Alias of `rtmw-m-256`; the key that M2.10-era runs recorded. |
 | `rtmw-m-256` | 133 | NPU | RTMW-m 256x192, raw scores (the calibration reference). |
 | `rtmw-l-256` | 133 | GPU | RTMW-L 256x192. |
-| `rtmw-l-384` | 133 | GPU | RTMW-L 384x288, calibrated scores. |
+| `rtmw-l-384` (default) | 133 | GPU | RTMW-L 384x288, calibrated scores; the shipped model. |
 | `rtmw-x-384` | 133 | GPU | RTMW-X cocktail13 384x288, calibrated scores. |
 | `dwpose-l-384` | 133 | GPU | DWPose-L 384x288. |
 | `dwpose-m` | 133 | NPU | DWPose-M wholebody. |
@@ -57,7 +57,7 @@ device and its score calibration (`src/pose_estimation/score_calibrations/<key>.
 | `mediapipe` | — | — | Delegates to `main.py`. |
 
 ```bash
-python -m pose_estimation.run                                          # webcam 0, rtmw-l
+python -m pose_estimation.run                                          # webcam 0, rtmw-l-384
 python -m pose_estimation.run --model dwpose-m
 python -m pose_estimation.run --source video.mp4 --det-device CPU --pose-device NPU
 python -m pose_estimation.run --batch-dir videos/ --single-subject
@@ -254,9 +254,9 @@ The script runs every published session through `pose_estimation.run` and then
 falls back to the CPU.
 
 Defaults: `--inventory inventory`, `--qualification qualification`, `--sessions sessions`,
-`--out output/corpus-2d`, `--model rtmw-l`, `--tracking body`, `--tracker subject`,
+`--out output/corpus-2d`, `--model rtmw-l-384`, `--tracking body`, `--tracker subject`,
 `--drop-lower-body`, `--drop-hips-camera above`, `--hand-gate`, `--camera-survey`, `--task-gap-s 2.5`,
-`--det-device GPU`, `--pose-device NPU`,
+`--det-device GPU`, `--pose-device` = the model's registry device (GPU for `rtmw-l-384`),
 `--det-frequency 1`, `--single-subject`, `--retry-failed`.
 `--limit N` runs the first N **due** events, so a rerun with `--limit` processes the next
 events rather than the same ones. `--analyse-only` republishes the manifest and the

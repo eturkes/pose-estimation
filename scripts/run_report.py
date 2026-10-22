@@ -17,8 +17,8 @@ missing coverage instead of passing silently.
 
 Usage:
     scripts/run_report.py <csv_dir> --videos-dir videos/ [--tracking body]
-        [--model rtmw-l] [--det-device CPU] [--pose-device NPU] [--backend openvino]
-        [--det-frequency 7] [--single-subject] [--out-dir <csv_dir>]
+        [--model rtmw-l-384] [--det-device GPU] [--pose-device GPU] [--backend openvino]
+        [--det-frequency 1] [--single-subject] [--out-dir <csv_dir>]
 """
 
 from __future__ import annotations
@@ -311,11 +311,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Read source videos from this directory. The search is not recursive.",
     )
     p.add_argument("--tracking", default="body", choices=["hands", "hands-arms", "body"])
-    p.add_argument("--model", default="rtmw-l")
+    p.add_argument("--model", default="rtmw-l-384")
     p.add_argument("--backend", default="openvino")
-    p.add_argument("--det-device", default="CPU")
-    p.add_argument("--pose-device", default="NPU")
-    p.add_argument("--det-frequency", type=int, default=7)
+    p.add_argument("--det-device", default="GPU")
+    p.add_argument("--pose-device", default="GPU")
+    p.add_argument("--det-frequency", type=int, default=1)
     p.add_argument("--single-subject", action="store_true")
     p.add_argument(
         "--out-dir",

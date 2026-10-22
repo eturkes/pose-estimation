@@ -59,7 +59,8 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
   `iso` anatomy); `scientist-2`'s `.scratch/scientist-2/{aggregate_probe,common_support,
   landmark_support}.py` under `.venv/bin/python` (matched-support cohort, alternation, floor sweep,
   flagged-step magnitudes; commands in `.scratch/agents/scientist-2.md` F0). Scratch cohorts per
-  arm = `P pose-estimation-cohort … --run output/corpus-2d-m4-<arm> --out .scratch/impl/cohort-<arm>`.
+  arm = `P pose-estimation-cohort … --run <tree> --out .scratch/impl/cohort-<arm>` (RTMW-L 384 =
+  `output/corpus-2d` since adoption, RTMW-m = `output/corpus-2d-m4-rtmw-m-256`).
   Severe steps (> 0.25 of max frame dimension, ten used points): `P python
   .scratch/impl/jump_count.py <tree>…` (severe point-steps per million valid point-steps + frames
   carrying one; M2.10 = 262 / 2 402 082 = 109.1; no args = the two M4 arms on shared vs own support),

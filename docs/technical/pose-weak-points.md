@@ -245,8 +245,8 @@ Instrument: `.scratch/impl/p07_stage.py` (→ `.claude/rules/pose-instruments.md
 
 Population = the two M4 corpus runs, 379 clips each, one code state (landmarks `48078b4`, clinical
 stage at HEAD R): RTMW-m 256 (`output/corpus-2d-m4-rtmw-m-256`, NPU pose, identity calibration)
-and RTMW-L 384 (`output/corpus-2d-m4-rtmw-l-384`, GPU pose, reference-equivalent calibration);
-before = M2.10 (`output/corpus-2d/`), paired by label. RTMW-m M4 vs M2.10 = the generation change
+and RTMW-L 384 (adopted: `output/corpus-2d`, GPU pose, reference-equivalent calibration);
+before = M2.10 (`output/corpus-2d-superseded-m210/`), paired by label. RTMW-m M4 vs M2.10 = the generation change
 (M4.5 bouts, M4.6 fixes, OpenVINO 2026.4.1); RTMW-m → RTMW-L 384 = the deployment change
 (checkpoint + input size + score map + device), not an isolated architecture effect. Own support
 = each arm's points at vis >= 0.3.

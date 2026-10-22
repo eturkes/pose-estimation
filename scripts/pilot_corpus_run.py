@@ -49,7 +49,7 @@ from pose_estimation.multicam import (
     process_session,
     published_overlap,
 )
-from pose_estimation.run import MODEL_REGISTRY
+from pose_estimation.run import DEFAULT_MODEL, MODEL_REGISTRY
 from pose_estimation.sessions import tree_digest, validate_generation
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -627,7 +627,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--report", type=Path, default=None, help="Report path (default: <out>).")
     parser.add_argument("--min-assets", type=int, default=16)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--model", default="rtmw-l")
+    parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--tracking", default="hands-arms")
     parser.add_argument("--tracker", default="subject", choices=["subject", "rtmlib"])
     parser.add_argument("--drop-lower-body", action=argparse.BooleanOptionalAction, default=True)

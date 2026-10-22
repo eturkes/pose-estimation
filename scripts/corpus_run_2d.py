@@ -62,7 +62,7 @@ from pose_estimation.corpus_run import (
 )
 from pose_estimation.export import COORD_NORMALIZATION
 from pose_estimation.multicam import published_overlap
-from pose_estimation.run import MODEL_REGISTRY
+from pose_estimation.run import DEFAULT_MODEL, MODEL_REGISTRY
 from pose_estimation.sessions import generation_digest, tree_digest, validate_generation
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -564,7 +564,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--out", type=Path, default=ROOT / "output" / "corpus-2d")
     parser.add_argument("--report", type=Path, default=None, help="Report path (default: <out>).")
     parser.add_argument("--limit", type=int, default=0, help="Run the first N due events only.")
-    parser.add_argument("--model", default="rtmw-l")
+    parser.add_argument("--model", default=DEFAULT_MODEL)
     # Default = the shipped corpus's own configuration, so a bare rerun reproduces it.
     parser.add_argument("--tracking", default="body")
     parser.add_argument("--tracker", default="subject", choices=["subject", "rtmlib"])

@@ -17,11 +17,9 @@ Contracts `.agent/archive/contract-m4u{1,2,3a,3b,4,6}.md`; measured resolutions 
   (COCO-WB, 2 labellers) — as coarse as RTMW-m; the blinded pairwise judge answered consistently
   across colour swaps yet no error-margin bin reached the 0.8 Wilson lower bound (decisive 90/145
   right). Agent labels = gross-error ground truth (binary hand presence, patient box, joints at 0.6 of the hand extent /
-  0.1 of the patient box — the consensus's p90 vs public GT; 0.3 graded label noise); fine accuracy = public GT (`public-eval`, `hand-eval`) + the user's `/label`
-  frames. Never brief a judge or labeller for a finer resolution than the measured one.
-- **The user's 96 frames are one-use confirmation** (`.scratch/bench/user/labels.jsonl`): no agent
-  reads, scores or summarises them before `contract-m4u4.md` names its candidates (A01), and no
-  parameter is tuned on them after. `confirm.frozen_candidates` refuses to score without A01.
+  0.1 of the patient box — the consensus's p90 vs public GT; 0.3 graded label noise); fine accuracy = public GT (`public-eval`, `hand-eval`)
+  alone — M4.4's user-labelled confirmation was waived (user ruling), so `bench.py confirm` + `/label`
+  have no live set. Never brief a judge or labeller for a finer resolution than the measured one.
 - **One OpenVINO GPU job at a time.** The Arc iGPU is shared with other projects' jobs on this
   host; two concurrent pose/detector processes died with `CL_OUT_OF_RESOURCES` (rc 134) — the
   M4.2 RTMW-X eval and the M4.1 pre-roll replay. Queue GPU work in one sequential script

@@ -13,7 +13,7 @@ paths:
 Publication contract → `publishers.md`.
 
 - **v2 (M4.5b) declares 88 features: 49 frame + 25 window + 14 bout; the rest is excluded by name.** Source set = 50 frame + 42 window + 14 bout columns, re-derivable from the goldens `tests/goldens/r_clinical/2d_idx_clinical{,_windows,_bouts}.csv` minus the metadata + bout-key names. Excluded: 15 window SPARC / normalized-jerk columns `construct_invalid` (`cohort.CONSTRUCT_INVALID`; defined on one movement, never on a 1 s window), 3 `structurally_absent` (`cohort.STRUCTURALLY_ABSENT`: `trunk_lean_sagittal_deg` + its `_mean`/`_sd`, NA on the 2D branch because sagittal lean is out of plane), and any bout column with no eligible value `no_eligible_bout_values`. **Feature table <= 12 cells × 88 = 1056 rows** — the published count is `population.features`
-(a bout column with no eligible value leaves; a header-only bout table publishes 74 / 888). An unknown column refuses, all-NA included — the partition is contract-owned now (v1 measured it, A02). The published M2.10 cohort is still v1 (89 / 1068) until the adoption republishes it as v3.
+(a bout column with no eligible value leaves; a header-only bout table publishes 74 / 888). An unknown column refuses, all-NA included — the partition is contract-owned now (v1 measured it, A02). The published cohort = v3 over the adopted RTMW-L 384 tree (88 / 1056, 6185 bout rows); the M2.10 cohort (v1, 89 / 1068) sits at `.scratch/compare-m210/cohort`.
 - **v3 (M4.7, `contract-m4u7.md`) names its instrument and can carry a generation comparison.**
   `cohort.json` `measurement` = the one `pose_config.json` + clinical `analysis_sha256` every
   contributing event ran (read per event, never from `run_report.json`; a mixed tree refuses —

@@ -18,7 +18,7 @@ from pathlib import Path
 #: device.
 CORPUS_ARGS = (
     "--headless",
-    "--model=rtmw-l",
+    "--model=rtmw-l-384",
     "--tracking=body",
     "--tracker=subject",
     "--det-device=GPU",

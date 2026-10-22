@@ -148,7 +148,7 @@ MODEL_REGISTRY = {
 # Every recorded pose_config.json through M2.10 names `rtmw-l`; it stays the same entry.
 MODEL_REGISTRY["rtmw-l"] = MODEL_REGISTRY["rtmw-m-256"]
 
-DEFAULT_MODEL = "rtmw-l"
+DEFAULT_MODEL = "rtmw-l-384"
 
 
 # ---------------------------------------------------------------------------

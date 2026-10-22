@@ -80,3 +80,9 @@ a 100-px hand; 0.05 presence agreement ≈ 5 of 96 frames' sides; stated here be
   NPU, identity calibration, the same gate + survey + build — the shipped settings with M4.6
   fixes). Written before any statistic over the user's labels exists; margins, endpoints and the
   adoption rule unchanged.
+- **A02 (waiver, user ruling).** M4.4 does not run: the user adopted `rtmw-l-384` on M4.2's public
+  evidence + M4.3's pass and dropped the labelling (0 of 96 frames saved; no statistic over user
+  labels ever existed). Endpoints, margins and the adoption rule stay as frozen, unexercised on
+  data; the scorer + its P01-P04 cases stay in the suite (`bench.confirm`,
+  `tests/test_m4u4_confirm.py`, `tests/test_m4u4_bench_cli.py`); the §7 cells stay open as never
+  scored. Fine accuracy on the corpus is unmeasured (README limits).

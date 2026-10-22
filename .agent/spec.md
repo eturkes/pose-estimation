@@ -27,32 +27,38 @@ hospital SCI database.
   published trees, degrading per absent tree. Commits no media at all → the player needs the
   published trees and lists nothing without them; `README.md` = view guide + regeneration + limits.
   `uv run --directory tools/review-ui python -m review_ui` → `http://127.0.0.1:8791/`.
-- `cohort/` — the `../rehab` export, from the M2.10 generation. 12 `(task, side)` cells · 89
-  features · 1068 rows; trunk features 6-16 subjects (side views alone), non-task-hand + bilateral
-  hand features 6-16 (hand gate) → `cohort.md`; `descriptors.yaml` = ja/en labels, units, ranges.
+- `cohort/` — the `../rehab` export, v3 from the adopted RTMW-L 384 generation. 12 `(task, side)`
+  cells · 88 features · 1056 rows · 6185 bout rows; min 6 subjects (trunk features, side views
+  alone), 0 rows under the 5-subject floor → `cohort.md`; `descriptors.yaml` = ja/en labels, units,
+  ranges; `measurement` = pose config `45c77741…` + R producer `2e02883b…`;
+  `cohort_sensitivity.csv` vs the M2.10 cohort (v1, `.scratch/compare-m210/cohort`): 888 common /
+  168 new / 180 retired, 178/888 move > 0.5 baseline IQR.
   `P pose-estimation-cohort --inventory inventory --sessions sessions --run output/corpus-2d --out cohort
-  [--baseline <previous cohort>]` (v3 since M4.7: `measurement` block + optional `cohort_sensitivity.csv`)
-- `output/corpus-2d/` — per-asset 2D landmarks + clinical features, M2.10 generation (M2.9's subject
-  tracker, GPU-f32 detector every frame, NPU pose, seated drops, SPARC v3 + hand presence gate +
-  camera survey: task span, per-row camera similarity in R): 193/193 events, 379/379 `ok`,
-  337 090 frames, 8.197 h measured, all 11 `run_report.json` verdicts true, `task_span` published.
-  `.scratch/rerun_m210.sh` = `python scripts/corpus_run_2d.py` under the accelerator recipe;
-  resumes per event marker. Its `pose_config.json` files predate `openvino_build` + `calibration`
-  (M4.6, M4.3a), so today's drivers refuse `--analyse-only` / `--reuse-run` over it as another
-  configuration — by design; republish it only from its own code (`487f790`). Before/after vs M2.9 → `docs/technical/pose-weak-points.md`
-  § M2.10 corpus. Superseded generations kept by user ruling (M2.10 videos reviewed; delete on
-  the user's word): M2.9 at `output/corpus-2d-superseded-m29/` + cohort
-  `.scratch/compare-m29/cohort/`; rtmlib-f7 at `output/corpus-2d-superseded-rtmlib-f7/` +
-  `.scratch/compare-root/cohort/`. Comparison UI = `uv run --directory tools/review-ui python
-  -m review_ui --port 8792 --repo "$PWD/.scratch/compare-m29"` (`compare-root` for rtmlib-f7;
-  symlinks onto the primary trees + the superseded run).
+  [--baseline <previous cohort>]`
+- `output/corpus-2d/` — per-asset 2D landmarks + clinical features, M4 generation adopted by user
+  ruling: RTMW-L 384 on GPU f32 + its reference-equivalent score calibration, GPU-f32 detector every
+  frame, subject tracker, seated drops, hand gate, camera survey, M4.6 fixes, OpenVINO 2026.4.1
+  (landmarks `48078b4`), clinical stage = bouts + SPARC v3 (`2e02883b…`): 193/193 events, 379/379
+  `ok`, 337 090 frames, 14.365 h measured, all 12 `run_report.json` verdicts true. The defaults
+  reproduce it (`run.DEFAULT_MODEL` = `rtmw-l-384`; 193/193 recorded configurations equal):
+  `python scripts/corpus_run_2d.py` under the accelerator recipe, resumes per event marker.
+  Effect vs M2.10 + RTMW-m → `docs/technical/pose-weak-points.md` § M4 corpus. Kept beside it:
+  `output/corpus-2d-m4-rtmw-m-256` (the M4 RTMW-m arm; comparison side of the F4/F5/F6
+  `.agent/deferred.md` rows). Superseded generations kept by user ruling (delete on the user's
+  word): M2.10 at `output/corpus-2d-superseded-m210/` + cohort `.scratch/compare-m210/cohort/`
+  (republish only from its own code `487f790`: its `pose_config.json` predates `openvino_build` +
+  `calibration`); M2.9 at `output/corpus-2d-superseded-m29/` + `.scratch/compare-m29/cohort/`;
+  rtmlib-f7 at `output/corpus-2d-superseded-rtmlib-f7/` + `.scratch/compare-root/cohort/`.
+  Comparison UI = `uv run --directory tools/review-ui python -m review_ui --port 8792 --repo
+  "$PWD/.scratch/compare-m210"` (`compare-m29`, `compare-root` likewise; symlinks onto the primary
+  trees + the superseded run).
 - `inventory/` `sessions/` `qualification/` `calibration_qc/` — four publishers upstream of the
   run; each `P pose-estimation-<name> … --out <dir>`; `--help` = args.
 - Benchmark — `scripts/bench.py <command>` (sample, sheets, ingest, agree, public-eval, hand-eval,
   corpus-gross, calibrate, judge-*, preroll, user-sample; inference + replay under the accelerator
   recipe, the rest under the gate prefix → `--help`) →
   `docs/technical/benchmark.md`; COCO-WholeBody AP via `tools/cocowb-eval/` (own Python 3.12 uv
-  project); user labelling page = review UI `/label` over `.scratch/bench/user/`.
+  project); review UI `/label` = a labelling page with no live use (M4.4 waived).
 - Gate — `scripts/gate.sh` (full chain + per-step wall-clock; `--fast <tests>` iterates) →
   `.claude/rules/gates.md`. Its pytest step = the decisive gate (A32 reconciled in-session): 3074 passed at
   M4.7, 1144 s alone under co-tenant host load ~11 (670 s for 2733 at M4.2b, quiet); run it alone.
@@ -64,29 +70,27 @@ hospital SCI database.
   gates + verification integrity binding; the prototype (`tools/review-ui/`, → `Artifacts`)
   sits outside under PROTOTYPE law, `testpaths = ["tests"]` keeping it out of collection (→
   `.claude/rules/delegation.md`).
-- **IMPLEMENT optimises the video analysis itself** (user rulings) — model selection + parameter
-  optimisation across detector, pose + hand model, tracker, filters, hand gate, span trim and
-  features, benchmarked; every model + parameter ruling below is open, a replacement lands as a new
-  ruling. Accuracy wins within the corpus cost ceiling (user ruling): one full corpus run <= 1 day
-  of iGPU, an arm over it never a finalist (`contract-m4u2.md` A04); any licence class; any
-  candidate family; features may change definition (per-movement SPARC, timing features, a
-  published per-feature reliability) or join + leave the export. Ground truth = public 2D GT run
-  through the deployment (COCO-WholeBody, ARCTIC, Ego-Exo4D, UBody, DexYCB, HInt) + in-domain
-  keypoints + per-side hand visibility placed by agents on corpus frames + GT-free proxies;
-  selection = a rule frozen before candidate results. Any `.agent/deferred.md` row may join.
-  Data-boundary, claim-boundary, 3D-negative + metric-scale rulings stay binding.
-- **In-domain accuracy evidence** (user ruling, after M4.1 measured agent hand points at ~0.10 of
-  hand size and the blinded pairwise judge near chance) — public GT decides fine accuracy now;
-  agent labels grade gross errors only; the user clicks wrist + fingertip points on ~100 sampled
-  corpus frames in a review-UI labelling page, and those frames are the confirmation set before
-  the final corpus run. Agent hand points grade at 0.6 of the hand extent — their consensus's own
-  error vs public GT (p90 0.518 thumb tip) — never finer (M4.3 G2, contract-m4u3 A02).
-- **Shipped pose model = RTMW-m 256x192** — registry key `rtmw-l` names checkpoint
-  `rtmw-dw-l-m` = RTMW-m in mmpose's own table (COCO-WholeBody hand AP 0.491, whole 0.582; true
-  RTMW-L `rtmw-dw-x-l` 0.598 / 0.660, at 384x288 0.663 / 0.701); every generation through M2.10 ran
-  it. True RTMW-L + RTMW-X fail NPU compile (CMX scheduler) and run on GPU f32. The registry keys
-  models by mmpose-table names (`rtmw-m-256`, `rtmw-l-256`, `rtmw-l-384`, `rtmw-x-384`,
-  `dwpose-l-384`, M4.3a); `rtmw-l` stays an alias of `rtmw-m-256` for recorded configurations.
+- **Model selection, M4** (user rulings) — accuracy within the corpus cost ceiling: one full
+  corpus run <= 1 day of iGPU, an arm over it never a finalist (`contract-m4u2.md` A04). Public 2D
+  GT through the deployment (COCO-WholeBody, DexYCB, HInt; ARCTIC, Ego-Exo4D, UBody unregistered)
+  under a finalist rule frozen before results → RTMW-L 384 the one challenger (Sapiens v1/v2 +
+  SDPose over the ceiling); M4.3 complete-pipeline gross check passed; M4.4 in-domain confirmation
+  waived + the user's labelling dropped → RTMW-L 384 adopted on public evidence + M4.3. Fine
+  accuracy on this footage is unmeasured. Any later candidate competes against the shipped model
+  under the same ceiling; data-boundary, claim-boundary, 3D-negative + metric-scale rulings stay
+  binding.
+- **In-domain accuracy evidence** — public GT decides fine accuracy; agent labels grade gross
+  errors alone, hand points at 0.6 of the hand extent — their consensus's own error vs public GT
+  (p90 0.518 thumb tip), never finer (M4.3 G2, contract-m4u3 A02); no user-labelled confirmation
+  set exists (M4.4 waived, user ruling).
+- **Shipped pose model = RTMW-L 384x288** (`rtmw-l-384` = mmpose `rtmw-dw-x-l` cocktail14 at
+  384x288; mmpose table hand AP 0.663 / whole 0.701; here, GT boxes: hand 0.648, whole 0.714 vs
+  RTMW-m 0.534 / 0.634) on GPU f32, scores through its reference-equivalent Platt map
+  (`score_calibrations/rtmw-l-384.json`; the export's raw scores are unnormalised). Every generation
+  through M2.10 ran RTMW-m 256x192 (checkpoint `rtmw-dw-l-m`), recorded as `rtmw-l` → that key
+  stays an alias of `rtmw-m-256`. True RTMW-L + RTMW-X fail NPU compile (CMX scheduler) and run on
+  GPU f32. Registry keys = mmpose-table names (`rtmw-m-256`, `rtmw-l-256`, `rtmw-l-384`,
+  `rtmw-x-384`, `dwpose-l-384`).
 - **Review UI shape** (user rulings, ITERATE) — Japanese default, English by switch; theme
   auto|light|dark, auto = the OS; the clip player = first tab + the view a bare URL opens; the whole
   frame + transport visible with no page scroll (list beside stage >= 761 px, fitted stack below);
@@ -118,20 +122,20 @@ hospital SCI database.
   M3.3b + M3.4-M3.6 cut. Revive = user ruling → `.agent/archive/m3.md`.
 - **`publication.py` extraction stays DECLINED** — six publishers keep their own
   staging/swap/digest/ownership copies; the measured five-way drift is the evidence.
-- **Detector on GPU at f32, pose on NPU** — NPU pads YOLOX's dynamic output with uninitialised
-  memory that passes every validity filter as real rows; GPU f32 matches the CPU detector
-  (240 corpus frames: IoU 1.0000, score Δ < 3.5e-6, 0 count mismatches) at 41.6 vs 318.7 ms/call,
-  and GPU f16 flips a box at the 0.3 cut.
+- **Detector on GPU at f32; pose on the model's registry device** (RTMW-L 384: GPU f32) — NPU pads
+  YOLOX's dynamic output with uninitialised memory that passes every validity filter as real rows;
+  GPU f32 matches the CPU detector (240 corpus frames: IoU 1.0000, score Δ < 3.5e-6, 0 count
+  mismatches) at 41.6 vs 318.7 ms/call, and GPU f16 flips a box at the 0.3 cut.
 - **An out-of-frame keypoint is not an observation** (user ruling) — it scores 0, so above-view
   elbow and reach features lose the ~42 % of shoulder frames the camera cannot see rather than use
   the model's guess.
 - **Seated subjects drop what the camera cannot see** (user ruling) — knees, ankles and feet score
   0 on every camera, hips score 0 under the overhead camera; trunk lean and rotation come from
   side views (posture symmetry reads the shoulders alone and keeps every view).
-- **Hand model = whichever arm the benchmark selects** (user ruling, within the corpus cost ceiling) — the earlier
-  second-stage bar (jitter <= 0.006, wall <= +15 %) retires with it; its "RTMW-X" arm was RTMW-L
-  384x288 whose ONNX export emits unnormalised scores (600 COCO crops: median 4.2, max 8.4), so its
-  rejection measured the export, not the model.
+- **Hand keypoints = the shipped whole-body model's** (RTMW-L 384; user ruling: the benchmark
+  selects within the corpus cost ceiling) — no second-stage hand model; the earlier bar (jitter
+  <= 0.006, wall <= +15 %) retired; its "RTMW-X" arm was RTMW-L 384x288, whose ONNX export emits
+  unnormalised scores (600 COCO crops: median 4.2, max 8.4) → that rejection measured the export.
 - **Acceptance contracts live at `.agent/archive/contract-m<m>u<u>.md`** — the files a move
   breaks (one a generated data field no gate resolves) re-derive by `.claude/rules/retention.md`.
 - **External AI-judgment services stay out of this repo** — surveyed and declined by the user.
@@ -158,8 +162,10 @@ hospital SCI database.
 - **Cross-view agreement is descriptive** (M4.5b) — `view_abs_diff` primary, unclipped one-way
   `view_icc` + subject-resample range, never a reliability or a confidence interval.
 - **Hallucinated hands are gated by their exported score** (user ruling) — hysteresis on 0.65 /
-  off 0.5 per track after the smoother; held out: 90 % of hallucinated hands removed, 3.7 % of real
-  hands lost (one subject 12 %) → `docs/technical/pose-weak-points.md` § M2.10.
+  off 0.5 per track after the smoother, on the model's calibrated score (RTMW-L 384: its Platt map,
+  no refit at M4.3). Held out on RTMW-m (M2.10): 90 % of hallucinated hands removed, 3.7 % of real
+  hands lost (one subject 12 %) → `docs/technical/pose-weak-points.md` § M2.10; RTMW-L 384 corpus:
+  143 816 / 623 822 hand-frames gated (0.231), held-out loss unmeasured.
 - **Clips are trimmed to their estimated task span and motion is read in the reference frame** (user
   ruling) — frames outside the span export no rows (setup frames excluded 0.967 on 13 densely
   labelled clips); each row's estimated camera similarity is applied in R before velocity, jerk,
@@ -190,17 +196,14 @@ hospital SCI database.
 - [ ] RESUME: (session 2026-10-22) finish line in force = the IMPLEMENT body's `Met when`: full gate
   (scanners included) passes on a clean tree at the closing commit; scanners + Dependabot committed
   (local gate, `gates.md` ruling); every `Decisions` entry implemented or deferred; `.agent/review.md`
-  no open row; review UI already retired to `tools/review-ui/`; `Phase: MAINTAIN` committed. USER
-  RULING (2026-10-22): adopt RTMW-L 384 now, M4.4 waived, user labelling dropped (0/96 saved; the
-  `/label` page stays as is). State: severe-step trace `4282c52`; closing delta round A (reviewer-20..26
-  + MAIN S13-S17, `.scratch/impl/roster.md`) harvested, 9 findings accepted, fixes in flight
-  (`tests/test_m4u7_review_a.py` red-first). No servers; no `wt/`/`wip/` branches; worktree
-  `.scratch/worktrees/corpus-m4` (`48078b4`) kept until Close. Next: (1) round-A fix commit + ledger;
-  (2) `.scratch/impl/adopt.sh rtmw-l-384`; (3) defaults unit (`rtmw-l` → `rtmw-l-384`); (4)
-  `Decisions` + `Artifacts` + README model section, contract-m4u4 waiver amendment; (5) round B
-  review over the adoption units; (6) Close (delete `.scratch/bench/user/` frames).
-- [ ] **M4.4 locked confirmation** (table frozen `2ef508e`; A01 = `rtmw-l-384` `5cc8125`; user labels 0 of 96 — review UI serves `/label`) — decision table (superiority / non-inferiority / inconclusive)
-  frozen with margins before a one-use corpus subset is scored; gates vs the shipped baseline.
+  no open row; review UI already retired to `tools/review-ui/`; `Phase: MAINTAIN` committed. User
+  ruling: adopt RTMW-L 384 now, M4.4 waived, labelling dropped. Done: round A `79c4f2a` (re-review
+  by reviewer-20/23/24/25/26 pending); adoption unit (adopt.sh run, defaults, `Decisions`, README,
+  A02) = the commit after `79c4f2a`. Next: tick M4.4 + Corpus rerun rows with that sha; round B
+  review over the adoption unit + round-A re-review (`.scratch/impl/roster.md`); Close (delete
+  `.scratch/bench/user/`, remove worktree `.scratch/worktrees/corpus-m4` — `48078b4` is on `main`).
+- [ ] **M4.4 locked confirmation** — waived (user ruling, `contract-m4u4.md` A02): RTMW-L 384
+  adopted on M4.2 public evidence + M4.3; the user's labelling dropped.
 - [x] 2d0270f 8fe4e2b 48ef1fd **M4.5 features** — qualified wrist-motion bouts (SPARC, NJ, timing,
   peaks, path ratio, dwell), cohort v2 (bout level, construct-invalid exclusions, descriptive
   agreement), `--refresh-clinical` for runs made before the bout stage.
@@ -210,16 +213,14 @@ hospital SCI database.
 - [x] f35f83e **M4.2b heavy arms** (user request: HF-gated models first) — Sapiens v1 0.3B-2B
   (gated, access granted) + SDPose screened; every arm over the 1-day corpus ceiling → dropped
   (`contract-m4u2.md` A04, `docs/technical/benchmark.md` § Sapiens v1); finalists unchanged.
-- [ ] **Corpus rerun** (both M4 trees complete, 193/193, clinical refreshed at HEAD R:
-  `output/corpus-2d-m4-rtmw-l-384`, `output/corpus-2d-m4-rtmw-m-256`; code pinned at worktree
-  `.scratch/worktrees/corpus-m4` (`48078b4`); after-table + `scientist-2` done `2835e3d`) —
-  adoption of the M4.4 winner republishes `output/corpus-2d` + cohort v3 against M2.10.
+- [ ] **Corpus rerun** — adopted: the RTMW-L 384 M4 tree = `output/corpus-2d`, cohort v3 vs the
+  M2.10 cohort (888 common / 168 new / 180 retired); defaults = `rtmw-l-384`.
 - [x] 1b50129 **M4.7 cohort provenance + sensitivity** (`kernel`, `.agent/archive/contract-m4u7.md`; user
   rulings after `scientist-2` S08) — `cohort.json` names the run's pose configuration + clinical
   method; `--baseline` publishes `cohort_sensitivity.csv` against a previous generation; v3.
 - [ ] **Closing review** (wave over `301bd38..eccbe39` + re-review closed: `9417b9e` `7855bc5`
-  `a79c355` `598b77d`; open = a delta round over the adoption units) — one `reviewer` per lens +
-  MAIN's security lens → `.agent/review.md`.
+  `a79c355` `598b77d`; round A over `9052629^..4282c52` fixed `79c4f2a`, re-review open; round B =
+  the adoption unit) — one `reviewer` per lens + MAIN's security lens → `.agent/review.md`.
 - [ ] **Close** — README, review UI → `tools/review-ui/`, `Phase: MAINTAIN`. Met when: full gate (scanners
   included) passes on a clean tree; every `Decisions` entry implemented or deferred with its reason;
   `.agent/review.md` holds no open row.

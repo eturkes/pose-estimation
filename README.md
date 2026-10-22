@@ -46,6 +46,9 @@ Read every published number under these limits:
   can divide one action into two bouts.
 - **Cross-view agreement is descriptive.** It shows how much the camera views of one recording
   disagree. It is not a reliability coefficient or a confidence interval.
+- **Keypoint accuracy on these recordings is not measured.** Public benchmarks measure the model's
+  accuracy, and labelled corpus frames check only for gross errors such as a wrong person or a
+  missing hand.
 - **The sample is small.** A cell holds 6 to 16 subjects. The export holds no minimum, no
   maximum, and no subject row.
 
@@ -125,11 +128,19 @@ describes each view.
 
 ## How the model was chosen
 
-The benchmark compared five pose models on public ground truth (COCO-WholeBody, DexYCB, HInt),
-and RTMW-L 384 led on hand accuracy. Two more steps decide the shipped model: a check of each
-finalist inside the full pipeline on labelled corpus frames, and a confirmation on corpus frames
-that a person labels by hand. [`docs/technical/benchmark.md`](docs/technical/benchmark.md) records
-the results and the decision rules.
+The shipped pose model is RTMW-L at 384x288 pixels. It runs on the GPU.
+
+1. The benchmark compared five pose models on public ground truth (COCO-WholeBody, DexYCB,
+   HInt). RTMW-L 384 had the best hand accuracy: a COCO-WholeBody hand AP of 0.648, against 0.534
+   for RTMW-m 256, which the earlier exports used.
+2. Larger models (Sapiens, SDPose) were too slow. One corpus run must take at most one day.
+3. RTMW-L 384 then ran inside the full pipeline on labelled corpus frames. Its gross errors were
+   not worse than those of RTMW-m 256.
+
+The project owner adopted RTMW-L 384 after these steps, without a hand-labelled confirmation on
+corpus frames. Against the previous export, 178 of the 888 shared cells move by more than half
+of their spread (`cohort/cohort_sensitivity.csv`). [`docs/technical/benchmark.md`](docs/technical/benchmark.md) records the results and
+the decision rules.
 
 ## Other uses
 
