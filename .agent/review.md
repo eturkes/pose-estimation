@@ -250,6 +250,12 @@ reviewer-20 6/6, reviewer-22 7/7, reviewer-24 5/5 pass.
 | F60 | `908b780` body named the red result, not its command | V04 | accepted | recorded in the fix commit body | fixed |
 | S21 | 96 patient frames kept with no consumer after the M4.4 waiver | S21 | accepted | `.scratch/bench/user/` deleted (97 files) | fixed |
 
+Re-review (`## Re-review` appended to each `-b` report, acceptance checks alone, grader PASS rc 0):
+F55 (reviewer-20, reviewer-22), F56 (reviewer-20, -22, -24), F57 (reviewer-21), F58 (reviewer-23,
+-24), F59 (reviewer-23), F60 (reviewer-25) → all pass at `d212df8`; no new finding. Register:
+`DEFAULT_MODEL` in `corpus_run` keeps the runner + rtmlib out of its readers; the package
+`__init__` still imports numpy, cv2 and openvino (`reviewer-21`) → comment scoped.
+
 Register, ruled: `docs/technical/entrypoints.md` device example pinned NPU under the GPU default
 (`reviewer-26` B-R01) → the example names `--model rtmw-m-256`; `run_report.json` carries 13 of the
 14 pose-config fields (no `calibration`; `reviewer-26`) → by design, the cohort `measurement`

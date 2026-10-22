@@ -15,8 +15,7 @@ Teammate fits + mechanics = `CLAUDE.md` `Teammates`; each role's standing rules 
   `CLAUDE.md` `Engineering` review termination, kept whole for the pass: check set fixed before the
   diff is read, every row adjudicated, an all-`pass` table complete, no open-ended re-review). An
   adjudicated row accepting a fix stays open until that fix closes on its own acceptance check
-  under MAIN's rerun → a wave that rules every row and applies none re-enters to apply them (M2's
-  first wave: 193 rows / 55 fails in one pass, three more sessions to close 40 of 43 fixes).
+  under MAIN's rerun → a wave that rules every row and applies none re-enters to apply them.
   Reading this as an override rather than a grain split drops the anti-flip-flop mechanism.
 
 ## Worktree teammates
@@ -29,24 +28,24 @@ Teammate fits + mechanics = `CLAUDE.md` `Teammates`; each role's standing rules 
 - **A worktree branch tip moves after the poll that read it** → a deletion's `was <sha>` names a
   commit the poll never saw; check ancestry (`git log --oneline -3 <sha>`) before concluding work
   was lost.
-- **Keep a rejected design's worktree after picking the winner**: an independent implementation
-  sharing no line with the winner is a free differential oracle (a rejected 184-line generator
-  matched the shipped partition over 193 blocks + 379 assets), unreproducible once deleted.
+- **Retain an independent rejected implementation only for a named open oracle dependency**
+  (`retention.md`). A 184-line independent generator matched the shipped partition over 193 blocks
+  + 379 assets, so it can provide a differential oracle. Preserve its needed commit on an
+  `archive/*` tag; keep the worktree only while that dependency needs it.
 
 ## Rulings + reviewer output
 
 - **Amend a superseded ruling in place, in the same turn as the code it rules.** A "later rulings
-  win" note does not hold: the table is what gets read, and a `tester` conforming to a stale row
-  produced a suite that read as a regression against correct code.
+  win" note does not hold: readers and tests conform to the table, including any stale row.
 - **A reviewer's worktree diff against `main` carries its own staleness** (it can show a revert of
   a MAIN change landed after its branch point) → read it as findings, never as a patch.
 - **A saturated reviewer's persistence is a context artifact, not evidence.** When the same row
   returns from an agent near its ceiling (> ~97 %), restate the ruling once and stop; prefer a
   fresh successor. Weigh a finding by its argument; the discriminator is the reviewer's gauge, not
   its insistence.
-- **A reviewer's DONE marker is not the end of its yield** (nine accepted defects once arrived
-  after both markers) → while it has context, point it at surfaces MAIN just changed and take
-  findings by message; ask for the report file last.
+- **A reviewer's DONE marker closes its assigned pass, not its usefulness** → while it has
+  context, reuse it for a newly assigned check set over changed surfaces; persist each report
+  before ending that pass.
 - **Copy a reviewer's red suite into the primary tree and rerun it; the pass/fail split is the
   adjudication ledger.** Reds against an older branch point separate into fixed / open-scope / live
   only under execution, and the rerun catches half-fixes a report's tally cannot.

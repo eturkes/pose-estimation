@@ -15,7 +15,7 @@ paths:
 
 Publication contract → `publishers.md`. Alphabet + validation-predicate law lives there too.
 
-- **`scripts/run_m2u5_mutations.py` mutates the primary tree's `src/` in place.** It restores under `try/finally` and verifies the restored digests, so an interrupted run is safe, but a *concurrent* reader sees mutated source — a mid-run `grep` reported `GENERATOR_VERSION = "v3"`. Never run it beside anything that reads or edits `src/`, and re-read a surprising source line after it exits. Same shape as `scripts/run_inventory_mutations.py`.
+- **`scripts/run_m2u5_mutations.py` mutates the primary tree's `src/` in place.** It restores under `try/finally` and verifies the restored digests, so an interrupted run is safe, but a *concurrent* reader sees mutated source. Never run it beside anything that reads or edits `src/`, and re-read a surprising source line after it exits. Same shape as `scripts/run_inventory_mutations.py`.
 - **Published row order is contract-bearing, and two tables answer to different rules.** `_canonical(rows, key)` sorts `pairs_qc`/`cameras_qc`/`events_qc` at the publish site so their order is a function of the rows rather than of a loader's return order. `assets_qc.csv` is deliberately exempt: it publishes in registry order, which groups a capture's assets for a reader, while `asset_id` is a content hash whose ordering means nothing — `check_m2u5_determinism.py`'s D09 pins that instead. Permuting a loader's already-canonical return is fault injection past a validated postcondition, so the campaign leaves `load_assets` unwrapped by design.
 
 ## Rigidity — the gate constant and the population it selects

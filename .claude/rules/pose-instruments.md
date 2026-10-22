@@ -37,7 +37,7 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
   `docs/technical/pose-weak-points.md` (`whole`, `iso`, `alt`, `flick`, `oof`, `gap`, `lowvis`,
   `swapH`; definitions in that file). `P python .scratch/triage.py output/corpus-2d --json <out>`;
   labels clips by the review UI's positional ordinals (imports `tools/review-ui`), prints
-  numbers only. Baselines, 379 clips each: `.scratch/watch/triage_m210.json` (M2.10, shipped), `.scratch/watch/triage_m29.json` (M2.9, superseded) and
+  numbers only. Baselines, 379 clips each: `.scratch/watch/triage_m210.json` (M2.10, superseded), `.scratch/watch/triage_m29.json` (M2.9, superseded) and
   `.scratch/watch/triage_f7.json` (superseded rtmlib-f7).
 - `.scratch/impl/p07_stage.py [--tree <run>] [--k N] [--out DIR]` — M4.6 P07 stage attribution
   under the accelerator recipe: ranks clips by `oof_probe.py`'s predicate (reproduces M2.10's 83
@@ -97,19 +97,19 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
   acceptance table (contract P14-P17). `.scratch/cadence_at.py <tree>… [--hz F]` reads
   peak/background at a fixed frequency (default the old 4.29 Hz cadence) through
   `cadence_peak.py`'s own per-track extraction; positive control = old f7 reading ~1.34.
-- Offline instruments over any run tree, all six run as
-  `P python .scratch/<name>.py [<sample>]` and all six import shared constants from
+- Offline instruments over any run tree, all seven run as
+  `P python .scratch/<name>.py [<sample>]` and all seven import shared constants from
   `.scratch/recover.py` (which parses `argv[1]` as a sample size **at import time** — a caller
   taking its own arguments must stash and restore `sys.argv` around the import):
   - `mechanism.py` — splits relocations into the whole-skeleton (>= 8 of 10 used body keypoints) and
     isolated (1-2) populations and prints the displacement distribution against the shipped 30 px
-    `outlier_cap` / 150 px `match_thresh` constants. Established the bimodality: p90 18.4 px,
+    `outlier_cap` / 150 px `match_thresh` constants. Measured bimodality: p90 18.4 px,
     p95 203.9 px, nothing between.
   - `phase_split.py` — the same two populations by detector phase, chi-square against a uniform null
     over the 7 phases. Whole-skeleton decays monotonically from the detector frame (chi2 = 57.66);
     the isolated mode is U-shaped (chi2 = 33.15), which is what proves the two causes distinct.
   - `rigid.py` — decomposes a relocation into centroid translation plus shape change with
-    translation removed. Refuted the rigid-translation hypothesis and measured the 509/321 px split.
+    translation removed. Measured centroid/shape split = 509/321 px; rigid translation alone cannot explain it.
   - `arm_stats.py <tree> <det_frequency>` — per-arm relocation rate, both populations normalised by
     **observed frames**, alternation ratio and phase enrichment. The normalisation is load-bearing:
     raw counts across arms compare different denominators and reversed the sign of one reading.
@@ -120,5 +120,5 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
     it, with a 6.7 Hz control column that must read ~1.0 or the statistic is broken. Needs no
     cross-arm alignment, so it carries ~75-82 tracks per arm against `band_arms.py`'s 10-14.
   - `band_arms.py` — fixed-band energy per arm against f7 on frame-aligned common tracks. Weakest of
-    the six on sample size; quote it only beside `cadence_peak.py`.
+    these instruments on sample size; quote it only beside `cadence_peak.py`.
 

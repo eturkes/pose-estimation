@@ -34,14 +34,14 @@ Cross-cutting law. Every number, predicate and gate in this repo answers to it.
   micro-benchmarks measured 4-5× low end to end.
 - **Size on the measured actual/estimate ratio, record both figures**; corrections go into the
   multiplier, never a re-argued bottom-up. A multiplier cannot absorb a structural miss: a unit
-  whose halves share exactly one immutable value is two units → split there, found at planning.
+  whose halves share exactly one immutable value is two units → split there.
 
 ## Instruments + mechanisms
 
 - **Calibrate the instrument against known ground truth before interpreting a result.** A
   synthetic positive control driven through the real masks, sizes and population (known extrinsics
-  → cycle closure 0.000 deg) is what made the real statistic readable; a null is uninterpretable
-  until the response to a known input is known.
+  → cycle closure 0.000 deg) establishes the statistic's response; a null is uninterpretable
+  without that control.
 - **A discriminating statistic needs calibrated references, not a suggestive value.** Run it on
   synthetic data spanning every candidate mechanism across the magnitude range bracketing the real
   value (r = 0.703 against 0.010 noise / 0.997 bias references), and check the confound.
@@ -53,9 +53,9 @@ Cross-cutting law. Every number, predicate and gate in this repo answers to it.
   solve's own keypoints → `geometry.md`).
 - **A defect inferred from a derived artifact needs one measurement of its mechanism before it is
   funded**, and **re-read the logs the last measurement wrote before funding a new one**.
-- **Measure a mechanism before editing anything derived from it** — this repo's law is a
-  transcription too: `gates.md` once called both prefix halves load-bearing, and a defect report
-  built on that wording targeted a recipe that measures green.
+- **Measure a mechanism before editing anything derived from it**, rule text included. A rule
+  can misdescribe working behavior; use its command's measured result to decide (`gates.md`
+  separates the two prefix halves by a four-way probe).
 
 ## Validators + witnesses
 
@@ -74,8 +74,8 @@ Cross-cutting law. Every number, predicate and gate in this repo answers to it.
 - **A green predicate whose detail line reports zero items is failing.** Every quantified
   predicate carries a `nonvacuous` floor; read a validator's detail line, never its rc alone.
 - **A case that grades a stand-in grades nothing.** Encode predicates over shipped behaviour
-  against the shipped symbol — a re-implemented verdict passed while the shipped validator was
-  broken, and a name match is a spelling test a comment passes.
+  against the shipped symbol; an independent stand-in cannot prove its behavior, and a name match
+  is a spelling test a comment passes.
 - **Re-derive, never transcribe**: parse reason codes, schema headers, filters, markers, key
   patterns, strata, allowlist call sites and superseded figures from source at check time.
 - **A negative-control seed is a claim; grade it against the predicate text when the contract is

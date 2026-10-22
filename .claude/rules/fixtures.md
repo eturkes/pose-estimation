@@ -62,9 +62,8 @@ writes is the file it meant.
   until the artifact lands, and a skip guard breaks A32's zero-skip invariant → the test lands in
   the artifact's commit; its red witness is the pre-commit targeted run (→ `gates.md`).
 - **Grade a new validator against a hand-made minimal POSITIVE before funding production behind
-  it**: graded only against an absent artifact, it is graded on its error paths (a
-  `shutil.copytree` onto a live temp dir without `dirs_exist_ok=True` stayed invisible until the
-  first live replay).
+  it**: an absent-artifact check reaches error paths alone. A live minimal input must also
+  exercise construction, including `shutil.copytree` destination handling.
 - The generator imports the `tests/test_qualify` + `tests/test_sessions` builders (`_publish`,
   `_write_media`, `_uniform`, `_canonical`) rather than re-implementing them — they carry the PyAV
   ordering rules above.

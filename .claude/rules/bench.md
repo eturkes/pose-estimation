@@ -20,10 +20,9 @@ Contracts `.agent/archive/contract-m4u{1,2,3a,3b,4,6}.md`; measured resolutions 
   0.1 of the patient box — the consensus's p90 vs public GT; 0.3 graded label noise); fine accuracy = public GT (`public-eval`, `hand-eval`)
   alone — M4.4's user-labelled confirmation was waived (user ruling), so `bench.py confirm` + `/label`
   have no live set. Never brief a judge or labeller for a finer resolution than the measured one.
-- **One OpenVINO GPU job at a time.** The Arc iGPU is shared with other projects' jobs on this
-  host; two concurrent pose/detector processes died with `CL_OUT_OF_RESOURCES` (rc 134) — the
-  M4.2 RTMW-X eval and the M4.1 pre-roll replay. Queue GPU work in one sequential script
-  (`.scratch/impl/gpu_queue*.sh` pattern) and give a teammate the GPU by message only.
+- **One OpenVINO GPU job at a time.** The Arc iGPU is shared across projects; concurrent
+  pose/detector processes can exhaust it (`CL_OUT_OF_RESOURCES`, rc 134). Queue GPU work
+  sequentially and assign its named holder by message.
 - **Every cache is resumable, every scorer re-runs from caches**: `public-eval`, `hand-eval`,
   `corpus-gross` save predictions before scoring (`*.npz`), and `preroll` reuses finished windows,
   so a crash costs the unfinished arm alone.

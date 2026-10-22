@@ -106,7 +106,7 @@ PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/<driver>.py
 
 ## Worktree gate recipe (`.scratch/worktrees/<name>`)
 
-Every teammate worktree runs the full gate concurrently off the one primary environment, read-only:
+Teammate worktrees share the primary environment read-only; run each full gate alone, never concurrently:
 
 ```sh
 export UV_PROJECT_ENVIRONMENT=<primary-tree>/.venv
@@ -122,12 +122,12 @@ scripts/gate.sh
   believing a red**; copy the test into the primary `tests/` to exercise primary code.
 - **An exported `UV_PROJECT_ENVIRONMENT` + any `uv run --directory <subproject>` (`tools/cocowb-eval`,
   `tools/review-ui`) syncs that subproject INTO the named environment — the primary `.venv` becomes
-  the subproject's (measured: replaced by cocowb-eval's Python 3.12 env mid corpus run).** The gate's
+  the subproject's, including its Python version (cocowb-eval: Python 3.12).** The gate's
   `cocowb-eval` step and `bench.py _evaluate` unset it; a hand-run subproject command must too
   (`env -u UV_PROJECT_ENVIRONMENT uv run --directory …`). Repair = `uv sync --locked` from the root.
 - Export `UV_PROJECT_ENVIRONMENT` on **every** call: otherwise `uv run` creates a worktree-local
   `.venv` that `--no-sync` leaves empty → `No module named pytest`. `--no-sync` keeps the shared
-  environment unmutated (what makes concurrent gating safe); tool caches are cwd-relative →
+  environment unmutated (what makes environment sharing safe); tool caches are cwd-relative →
   private per worktree.
 - **Four gitignored trees symlinked in read-only, or the gate is not equivalent**: `videos`,
   `inventory`, `qualification` → `<worktree>/<name>`, `renv/library` → `<worktree>/renv/library`

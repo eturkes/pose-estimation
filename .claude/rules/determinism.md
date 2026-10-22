@@ -2,6 +2,7 @@
 paths:
   - "scripts/check_*_determinism.py"
   - "tests/*_determinism_results.json"
+  - "src/pose_estimation/__init__.py"
   - "src/pose_estimation/calibration_qc.py"
   - "src/pose_estimation/cohort.py"
   - "src/pose_estimation/corpus_run.py"
@@ -29,10 +30,8 @@ paths:
   exits rather than overwrite (the stale-green barrier). The calibration-QC campaign's field is
   `source_digests` → read the key before asserting on it.
 - **Find every affected campaign before regenerating: `rg -ln '<file>' tests/*_results.json`.**
-  One source sits in several campaigns (`qualify.py` → qualify, calibration-QC + cohort), and
-  regenerating only the obvious one costs a full suite per discovery (a comment-only `qualify.py`
-  edit left 4 failures: `test_calibration_qc`, `test_cohort_review` R35, `test_isotropic_coords`
-  P14, `test_c8_08`).
+  One source can sit in several campaigns (`qualify.py` → qualify, calibration-QC + cohort);
+  regenerate every dependent campaign, including comment-only source changes.
 - **The cohort campaign holds one `source_digest` over its whole tuple**, so its failure names no
   file → read `scripts/check_cohort_determinism.py` `SOURCES` (`cohort.py`, `corpus_run.py`,
   `inventory.py`, `qualify.py`, `sessions.py`, `view_agreement.py`, `tests/test_cohort.py`,

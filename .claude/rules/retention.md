@@ -11,7 +11,7 @@ database.
   with a positive control — an empty search and a broken one print the same bytes.
 - **A retained commit survives on an `archive/*` tag, never on its `wt/` branch.** The Close sweeps
   `wt/` branches wholesale, and `git gc` prunes unreachable commits past `gc.pruneExpire` (2 weeks
-  default; a named input was once found dangling at day 13, unwarned) → a row naming a
+  default) → a row naming a
   `.scratch/worktrees/<name>` path resolves it to a commit and tags it the moment the row is
   written. Tag a live wave's tip as its unit closes; recover an untagged one by matching `git fsck
   --no-progress | grep 'dangling commit'` against subjects (tip = the dangling commit with no

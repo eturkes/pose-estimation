@@ -16,8 +16,7 @@ paths:
   repo whose `.scratch/bench/user/` holds synthetic jobs + a 1920x1080 synthetic frame as job 0
   (`python -m review_ui --repo <dir>`), then `node tools/label_click_qa.mjs http://127.0.0.1:<port>`:
   14 points through the two-step zoom, worst 0.22 source px, wrist shared by hand + arm → rc 0
-  (bar 0.5 px). Seed = loupe mapping dividing by `clientWidth + 4` (the border-inclusive bug the
-  first draft had) → worst 0.71 px, rc 1. Capture-free: never point it at real frames.
+  (bar 0.5 px). Seed = loupe mapping dividing by `clientWidth + 4` (border-inclusive mapping) → worst 0.71 px, rc 1. Capture-free: never point it at real frames.
 - **`tools/review-ui/tools/security_qa.py` — request boundary, measured.** `uv run --directory
   tools/review-ui python tools/security_qa.py` serves a synthetic repo (one job) on a free loopback
   port: foreign `Host` → 400, cross-site `text/plain` POST → 403 + no `labels.jsonl`, foreign
@@ -67,12 +66,9 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
   nine viewports, two of them stacked (< 761 px) (fits its room, fills an axis, ratio error < 1 %, video
   fills the stage, every control row on screen, page fits the viewport), a width-only resize
   rebacking the strip, and the census + cohort panel rectangles against the before state — the
-  change touched shared CSS. **38/38 green; 4 of 4
-  seeds fire their own rows and nothing else**; with the four viewports added for the 2:5 stack
-  it reads 48/48 after-only, the 4 seed rows among them, each still reding exactly its own rows. The second URL is a `git worktree` of the previous
+  change touched shared CSS. **48/48 after-only green, including the 4 seed rows; each seed fires its own rows alone.** The second URL is a `git worktree` of the previous
   commit served with `--repo <primary>` and `UV_PROJECT_ENVIRONMENT=<primary>/tools/review-ui/.venv
-  uv run --no-sync`, which measured controls below the stage at 322 px → 156 px. Seed rules learned
-  here: `.stage`'s own `max-width: 100%` absorbs a `width` seed, so a seed that must escape the room
+  uv run --no-sync`, which measured controls below the stage at 322 px → 156 px. Seed requirements: `.stage`'s own `max-width: 100%` absorbs a `width` seed, so a seed that must escape the room
   needs `min-width`; and a `goto` differing only in its fragment is a same-document navigation, so an
   injected style tag survives into the next seed — the script carries a per-load query parameter for
   that. `.scratch/player_shot.mjs` takes the layout-only capture beside it (→ `data-boundary.md`).
@@ -88,7 +84,7 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
   reds 6 landing rows, the `index.html` nav order player→census reds the 2 tab rows, deleting the
   `hashchange` listener reds the 3 same-document rows, and moving `location.hash = name` back after
   the render `await` reds exactly the Back row; both files restored byte-identical by sha256.
-  Rules learned here, all three measured against a tree that read green first:
+  Check requirements:
   - `show()` toggles the tab and view classes *before* it awaits the render, so a class-only wait
     reads a half-switched page and reported the previous hash under a seed. Every wait is hash +
     active view + drawn node, through `waitForFunction`.
@@ -112,10 +108,10 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
   `layer=show` still driven by the video clock. **10/10 green; the seed fires 6 rows and leaves both
   `show` rows green**, restored byte-identical by sha256 (`83bff032…`).
   `videoUsable()` returns false whenever `layer === "hide"`, so `hide` mode **and every clip without
-  a platform decoder** — 123/379 are HEVC — play on the rAF branch of `tick()`. That branch fed
-  `view.frame` back into itself after `setFrame` had rounded it, so any per-tick advance under half
-  a frame accumulated to nothing: measured, **0 frames in 2.5 s at 0.5×, 1 frame at 0.25×, and
-  1.20× the requested rate at 1×**. The fix carries an unrounded `view.framePos`. Rules learned here:
+  a platform decoder** — 123/379 are HEVC — play on the rAF branch of `tick()`. That branch must carry
+  unrounded `view.framePos`: feeding `setFrame`'s rounded value back into the accumulator loses
+  advances below half a frame. Measured rounded-accumulator reference: **0 frames in 2.5 s at
+  0.5×, 1 frame at 0.25×, 1.20× the requested rate at 1×**. Check requirements:
   a `> 0` liveness row is too weak to catch a near-stall — 0.25× advanced 1 frame and passed it,
   and only the rate row reds; and the seed must leave the video-clock rows green, or the row set
   cannot show which clock it graded.
@@ -135,8 +131,8 @@ Scratch-local validators = temporary encodings (`CLAUDE.md` `Engineering`); each
   layouts fit the viewport, side by side down to 761 px and a 2:5 stack below it.
   `node .scratch/<name>.mjs http://127.0.0.1:<port> ['#NNN Task Side · View']` against a running
   `python -m review_ui`; same resolution as `theme_qa.mjs`, no capture — layout numbers alone.
-  Earlier layout QA ran at ratio 1 with integral layout and a content-height stack, which is why
-  it read green; both suites keep ratio-1 rows as controls:
+  Integral ratio-1 layout can mask both mechanisms; keep ratio-1 rows as controls alongside
+  fractional-layout rows:
   - drift — `paintStrip` sets the strip's backing width to its laid-out width × devicePixelRatio, a
     canvas's natural width is its backing width, and a stacked bare `1fr` track grew to it every
     paint (live, ratio 1.1: strip 27.9M px). 22 rows; the structural row injects a 40× backing

@@ -60,14 +60,15 @@ hospital SCI database.
   `docs/technical/benchmark.md`; COCO-WholeBody AP via `tools/cocowb-eval/` (own Python 3.12 uv
   project); review UI `/label` = a labelling page with no live use (M4.4 waived).
 - Gate — `scripts/gate.sh` (full chain + per-step wall-clock; `--fast <tests>` iterates) →
-  `.claude/rules/gates.md`. Its pytest step = the decisive gate (A32 reconciled in-session): 3074 passed at
-  M4.7, 1144 s alone under co-tenant host load ~11 (670 s for 2733 at M4.2b, quiet); run it alone.
+  `.claude/rules/gates.md`. Its pytest step = the decisive gate (A32 reconciled in-session): 3142 passed at
+  IMPLEMENT close, 1251 s alone with another project's suite on the host (670 s for 2733 at M4.2b,
+  quiet); run it alone.
 
 ## Decisions
 
 - **Repo scope = `videos/3-cam/`** — retired data + siblings → `.claude/rules/data-boundary.md`.
-- **`src/` + `tests/` + `analysis/` + six publishers = production spine** = the IMPLEMENT scope,
-  gates + verification integrity binding; the prototype (`tools/review-ui/`, → `Artifacts`)
+- **`src/` + `tests/` + `analysis/` + six publishers = production spine** = the gated scope,
+  Engineering law + verification integrity binding; the prototype (`tools/review-ui/`, → `Artifacts`)
   sits outside under PROTOTYPE law, `testpaths = ["tests"]` keeping it out of collection (→
   `.claude/rules/delegation.md`).
 - **Model selection, M4** (user rulings) — accuracy within the corpus cost ceiling: one full
@@ -175,58 +176,8 @@ hospital SCI database.
 
 ## Tasks
 
-- [x] 13fc4dd **RTMW-m label + phase rulings** — live surfaces name the shipped checkpoint; rulings above.
-- [x] 622317e **Security scanners + update automation** — `uv audit` over both uv lockfiles, secret scan,
-  security lint, each with a planted firing; Dependabot `uv` × 2; urllib3 2.7.0 → 2.8.0 (6 advisories).
-- [x] 5cc8125 **M4.1 instrument qualification** (`2ef508e`; pre-roll `48078b4` — no tested pre-roll matches the whole clip; per-class + consensus-vs-GT `a79c355`; paired-subject SD 0.090) (`kernel`, `.agent/archive/contract-m4u1.md`; design review
-  `consultant-2`: qualify before any selection protocol freezes) — codebook v2 on raw frames,
-  labeller error vs public GT + inter-labeller agreement, pairwise judge on real model-error pairs,
-  pre-roll for stateful replay, paired-subject variance → qualified resolutions. Corpus frame
-  viewing authorized this session for MAIN + labelling teammates (user).
-- [x] 36e525b 8bc1b81 **M4.2 public screening** (finalists RTMW-L 384 + baseline; Sapiens2 dropped + gated sets unrun by user ruling, contract A03) — COCO-WholeBody official evaluator (GT boxes; body + hand parts),
-  one qualified manipulation set (ARCTIC / Ego-Exo4D / DexYCB), HInt visibility; every candidate
-  (RTMW m/L/X, DWPose, Sapiens, SDPose, hand models, detectors) → a diverse finalist set.
-- [x] 73927ef **On-path defects** (M4.6; P07: the temporal filter places the out-of-frame residue,
-  bone-length adds on 3 of 6 clips → `docs/technical/pose-weak-points.md` § M4.6) — P08 gate keying,
-  P09 out-of-frame residue, D02 counter, OpenVINO build in `pose_config.json`, raw-score decode.
-- [x] 73927ef **M4.3a arm plumbing** — mmpose-named registry, per-model device, score-calibration hook.
-- [x] bf7728a **M4.3b calibration + gate rule** — reference-equivalent Platt maps, per-model hand gate, presence instrument; refit rule applies in M4.3.
-- [x] 5cc8125 **M4.3 complete-pipeline finalists** (RTMW-L 384 pass vs RTMW-m 256, no refit; G2 at 0.6, A02) — pose × hand × detector/identity (incl. a wrong-person
-  arm), each recalibrated on development data, dynamic + feature controls, production replay.
-- [ ] RESUME: (session 2026-10-22) finish line in force = the IMPLEMENT body's `Met when`: full gate
-  (scanners included) passes on a clean tree at the closing commit; scanners + Dependabot committed
-  (local gate, `gates.md` ruling); every `Decisions` entry implemented or deferred; `.agent/review.md`
-  no open row; review UI already retired to `tools/review-ui/`; `Phase: MAINTAIN` committed. User
-  ruling: adopt RTMW-L 384 now, M4.4 waived, labelling dropped. Done: round A `79c4f2a`, adoption
-  `908b780`, round B fixes = the commit after `908b780`. Next: round-B re-review (reviewer-20..25,
-  `R` rows on F55-F60, `.scratch/impl/roster.md`); then Close (rules upkeep, remove worktree
-  `.scratch/worktrees/corpus-m4` — `48078b4` is on `main`, full gate, `Phase: MAINTAIN`).
-- [x] 908b780 **M4.4 locked confirmation** — waived (user ruling, `contract-m4u4.md` A02): RTMW-L
-  384 adopted on M4.2 public evidence + M4.3; the user's labelling dropped.
-- [x] 2d0270f 8fe4e2b 48ef1fd **M4.5 features** — qualified wrist-motion bouts (SPARC, NJ, timing,
-  peaks, path ratio, dwell), cohort v2 (bout level, construct-invalid exclusions, descriptive
-  agreement), `--refresh-clinical` for runs made before the bout stage.
-- [x] 3410a90 **`calibration_qc` claims name RTMW-m** — published claim text + fixtures + determinism campaigns.
-- [x] 2835e3d **Monocular 3D angles pilot** (SAM 3D Body, 60 events) → declined (user ruling).
-- [x] fc58765 **Gate speed** — A32 reconciled in-session (`tests/a32_gate.py`), `test_c8_08` = plugin firing; pytest 2465 s vs 5634 s (44 %).
-- [x] f35f83e **M4.2b heavy arms** (user request: HF-gated models first) — Sapiens v1 0.3B-2B
-  (gated, access granted) + SDPose screened; every arm over the 1-day corpus ceiling → dropped
-  (`contract-m4u2.md` A04, `docs/technical/benchmark.md` § Sapiens v1); finalists unchanged.
-- [x] 908b780 **Corpus rerun** — adopted: the RTMW-L 384 M4 tree = `output/corpus-2d`, cohort v3 vs
-  the M2.10 cohort (888 common / 168 new / 180 retired); defaults = `rtmw-l-384`.
-- [x] 1b50129 **M4.7 cohort provenance + sensitivity** (`kernel`, `.agent/archive/contract-m4u7.md`; user
-  rulings after `scientist-2` S08) — `cohort.json` names the run's pose configuration + clinical
-  method; `--baseline` publishes `cohort_sensitivity.csv` against a previous generation; v3.
-- [ ] **Closing review** (wave over `301bd38..eccbe39` + re-review closed: `9417b9e` `7855bc5`
-  `a79c355` `598b77d`; round A `9052629^..4282c52` closed `79c4f2a`; round B `4282c52..908b780`
-  fixed in the commit after `908b780`, re-review open) — one `reviewer` per lens + MAIN's security
-  lens → `.agent/review.md`.
-- [ ] **Close** — README, review UI → `tools/review-ui/`, `Phase: MAINTAIN`. Met when: full gate (scanners
-  included) passes on a clean tree; every `Decisions` entry implemented or deferred with its reason;
-  `.agent/review.md` holds no open row.
-
-Evidence → `.agent/archive/{polish,review-m2}.md`; regen → each check's `paths:` rule in `.claude/rules/`; queue → `.agent/deferred.md`.
+Evidence → `.agent/archive/{polish,review-m2,phases}.md`; regen → each check's `paths:` rule in `.claude/rules/`; queue → `.agent/deferred.md`.
 
 ## Phase
 
-IMPLEMENT — video analysis (2D pose, features, cohort export to `../rehab`)
+MAINTAIN — video analysis (2D pose, features, cohort export to `../rehab`)

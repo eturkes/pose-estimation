@@ -54,7 +54,7 @@ STAGE_CLINICAL = "clinical"
 #: this per-event record rather than the invocation that happens to publish it.
 POSE_CONFIG_FILENAME = "pose_config.json"
 #: The adopted pose model (`run.MODEL_REGISTRY` key) = the configuration `output/corpus-2d` records;
-#: here, not in `run`, so light readers (replay, run report) take it without the inference stack.
+#: here, not in `run`, so readers that never infer (replay arguments, run report) skip the runner.
 DEFAULT_MODEL = "rtmw-l-384"
 POSE_CONFIG_FIELDS: tuple[str, ...] = (
     "model",
@@ -221,10 +221,10 @@ def validate_manifest(
 ) -> dict[str, int]:
     """Enforce P07 + P08 and return the per-disposition census.
 
-    Row-set equality is not row-set identity: a manifest that duplicates one
-    asset and drops another keeps both the row count and the key set, so
-    uniqueness is a separate conjunct and it is the one carrying that defect
-    (A05).  Emptiness satisfies every other clause, so it is refused first.
+    A manifest that duplicates one asset and drops another keeps the row count
+    but not the key set; uniqueness is checked before the set so the refusal
+    names the repeat (A05).  Emptiness satisfies every other clause, so it is
+    refused first.
     """
     asset_ids = [row["asset_id"] for row in rows]
     canonical = set(canonical_asset_ids)
