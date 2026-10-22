@@ -18,11 +18,6 @@ rows before sizing any unit that touches their surfaces.
   committed scanner reports 0 `FILLER` over the `conventions.md` inventory and lists every
   `LONG`/`CONTRACTION`/`PASSIVE` flag as a lead for judgment (no length cap), fails a seeded
   `simply`, no specifier/flag/number delta.
-- **Camera-setup and other non-task footage is tracked as the subject (C06,
-  `docs/technical/pose-weak-points.md`; 13/193 families noted)** → a committed segmenter flags
-  non-task spans per asset (camera handling, floor/ceiling, operator) online; on >= 20
-  hand-labelled assets it flags >= 90 % of setup frames and < 2 % of task frames, and the R stage
-  excludes flagged spans with the exclusion counted in the run report.
 - **Occluded far hand blinks under the duplicate rule** (right-view blink-outs 0.46 → 3.27 per
   100 rows, 46 % on or near the other hand; `.scratch/flick_cause.py`) → over the watch set every
   view reads <= 1.0 blink-outs per 100 rows while exported frames with one hand's median point
