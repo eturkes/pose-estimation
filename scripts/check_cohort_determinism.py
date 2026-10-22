@@ -261,12 +261,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--keep", action="store_true", help="Keep the scratch tree after a passing run."
     )
+    parser.add_argument(
+        "--output", type=pathlib.Path, default=RESULTS, help="Campaign result path."
+    )
     arguments = parser.parse_args(argv)
+    output = arguments.output
     digest = _source_digest()
-    if RESULTS.is_file():
-        recorded = json.loads(RESULTS.read_text(encoding="utf-8"))
+    if output.is_file():
+        recorded = json.loads(output.read_text(encoding="utf-8"))
         if recorded.get("source_digest") != digest:
-            print(f"cohort determinism: source bytes moved; remove {RESULTS} to regenerate")
+            print(f"cohort determinism: source bytes moved; remove {output} to regenerate")
             return 1
     shutil.rmtree(SCRATCH, ignore_errors=True)
     SCRATCH.mkdir(parents=True)
@@ -291,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
         "published_digests": baseline,
         "published_digests_with_baseline": with_baseline[0][1],
     }
-    RESULTS.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(
         f"cohort determinism: {result['verdict']} — {len(sweeps)} sweeps, "
         f"{len(tampers)} tamper classes in {result['elapsed_s']}s"

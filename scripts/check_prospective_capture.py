@@ -390,9 +390,16 @@ def grade() -> list[tuple[str, bool, str]]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global REPO, SPEC, PROTOCOL, REGISTER, SUITE
     parser = argparse.ArgumentParser(description="Grade the prospective capture specification.")
     parser.add_argument("--quiet", action="store_true", help="Print failures only.")
+    parser.add_argument("--repo", type=pathlib.Path, default=REPO, help="Repository to grade.")
     args = parser.parse_args(argv)
+    REPO = args.repo.resolve()
+    SPEC = REPO / "docs" / "prospective_capture.md"
+    PROTOCOL = REPO / "docs" / "capture_protocol.md"
+    REGISTER = REPO / "docs" / "technical" / "conventions.md"
+    SUITE = REPO / "tests" / "test_prospective_capture.py"
     failed = 0
     for name, ok, detail in grade():
         failed += not ok

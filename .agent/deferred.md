@@ -14,11 +14,6 @@ rows before sizing any unit that touches their surfaces.
   outside this repo): `../rehab` `scripts/font_charset.py` scans `schema/`, so appending the
   fragment to `schema/columns.yaml` and rerunning `scripts/02_build_fonts.py` (npm fetch) covers them;
   `../rehab` `tests/test_font_coverage.py` then pins it.
-- **12/12 `check_*.py` ship green-only; `run_measure_mutations.py` firing unrecorded** (census +
-  acceptance → `checks.md`) → each checker grows a committed seed driving it to its own named
-  failure; a runner reports 12/12 refused, rc=1 naming one that stops. Covers the
-  `nc_m2u74.py` port: 8/8 from clean, `SEED-INERT` on an inert seed,
-  `docs/prospective_capture.md` byte-identical.
 - **`steq.py` + `fidelity.sh` port; 24 register flags on four human surfaces at `--max 25`** → one
   committed scanner reports 0 `FILLER` over the `conventions.md` inventory and lists every
   `LONG`/`CONTRACTION`/`PASSIVE` flag as a lead for judgment (no length cap), fails a seeded
@@ -244,3 +239,8 @@ rows before sizing any unit that touches their surfaces.
   the unresolved link over a directory → `IsADirectoryError`; `--out` = a symlink to the v3
   baseline root publishes at the resolved root, keeps the link, and validates (the reviewer's
   `test_p11_equal_root_output_symlink_publishes_at_resolved_root`, `.scratch/reviewer-20/`).
+- **`check_calibration_qc_fixtures.py` P12 is a spelling test** (`scripts/check_calibration_qc_fixtures.py:363`;
+  `general-purpose-1` R05) — it greps the generator source for its default destination name and never
+  runs the foreign-destination refusal its name claims → P12 runs the generator against a non-empty
+  foreign directory and requires the refusal, and reds on a generator whose ownership check is
+  removed.

@@ -5,6 +5,8 @@ __pycache__/
 dist/
 build/
 .venv/
+# A worktree links the primary's .venv / .tools in; a trailing-slash pattern never matches a link.
+.venv
 .venv-host/
 .pytest_cache/
 .ruff_cache/
@@ -148,3 +150,4 @@ tools/review-ui/.cache/
 
 # Gate scanner binaries (scripts/install-tools.sh)
 .tools/
+.tools

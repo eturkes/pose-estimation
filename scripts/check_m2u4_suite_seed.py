@@ -10,6 +10,7 @@ at baseline `6bbd50e`, so a pass/fail run cannot serve as the fill counter.
 
 from __future__ import annotations
 
+import argparse
 import re
 import sys
 from pathlib import Path
@@ -28,11 +29,14 @@ def fn_name(case_id: str) -> str:
     return "test_" + case_id.lower().replace(".", "_")
 
 
-def main() -> int:
-    if not SUITE.exists():
-        print(f"FAIL missing {SUITE}")
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--suite", type=Path, default=SUITE, help="Suite to grade.")
+    args = parser.parse_args(argv)
+    if not args.suite.exists():
+        print(f"FAIL missing {args.suite}")
         return 1
-    text = SUITE.read_text(encoding="utf-8")
+    text = args.suite.read_text(encoding="utf-8")
 
     missing = [c for c in CASES if f"def {fn_name(c)}(" not in text]
     # Each case declares its A26 kind so the baseline red/green expectation is

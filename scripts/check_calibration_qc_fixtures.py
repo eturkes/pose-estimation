@@ -399,11 +399,17 @@ def grade() -> list[tuple[str, bool, str]]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global FIXTURES
     parser = argparse.ArgumentParser(description="Grade the calibration_qc fixture set.")
     parser.add_argument("--quiet", action="store_true", help="Print failures only.")
+    parser.add_argument(
+        "--fixtures", type=pathlib.Path, default=FIXTURES, help="Fixture set to grade."
+    )
     args = parser.parse_args(argv)
+    FIXTURES = args.fixtures.resolve()
     if not FIXTURES.is_dir():
-        print(f"FAIL absent fixture set: {FIXTURES.relative_to(REPO)}")
+        name = FIXTURES.relative_to(REPO) if FIXTURES.is_relative_to(REPO) else FIXTURES
+        print(f"FAIL absent fixture set: {name}")
         return 1
     failed = 0
     for name, ok, detail in grade():

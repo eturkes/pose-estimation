@@ -1,7 +1,7 @@
 {
   "accepted_tampers": [],
   "drifted": [],
-  "elapsed_s": 7.8,
+  "elapsed_s": 9.5,
   "n_sweeps": 12,
   "n_tamper_classes": 22,
   "published_digests": {
@@ -17,6 +17,6 @@
     "cohort_sensitivity.csv": "1bba09062fa67e9155329f3de916ef0e52b2c60c810cada93fbaa692b1a55471",
     "descriptors.yaml": "60b2ca6dfae3195df3a8dce1a2fb64a5cfd38a47f7aa1aceb20dab208443488b"
   },
-  "source_digest": "756f49be7efdb026a160f167b4640ab256948bdf6f35a9c70d72b3fdc1b8d164",
+  "source_digest": "f11b8c482b759ad67d1404fb580744485dc5246479b1ba7375db5ebaae1bb3b3",
   "verdict": "PASS"
 }
