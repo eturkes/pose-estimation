@@ -184,9 +184,12 @@ hospital SCI database.
   per-row classification + owed list = `.scratch/maintain/plan.md` (read first).
   - Full gate PASS at 52d9427, ac21d21, 6d3ab19 (3153 passed, 1929 s under co-tenant load;
     worktree `.scratch/maintain/gate-wt`, logs `.scratch/maintain/gate-<sha7>.log`). NOT gated:
-    55f3c31 c4f7231 ca6b013 57b69bc 317e91f 97bbeee 6615eb4 9650496 + this commit → rerun the full
-    gate per commit (`nohup .scratch/maintain/gateq.sh &`; it skips SHAs in `done.txt`, gates
-    `queue.txt` in order; append this commit's SHA first).
+    55f3c31 c4f7231 ca6b013 57b69bc 317e91f 97bbeee 6615eb4 9650496 f98b850 (all in `queue.txt`)
+    → rerun the full gate per commit (`nohup .scratch/maintain/gateq.sh &`; it skips SHAs in
+    `done.txt`, gates `queue.txt` in order). The template-refresh commit after f98b850 = gated in
+    its own body; R15's 3 files were parked out of its tree + restored uncommitted after it. Its
+    full gate reds `test_p05_temporal_panel_names_sparc` since c4f7231 → `.agent/deferred.md`
+    (fund first: it blocks this row's full-gate finish line).
   - Uncommitted (R15, rank 15): `src/pose_estimation/run.py` (--source writes `<stem>_diag.csv`),
     `tests/test_run_source_diag.py` (2 green; red at 9650496 = 1 failed), `scripts/bench.py` `p07`
     (port of `.scratch/impl/p07_stage.py`, UNRUN); snapshot = branch `wip/r15-source-diag` 579032f.

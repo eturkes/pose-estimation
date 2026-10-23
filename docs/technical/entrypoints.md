@@ -22,7 +22,7 @@ a bare `python`, `pytest` or console script imports the host OpenVINO build and 
 
 ```bash
 P="env -u LD_LIBRARY_PATH PYTHONPATH=$PWD/src uv run --no-sync"   # gate prefix: publishers, tools, tests (CPU)
-source /var/home/eturkes/.local/app/intel-accel/env.sh              # accelerator recipe, then
+source <intel-accel>/env.sh                                       # accelerator recipe (<intel-accel> → CLAUDE.local.md), then
 A="env PYTHONPATH=$PWD/src:$PYTHONPATH .venv/bin/python"             # inference on GPU/NPU
 ```
 
@@ -255,7 +255,7 @@ Writes `<stem>_smooth.csv` next to the input. Also exposed as the `--postprocess
 ## `scripts/corpus_run_2d.py` — full corpus 2D run
 
 ```bash
-source /var/home/eturkes/.local/app/intel-accel/env.sh
+source <intel-accel>/env.sh
 PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/corpus_run_2d.py
 PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/corpus_run_2d.py --limit 5
 PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/corpus_run_2d.py --analyse-only

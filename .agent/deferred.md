@@ -243,3 +243,28 @@ rows before sizing any unit that touches their surfaces.
   A32 reconciling every case passed + zero skipped across workers, `test_c8_08`'s planted
   skip/deselect seeds still red, no R-subprocess case timing out under the parallel load, and the
   pytest wall on this machine below half the serial figure measured beside it.
+- **Two `.scratch/` teammate reports stay tracked against `.gitignore`** (revives
+  `.agent/archive/polish.md` row 3; template-refresh portability sweep) — `git ls-files .scratch` =
+  `.scratch/agents/{scout,test}-m2u4.md`, entered through M2.4 squash merges; `test-m2u4.md:135`
+  carries the primary tree's absolute path, the one home path left in a tracked file outside the
+  ruled `docs/technical/environment.md` + `.envrc` and frozen `.agent/archive/`;
+  `tests/test_r_timebase_truth.py:3` cites it →
+  `git ls-files .scratch` empty with both files still on disk and that docstring naming the ruling
+  (`.agent/archive/contract-m2u4.md` §8) in place of the report; or each retained file records one
+  named open dependency (`retention.md`); full gate green.
+- **No committed check keeps machine paths out of live law** (`CLAUDE.md` `Authoring` portability;
+  the template refresh found 7 literal accelerator paths by hand-run sweep) → a decisive-gate test
+  scans tracked live-law files (`.agent/` minus `archive/` + `review.md`, `.claude/rules/`, `docs/`,
+  `scripts/`, `src/`, `tests/`, `tools/`, `README.md`) for home + host paths (`/var/home/`,
+  `/run/host/`, `/home/<user>/`, `~/`), allowlisting the sites `gates.md` rules (host/container
+  layout + its description there), vendored `renv/activate.R` and pattern text in this row; reds on
+  a literal home path planted in a copied rule, greens on the tree, its firing recorded in a
+  `paths:` rule on the test.
+- **`test_p05_temporal_panel_names_sparc` reds the decisive gate since c4f7231** (template-refresh
+  full gate: 1 failed / 3194 collected; same red at f98b850 in a worktree; green at 6d3ab19) —
+  c4f7231's `discover_clinical` stops a two-mode tree without `--mode` by design, and the test's
+  fixture dir holds `synthetic_hands-arms.csv` + `world3d.csv` while its `commandArgs` mock passes the
+  directory alone → `Pass --mode 2d or --mode 3d.`, rc 1. Blocks the MAINTAIN finish line → fund
+  first → test green with its SPARC panel-name assertions unchanged, the harness passing the mode the
+  contract requires (the two-mode refusal stays: `tests/test_r_consumers.py` refusal cases green);
+  full gate green.

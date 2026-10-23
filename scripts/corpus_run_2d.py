@@ -18,7 +18,7 @@ identifiers, so it goes to a log file under ``--out`` and is never echoed.
 
 Rerun (source the accelerator env first, so pose inference reaches the NPU)::
 
-    source /var/home/eturkes/.local/app/intel-accel/env.sh
+    source <intel-accel>/env.sh
     PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/corpus_run_2d.py
 """
 

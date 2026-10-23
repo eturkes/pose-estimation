@@ -4,7 +4,7 @@ Downloads the ONNX models used by rtmlib, reshapes them to static
 shapes (batch=1), and attempts to compile on NPU via OpenVINO.
 Reports success/failure per model.
 
-Usage (accelerator recipe: source /var/home/eturkes/.local/app/intel-accel/env.sh first):
+Usage (accelerator recipe: source <intel-accel>/env.sh first):
     PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/npu_compat.py
     PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/npu_compat.py --device NPU  # default
     PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/npu_compat.py --device GPU  # sanity check

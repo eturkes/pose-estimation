@@ -72,19 +72,20 @@ the **inherited** `PYTHONPATH` names the host OpenVINO package (glibc 2.43) and 
 - Determinism-campaign regeneration order → `determinism.md` (injected on touching a campaign's
   sources).
 
-## Hosted CI — replaced by the local gate (user ruling on `CLAUDE.md` `Session flow` IMPLEMENT)
+## Hosted CI — replaced by the local gate (user ruling on `CLAUDE.md` `Session flow` IMPLEMENT + `Execution` `CI gate`)
 
 The decisive gate reads `videos/` + `inventory/` (patient data that never leaves this machine) and
 `renv/library`; a hosted runner without them fails or skips cases, and A32 fails any skip → no
 hosted runner can close it green. Scanners (dependency audit, secret scan, static analysis) run in
 the local gate (→ `scanners.md`); update automation = `.github/dependabot.yml` (uv, all three
 lockfiles). User ruling: no hosted scanner workflow either; the remote carries Dependabot config
-alone.
+alone. ⇒ `CI gate` + its `ci/*` pushes = inapplicable, though the repo is public: no workflow
+exists to fan out to, and the full gate runs locally (`scripts/gate.sh`).
 
 ## The accelerator run recipe — mutually exclusive with the gate prefix
 
 ```sh
-source /var/home/eturkes/.local/app/intel-accel/env.sh
+source <intel-accel>/env.sh
 PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/<driver>.py
 ```
 
@@ -96,13 +97,13 @@ PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/<driver>.py
   (`pose-device=NPU` for `rtmw-m-256`, `GPU` for `rtmw-l-384`) + "loaded … with the openvino/<device>
   backend".
 - The inherited `PYTHONPATH` alone selects the host build → a loud glibc failure, never a silent
-  CPU fallback; a stripped env falls back to the `.venv` wheel at `['CPU']`. Enablement, device
-  preference + self-test → `CLAUDE.local.md`.
-- **This machine's environment stays named, by user ruling** (on `CLAUDE.md` `Authoring`
-  portability): the `source` path above + in `docs/technical/entrypoints.md`, the
-  `scripts/corpus_run_2d.py` + `scripts/pilot_corpus_run.py` docstrings,
-  `docs/technical/environment.md` (host/container layout) and `.envrc` (keys on `/run/host/*`,
-  else `.venv-host`).
+  CPU fallback; a stripped env falls back to the `.venv` wheel at `['CPU']`.
+- **`<intel-accel>` = this machine's OpenVINO environment directory, resolved in `CLAUDE.local.md`**
+  (gitignored; user ruling on `CLAUDE.md` `Authoring` portability) → every committed recipe writes
+  `source <intel-accel>/env.sh`, never the literal path.
+- **This machine's host/container layout stays named, by user ruling** (on `CLAUDE.md` `Authoring`
+  portability): `docs/technical/environment.md` documents it and `.envrc` switches on it (keys on
+  `/run/host/*`, else `.venv-host`).
 
 ## Worktree gate recipe (`.scratch/worktrees/<name>`)
 

@@ -93,10 +93,11 @@ reads. A step refuses to write over a directory that it did not publish.
    ```
 
 4. Run pose estimation and the clinical features over every event. Load the accelerator
-   environment first, or inference runs on the CPU:
+   environment first, or inference runs on the CPU. `<intel-accel>` is the directory that holds
+   the OpenVINO environment script on your machine:
 
    ```bash
-   source /var/home/eturkes/.local/app/intel-accel/env.sh
+   source <intel-accel>/env.sh
    PYTHONPATH="$PWD/src:$PYTHONPATH" .venv/bin/python scripts/corpus_run_2d.py --out output/corpus-2d
    ```
 
